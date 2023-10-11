@@ -44,7 +44,7 @@ If you use this software in a scientific publication, we'd very much appreciate 
 | peacock.jared@gmail.com
 
 | **Alison Kirkby**
-| Alison.Kirkby@ga.gov.au
+| alkirkby@gmail.com
 
 
 # System Requirements
