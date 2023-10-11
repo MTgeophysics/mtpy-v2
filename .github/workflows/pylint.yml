@@ -14,15 +14,19 @@ jobs:
       uses: actions/setup-python@v3
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install pylint
-    - name: Analysing the code with pylint
-      run: |
-        pylint $(git ls-files '*.py')
-    - name: Python Black
-      uses: cytopia/docker-black@0.11
+    #- name: Install dependencies
+    #  run: |
+    #    python -m pip install --upgrade pip
+    #    pip install pylint
+    #- name: Analysing the code with pylint
+    #  run: |
+    #    pylint $(git ls-files '*.py')
+    - name: Black Check
+      # You may pin to the exact commit or the version.
+      # uses: jpetrucciani/black-check@a28a1107af4dc9bcdaa15beb8a81d4ad408891eb
+      uses: jpetrucciani/black-check@23.7.0
       with:
-        # Path to check (defaults to current directory)
-        path: ./
+        # File or directory to run black on
+        path: # optional, default is .
+        # Optional Black flags (refer to `black --help`)
+        black_flags: # optional, default is 
