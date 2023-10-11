@@ -1,4 +1,4 @@
-# MTpy: A Python Toolbox for Magnetotelluric (MT) Data Processing, Analysis, Modelling and Visualization
+# MTpy-v2: A Python Toolbox for Magnetotelluric (MT) Data Processing, Analysis, Modelling and Visualization
 
 |Documentation Status|
 
@@ -8,18 +8,25 @@ A Python Toolbox for Magnetotelluric (MT) Data Processing, Analysis, Modelling a
 
 - Home Page: https://github.com/MTgeophysics/mtpy
 
-- API Documentation: http://mtpy2.readthedocs.io/en/develop/
+- API Documentation: http://mtpy-v2.readthedocs.io/en/develop/
 
-- Issue tracking: https://github.com/MTgeophysics/mtpy/issues
+- Issue tracking: https://github.com/MTgeophysics/mtpy-v2/issues
 
-- Installation Guide (Wiki Pages): https://github.com/MTgeophysics/mtpy/wiki
-
-- User Guide: https://github.com/MTgeophysics/mtpy/blob/develop/docs/MTPy%20User%20Guide.pdf
-
+- Installation Guide (Wiki Pages): https://github.com/MTgeophysics/mtpy-v2/wiki
 
 Note that this repository has superseded the `geophysics/mtpy <https://github.com/geophysics/mtpy/tree/beta>`_
-and `GeoscienceAustralia/mtpy2 <https://github.com/GeoscienceAustralia/mtpy2/tree/develop>`_
+and `GeoscienceAustralia/mtpy2 <https://github.com/GeoscienceAustralia/mtpy2/tree/develop>`_ and is an upgrade to `MTgeophysics/mtpy <https://github.com/MTgeophysics/mtpy>`_.
 
+# Updated
+
+The main updates in `mtpy-v2` are:
+
+  - Remove dependence on just a group of EDI files, can be any type of transfer function file
+  - Use `mt-metadata <https://github.com/kujaku11/mt_metadata>`_ to read and write transfer function files where the transfer function data are stored in an `xarray <https://docs.xarray.dev/en/stable/index.html>`_
+  - The workflow is more centralized by introducing `MTCollection` and `MTData` objects which are the databases to hold a collection of transfer functions and manipulate them
+    - Includes plotting methods, `to/from` data file types for modeling, rotations, interpolations, static shifts, etc.
+	- Can store a collection as an MTH5 using `mth5 <https://github.com/kujaku11/mth5>`_
+  - 
 
 # How to Cite
 
@@ -36,26 +43,13 @@ If you use this software in a scientific publication, we'd very much appreciate 
 | **Alison Kirkby**
 | Alison.Kirkby@ga.gov.au
 
-| **Fei Zhang**
-| fei.zhang@ga.gov.au
-
 | **Jared Peacock**
 | peacock.jared@gmail.com
-
-| **Bren Moushall**
-| brenainn.moushall@ga.gov.au
-
-| **Rakib Hassan**
-| Rakib.Hassan@ga.gov.au
-
-| **Jingming Duan**
-| Jingming.Duan@ga.gov.au
-
 
 
 # System Requirements
 
--  Python 3.6+
+-  Python 3.8+
 
 
 # License
