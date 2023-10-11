@@ -14,18 +14,18 @@ A Python Toolbox for Magnetotelluric (MT) Data Processing, Analysis, Modelling a
 
 - Installation Guide (Wiki Pages): https://github.com/MTgeophysics/mtpy-v2/wiki
 
-Note that this repository has superseded the `geophysics/mtpy <https://github.com/geophysics/mtpy/tree/beta>`_
-and `GeoscienceAustralia/mtpy2 <https://github.com/GeoscienceAustralia/mtpy2/tree/develop>`_ and is an upgrade to `MTgeophysics/mtpy <https://github.com/MTgeophysics/mtpy>`_.
+Note that this repository has superseded the [geophysics/mtpy](https://github.com/geophysics/mtpy/tree/beta)
+and [GeoscienceAustralia/mtpy2](https://github.com/GeoscienceAustralia/mtpy2/tree/develop) and is an upgrade to [MTgeophysics/mtpy](https://github.com/MTgeophysics/mtpy).
 
 # Updated
 
 The main updates in `mtpy-v2` are:
 
   - Remove dependence on just a group of EDI files, can be any type of transfer function file
-  - Use `mt-metadata <https://github.com/kujaku11/mt_metadata>`_ to read and write transfer function files where the transfer function data are stored in an `xarray <https://docs.xarray.dev/en/stable/index.html>`_
+  - Use [mt-metadata](https://github.com/kujaku11/mt_metadata>) to read and write transfer function files where the transfer function data are stored in an [xarray](https://docs.xarray.dev/en/stable/index.html)
   - The workflow is more centralized by introducing `MTCollection` and `MTData` objects which are the databases to hold a collection of transfer functions and manipulate them
     - Includes plotting methods, `to/from` data file types for modeling, rotations, interpolations, static shifts, etc.
-	- Can store a collection as an MTH5 using `mth5 <https://github.com/kujaku11/mth5>`_
+	- Can store a collection as an MTH5 using [mth5](https://github.com/kujaku11/mth5)
   - 
 
 # How to Cite
@@ -40,11 +40,11 @@ If you use this software in a scientific publication, we'd very much appreciate 
 
 # Contacts
 
-| **Alison Kirkby**
-| Alison.Kirkby@ga.gov.au
-
 | **Jared Peacock**
 | peacock.jared@gmail.com
+
+| **Alison Kirkby**
+| Alison.Kirkby@ga.gov.au
 
 
 # System Requirements
