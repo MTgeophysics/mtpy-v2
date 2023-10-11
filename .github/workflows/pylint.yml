@@ -27,6 +27,6 @@ jobs:
       uses: jpetrucciani/black-check@23.7.0
       with:
         # File or directory to run black on
-        path: # optional, default is .
+        path: ./
         # Optional Black flags (refer to `black --help`)
         black_flags: # optional, default is 
