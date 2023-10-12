@@ -59,7 +59,8 @@ class PlotResponses(QtWidgets.QWidget):
 
         self._modem_data_copy = None
 
-        self._plot_z = False
+        self.plot_z = True
+        self.plot_tipper = True
         self.plot_settings = PlotSettings()
 
         self._ax = None
@@ -90,7 +91,7 @@ class PlotResponses(QtWidgets.QWidget):
     @data_fn.setter
     def data_fn(self, data_fn):
         self._data_fn = Path(data_fn)
-        self.file_watcher_dfn.addPath(self._data_fn)
+        self.file_watcher_dfn.addPath(self._data_fn.as_posix())
 
         # create new modem data object
         self.modem_data = MTData()
@@ -124,15 +125,6 @@ class PlotResponses(QtWidgets.QWidget):
         self.modem_resp = MTData()
 
         self.modem_resp.from_modem_data(self._resp_fn, file_type="response")
-        self.plot()
-
-    @property
-    def plot_z(self):
-        return self._plot_z
-
-    @plot_z.setter
-    def plot_z(self, value):
-        self._plot_z = value
         self.plot()
 
     @staticmethod
@@ -495,28 +487,28 @@ class PlotResponses(QtWidgets.QWidget):
                 axrxx,
                 z_obj.period[nzxx],
                 z_obj.res_xx[nzxx],
-                z_obj.res_xx_error[nzxx],
+                z_obj.res_error_xx[nzxx],
                 **kw_xx,
             )
             erxy = plot_errorbar(
                 axrxy,
                 z_obj.period[nzxy],
-                z_obj.res_xx[nzxy],
-                z_obj.res_xx_error[nzxy],
+                z_obj.res_xy[nzxy],
+                z_obj.res_error_xy[nzxy],
                 **kw_xx,
             )
             eryx = plot_errorbar(
                 axryx,
                 z_obj.period[nzyx],
                 z_obj.res_yx[nzyx],
-                z_obj.res_yx_error[nzyx],
+                z_obj.res_error_yx[nzyx],
                 **kw_yy,
             )
             eryy = plot_errorbar(
                 axryy,
                 z_obj.period[nzyy],
                 z_obj.res_yy[nzyy],
-                z_obj.res_yy_error[nzyy],
+                z_obj.res_error_yy[nzyy],
                 **kw_yy,
             )
             # plot phase
@@ -524,28 +516,28 @@ class PlotResponses(QtWidgets.QWidget):
                 axpxx,
                 z_obj.period[nzxx],
                 z_obj.phase_xx[nzxx],
-                z_obj.phase_xx_error[nzxx],
+                z_obj.phase_error_xx[nzxx],
                 **kw_xx,
             )
             epxy = plot_errorbar(
                 axpxy,
                 z_obj.period[nzxy],
                 z_obj.phase_xy[nzxy],
-                z_obj.phase_xy_error[nzxy],
+                z_obj.phase_error_xy[nzxy],
                 **kw_xx,
             )
             epyx = plot_errorbar(
                 axpyx,
                 z_obj.period[nzyx],
-                z_obj.phase_xx[nzyx],
-                z_obj.phase_xx_error[nzyx],
+                z_obj.phase_yx[nzyx],
+                z_obj.phase_error_yx[nzyx],
                 **kw_yy,
             )
             epyy = plot_errorbar(
                 axpyy,
                 z_obj.period[nzyy],
                 z_obj.phase_yy[nzyy],
-                z_obj.phase_yy_error[nzyy],
+                z_obj.phase_error_yy[nzyy],
                 **kw_yy,
             )
 
@@ -555,14 +547,14 @@ class PlotResponses(QtWidgets.QWidget):
                 axtxr,
                 t_obj.period[ntx],
                 t_obj.tipper[ntx, 0, 0].real,
-                t_obj.tipper_err[ntx, 0, 0],
+                t_obj.tipper_error[ntx, 0, 0],
                 **kw_xx,
             )
             erty = plot_errorbar(
                 axtyr,
                 t_obj.period[nty],
                 t_obj.tipper[nty, 0, 1].real,
-                t_obj.tipper_err[nty, 0, 1],
+                t_obj.tipper_error[nty, 0, 1],
                 **kw_yy,
             )
 
@@ -570,14 +562,14 @@ class PlotResponses(QtWidgets.QWidget):
                 axtxi,
                 t_obj.period[ntx],
                 t_obj.tipper[ntx, 0, 0].imag,
-                t_obj.tipper_err[ntx, 0, 0],
+                t_obj.tipper_error[ntx, 0, 0],
                 **kw_xx,
             )
             epty = plot_errorbar(
                 axtyi,
                 t_obj.period[nty],
                 t_obj.tipper[nty, 0, 1].imag,
-                t_obj.tipper_err[nty, 0, 1],
+                t_obj.tipper_error[nty, 0, 1],
                 **kw_yy,
             )
 
