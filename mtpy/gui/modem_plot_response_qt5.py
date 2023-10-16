@@ -200,7 +200,8 @@ class ModEMPlotResponse(QtWidgets.QMainWindow):
         fn = Path(
             str(
                 fn_dialog.getOpenFileName(
-                    caption="Choose ModEM data file", filter="(*.dat);; (*.data)"
+                    caption="Choose ModEM data file",
+                    filter="(*.dat);; (*.data)",
                 )[0]
             )
         )
@@ -221,11 +222,18 @@ class ModEMPlotResponse(QtWidgets.QMainWindow):
         )
 
     def update_station_map(self, widget_item):
+        print(f"{'='*10}{self.plot_response.station}{'='*10}")
         self.station_plot.previous_index = int(self.station_plot.current_index)
         self.station_plot.current_index = int(
             np.where(
-                self.plot_response.modem_data.station_locations.station
-                == self.plot_response.station
+                (
+                    self.plot_response.modem_data.station_locations.survey
+                    == self.plot_response.station.split(".")[0]
+                )
+                & (
+                    self.plot_response.modem_data.station_locations.station
+                    == self.plot_response.station.split(".")[1]
+                )
             )[0][0]
         )
         self.station_plot.plot_new_station()
@@ -279,7 +287,9 @@ class ModEMPlotResponse(QtWidgets.QMainWindow):
         self.plot_response.modem_data.mt_dict = new_dict
 
         # fill list of stations
-        station_list = list(sorted(self.plot_response.modem_data.mt_dict.keys()))
+        station_list = list(
+            sorted(self.plot_response.modem_data.mt_dict.keys())
+        )
         self.plot_response.list_widget.clear()
         for station in station_list:
             self.plot_response.list_widget.addItem(station)
@@ -289,7 +299,9 @@ class ModEMPlotResponse(QtWidgets.QMainWindow):
 
         self.plot_response.plot()
 
-        self.station_plot.redraw_plot(self.plot_response.modem_data.station_locations)
+        self.station_plot.redraw_plot(
+            self.plot_response.modem_data.station_locations
+        )
 
     def remove_station(self):
         """
@@ -301,7 +313,9 @@ class ModEMPlotResponse(QtWidgets.QMainWindow):
         """
 
         rs = GetStations(
-            stations=list(self.plot_response.modem_data.station_locations.station)
+            stations=list(
+                self.plot_response.modem_data.station_locations.station
+            )
         )
         rs.exec_()
 
@@ -312,7 +326,9 @@ class ModEMPlotResponse(QtWidgets.QMainWindow):
         self.plot_response.modem_data.mt_dict = new_mtdict
 
         # fill list of stations
-        station_list = list(sorted(self.plot_response.modem_data.mt_dict.keys()))
+        station_list = list(
+            sorted(self.plot_response.modem_data.mt_dict.keys())
+        )
         self.plot_response.list_widget.clear()
         for station in station_list:
             self.plot_response.list_widget.addItem(station)
@@ -322,7 +338,9 @@ class ModEMPlotResponse(QtWidgets.QMainWindow):
 
         self.plot_response.plot()
 
-        self.station_plot.redraw_plot(self.plot_response.modem_data.station_locations)
+        self.station_plot.redraw_plot(
+            self.plot_response.modem_data.station_locations
+        )
 
     def get_resp_fn(self):
         """
@@ -333,7 +351,8 @@ class ModEMPlotResponse(QtWidgets.QMainWindow):
         fn = Path(
             str(
                 fn_dialog.getOpenFileName(
-                    caption="Choose ModEM response file", filter="(*.dat);; (*.data)"
+                    caption="Choose ModEM response file",
+                    filter="(*.dat);; (*.data)",
                 )[0]
             )
         )
@@ -371,7 +390,9 @@ class ModEMPlotResponse(QtWidgets.QMainWindow):
 
         help_string = "\n".join(ll)
 
-        QtWidgets.QMessageBox.information(self.centralWidget, "Help", help_string)
+        QtWidgets.QMessageBox.information(
+            self.centralWidget, "Help", help_string
+        )
 
 
 # ==============================================================================

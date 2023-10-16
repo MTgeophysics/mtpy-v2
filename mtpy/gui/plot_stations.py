@@ -22,7 +22,9 @@ except ImportError:
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.backends.backend_qt5agg import (
+    NavigationToolbar2QT as NavigationToolbar,
+)
 from matplotlib.figure import Figure
 
 # =============================================================================
@@ -133,8 +135,8 @@ class PlotStations(QtWidgets.QWidget):
         self.figure.clf()
         self.ax = self.figure.add_subplot(1, 1, 1, aspect="equal")
         self.ax.plot(
-            self.station_locations.lon,
-            self.station_locations.lat,
+            self.station_locations.longitude,
+            self.station_locations.latitude,
             picker=True,
             pickradius=10,
             **self.marker_dict,
@@ -142,12 +144,15 @@ class PlotStations(QtWidgets.QWidget):
 
         for station, x, y in zip(
             self.station_locations.station,
-            self.station_locations.lon,
-            self.station_locations.lat,
+            self.station_locations.longitude,
+            self.station_locations.latitude,
         ):
 
             self.ax.text(
-                x, y + self.text_offset * np.sign(y), station, fontdict=self.text_dict,
+                x,
+                y + self.text_offset * np.sign(y),
+                station,
+                fontdict=self.text_dict,
             )
 
         # set axis properties
@@ -161,43 +166,39 @@ class PlotStations(QtWidgets.QWidget):
 
     def plot_new_station(self):
         self.ax.plot(
-            self.station_locations.station_locations["lon"][self.previous_index],
-            self.station_locations.station_locations["lat"][self.previous_index],
+            self.station_locations.longitude[self.previous_index],
+            self.station_locations.latitude[self.previous_index],
             **self.marker_dict,
         )
 
         self.ax.text(
-            self.station_locations.station_locations["lon"][self.previous_index],
-            self.station_locations.station_locations["lat"][self.previous_index]
+            self.station_locations.longitude[self.previous_index],
+            self.station_locations.latitude[self.previous_index]
             + self.text_offset
-            * np.sign(
-                self.station_locations.station_locations["lat"][self.previous_index]
-            ),
-            self.station_locations.station_locations["station"][self.previous_index],
+            * np.sign(self.station_locations.latitude[self.previous_index]),
+            self.station_locations.station[self.previous_index],
             fontdict=self.text_dict,
         )
 
         self.ax.plot(
-            self.station_locations.station_locations["lon"][self.current_index],
-            self.station_locations.station_locations["lat"][self.current_index],
+            self.station_locations.longitude[self.current_index],
+            self.station_locations.latitude[self.current_index],
             **self.current_marker_dict,
         )
 
         self.ax.text(
-            self.station_locations.station_locations["lon"][self.current_index],
-            self.station_locations.station_locations["lat"][self.current_index]
+            self.station_locations.longitude[self.current_index],
+            self.station_locations.latitude[self.current_index]
             + self.text_offset
-            * np.sign(
-                self.station_locations.station_locations["lat"][self.current_index]
-            ),
-            self.station_locations.station_locations["station"][self.current_index],
+            * np.sign(self.station_locations.latitude[self.current_index]),
+            self.station_locations.station[self.current_index],
             **self.current_text_dict,
         )
         self.ax.figure.canvas.draw()
 
     def redraw_plot(self, new_station_locations):
         """
-        
+
         :param new_station_locations: DESCRIPTION
         :type new_station_locations: TYPE
         :return: DESCRIPTION
@@ -222,10 +223,13 @@ class PlotStations(QtWidgets.QWidget):
 
             # get the indicies where the data point has been edited
             self.current_index = np.where(
-                (self.station_locations.station_locations["lat"] == data_lat)
-                & (self.station_locations.station_locations["lon"] == data_lon)
+                (self.station_locations.latitude == data_lat)
+                & (self.station_locations.longitude == data_lon)
             )[0][0]
-            self.current_station = self.station_locations.station[self.current_index]
+            self.current_station = (
+                f"{self.station_locations.survey[self.current_index]}."
+                f"{self.station_locations.station[self.current_index]}"
+            )
 
             self.plot_new_station()
 
