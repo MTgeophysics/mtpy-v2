@@ -327,9 +327,9 @@ class PlotResponses(QtWidgets.QWidget):
         self.plot()
 
     def apply_interpolation(self):
-        self.modem_data[self.station].interpolate(
-            self.modem_data[self.station].period
-        )
+        self.modem_data[self.station] = self.modem_data[
+            self.station
+        ].interpolate(self.modem_data[self.station].period)
 
         self.plot()
 
@@ -932,8 +932,6 @@ class PlotResponses(QtWidgets.QWidget):
             ] = (
                 0 + 0j
             )
-            print("setting to 0")
-            print(self.modem_data[self.station].Z.z[p_index])
 
             # plot the points as masked
             self._ax.plot(
@@ -1064,12 +1062,12 @@ class PlotResponses(QtWidgets.QWidget):
 
         ax_index_dict = {
             0: {"dict": {"input": "hx", "output": "ex"}, "index": (0, 0)},
-            1: {"dict": {"input": "hx", "output": "ey"}, "index": (0, 1)},
-            2: {"dict": {"input": "hy", "output": "ex"}, "index": (1, 0)},
+            1: {"dict": {"input": "hy", "output": "ex"}, "index": (0, 1)},
+            2: {"dict": {"input": "hx", "output": "ey"}, "index": (1, 0)},
             3: {"dict": {"input": "hy", "output": "ey"}, "index": (1, 1)},
             4: {"dict": {"input": "hx", "output": "ex"}, "index": (0, 0)},
-            5: {"dict": {"input": "hx", "output": "ey"}, "index": (0, 1)},
-            6: {"dict": {"input": "hy", "output": "ex"}, "index": (1, 0)},
+            5: {"dict": {"input": "hy", "output": "ex"}, "index": (0, 1)},
+            6: {"dict": {"input": "hx", "output": "ey"}, "index": (1, 0)},
             7: {"dict": {"input": "hy", "output": "ey"}, "index": (1, 1)},
             8: {"dict": {"input": "hx", "output": "hz"}, "index": (0, 0)},
             9: {"dict": {"input": "hx", "output": "hz"}, "index": (0, 0)},
@@ -1114,8 +1112,8 @@ class PlotResponses(QtWidgets.QWidget):
         fmin = min([period_01, period_02])
         fmax = max([period_01, period_02])
         prange = np.where(
-            (self.modem_data.period_list >= fmin)
-            & (self.modem_data.period_list <= fmax)
+            (self.modem_data[self.station].period >= fmin)
+            & (self.modem_data[self.station].period <= fmax)
         )
 
         return prange
