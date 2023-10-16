@@ -68,6 +68,7 @@ class PlotResponses(QtWidgets.QWidget):
         self.plot_z = True
         self.plot_tipper = True
         self.plot_settings = PlotSettings()
+        self.modem_periods = None
 
         self._ax = None
         self._ax2 = None
@@ -118,6 +119,8 @@ class PlotResponses(QtWidgets.QWidget):
 
         if self.station is None:
             self.station = station_list[0]
+
+        self.modem_periods = self.modem_data.get_periods()
 
         self.plot()
 
