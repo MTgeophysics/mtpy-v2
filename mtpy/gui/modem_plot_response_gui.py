@@ -39,6 +39,7 @@ from mtpy.imaging.mtplot_tools.plotters import (
     plot_resistivity,
     plot_phase,
 )
+from mtpy.imaging.mtplot_tools import utils
 from .response_plot_settings import PlotSettings
 
 # ==============================================================================
@@ -106,8 +107,8 @@ class PlotResponses(QtWidgets.QWidget):
 
         # make a back up copy that will be unchanged
         # that way we can revert back
-        self.modem_data = MTData()
-        self.modem_data.from_modem_data(self._data_fn)
+        self._modem_data_copy = MTData()
+        self._modem_data_copy.from_modem_data(self._data_fn)
 
         self.dirpath = self._data_fn.parent
 
@@ -330,9 +331,11 @@ class PlotResponses(QtWidgets.QWidget):
         self.plot()
 
     def apply_interpolation(self):
+        print(f"{'='*10} interpolating {'='*10}")
+
         self.modem_data[self.station] = self.modem_data[
             self.station
-        ].interpolate(self.modem_data[self.station].period)
+        ].interpolate(self.modem_periods, bounds_error=False)
 
         self.plot()
 
@@ -465,10 +468,6 @@ class PlotResponses(QtWidgets.QWidget):
         plt.rcParams["font.size"] = self.plot_settings.fs
         fontdict = {"size": self.plot_settings.fs + 2, "weight": "bold"}
 
-        # find locations where points have been masked
-        ntx = np.nonzero(t_obj.tipper[:, 0, 0])[0]
-        nty = np.nonzero(t_obj.tipper[:, 0, 1])[0]
-
         keys = [
             "rxx",
             "rxy",
@@ -561,6 +560,8 @@ class PlotResponses(QtWidgets.QWidget):
 
         # plot tipper
         if self.plot_tipper:
+            ntx = np.nonzero(t_obj.tipper[:, 0, 0])[0]
+            nty = np.nonzero(t_obj.tipper[:, 0, 1])[0]
             ax_err_dict["rtx"] = plot_errorbar(
                 axtxr,
                 t_obj.period[ntx],
@@ -667,7 +668,11 @@ class PlotResponses(QtWidgets.QWidget):
             ylabels = ax.get_yticks().tolist()
             if aa < 4:
                 ax.set_yscale("log", nonpositive="clip")
-            if aa < 8:
+                ylabels, _ = utils.get_log_tick_labels(ax)
+                ax.set_yticklabels(ylabels)
+                plt.setp(ax.get_xticklabels(), visible=False)
+
+            elif aa < 8 and aa > 3:
                 ylabels[-1] = ""
                 ylabels[0] = ""
                 ax.set_yticklabels(ylabels)
@@ -932,9 +937,7 @@ class PlotResponses(QtWidgets.QWidget):
                 self.station
             ]._transfer_function.transfer_function.loc[self._comp_dict][
                 p_index
-            ] = (
-                0 + 0j
-            )
+            ] = np.nan
 
             # plot the points as masked
             self._ax.plot(
