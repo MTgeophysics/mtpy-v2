@@ -466,6 +466,12 @@ class PlotMTResponse(PlotBase):
                 fontdict={"size": self.font_size},
             )
 
+    def _initiate_figure(self):
+        """make figure instance"""
+        self._set_subplot_params()
+        self.fig = plt.figure(self.fig_num, self.fig_size, dpi=self.fig_dpi)
+        self.fig.clf()
+
     def plot(self):
         """
         plotResPhase(filename,fig_num) will plot the apparent resistivity and
@@ -481,10 +487,8 @@ class PlotMTResponse(PlotBase):
             self.x_limits = self.set_period_limits(self.period)
         if self.res_limits is None:
             self.res_limits = self.set_resistivity_limits(self.Z.resistivity)
-        # make figure instance
-        self._set_subplot_params()
-        self.fig = plt.figure(self.fig_num, self.fig_size, dpi=self.fig_dpi)
-        self.fig.clf()
+
+        self._initiate_figure()
 
         self._setup_subplots()
 
