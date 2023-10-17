@@ -405,6 +405,8 @@ class PlotResponses(QtWidgets.QWidget):
     def kw_xx(self):
         return {
             "color": self.plot_settings.cted,
+            "mec": self.plot_settings.cted,
+            "ecolor": self.plot_settings.cted,
             "marker": self.plot_settings.mted,
             "ms": self.plot_settings.ms,
             "ls": ":",
@@ -418,6 +420,8 @@ class PlotResponses(QtWidgets.QWidget):
     def kw_yy(self):
         return {
             "color": self.plot_settings.ctmd,
+            "mec": self.plot_settings.ctmd,
+            "ecolor": self.plot_settings.ctmd,
             "marker": self.plot_settings.mtmd,
             "ms": self.plot_settings.ms,
             "ls": ":",
@@ -431,6 +435,8 @@ class PlotResponses(QtWidgets.QWidget):
     def kw_xx_m(self):
         return {
             "color": self.plot_settings.ctem,
+            "mec": self.plot_settings.ctem,
+            "ecolor": self.plot_settings.ctem,
             "marker": self.plot_settings.mtem,
             "ms": self.plot_settings.ms,
             "ls": ":",
@@ -443,6 +449,8 @@ class PlotResponses(QtWidgets.QWidget):
     def kw_yy_m(self):
         return {
             "color": self.plot_settings.ctmm,
+            "mec": self.plot_settings.ctmm,
+            "ecolor": self.plot_settings.ctmm,
             "marker": self.plot_settings.mtmm,
             "ms": self.plot_settings.ms,
             "ls": ":",
@@ -668,8 +676,8 @@ class PlotResponses(QtWidgets.QWidget):
             ylabels = ax.get_yticks().tolist()
             if aa < 4:
                 ax.set_yscale("log", nonpositive="clip")
-                ylabels, _ = utils.get_log_tick_labels(ax)
-                ax.set_yticklabels(ylabels)
+                # ylabels, _ = utils.get_log_tick_labels(ax)
+                # ax.set_yticklabels(ylabels)
                 plt.setp(ax.get_xticklabels(), visible=False)
 
             elif aa < 8 and aa > 3:
@@ -716,13 +724,13 @@ class PlotResponses(QtWidgets.QWidget):
             try:
                 resp_z_obj = self.modem_resp[self.resp_station].Z
                 resp_z_err = np.nan_to_num(
-                    (z_obj.z - resp_z_obj.z) / z_obj.z_err
+                    (z_obj.z - resp_z_obj.z) / z_obj.z_model_error
                 )
-                resp_z_obj.compute_resistivity_phase()
 
                 resp_t_obj = self.modem_resp[self.resp_station].Tipper
                 resp_t_err = np.nan_to_num(
-                    (t_obj.tipper - resp_t_obj.tipper) / t_obj.tipper_err
+                    (t_obj.tipper - resp_t_obj.tipper)
+                    / t_obj.tipper_model_error
                 )
             except KeyError:
                 print(f"Could not find {self.station} in .resp file")
@@ -753,9 +761,9 @@ class PlotResponses(QtWidgets.QWidget):
                     [rms_xx, rms_xy, rms_yx, rms_yy],
                 ):
                     if comp.startswith("x"):
-                        properties = self.kw_xx
+                        properties = self.kw_xx_m
                     else:
-                        properties = self.kw_yy
+                        properties = self.kw_yy_m
                     resp_ax = plot_resistivity(
                         ax,
                         getattr(resp_z_obj, "period"),
