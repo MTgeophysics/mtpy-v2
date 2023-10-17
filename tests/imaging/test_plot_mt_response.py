@@ -77,6 +77,49 @@ class TestPlotMTResponse(unittest.TestCase):
         with self.subTest("PT rotation_angle"):
             self.assertEqual(self.plot_object.pt.rotation_angle.mean(), 45)
 
+    def test_has_tipper(self):
+        self.plot_object.plot_tipper = "yri"
+        self.plot_object._has_tipper()
+        self.assertEqual("yri", self.plot_object.plot_tipper)
+
+    def test_has_pt(self):
+        self.plot_pt = True
+        self.plot_object._has_pt()
+        self.assertEqual(True, self.plot_object.plot_pt)
+
+    def test_setup_subplot_plot_num_1(self):
+        self.plot_object.plot_num = 1
+        self.assertTupleEqual(
+            (-0.095, 0.5), self.plot_object._setup_subplots()
+        )
+
+    def test_setup_subplot_plot_num_2(self):
+        self.plot_object.plot_num = 2
+        self.assertTupleEqual((-0.14, 0.5), self.plot_object._setup_subplots())
+
+    def test_setup_subplot_plot_num_3(self):
+        self.plot_object.plot_num = 3
+        self.assertTupleEqual(
+            (-0.095, 0.5), self.plot_object._setup_subplots()
+        )
+
+    def test_plot_resistivity_od(self):
+        self.plot_object._setup_subplots()
+        eb_list, label_list = self.plot_object._plot_resistivity(
+            self.plot_object.axr, self.plot_object.period, self.plot_object.Z
+        )
+        self.assertEqual(label_list, ["$Z_{xy}$", "$Z_{yx}$"])
+
+    def test_plot_resistivity_od(self):
+        self.plot_object._setup_subplots()
+        eb_list, label_list = self.plot_object._plot_resistivity(
+            self.plot_object.axr,
+            self.plot_object.period,
+            self.plot_object.Z,
+            mode="d",
+        )
+        self.assertEqual(label_list, ["$Z_{xx}$", "$Z_{yy}$"])
+
     @unittest.mock.patch(f"{__name__}.plot_mt_response.plt")
     def test_plot(self, mock_plt):
         self.plot_object.plot()
