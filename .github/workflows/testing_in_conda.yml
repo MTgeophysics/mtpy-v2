@@ -46,7 +46,7 @@ jobs:
     - name: Run Tests
       shell: bash
       run: |
-        source activate mtmetadata-test
+        source activate mtpy-v2-test
         pytest --cov=./ --cov-report=xml --cov=mtpy-v2
         
     - name: "Upload coverage to Codecov"
