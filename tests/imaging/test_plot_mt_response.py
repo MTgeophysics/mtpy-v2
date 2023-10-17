@@ -9,6 +9,8 @@ Created on Tue Oct 17 14:39:46 2023
 # =============================================================================
 import unittest
 import unittest.mock
+import numpy as np
+
 from mtpy import MT
 from mtpy.imaging import plot_mt_response
 
@@ -111,16 +113,64 @@ class TestPlotMTResponse(unittest.TestCase):
         )
         self.assertEqual(label_list, ["$Z_{xy}$", "$Z_{yx}$"])
 
-    def test_plot_resistivity_od(self):
+        with self.subTest("res_xy"):
+            res_line = self.plot_object.axr.get_children()[0]
+            self.assertEqual(
+                True,
+                (
+                    res_line.get_ydata()
+                    == self.plot_object.Z.res_xy[
+                        np.nonzero(self.plot_object.Z.res_xy)
+                    ]
+                ).all(),
+            )
+        with self.subTest("res_yx"):
+            res_line = self.plot_object.axr.get_children()[4]
+            self.assertEqual(
+                True,
+                (
+                    res_line.get_ydata()
+                    == self.plot_object.Z.res_yx[
+                        np.nonzero(self.plot_object.Z.res_yx)
+                    ]
+                ).all(),
+            )
+
+    def test_plot_resistivity_d(self):
+        self.plot_object.plot_num = 2
         self.plot_object._initiate_figure()
         self.plot_object._setup_subplots()
         eb_list, label_list = self.plot_object._plot_resistivity(
-            self.plot_object.axr,
+            self.plot_object.axr2,
             self.plot_object.period,
             self.plot_object.Z,
             mode="d",
         )
-        self.assertEqual(label_list, ["$Z_{xx}$", "$Z_{yy}$"])
+        with self.subTest("labels"):
+            self.assertEqual(label_list, ["$Z_{xx}$", "$Z_{yy}$"])
+
+        with self.subTest("res_xx"):
+            res_line = self.plot_object.axr2.get_children()[0]
+            self.assertEqual(
+                True,
+                (
+                    res_line.get_ydata()
+                    == self.plot_object.Z.res_xx[
+                        np.nonzero(self.plot_object.Z.res_xx)
+                    ]
+                ).all(),
+            )
+        with self.subTest("res_yy"):
+            res_line = self.plot_object.axr2.get_children()[4]
+            self.assertEqual(
+                True,
+                (
+                    res_line.get_ydata()
+                    == self.plot_object.Z.res_yy[
+                        np.nonzero(self.plot_object.Z.res_yy)
+                    ]
+                ).all(),
+            )
 
 
 class TestPlotMTResponsePlot(unittest.TestCase):
