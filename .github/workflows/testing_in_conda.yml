@@ -1,0 +1,58 @@
+name: TestingInConda
+
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+    branches:
+      - '*'
+jobs:
+  setup-build:
+    name: Ex1 (${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest"]
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Setup Conda
+      uses: s-weigand/setup-conda@v1
+      with:
+        update-conda: false
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Env
+      shell: bash
+      run: |
+        python --version
+        conda create -n mtpy-v2-test python=${{ matrix.python-version }}
+        source activate mtpy-v2-test
+        conda install pytest
+        conda install pytest-subtests
+        conda install pytest-cov
+        pip install git+https://github.com/kujaku11/mt_metadata.git@main
+        pip install git+https://github.com/kujaku11/mth5.git@master
+        
+    - name: Install Our Package
+      shell: bash
+      run: |
+        source activate mtpy-v2-test
+        pip install -e .
+        conda list
+    - name: Run Tests
+      shell: bash
+      run: |
+        source activate mtmetadata-test
+        pytest --cov=./ --cov-report=xml --cov=mtpy-v2
+        
+    - name: "Upload coverage to Codecov"
+      uses: codecov/codecov-action@v3
+      with:
+        fail_ci_if_error: false
+        verbose: true
+        flags: tests
+        
