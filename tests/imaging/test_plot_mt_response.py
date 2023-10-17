@@ -54,16 +54,28 @@ class TestPlotMTResponse(unittest.TestCase):
     def test_set_model_error_to_true(self):
         self.plot_object.plot_model_error = True
         with self.subTest("set to true"):
-            self.assertEqual(self.plot_model_error, True)
+            self.assertEqual(self.plot_object.plot_model_error, True)
         with self.subTest("error string"):
-            self.assertEqual(self._error_str, "model_error")
+            self.assertEqual(self.plot_object._error_str, "model_error")
 
     def test_set_model_error_to_false(self):
         self.plot_object.plot_model_error = False
         with self.subTest("set to true"):
-            self.assertEqual(self.plot_model_error, False)
+            self.assertEqual(self.plot_object.plot_model_error, False)
         with self.subTest("error string"):
-            self.assertEqual(self._error_str, "error")
+            self.assertEqual(self.plot_object._error_str, "error")
+
+    def test_set_rotation_angle(self):
+        self.plot_object.rotation_angle = 45
+        with self.subTest("rotation_angle"):
+            self.assertEqual(self.plot_object.rotation_angle, 45)
+
+        with self.subTest("Z rotation_angle"):
+            self.assertEqual(self.plot_object.Z.rotation_angle.mean(), 45)
+        with self.subTest("T rotation_angle"):
+            self.assertEqual(self.plot_object.Tipper.rotation_angle.mean(), 45)
+        with self.subTest("PT rotation_angle"):
+            self.assertEqual(self.plot_object.pt.rotation_angle.mean(), 45)
 
     @unittest.mock.patch(f"{__name__}.plot_mt_response.plt")
     def test_plot(self, mock_plt):

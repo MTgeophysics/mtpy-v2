@@ -154,6 +154,10 @@ class PlotMTResponse(PlotBase):
             self.Tipper.rotate(theta_r)
             self.pt.rotate(theta_r)
 
+            self._rotation_angle += theta_r
+        else:
+            self._rotation_angle = theta_r
+
     def _has_tipper(self):
         if self.plot_tipper.find("y") >= 0:
             if self.Tipper is None or (self.Tipper.tipper == 0 + 0j).all():
