@@ -727,11 +727,12 @@ class PlotResponses(QtWidgets.QWidget):
                     (z_obj.z - resp_z_obj.z) / z_obj.z_model_error
                 )
 
-                resp_t_obj = self.modem_resp[self.resp_station].Tipper
-                resp_t_err = np.nan_to_num(
-                    (t_obj.tipper - resp_t_obj.tipper)
-                    / t_obj.tipper_model_error
-                )
+                if self.modem_resp[self.resp_station].has_tipper():
+                    resp_t_obj = self.modem_resp[self.resp_station].Tipper
+                    resp_t_err = np.nan_to_num(
+                        (t_obj.tipper - resp_t_obj.tipper)
+                        / t_obj.tipper_model_error
+                    )
             except KeyError:
                 print(f"Could not find {self.station} in .resp file")
                 self.mpl_widget.draw()
