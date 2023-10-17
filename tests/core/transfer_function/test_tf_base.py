@@ -313,7 +313,9 @@ class TestTFInterpolation(unittest.TestCase):
         self.new_periods = np.logspace(-3, 3, 12)
 
     def interpolate(self, interp_type, bounds_error=False):
-        interp_tf = spi.interp1d(self.period, self.tf, axis=0, kind=interp_type)
+        interp_tf = spi.interp1d(
+            self.period, self.tf, axis=0, kind=interp_type
+        )
         interp_tf_error = spi.interp1d(
             self.period, self.tf_error, axis=0, kind=interp_type
         )
@@ -332,7 +334,9 @@ class TestTFInterpolation(unittest.TestCase):
 
     def test_nearest(self):
         interp_ds = self.interpolate("nearest")
-        interp_tf = self.tf_base.interpolate(self.new_periods, method="nearest")
+        interp_tf = self.tf_base.interpolate(
+            self.new_periods, method="nearest", na_method="nearest"
+        )
 
         for key in [
             "transfer_function",
@@ -348,7 +352,9 @@ class TestTFInterpolation(unittest.TestCase):
 
     def test_linear(self):
         interp_ds = self.interpolate("linear")
-        interp_tf = self.tf_base.interpolate(self.new_periods, method="linear")
+        interp_tf = self.tf_base.interpolate(
+            self.new_periods, method="linear", na_method="linear"
+        )
 
         for key in [
             "transfer_function",
@@ -364,7 +370,9 @@ class TestTFInterpolation(unittest.TestCase):
 
     def test_cubic(self):
         interp_ds = self.interpolate("cubic")
-        interp_tf = self.tf_base.interpolate(self.new_periods, method="cubic")
+        interp_tf = self.tf_base.interpolate(
+            self.new_periods, method="cubic", na_method="cubic"
+        )
 
         for key in [
             "transfer_function",
@@ -380,7 +388,9 @@ class TestTFInterpolation(unittest.TestCase):
 
     def test_slinear(self):
         interp_ds = self.interpolate("slinear")
-        interp_tf = self.tf_base.interpolate(self.new_periods, method="slinear")
+        interp_tf = self.tf_base.interpolate(
+            self.new_periods, method="slinear", na_method="slinear"
+        )
 
         for key in [
             "transfer_function",

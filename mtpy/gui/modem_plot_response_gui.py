@@ -23,7 +23,9 @@ except ImportError:
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import (
+    FigureCanvasQTAgg as FigureCanvas,
+)
 from matplotlib.backends.backend_qt5agg import (
     NavigationToolbar2QT as NavigationToolbar,
 )
@@ -39,7 +41,7 @@ from mtpy.imaging.mtplot_tools.plotters import (
     plot_resistivity,
     plot_phase,
 )
-from mtpy.imaging.mtplot_tools import utils
+
 from .response_plot_settings import PlotSettings
 
 # ==============================================================================
@@ -301,7 +303,9 @@ class PlotResponses(QtWidgets.QWidget):
             self.station = str(widget_item.text())
         except AttributeError:
             self.station = self.list_widget.item(0).text()
-            print(f"Station selected does not exist, setting to {self.station}")
+            print(
+                f"Station selected does not exist, setting to {self.station}"
+            )
         self.plot()
 
     def file_changed_dfn(self):
@@ -349,7 +353,9 @@ class PlotResponses(QtWidgets.QWidget):
         self.phase_flip_comp = str(self.flip_phase_combo.currentText()).lower()
 
     def apply_flip_phase(self):
-        self.modem_data[self.station].flip_phase(**{self.phase_flip_comp: True})
+        self.modem_data[self.station].flip_phase(
+            **{self.phase_flip_comp: True}
+        )
         self.plot()
 
     def set_error_comp(self):
@@ -709,10 +715,14 @@ class PlotResponses(QtWidgets.QWidget):
             ax.set_xscale("log", nonpositive="clip")
             ax.set_xlim(
                 xmin=10
-                ** (np.floor(np.log10(self.modem_data[self.station].period[0])))
+                ** (
+                    np.floor(np.log10(self.modem_data[self.station].period[0]))
+                )
                 * 1.01,
                 xmax=10
-                ** (np.ceil(np.log10(self.modem_data[self.station].period[-1])))
+                ** (
+                    np.ceil(np.log10(self.modem_data[self.station].period[-1]))
+                )
                 * 0.99,
             )
             ax.grid(True, alpha=0.25)
@@ -946,7 +956,9 @@ class PlotResponses(QtWidgets.QWidget):
                 self.station
             ]._transfer_function.transfer_function.loc[self._comp_dict][
                 p_index
-            ] = np.nan
+            ] = (
+                np.nan + 1j * np.nan
+            )
 
             # plot the points as masked
             self._ax.plot(
@@ -1065,7 +1077,9 @@ class PlotResponses(QtWidgets.QWidget):
             # set the values
             self._err_list[self._ax_index][0].set_data(ncap_l)
             self._err_list[self._ax_index][1].set_data(ncap_u)
-            self._err_list[self._ax_index][2].get_paths()[e_index].vertices = eb
+            self._err_list[self._ax_index][2].get_paths()[
+                e_index
+            ].vertices = eb
 
             # need to redraw the figure
             self._ax.figure.canvas.draw()

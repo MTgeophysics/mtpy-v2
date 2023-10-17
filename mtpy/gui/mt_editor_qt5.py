@@ -34,7 +34,6 @@ from matplotlib.lines import Line2D
 from matplotlib.collections import LineCollection
 
 from mtpy import MT, MTData
-import mtpy.analysis.staticshift as staticshift
 from mtpy.imaging.mtplot_tools import plotters
 from mtpy.imaging.mtplot_tools.utils import period_label_dict
 
@@ -229,6 +228,7 @@ class PlotWidget(QtWidgets.QWidget):
         self.interp_period_max = 1000.0
         self.interp_period_num = 24
         self.interp_type = "slinear"
+        self.na_interp_type = "slinear"
         self.num_freq = None
         self.static_shift_med_rad = 2000.0
         self.static_shift_med_num_freq = 24
@@ -370,38 +370,38 @@ class PlotWidget(QtWidgets.QWidget):
         )
         self.static_shift_apply_button.pressed.connect(self.static_shift_apply)
 
-        self.static_shift_med_filt_button = QtWidgets.QPushButton()
-        self.static_shift_med_filt_button.setText(
-            "Estimate Spatial Mmtan Static Shift"
-        )
-        self.static_shift_med_filt_button.setFont(button_font)
-        self.static_shift_med_filt_button.setStyleSheet(
-            "background-color: #f9d7db"
-        )
-        self.static_shift_med_filt_button.pressed.connect(
-            self.static_shift_med_filt_estimate
-        )
+        # self.static_shift_med_filt_button = QtWidgets.QPushButton()
+        # self.static_shift_med_filt_button.setText(
+        #     "Estimate Spatial Mmtan Static Shift"
+        # )
+        # self.static_shift_med_filt_button.setFont(button_font)
+        # self.static_shift_med_filt_button.setStyleSheet(
+        #     "background-color: #f9d7db"
+        # )
+        # self.static_shift_med_filt_button.pressed.connect(
+        #     self.static_shift_med_filt_estimate
+        # )
 
-        self.static_shift_med_rad_label = QtWidgets.QLabel(
-            "Spatial Radius (m)"
-        )
-        self.static_shift_med_rad_edit = QtWidgets.QLineEdit(
-            "{0:.2f}".format(self.static_shift_med_rad)
-        )
-        self.static_shift_med_rad_edit.editingFinished.connect(
-            self.static_shift_med_rad_set
-        )
+        # self.static_shift_med_rad_label = QtWidgets.QLabel(
+        #     "Spatial Radius (m)"
+        # )
+        # self.static_shift_med_rad_edit = QtWidgets.QLineEdit(
+        #     "{0:.2f}".format(self.static_shift_med_rad)
+        # )
+        # self.static_shift_med_rad_edit.editingFinished.connect(
+        #     self.static_shift_med_rad_set
+        # )
 
-        self.static_shift_med_num_freq_label = QtWidgets.QLabel(
-            "Number of Frequencies"
-        )
-        self.static_shift_med_num_freq_edit = QtWidgets.QLineEdit()
-        self.static_shift_med_num_freq_edit.setText(
-            "{0}".format(self.static_shift_med_num_freq)
-        )
-        self.static_shift_med_num_freq_edit.editingFinished.connect(
-            self.static_shift_med_num_freq_set
-        )
+        # self.static_shift_med_num_freq_label = QtWidgets.QLabel(
+        #     "Number of Frequencies"
+        # )
+        # self.static_shift_med_num_freq_edit = QtWidgets.QLineEdit()
+        # self.static_shift_med_num_freq_edit.setText(
+        #     "{0}".format(self.static_shift_med_num_freq)
+        # )
+        # self.static_shift_med_num_freq_edit.editingFinished.connect(
+        #     self.static_shift_med_num_freq_set
+        # )
 
         ## remove distortion
         self.remove_distortion_label = QtWidgets.QLabel("Remove Distortion")
@@ -489,6 +489,13 @@ class PlotWidget(QtWidgets.QWidget):
         self.interp_type_combo.setCurrentIndex(3)
         self.interp_type_combo.currentIndexChanged.connect(
             self.interp_set_type
+        )
+        self.na_interp_type_label = QtWidgets.QLabel("NAN Interp. Type")
+        self.na_interp_type_combo = QtWidgets.QComboBox()
+        self.na_interp_type_combo.addItems(self._interp_types)
+        self.na_interp_type_combo.setCurrentIndex(3)
+        self.na_interp_type_combo.currentIndexChanged.connect(
+            self.na_interp_set_type
         )
 
         ## tools label
@@ -588,17 +595,17 @@ class PlotWidget(QtWidgets.QWidget):
         ss_shift.addWidget(self.static_shift_y_label)
         ss_shift.addWidget(self.static_shift_y_edit)
 
-        ss_med = QtWidgets.QHBoxLayout()
-        ss_med.addWidget(self.static_shift_med_rad_label)
-        ss_med.addWidget(self.static_shift_med_rad_edit)
-        ss_med.addWidget(self.static_shift_med_num_freq_label)
-        ss_med.addWidget(self.static_shift_med_num_freq_edit)
+        # ss_med = QtWidgets.QHBoxLayout()
+        # ss_med.addWidget(self.static_shift_med_rad_label)
+        # ss_med.addWidget(self.static_shift_med_rad_edit)
+        # ss_med.addWidget(self.static_shift_med_num_freq_label)
+        # ss_med.addWidget(self.static_shift_med_num_freq_edit)
 
         ss_layout = QtWidgets.QVBoxLayout()
         ss_layout.addLayout(ss_title)
         ss_layout.addLayout(ss_shift)
-        ss_layout.addLayout(ss_med)
-        ss_layout.addWidget(self.static_shift_med_filt_button)
+        # ss_layout.addLayout(ss_med)
+        # ss_layout.addWidget(self.static_shift_med_filt_button)
 
         ## rotation
         rot_title = QtWidgets.QHBoxLayout()
@@ -624,11 +631,13 @@ class PlotWidget(QtWidgets.QWidget):
         interp_num.addWidget(self.interp_min_edit, 0, 1)
         interp_num.addWidget(self.interp_max_label, 0, 2)
         interp_num.addWidget(self.interp_max_edit, 0, 3)
+        interp_num.addWidget(self.interp_num_label, 0, 4)
+        interp_num.addWidget(self.interp_num_edit, 0, 5)
 
-        interp_num.addWidget(self.interp_num_label, 1, 0)
-        interp_num.addWidget(self.interp_num_edit, 1, 1)
-        interp_num.addWidget(self.interp_type_label, 1, 2)
-        interp_num.addWidget(self.interp_type_combo, 1, 3)
+        interp_num.addWidget(self.interp_type_label, 1, 0)
+        interp_num.addWidget(self.interp_type_combo, 1, 1, 1, 2)
+        interp_num.addWidget(self.na_interp_type_label, 1, 3)
+        interp_num.addWidget(self.na_interp_type_combo, 1, 4, 1, 2)
 
         interp_layout = QtWidgets.QVBoxLayout()
         interp_layout.addLayout(interp_title)
@@ -779,35 +788,35 @@ class PlotWidget(QtWidgets.QWidget):
 
         self.redraw_plot()
 
-    def static_shift_med_rad_set(self):
-        self.static_shift_med_rad = float(
-            str(self.static_shift_med_rad_edit.text())
-        )
-        self.static_shift_med_rad_edit.setText(
-            "{0:.2f}".format(self.static_shift_med_rad)
-        )
+    # def static_shift_med_rad_set(self):
+    #     self.static_shift_med_rad = float(
+    #         str(self.static_shift_med_rad_edit.text())
+    #     )
+    #     self.static_shift_med_rad_edit.setText(
+    #         "{0:.2f}".format(self.static_shift_med_rad)
+    #     )
 
-    def static_shift_med_num_freq_set(self):
-        self.static_shift_med_num_freq = float(
-            str(self.static_shift_med_num_freq_edit.text())
-        )
-        self.static_shift_med_num_freq_edit.setText(
-            "{0:.0f}".format(self.static_shift_med_num_freq)
-        )
+    # def static_shift_med_num_freq_set(self):
+    #     self.static_shift_med_num_freq = float(
+    #         str(self.static_shift_med_num_freq_edit.text())
+    #     )
+    #     self.static_shift_med_num_freq_edit.setText(
+    #         "{0:.0f}".format(self.static_shift_med_num_freq)
+    #     )
 
-    def static_shift_med_filt_estimate(self):
+    # def static_shift_med_filt_estimate(self):
 
-        ss_x, ss_y = staticshift.estimate_static_spatial_mmtan(
-            self.mt_obj.fn,
-            radius=self.static_shift_med_rad,
-            num_freq=self.static_shift_med_num_freq,
-        )
+    #     ss_x, ss_y = staticshift.estimate_static_spatial_mmtan(
+    #         self.mt_obj.fn,
+    #         radius=self.static_shift_med_rad,
+    #         num_freq=self.static_shift_med_num_freq,
+    #     )
 
-        self.static_shift_x = ss_x
-        self.static_shift_y = ss_y
+    #     self.static_shift_x = ss_x
+    #     self.static_shift_y = ss_y
 
-        self.static_shift_x_edit.setText("{0:.5g}".format(ss_x))
-        self.static_shift_y_edit.setText("{0:.5g}".format(ss_y))
+    #     self.static_shift_x_edit.setText("{0:.5g}".format(ss_x))
+    #     self.static_shift_y_edit.setText("{0:.5g}".format(ss_y))
 
     def remove_distortion_set_num_freq(self):
         """
@@ -904,6 +913,9 @@ class PlotWidget(QtWidgets.QWidget):
     def interp_set_type(self, selected_item):
         self.interp_type = self._interp_types[selected_item]
 
+    def na_interp_set_type(self, selected_item):
+        self.na_interp_type = self._interp_types[selected_item]
+
     def interp_apply(self):
         """
         interpolate data on to a new period list that is equally spaced in
@@ -915,27 +927,26 @@ class PlotWidget(QtWidgets.QWidget):
             np.log10(self.interp_period_max),
             num=self.interp_period_num,
         )
-        interp_freq = 1.0 / new_period
         interp_idx = np.where(
-            (interp_freq >= self.mt_obj.frequency.min())
-            & (interp_freq <= self.mt_obj.frequency.max())
+            (new_period >= self.mt_obj.period.min())
+            & (new_period <= self.mt_obj.period.max())
         )
 
-        interp_freq = interp_freq[interp_idx]
+        interp_period = new_period[interp_idx]
         if len(interp_idx) != len(new_period):
 
             info = [
                 "Cannot interpolate over periods not represented in the data.",
-                f"Data min = {1.0 / self.mt_obj.frequency.max():<8.3e} s",
-                f"Data max = {1.0 / self.mt_obj.frequency.min():<8.3e} s",
+                f"Data min = {self.mt_obj.period.min():<8.3e} s",
+                f"Data max = {self.mt_obj.period.max():<8.3e} s",
                 "",
                 "Given period range:",
                 f"     min = {new_period.min():<8.3e} s",
                 f"     max = {new_period.max():<8.3e} s",
                 "",
                 "Setting interpolation frequency bounds to:",
-                f"     min = {1.0 / interp_freq.max():<8.3e} s",
-                f"     max = {1.0 / interp_freq.min():<8.3e} s",
+                f"     min = {interp_period.min():<8.3e} s",
+                f"     max = {interp_period.max():<8.3e} s",
             ]
 
             print("\n".join(info))
@@ -947,12 +958,16 @@ class PlotWidget(QtWidgets.QWidget):
             or self._edited_ss == True
         ):
             self.mt_obj = self.mt_obj.interpolate(
-                interp_freq, method=self.interp_type
+                interp_period,
+                method=self.interp_type,
+                na_method=self.na_interp_type,
             )
 
         else:
             self.mt_obj = self._mt_obj.interpolate(
-                interp_freq, method=self.interp_type
+                interp_period,
+                method=self.interp_type,
+                na_method=self.na_interp_type,
             )
 
         self.redraw_plot()

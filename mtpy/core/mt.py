@@ -365,7 +365,7 @@ class MT(TF, MTLocation):
     def interpolate(
         self,
         new_period,
-        method="slinear",
+        method="cubic",
         bounds_error=True,
         f_type="period",
         **kwargs,
