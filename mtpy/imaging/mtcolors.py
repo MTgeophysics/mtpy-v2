@@ -297,7 +297,8 @@ MT_CMAP_DICT = {
 
 def register_cmaps(cmap_dict):
     for key, value in cmap_dict.items():
-        plt.register_cmap(key, value)
+        if key not in plt.colormaps.keys():
+            plt.register_cmap(key, value)
 
 
 def get_color(cvar, cmap):
