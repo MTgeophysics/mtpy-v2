@@ -149,7 +149,7 @@ class TestPlotMTResponse(unittest.TestCase):
 
         with self.subTest("res_xx"):
             res_line = self.plot_object.axr2.get_children()[0]
-            self.assertEqual(
+            self.assertTrue(
                 np.isclose(
                     res_line.get_ydata(),
                     self.plot_object.Z.res_xx[
@@ -159,7 +159,7 @@ class TestPlotMTResponse(unittest.TestCase):
             )
         with self.subTest("res_yy"):
             res_line = self.plot_object.axr2.get_children()[4]
-            self.assertEqual(
+            self.assertTrue(
                 np.isclose(
                     res_line.get_ydata(),
                     self.plot_object.Z.res_yy[
