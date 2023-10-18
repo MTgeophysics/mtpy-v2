@@ -115,24 +115,22 @@ class TestPlotMTResponse(unittest.TestCase):
 
         with self.subTest("res_xy"):
             res_line = self.plot_object.axr.get_children()[0]
-            self.assertEqual(
-                True,
-                (
-                    res_line.get_ydata()
-                    == self.plot_object.Z.res_xy[
+            self.assertTrue(
+                np.isclose(
+                    res_line.get_ydata(),
+                    self.plot_object.Z.res_xy[
                         np.nonzero(self.plot_object.Z.res_xy)
-                    ]
-                ).all(),
+                    ],
+                ).all()
             )
         with self.subTest("res_yx"):
             res_line = self.plot_object.axr.get_children()[4]
-            self.assertEqual(
-                True,
-                (
-                    res_line.get_ydata()
-                    == self.plot_object.Z.res_yx[
+            self.assertTrue(
+                np.isclose(
+                    res_line.get_ydata(),
+                    self.plot_object.Z.res_yx[
                         np.nonzero(self.plot_object.Z.res_yx)
-                    ]
+                    ],
                 ).all(),
             )
 
@@ -152,23 +150,21 @@ class TestPlotMTResponse(unittest.TestCase):
         with self.subTest("res_xx"):
             res_line = self.plot_object.axr2.get_children()[0]
             self.assertEqual(
-                True,
-                (
-                    res_line.get_ydata()
-                    == self.plot_object.Z.res_xx[
+                np.isclose(
+                    res_line.get_ydata(),
+                    self.plot_object.Z.res_xx[
                         np.nonzero(self.plot_object.Z.res_xx)
-                    ]
+                    ],
                 ).all(),
             )
         with self.subTest("res_yy"):
             res_line = self.plot_object.axr2.get_children()[4]
             self.assertEqual(
-                True,
-                (
-                    res_line.get_ydata()
-                    == self.plot_object.Z.res_yy[
+                np.isclose(
+                    res_line.get_ydata(),
+                    self.plot_object.Z.res_yy[
                         np.nonzero(self.plot_object.Z.res_yy)
-                    ]
+                    ],
                 ).all(),
             )
 

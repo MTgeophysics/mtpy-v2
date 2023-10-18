@@ -135,14 +135,12 @@ class TestTFBaseFrequencyInput(unittest.TestCase):
         self.tf.frequency = np.logspace(-1, 1, 3)
         with self.subTest("freq"):
             self.assertEqual(
-                np.isclose(self.tf.frequency == np.logspace(-1, 1, 3)).all(),
+                np.isclose(self.tf.frequency, np.logspace(-1, 1, 3)).all(),
                 True,
             )
         with self.subTest("period"):
             self.assertEqual(
-                np.isclose(
-                    self.tf.period == 1.0 / np.logspace(-1, 1, 3)
-                ).all(),
+                np.isclose(self.tf.period, 1.0 / np.logspace(-1, 1, 3)).all(),
                 True,
             )
 
@@ -150,14 +148,12 @@ class TestTFBaseFrequencyInput(unittest.TestCase):
         self.tf.period = 1.0 / np.logspace(-1, 1, 3)
         with self.subTest("freq"):
             self.assertEqual(
-                np.isclose(self.tf.frequency == np.logspace(-1, 1, 3)).all(),
+                np.isclose(self.tf.frequency, np.logspace(-1, 1, 3)).all(),
                 True,
             )
         with self.subTest("period"):
             self.assertEqual(
-                np.isclose(
-                    self.tf.period == 1.0 / np.logspace(-1, 1, 3)
-                ).all(),
+                np.isclose(self.tf.period, 1.0 / np.logspace(-1, 1, 3)).all(),
                 True,
             )
 
