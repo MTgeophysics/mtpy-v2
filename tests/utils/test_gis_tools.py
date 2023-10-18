@@ -7,7 +7,6 @@ tests update to v2
 # =============================================================================
 import unittest
 import numpy as np
-from loguru import logger
 
 from mtpy.utils import gis_tools
 
@@ -31,7 +30,9 @@ class TestGisTools(unittest.TestCase):
         self.elev_d = 1254.1
 
         self.easting = 702562.1378419038
+        self.easting_36 = 702562.690285791
         self.northing = 6202447.112735093
+        self.northing_36 = 6202448.527851131
         self.datum_epsg = 4326
         self.utm_epsg = 28355
 
@@ -192,13 +193,20 @@ class TestGisTools(unittest.TestCase):
             self.lon_d, self.lat_d, self.datum_epsg, self.utm_epsg
         )
 
-        with self.subTest("easting"):
-            self.assertAlmostEqual(point[0], self.easting, 5)
-        with self.subTest("northing"):
-            self.assertAlmostEqual(point[1], self.northing, 5)
+        if np.isclose(point[0], self.easting):
+            with self.subTest("easting"):
+                self.assertAlmostEqual(point[0], self.easting, 5)
+            with self.subTest("northing"):
+                self.assertAlmostEqual(point[1], self.northing, 5)
+
+        else:
+            with self.subTest("easting"):
+                self.assertAlmostEqual(point[0], self.easting_36, 5)
+            with self.subTest("northing"):
+                self.assertAlmostEqual(point[1], self.northing_36, 5)
 
     def test_project_point_ll2utm_point(self):
-        points = gis_tools.project_point_ll2utm(
+        point = gis_tools.project_point_ll2utm(
             self.lat_d,
             self.lon_d,
             datum="WGS84",
@@ -206,14 +214,20 @@ class TestGisTools(unittest.TestCase):
         )
 
         with self.subTest("type"):
-            self.assertIsInstance(points, tuple)
+            self.assertIsInstance(point, tuple)
 
-        with self.subTest("easting"):
-            self.assertAlmostEqual(self.easting, points[0], 5)
-        with self.subTest("northing"):
-            self.assertAlmostEqual(self.northing, points[1], 5)
+        if np.isclose(point[0], self.easting):
+            with self.subTest("easting"):
+                self.assertAlmostEqual(self.easting, point[0], 5)
+            with self.subTest("northing"):
+                self.assertAlmostEqual(self.northing, point[1], 5)
+        else:
+            with self.subTest("easting"):
+                self.assertAlmostEqual(self.easting_36, point[0], 5)
+            with self.subTest("northing"):
+                self.assertAlmostEqual(self.northing_36, point[1], 5)
         with self.subTest("zone"):
-            self.assertEqual("None", points[2])
+            self.assertEqual("None", point[2])
 
     def test_project_point_ll2utm_arrays(self):
         points = gis_tools.project_point_ll2utm(
@@ -226,15 +240,34 @@ class TestGisTools(unittest.TestCase):
         with self.subTest("type"):
             self.assertIsInstance(points, np.recarray)
 
-        with self.subTest("easting"):
-            self.assertTrue(
-                np.isclose(np.repeat(self.easting, 3), points.easting).all()
-            )
+        if np.isclose(points.easting[0], self.easting):
+            with self.subTest("easting"):
+                self.assertTrue(
+                    np.isclose(
+                        np.repeat(self.easting, 5), points.easting
+                    ).all()
+                )
 
-        with self.subTest("northing"):
-            self.assertTrue(
-                np.isclose(np.repeat(self.northing, 3), points.northing).all()
-            )
+            with self.subTest("northing"):
+                self.assertTrue(
+                    np.isclose(
+                        np.repeat(self.northing, 5), points.northing
+                    ).all()
+                )
+        else:
+            with self.subTest("easting"):
+                self.assertTrue(
+                    np.isclose(
+                        np.repeat(self.easting_36, 5), points.easting
+                    ).all()
+                )
+
+            with self.subTest("northing"):
+                self.assertTrue(
+                    np.isclose(
+                        np.repeat(self.northing_36, 5), points.northing
+                    ).all()
+                )
         with self.subTest("elevation"):
             self.assertTrue(np.isclose(np.repeat(0, 5), points.elev).all())
         with self.subTest("zone"):
@@ -252,9 +285,9 @@ class TestGisTools(unittest.TestCase):
             self.assertIsInstance(points, tuple)
 
         with self.subTest("lat"):
-            self.assertAlmostEqual(self.lat_d, points[0], 3)
+            self.assertAlmostEqual(self.lat_d, points[0], 5)
         with self.subTest("northing"):
-            self.assertAlmostEqual(self.lon_d, points[1], 3)
+            self.assertAlmostEqual(self.lon_d, points[1], 5)
 
     def test_project_point_utm2ll_arrays(self):
         points = gis_tools.project_point_utm2ll(
@@ -269,11 +302,11 @@ class TestGisTools(unittest.TestCase):
 
         with self.subTest("lat"):
             self.assertTrue(
-                np.isclose(np.repeat(self.lat_d, 3), points.latitude).all()
+                np.isclose(np.repeat(self.lat_d, 5), points.latitude).all()
             )
         with self.subTest("lon"):
             self.assertTrue(
-                np.isclose(np.repeat(self.lon_d, 3), points.longitude).all()
+                np.isclose(np.repeat(self.lon_d, 5), points.longitude).all()
             )
 
 

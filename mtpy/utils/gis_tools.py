@@ -23,6 +23,7 @@ latitude and longitude can be input as:
 
 Created on Fri Apr 14 14:47:48 2017
 Revised: 5/2020 JP 
+Revised: 10/2023 JP 
 
 @author: jrpeacock
 """
