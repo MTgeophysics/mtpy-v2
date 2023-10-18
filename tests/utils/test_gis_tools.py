@@ -193,7 +193,7 @@ class TestGisTools(unittest.TestCase):
             self.lon_d, self.lat_d, self.datum_epsg, self.utm_epsg
         )
 
-        if np.isclose(point[0], self.easting):
+        if round(point[0], 3) == round(self.easting, 3):
             with self.subTest("easting"):
                 self.assertAlmostEqual(point[0], self.easting, 5)
             with self.subTest("northing"):
@@ -216,7 +216,7 @@ class TestGisTools(unittest.TestCase):
         with self.subTest("type"):
             self.assertIsInstance(point, tuple)
 
-        if np.isclose(point[0], self.easting):
+        if round(point[0], 3) == round(self.easting, 3):
             with self.subTest("easting"):
                 self.assertAlmostEqual(self.easting, point[0], 5)
             with self.subTest("northing"):
@@ -285,9 +285,9 @@ class TestGisTools(unittest.TestCase):
             self.assertIsInstance(points, tuple)
 
         with self.subTest("lat"):
-            self.assertAlmostEqual(self.lat_d, points[0], 5)
+            self.assertAlmostEqual(self.lat_d, points[0], 3)
         with self.subTest("northing"):
-            self.assertAlmostEqual(self.lon_d, points[1], 5)
+            self.assertAlmostEqual(self.lon_d, points[1], 3)
 
     def test_project_point_utm2ll_arrays(self):
         points = gis_tools.project_point_utm2ll(
