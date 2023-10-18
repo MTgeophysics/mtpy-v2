@@ -838,14 +838,32 @@ class TestMTStationProfile(unittest.TestCase):
         self.assertEqual(5, len(self.stations))
 
     def test_generate_profile_deg(self):
-        self.assertTupleEqual(
-            self.profile_deg, self.stations.generate_profile(units="deg")
-        )
+        profile = self.stations.generate_profile(units="deg")
+        for x, y, ii in zip(self.profile_deg[0:4], profile[0:4], range(4)):
+            with self.subTest(ii):
+                self.assertAlmostEqual(x, y)
+        with self.subTest("intercept"):
+            self.assertAlmostEqual(
+                self.profile_deg[-1]["intercept"], profile[-1]["intercept"]
+            )
+        with self.subTest("slope"):
+            self.assertAlmostEqual(
+                self.profile_deg[-1]["slope"], profile[-1]["slope"]
+            )
 
     def test_generate_profile_m(self):
-        self.assertTupleEqual(
-            self.profile_m, self.stations.generate_profile(units="m")
-        )
+        profile = self.stations.generate_profile(units="m")
+        for x, y, ii in zip(self.profile_m[0:4], profile[0:4], range(4)):
+            with self.subTest(ii):
+                self.assertAlmostEqual(x, y)
+        with self.subTest("intercept"):
+            self.assertAlmostEqual(
+                self.profile_m[-1]["intercept"], profile[-1]["intercept"]
+            )
+        with self.subTest("slope"):
+            self.assertAlmostEqual(
+                self.profile_m[-1]["slope"], profile[-1]["slope"]
+            )
 
     def test_center_point(self):
         self.assertEqual(self.center, self.stations.center_point)

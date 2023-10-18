@@ -6,7 +6,7 @@
 .. moduleauthor:: Jared Peacock <jpeacock@usgs.gov>
 """
 
-# ==============================================================================
+# =============================================================================
 from pathlib import Path
 from copy import deepcopy
 
