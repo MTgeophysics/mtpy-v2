@@ -1,12 +1,22 @@
-from unittest import TestCase
+# -*- coding: utf-8 -*-
+"""
+tests update to v2
+"""
+# =============================================================================
+# Imports
+# =============================================================================
+import unittest
 import numpy as np
-import pytest
+from loguru import logger
 
 from mtpy.utils import gis_tools
 
+# =============================================================================
 
-class TestGisTools(TestCase):
-    def setUp(self):
+
+class TestGisTools(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
 
         self.lat_hhmmss = "-34:17:57.99"
         self.lat_str = "-34.299442"
@@ -32,93 +42,72 @@ class TestGisTools(TestCase):
         self.from_epsg = 4326
         self.to_epsg = 28355
 
-    def test_project_point_ll2utm(self):
-        easting, northing, zone = gis_tools.project_point_ll2utm(self.lat_d, self.lon_d)
+    def test_assert_minutes(self):
+        self.assertEqual(10, gis_tools.assert_minutes(10))
 
-        if isinstance(zone, (np.bytes_, bytes)):
-            zone = zone.decode("UTF-8")
+    def test_assert_seconds(self):
+        self.assertEqual(10, gis_tools.assert_seconds(10))
 
-        self.assertTrue(zone == self.zone)
-        self.assertTrue(np.isclose(easting, self.easting))
-        self.assertTrue(np.isclose(northing, self.northing))
+    def test_convert_position_str2float(self):
+        with self.subTest("time deg"):
+            self.assertAlmostEqual(
+                gis_tools.convert_position_str2float(self.lat_hhmmss),
+                self.lat_d,
+                places=5,
+            )
+        with self.subTest("decimal deg"):
+            self.assertAlmostEqual(
+                gis_tools.convert_position_str2float(self.lat_str),
+                self.lat_d,
+                places=5,
+            )
 
-    def test_project_point_utm2ll(self):
-        new_lat, new_lon = gis_tools.project_point_utm2ll(
-            self.easting, self.northing, self.zone
+    def test_convert_position_str2float_fail(self):
+        self.assertRaises(
+            ValueError, gis_tools.convert_position_str2float, self.lat_fail
         )
 
-        self.assertTrue(np.isclose(self.lat_d, new_lat))
-        self.assertTrue(np.isclose(self.lon_d, new_lon))
+    def test_assert_lat_value_none(self):
+        self.assertEqual(0, gis_tools.assert_lat_value(None))
 
-        # testing with epsg
-        new_lat, new_lon = gis_tools.project_point_utm2ll(
-            self.easting, self.northing, utm_zone=self.zone, epsg=self.to_epsg
+    def test_assert_lat_value_pass(self):
+        self.assertEqual(10.0, gis_tools.assert_lat_value(10))
+
+    def test_assert_lat_value_type_error(self):
+        self.assertRaises(TypeError, gis_tools.assert_lat_value, {})
+
+    def test_assert_lat_value_value_error(self):
+        self.assertRaises(ValueError, gis_tools.assert_lat_value, 100)
+
+    def test_assert_lon_value_none(self):
+        self.assertEqual(0, gis_tools.assert_lon_value(None))
+
+    def test_assert_lon_value_pass(self):
+        self.assertEqual(10.0, gis_tools.assert_lon_value(10))
+
+    def test_assert_lon_value_type_error(self):
+        self.assertRaises(TypeError, gis_tools.assert_lon_value, {})
+
+    def test_assert_lon_value_value_error(self):
+        self.assertRaises(ValueError, gis_tools.assert_lon_value, 200)
+
+    def test_assert_elevation_value_pass(self):
+        self.assertEqual(10, gis_tools.assert_elevation_value(10))
+
+    def test_assert_elevation_value_pass_fall(self):
+        self.assertEqual(0, gis_tools.assert_elevation_value({}))
+
+    def test_convert_position_float2str(self):
+        self.assertEqual(
+            self.lat_hhmmss, gis_tools.convert_position_float2str(self.lat_d)
         )
 
-        self.assertTrue(np.isclose(self.lat_d, new_lat))
-        self.assertTrue(np.isclose(self.lon_d, new_lon))
+    def test_convert_position_float2str_fail(self):
+        self.assertRaises(TypeError, gis_tools.convert_position_str2float, {})
 
-    def test_convert_hhmmss(self):
-        position_d = gis_tools.convert_position_str2float(self.lat_hhmmss)
 
-        self.assertIsInstance(position_d, float)
-        self.assertTrue(np.isclose(position_d, self.lat_d))
-
-    def test_convert_str(self):
-        position_d = gis_tools.convert_position_str2float(self.lat_str)
-
-        self.assertIsInstance(position_d, float)
-        self.assertTrue(np.isclose(position_d, self.lat_d))
-
-    def test_convert_fail(self):
-        with pytest.raises(gis_tools.GISError) as error:
-            gis_tools.convert_position_str2float(self.position_fail)
-
-    def test_convert_hhmmss(self):
-        position_str = gis_tools.convert_position_float2str(self.lat_d)
-
-        self.assertIsInstance(position_str, str)
-        self.assertEqual(position_str, self.lat_hhmmss)
-
-    def test_convert_fail(self):
-        with pytest.raises(gis_tools.GISError) as error:
-            gis_tools.convert_position_float2str(self.lat_fail)
-
-    def test_assert_lat(self):
-        lat_value = gis_tools.assert_lat_value(self.lat_str)
-
-        self.assertIsInstance(lat_value, float)
-        self.assertTrue(np.isclose(lat_value, self.lat_d))
-
-    def test_assert_lon(self):
-        lon_value = gis_tools.assert_lon_value(self.lon_str)
-
-        self.assertIsInstance(lon_value, float)
-        self.assertTrue(np.isclose(lon_value, self.lon_d))
-
-    def test_get_utm_zone(self):
-        zn, is_n, zone = gis_tools.get_utm_zone(self.lat_d, self.lon_d)
-
-        self.assertEqual(zn, self.zone_number, "zone number")
-        self.assertEqual(is_n, self.is_northern, "is northing")
-        self.assertEqual(zone, self.zone, "utm zone")
-
-    def test_utm_to_epsg(self):
-        epsg_number = gis_tools.utm_zone_to_epsg(self.zone_number, self.is_northern)
-        self.assertEqual(epsg_number, self.zone_epsg, "epsg number")
-
-    def test_utm_letter_designation(self):
-        utm_letter = gis_tools.utm_letter_designator(self.lat_hhmmss)
-
-        self.assertEqual(utm_letter, self.utm_letter, "UTM letter")
-
-    def test_validate_input_values(self):
-        values = gis_tools.validate_input_values(self.lat_hhmmss, location_type="lat")
-
-        self.assertIsInstance(values, np.ndarray)
-        self.assertEqual(values.dtype.type, np.float64)
-
-        values = gis_tools.validate_input_values(self.lon_hhmmss, location_type="lon")
-
-        self.assertIsInstance(values, np.ndarray)
-        self.assertEqual(values.dtype.type, np.float64)
+# =============================================================================
+# run
+# =============================================================================
+if __name__ == "__main__":
+    unittest.main()

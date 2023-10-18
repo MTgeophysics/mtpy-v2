@@ -51,9 +51,9 @@ class GISError(Exception):
 def assert_minutes(minutes):
     if not 0 <= minutes < 60.0:
         msg = (
-            "minutes should be 0 < > 60, currently {0:.0f}".format(minutes)
-            + " conversion will account for non-uniform"
-            + "timne. Be sure to check accuracy."
+            f"minutes are not within 0 < > 60, currently {minutes:.0f} "
+            "conversion will account for non-uniform time. Be sure to "
+            "check accuracy."
         )
         logger.warning(msg)
 
@@ -83,29 +83,36 @@ def convert_position_str2float(position_str):
     """
 
     if position_str in [None, "None"]:
-        return None
+        return 0.0
 
-    p_list = position_str.split(":")
-    if len(p_list) != 3:
-        msg = "{0} not correct format, should be DD:MM:SS".format(position_str)
-        logger.error(msg)
-        raise ValueError(msg)
+    try:
+        return float(position_str)
+    except TypeError:
+        return 0.0
+    except ValueError:
+        p_list = position_str.split(":")
+        if len(p_list) != 3:
+            msg = f"{position_str} not correct format, should be DD:MM:SS.ms"
+            logger.error(msg)
+            raise ValueError(msg)
 
-    deg = float(p_list[0])
-    minutes = assert_minutes(float(p_list[1]))
-    sec = assert_seconds(float(p_list[2]))
+        deg = float(p_list[0])
+        minutes = assert_minutes(float(p_list[1]))
+        sec = assert_seconds(float(p_list[2]))
 
-    # get the sign of the position so that when all are added together the
-    # position is in the correct place
-    sign = 1
-    if deg < 0:
-        sign = -1
+        # get the sign of the position so that when all are added together the
+        # position is in the correct place
+        sign = 1
+        if deg < 0:
+            sign = -1
 
-    position_value = sign * (abs(deg) + minutes / 60.0 + sec / 3600.0)
+        position_value = sign * (abs(deg) + minutes / 60.0 + sec / 3600.0)
 
-    logger.debug("Converted {0} to {1}".format(position_str, position_value))
+        logger.debug(
+            "Converted {0} to {1}".format(position_str, position_value)
+        )
 
-    return position_value
+        return position_value
 
 
 def assert_lat_value(latitude):
@@ -119,26 +126,23 @@ def assert_lat_value(latitude):
     if latitude in [None, "None", "none", "unknown"]:
         logger.debug("Latitude is None, setting to 0")
         return 0.0
-    try:
-        lat_value = float(latitude)
 
-    except TypeError:
-        logger.debug("Could not convert {0} setting to 0".format(latitude))
-        return 0.0
+    if not isinstance(latitude, float):
+        if isinstance(latitude, str):
+            latitude = convert_position_str2float(latitude)
+        elif isinstance(latitude, int):
+            latitude = float(latitude)
+        else:
+            msg = f"cannot convert type({type(latitude)})"
+            logger.error(msg)
+            raise TypeError(msg)
 
-    except ValueError:
-        logger.debug("Latitude is a string {0}".format(latitude))
-        lat_value = convert_position_str2float(latitude)
-
-    if abs(lat_value) >= 90:
-        msg = (
-            "latitude value = {0} is unacceptable!".format(lat_value)
-            + ".  Must be |Latitude| > 90"
-        )
+    if abs(latitude) >= 90:
+        msg = f"latitude value = {latitude} is unacceptable!.  Must be |Latitude| > 90"
         logger.error(msg)
         raise ValueError(msg)
 
-    return lat_value
+    return latitude
 
 
 def assert_lon_value(longitude):
@@ -152,26 +156,25 @@ def assert_lon_value(longitude):
     if longitude in [None, "None", "none", "unknown"]:
         logger.debug("Longitude is None, setting to 0")
         return 0.0
-    try:
-        lon_value = float(longitude)
+    if not isinstance(longitude, float):
+        if isinstance(longitude, str):
+            longitude = convert_position_str2float(longitude)
+        elif isinstance(longitude, int):
+            longitude = float(longitude)
+        else:
+            msg = f"cannot convert type({type(longitude)})"
+            logger.error(msg)
+            raise TypeError(msg)
 
-    except TypeError:
-        logger.debug("Could not convert {0} setting to 0".format(longitude))
-        return 0.0
-
-    except ValueError:
-        logger.debug("Longitude is a string {0}".format(longitude))
-        lon_value = convert_position_str2float(longitude)
-
-    if abs(lon_value) >= 180:
+    if abs(longitude) >= 180:
         msg = (
-            "longitude value = {0} is unacceptable!".format(lon_value)
-            + ".  Must be |longitude| > 180"
+            "longitude value = {longitude} is unacceptable! "
+            "Must be |longitude| > 180"
         )
         logger.error(msg)
         raise ValueError(msg)
 
-    return lon_value
+    return longitude
 
 
 def assert_elevation_value(elevation):
@@ -204,7 +207,8 @@ def convert_position_float2str(position):
     :returns: latitude or longitude in format of DD:MM:SS.ms
     """
 
-    assert type(position) is float, "Given value is not a float"
+    if not isinstance(position, (float, int)):
+        raise TypeError("Given value is not a float or int")
 
     deg = int(position)
     sign = 1
@@ -224,10 +228,8 @@ def convert_position_float2str(position):
         deg += 1
         minutes = 0
 
-    position_str = "{0}:{1:02.0f}:{2:05.2f}".format(
-        sign * int(deg), int(minutes), sec
-    )
-    logger.debug("Converted {0} to {1}".format(position, position_str))
+    position_str = f"{sign*int(deg)}:{int(minutes):02.0f}:{sec:05.2f}"
+    logger.debug(f"Converted {position} to {position_str}")
 
     return position_str
 
