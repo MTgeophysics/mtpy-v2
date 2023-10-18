@@ -489,7 +489,7 @@ class OccamWidget(QtWidgets.QWidget):
         """
         get edi file to invert
         """
-        if self.edi_fn is not "":
+        if self.edi_fn != "":
             edi_path = os.path.dirname(self.edi_fn)
             edi_dialog = QtWidgets.QFileDialog()
             fn = str(

@@ -114,6 +114,17 @@ class TestGisTools(unittest.TestCase):
             ).all()
         )
 
+    def test_validate_input_values_list_of_strings(self):
+        in_array = np.array([1, 20, 45, 67.2342])
+        self.assertTrue(
+            (
+                in_array
+                == gis_tools.validate_input_values(
+                    in_array.astype(str).tolist(), "lat"
+                )
+            ).all()
+        )
+
 
 # =============================================================================
 # run
