@@ -274,14 +274,14 @@ def validate_input_values(values, location_type=None):
         for ii, value in enumerate(values):
             try:
                 values[ii] = assert_lat_value(value)
-            except GISError as error:
+            except ValueError as error:
                 raise GISError(f"{error}\n Bad input value at index {ii}")
         values = values.astype(float)
     if location_type in ["lon", "longitude"]:
         for ii, value in enumerate(values):
             try:
                 values[ii] = assert_lon_value(value)
-            except GISError as error:
+            except ValueError as error:
                 raise GISError(f"{error}\n Bad input value at index {ii}")
         values = values.astype(float)
     return values

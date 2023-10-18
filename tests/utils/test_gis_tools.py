@@ -105,12 +105,43 @@ class TestGisTools(unittest.TestCase):
     def test_convert_position_float2str_fail(self):
         self.assertRaises(TypeError, gis_tools.convert_position_float2str, {})
 
-    def test_validate_input_values(self):
+    def test_validate_input_values_lat(self):
         in_array = np.array([1, 20, 45, 67.2342])
         self.assertTrue(
             (
                 in_array
                 == gis_tools.validate_input_values(in_array.tolist(), "lat")
+            ).all()
+        )
+
+    def test_validate_input_values_latitude(self):
+        in_array = np.array([1, 20, 45, 67.2342])
+        self.assertTrue(
+            (
+                in_array
+                == gis_tools.validate_input_values(
+                    in_array.tolist(), "latitude"
+                )
+            ).all()
+        )
+
+    def test_validate_input_values_lon(self):
+        in_array = np.array([1, 20, 45, 67.2342])
+        self.assertTrue(
+            (
+                in_array
+                == gis_tools.validate_input_values(in_array.tolist(), "lon")
+            ).all()
+        )
+
+    def test_validate_input_values_longitude(self):
+        in_array = np.array([1, 20, 45, 67.2342])
+        self.assertTrue(
+            (
+                in_array
+                == gis_tools.validate_input_values(
+                    in_array.tolist(), "longitude"
+                )
             ).all()
         )
 
@@ -123,6 +154,15 @@ class TestGisTools(unittest.TestCase):
                     in_array.astype(str).tolist(), "lat"
                 )
             ).all()
+        )
+
+    def test_validate_input_values_fail(self):
+        in_array = np.array([1, 20, 45, 167.2342])
+        self.assertRaises(
+            gis_tools.GISError,
+            gis_tools.validate_input_values,
+            in_array,
+            "lat",
         )
 
 
