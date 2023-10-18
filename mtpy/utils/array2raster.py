@@ -26,7 +26,7 @@ ogr.UseExceptions()
 class ModEM_to_Raster(object):
     """
     create a raster image of a model slice from a ModEM model
-    
+
     :Example: ::
         >>> import mtpy.utils.array2raster as a2r
         >>> mfn = r"/home/ModEM/Inv1/Modular_NLCG_110.rho"
@@ -35,7 +35,7 @@ class ModEM_to_Raster(object):
         >>> m_obj.lower_left_corner = (-119.11, 37.80)
         >>> m_obj.write_raster_files(save_path=r"/home/ModEM/Inv1/GIS_depth_slices")
 
-    
+
     """
 
     def __init__(self, **kwargs):
@@ -76,7 +76,9 @@ class ModEM_to_Raster(object):
             self.pad_north : -self.pad_north, self.pad_east : -self.pad_east, :
         ]
 
-    def get_model_lower_left_coord(self, model_center=None, pad_east=0, pad_north=0):
+    def get_model_lower_left_coord(
+        self, model_center=None, pad_east=0, pad_north=0
+    ):
         """
         Find the models lower left hand corner in (lon, lat) decimal degrees
         """
@@ -85,7 +87,11 @@ class ModEM_to_Raster(object):
         self.pad_north = pad_north
 
         if model_center:
-            center_east, center_north, center_zone = gis_tools.project_point_ll2utm(
+            (
+                center_east,
+                center_north,
+                center_zone,
+            ) = gis_tools.project_point_ll2utm(
                 model_center[0], model_center[1]
             )
 
@@ -119,7 +125,7 @@ class ModEM_to_Raster(object):
     def interpolate_grid(self, pad_east=None, pad_north=None, cell_size=None):
         """
         interpolate the irregular model grid onto a regular grid.
-        
+
         """
 
         self.grid_z = self.model_obj.grid_z.copy()
@@ -162,7 +168,8 @@ class ModEM_to_Raster(object):
         # needs to be -1 because the grid is n+1 as it is the edges of the
         # the nodes.  Might need to change this in the future
         model_n, model_e = np.broadcast_arrays(
-            self.model_obj.grid_north[:-1, None], self.model_obj.grid_east[None, :-1]
+            self.model_obj.grid_north[:-1, None],
+            self.model_obj.grid_east[None, :-1],
         )
 
         new_res_arr = np.zeros(
@@ -189,13 +196,15 @@ class ModEM_to_Raster(object):
     ):
         """
         write a raster file for each layer
-        
+
         """
         if rotation_angle is not None:
             self.rotation_angle = float(rotation_angle)
 
         if self.lower_left_corner is None:
-            raise ValueError("Need to input an lower_left_corner as (lon, lat)")
+            raise ValueError(
+                "Need to input an lower_left_corner as (lon, lat)"
+            )
         if save_path is not None:
             self.save_path = save_path
 
@@ -209,7 +218,8 @@ class ModEM_to_Raster(object):
         for ii in range(self.res_array.shape[2]):
             d = self.grid_z[ii]
             raster_fn = os.path.join(
-                self.save_path, "Depth_{0:.2f}_{1}.tif".format(d, self.projection)
+                self.save_path,
+                "Depth_{0:.2f}_{1}.tif".format(d, self.projection),
             )
             array2raster(
                 raster_fn,
@@ -222,7 +232,8 @@ class ModEM_to_Raster(object):
             )
             print(
                 os.path.join(
-                    self.save_path, "Depth_{0:.2f}_{1}.tif".format(d, self.projection)
+                    self.save_path,
+                    "Depth_{0:.2f}_{1}.tif".format(d, self.projection),
                 )
             )
 
@@ -233,7 +244,7 @@ class ModEM_to_Raster(object):
 class WS3D_to_Raster(object):
     """
     create a raster image of a model slice from a ModEM model
-    
+
     :Example: ::
         >>> import mtpy.utils.array2raster as a2r
         >>> mfn = r"/home/ModEM/Inv1/Modular_NLCG_110.rho"
@@ -242,7 +253,7 @@ class WS3D_to_Raster(object):
         >>> m_obj.lower_left_corner = (-119.11, 37.80)
         >>> m_obj.write_raster_files(save_path=r"/home/WS3DINV/Inv1/GIS_depth_slices")
 
-    
+
     """
 
     def __init__(self, **kwargs):
@@ -284,7 +295,7 @@ class WS3D_to_Raster(object):
     def interpolate_grid(self, pad_east=None, pad_north=None, cell_size=None):
         """
         interpolate the irregular model grid onto a regular grid.
-        
+
         """
 
         model_obj = ws.WSModel()
@@ -353,13 +364,15 @@ class WS3D_to_Raster(object):
     ):
         """
         write a raster file for each layer
-        
+
         """
         if rotation_angle is not None:
             self.rotation_angle = rotation_angle
 
         if self.lower_left_corner is None:
-            raise ValueError("Need to input an lower_left_corner as (lon, lat)")
+            raise ValueError(
+                "Need to input an lower_left_corner as (lon, lat)"
+            )
         if save_path is not None:
             self.save_path = save_path
 
@@ -373,7 +386,8 @@ class WS3D_to_Raster(object):
         for ii in range(self.res_array.shape[2]):
             d = self.grid_z[ii]
             raster_fn = os.path.join(
-                self.save_path, "Depth_{0:.2f}_{1}.tif".format(d, self.projection)
+                self.save_path,
+                "Depth_{0:.2f}_{1}.tif".format(d, self.projection),
             )
             array2raster(
                 raster_fn,
@@ -402,36 +416,36 @@ def array2raster(
 ):
     """
     converts an array into a raster file that can be read into a GIS program.
-    
+
     Arguments:
     --------------
         **raster_fn** : string
                         full path to save raster file to
-                        
+
         **origin** : (lon, lat)
                      longitude and latitude of southwest corner of the array
-        
+
         **cell_width** : float (in meters)
                          size of model cells in east-west direction
-                         
+
         **cell_height** : float (in meters)
                          size of model cells in north-south direction
-                         
+
         **res_array** : np.ndarray(east, north)
                         resistivity array in linear scale.
-        
+
         **projection** : string
                         name of the projection datum
-                        
+
         **rotation_angle** : float
-                             angle in degrees to rotate grid.  
+                             angle in degrees to rotate grid.
                              Assuming N = 0 and E = 90, positive clockwise
-                        
+
     Output:
     ----------
-        * creates a geotiff file projected into projection in UTM.  The 
+        * creates a geotiff file projected into projection in UTM.  The
           values are in log scale for coloring purposes.
-    
+
     """
     # convert rotation angle to radians
     r_theta = np.deg2rad(rotation_angle)
@@ -441,7 +455,9 @@ def array2raster(
     ncols = res_array.shape[1]
     nrows = res_array.shape[0]
 
-    utm_point = gis_tools.project_point_ll2utm(origin[1], origin[0], datum=projection)
+    utm_point = gis_tools.project_point_ll2utm(
+        origin[1], origin[0], datum=projection
+    )
 
     origin_east = utm_point[0]
     origin_north = utm_point[1]
@@ -494,67 +510,3 @@ def array2raster(
 
     # be sure to flush the data
     outband.FlushCache()
-
-
-# ==============================================================================
-#  transform coordinate systems
-# ==============================================================================
-# def transform_ll_to_utm(lon, lat, reference_ellipsoid='WGS84'):
-#     def get_utm_zone(longitude):
-#         return (int(1+(longitude+180.0)/6.0))
-#
-#     def is_northern(latitude):
-#         """
-#         Determines if given latitude is a northern for UTM
-#         """
-#         if (latitude < 0.0):
-#             return 0
-#         else:
-#             return 1
-#
-#     utm_coordinate_system = osr.SpatialReference()
-#     # Set geographic coordinate system to handle lat/lon
-#     utm_coordinate_system.SetWellKnownGeogCS(reference_ellipsoid)
-#     utm_coordinate_system.SetUTM(get_utm_zone(lon), is_northern(lat))
-#
-#     # Clone ONLY the geographic coordinate system
-#     ll_coordinate_system = utm_coordinate_system.CloneGeogCS()
-#     # create transform component
-#     ll_to_utm_geo_transform = osr.CoordinateTransformation(ll_coordinate_system,
-#                                                           utm_coordinate_system)
-#
-#     utm_point = ll_to_utm_geo_transform.TransformPoint(lon, lat, 0)
-#
-#     # returns easting, northing, altitude
-#     return utm_coordinate_system, utm_point
-# ==============================================================================
-# example test
-# ==============================================================================
-# rasterOrigin = (-119.000, 37.80)
-# pixelWidth = 500
-# pixelHeight = 500
-# newRasterfn = r'c:\Users\jrpeacock\Documents\test.tif'
-#
-#
-#
-# array = np.array([[ 10, .001, .01, .1, 1, 10, 100, 1000, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-#                  [ 1, 100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-#                  [ 1, 0.1, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 0.5, 1, 0.5, 1, 1, 1],
-#                  [ 1, 0.5, 1, 1000, 1, 1, 1, 0.5, 1, 0.5, 1, 0.5, 1, 0.5, 1, 0.5, 1, 1, 1],
-#                  [ .1, 0.5, .1, 0.5, 0.5, .1, .1, 0.5, .1, 0.5, .1, 0.5, 0.5, 0.5, .1, 0.5, .1, .1, .1],
-#                  [ 1, 0.5, 1, 1, 0.5, 1, 1, 0.5, 1, 0.5, 1, 0.5, 1, 0.5, 1, 0.5, 1, 1, 1],
-#                  [ 1, 0.5, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 0.5, 0.5, 1, 0.5, 1, 0.5, 1, 0.5, 0.5, 0.5, 1],
-#                  [ 1, 1, 1, 1, 1, 1, 1, 1, 1, 20, 22, 24, 26, 27, 30, 40, 10, 1, 1],
-#                  [ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-#                  [ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]])
-#
-# array2raster(newRasterfn,rasterOrigin,pixelWidth,pixelHeight,array)
-# ==============================================================================
-# modem test
-# ==============================================================================
-# mfn = r"c:\Users\jrpeacock\Google Drive\Mono_Basin\Models\Modular_NLCG_110.rho"
-#
-# m_obj = ModEM2Raster()
-# m_obj.model_fn = mfn
-# m_obj.origin = (-119.11, 37.80)
-# m_obj.write_raster_files(save_path=r"c:\Users\jrpeacock\Google Drive\Mono_Basin\Models\GIS_depth_slices")

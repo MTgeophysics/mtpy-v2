@@ -143,7 +143,7 @@ class PlotMesh(PlotBase):
                     )
             if self.x_limits is None:
                 x_min = plot_east.min() * 1.1
-                x_max = plot_east.min() * 1.1
+                x_max = plot_east.max() * 1.1
 
             if self.y_limits is None:
                 y_min = plot_north.min() * 1.1
@@ -216,9 +216,7 @@ class PlotMesh(PlotBase):
 
         # ---------------------------------------
         # plot depth view along the east direction
-        self.ax2 = self.fig.add_subplot(
-            1, 2, 2, aspect="auto", sharex=self.ax1
-        )
+        self.ax2 = self.fig.add_subplot(1, 2, 2, aspect="auto", sharex=self.ax1)
 
         # plot the grid
         east_line_xlist = []

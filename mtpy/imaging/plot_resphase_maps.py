@@ -115,16 +115,16 @@ class PlotResPhaseMaps(PlotBaseMaps):
         }
 
         self.label_dict = {
-            "res_xx": "$\\rho_{xx}  \\mathrm{[\Omega m]}$",
-            "res_xy": "$\\rho_{xy}  \\mathrm{[\Omega m]}$",
-            "res_yx": "$\\rho_{yx}  \\mathrm{[\Omega m]}$",
-            "res_yy": "$\\rho_{yy}  \\mathrm{[\Omega m]}$",
-            "res_det": "$\\rho_{det}  \\mathrm{[\Omega m]}$",
-            "phase_xx": "$\\phi_{xx}$",
-            "phase_xy": "$\\phi_{xy}$",
-            "phase_yx": "$\\phi_{yx}$",
-            "phase_yy": "$\\phi_{yy}$",
-            "phase_det": "$\\phi_{det}$",
+            "res_xx": r"$\rho_{xx}  \mathrm{[\Omega m]}$",
+            "res_xy": r"$\rho_{xy}  \mathrm{[\Omega m]}$",
+            "res_yx": r"$\rho_{yx}  \mathrm{[\Omega m]}$",
+            "res_yy": r"$\rho_{yy}  \mathrm{[\Omega m]}$",
+            "res_det": r"$\rho_{det}  \mathrm{[\Omega m]}$",
+            "phase_xx": r"$\phi_{xx}$",
+            "phase_xy": r"$\phi_{xy}$",
+            "phase_yx": r"$\phi_{yx}$",
+            "phase_yy": r"$\phi_{yy}$",
+            "phase_det": r"$\phi_{det}$",
         }
 
         for key, value in kwargs.items():

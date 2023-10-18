@@ -585,10 +585,20 @@ class TFBase:
             return tb
 
     def interpolate(
-        self, new_periods, inplace=False, method="slinear", **kwargs
+        self,
+        new_periods,
+        inplace=False,
+        method="cubic",
+        na_method="cubic",
+        **kwargs,
     ):
         """
         interpolate onto a new period range
+
+        'cubic' seems to work best when using xr.interp
+
+        xarray uses scipy.interpolate.interp1d when possible.  There
+        maybe some issues with interpolating complex numbers.
 
         :param new_periods: DESCRIPTION
         :type new_periods: TYPE
@@ -596,11 +606,12 @@ class TFBase:
         :rtype: TYPE
 
         """
-
+        print(f"NAN Method: {na_method}")
         da_dict = {}
         for key in self._dataset.data_vars:
             # need to interpolate over nans first, if use dropna loose a lot
-            # of data.  going to interpolate anyway.
+            # of data.  going to interpolate anyway. cubic seems to work best
+            # for interpolate na
             da_drop_nan = self._dataset[key].interpolate_na(
                 dim="period", method=method
             )

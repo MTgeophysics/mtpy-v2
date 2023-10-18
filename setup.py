@@ -65,8 +65,8 @@ setup(
     setup_requires=setup_requirements,
     test_suite="tests",
     tests_require=test_requirements,
-    url="https://github.com/MTgeophysics/mtpy/tree/v2",
+    url="https://github.com/MTgeophysics/mtpy-v2",
     version="2.0.0",
     zip_safe=False,
-    package_data={"": ["mtpy/utils/epsg.npy"]},
+    package_data={"": []},
 )

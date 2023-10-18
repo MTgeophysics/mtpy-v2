@@ -6,7 +6,7 @@
 .. moduleauthor:: Jared Peacock <jpeacock@usgs.gov>
 """
 
-# ==============================================================================
+# =============================================================================
 from pathlib import Path
 from copy import deepcopy
 
@@ -365,7 +365,7 @@ class MT(TF, MTLocation):
     def interpolate(
         self,
         new_period,
-        method="slinear",
+        method="cubic",
         bounds_error=True,
         f_type="period",
         **kwargs,

@@ -23,6 +23,9 @@ Updated 2022-09 JP
 # Imports
 # =============================================================================
 import numpy as np
+import warnings
+
+np.warnings = warnings
 import scipy.interpolate as spi
 
 from mtpy.utils import MU0

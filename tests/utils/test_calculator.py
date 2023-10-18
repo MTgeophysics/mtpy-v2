@@ -1,22 +1,45 @@
-from unittest import TestCase
+# -*- coding: utf-8 -*-
+"""
+
+"""
+# =============================================================================
+# imports
+# =============================================================================
+import unittest
 import numpy as np
-import pytest
 
-from mtpy.utils.calculator import (
-    get_period_list,
-    make_log_increasing_array,
-    z_error2r_phi_error,
-    nearest_index,
-)
+from mtpy.utils import calculator
+
+# =============================================================================
 
 
-class TestCalculator(TestCase):
-    def setUp(self):
+class TestCentrePoint(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.x = np.linspace(-100, 100, 20)
+        self.y = np.linspace(-200, 200, 20)
 
-        self.z1_layer = 80
-        self.target_depth = 400e3
-        self.n_layers = 120
-        self.increment_factor = 0.999
+    def test_center_point(self):
+        cp = calculator.centre_point(self.x, self.y)
+
+        self.assertTupleEqual(cp, (0, 0))
+
+
+class TestRoundsf(unittest.TestCase):
+    def test_round_1(self):
+        self.assertEqual(100, calculator.roundsf(102, 1))
+
+    def test_round_2(self):
+        self.assertEqual(100, calculator.roundsf(102, 2))
+
+    def test_round_3(self):
+        self.assertEqual(102, calculator.roundsf(102, 3))
+
+
+class TestErrorCalculation(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+
         self.z = np.array(
             [
                 [
@@ -40,24 +63,68 @@ class TestCalculator(TestCase):
                 [[0.1, 0.7], [0.6, 2.0]],
             ]
         )
-        self.freq = np.array([100.0, 10.0, 1.0])
 
-        return
+        # relative error in resistivity is 2 * relative error in z
+        self.res_rel_err_test = 2.0 * self.z_err / np.abs(self.z)
+
+        self.phase_err_test = np.rad2deg(
+            np.arctan(self.z_err / np.abs(self.z))
+        )
+        self.phase_err_test[self.res_rel_err_test > 1.0] = 90.0
+
+        # test providing an array
+        self.res_rel_err, self.phase_err = calculator.z_error2r_phi_error(
+            self.z.real, self.z.imag, self.z_err
+        )
+
+    def test_resistivity(self):
+        self.assertTrue(
+            np.isclose(self.res_rel_err, self.res_rel_err_test).all()
+        )
+
+    def test_phase(self):
+        self.assertTrue(np.isclose(self.phase_err, self.phase_err_test).all())
+
+
+class TestGetIndex(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+
+        self.freq = np.array([100.0, 10.0, 1.0])
 
     def test_nearest_index(self):
 
-        freqfind = 8.0
-        self.assertTrue(nearest_index(freqfind, self.freq) == 1)
+        for index, freq in zip([1, 2, 0], [8, 1.2, 1000]):
+            self.assertEqual(calculator.nearest_index(freq, self.freq), index)
 
-        freqfind2 = 1.2
-        self.assertTrue(nearest_index(freqfind2, self.freq) == 2)
 
-        freqfind3 = 1000.0
-        self.assertTrue(nearest_index(freqfind3, self.freq) == 0)
+class TestMakeLogIncreasing(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.z1_layer = 80
+        self.target_depth = 400e3
+        self.n_layers = 120
+        self.increment_factor = 0.999
 
-    def test_get_period_list(self):
+    def test_make_log_increasing_array(self):
 
-        array1 = np.array(
+        array1 = calculator.make_log_increasing_array(
+            self.z1_layer,
+            self.target_depth,
+            self.n_layers,
+            increment_factor=self.increment_factor,
+        )
+
+        self.assertTrue(
+            np.abs(array1.sum() / self.target_depth - 1.0)
+            < 1.0 - self.increment_factor
+        )
+
+
+class TestGetPeriod(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.array1 = np.array(
             [
                 1.77827941e-02,
                 3.16227766e-02,
@@ -80,7 +147,7 @@ class TestCalculator(TestCase):
                 5.62341325e02,
             ]
         )
-        array2 = np.array(
+        self.array2 = np.array(
             [
                 3.16227766e-02,
                 5.62341325e-02,
@@ -102,14 +169,7 @@ class TestCalculator(TestCase):
             ]
         )
 
-        array1test = get_period_list(0.02, 400, 4, include_outside_range=True)
-        array2test = get_period_list(0.02, 400, 4, include_outside_range=False)
-
-        self.assertTrue(all(np.abs(array1test - array1) / array1 < 1e-8))
-        self.assertTrue(all(np.abs(array2test - array2) / array2 < 1e-8))
-
-        # test with ends of input range on an exact decade
-        array1 = np.array(
+        self.array3 = np.array(
             [
                 0.1,
                 0.21544347,
@@ -124,59 +184,36 @@ class TestCalculator(TestCase):
             ]
         )
 
-        array1test = get_period_list(0.1, 100, 3, include_outside_range=True)
-        array2test = get_period_list(0.1, 100, 3, include_outside_range=False)
+    def test_get_period_list_include(self):
 
-        self.assertTrue(all(np.abs(array1test - array1) / array1 < 1e-8))
-        self.assertTrue(all(np.abs(array2test - array1) / array1 < 1e-8))
-
-    def test_make_log_increasing_array(self):
-
-        array1 = make_log_increasing_array(
-            self.z1_layer,
-            self.target_depth,
-            self.n_layers,
-            increment_factor=self.increment_factor,
+        test_array = calculator.get_period_list(
+            0.02, 400, 4, include_outside_range=True
         )
 
-        self.assertTrue(
-            np.abs(array1.sum() / self.target_depth - 1.0) < 1.0 - self.increment_factor
-        )
+        self.assertTrue(np.isclose(test_array, self.array1).all())
 
-    def test_z_error2r_phi_error(self):
-        # relative error in resistivity is 2 * relative error in z
-        res_rel_err_test = 2.0 * self.z_err / np.abs(self.z)
+    def test_get_period_list_not_include(self):
+        test_array = calculator.get_period_list(
+            0.02, 400, 4, include_outside_range=False
+        )
+        self.assertTrue(np.isclose(test_array, self.array2).all())
 
-        phase_err_test = np.rad2deg(np.arctan(self.z_err / np.abs(self.z)))
-        phase_err_test[res_rel_err_test > 1.0] = 90.0
+    def test_get_period_list_exact_include(self):
+        # test with ends of input range on an exact decade
+        test_array = calculator.get_period_list(
+            0.1, 100, 3, include_outside_range=True
+        )
+        self.assertTrue(np.isclose(test_array, self.array3).all())
 
-        # test providing an array
-        res_rel_err, phase_err = z_error2r_phi_error(
-            self.z.real, self.z.imag, self.z_err
+    def test_get_period_list_exact_not_include(self):
+        test_array = calculator.get_period_list(
+            0.1, 100, 3, include_outside_range=False
         )
+        self.assertTrue(np.isclose(test_array, self.array3).all())
 
-        self.assertTrue(
-            np.all(np.abs(res_rel_err - res_rel_err_test) / res_rel_err_test < 1e-8)
-        )
-        self.assertTrue(
-            np.all(np.abs(phase_err - phase_err_test) / phase_err_test < 1e-8)
-        )
 
-        # test providing a single value
-        res_rel_err, phase_err = z_error2r_phi_error(
-            self.z.real[0, 0, 1], self.z.imag[0, 0, 1], self.z_err[0, 0, 1]
-        )
-
-        self.assertTrue(
-            np.all(
-                np.abs(res_rel_err - res_rel_err_test[0, 0, 1])
-                / res_rel_err_test[0, 0, 1]
-                < 1e-8
-            )
-        )
-        self.assertTrue(
-            np.all(
-                np.abs(phase_err - phase_err_test[0, 0, 1]) / phase_err_test[0, 0, 1]
-                < 1e-8
-            )
-        )
+# =============================================================================
+# run
+# =============================================================================
+if __name__ == "__main__":
+    unittest.main()

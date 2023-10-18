@@ -431,11 +431,14 @@ def z_error2r_phi_error(z_real, z_imag, error):
         error = absolute error in z (real number or array)
 
     """
+    z_real = np.array(z_real)
+    z_imag = np.array(z_imag)
+    error = np.array(error)
 
     z_amp = np.abs(z_real + 1j * z_imag)
 
-    if z_amp == 0:
-        z_rel_err = 0.0
+    if (z_amp == 0).all():
+        z_rel_err = np.array([0.0])
     else:
         z_rel_err = error / z_amp
 
@@ -444,80 +447,10 @@ def z_error2r_phi_error(z_real, z_imag, error):
     # if the relative error of the amplitude is >=100% that means that the relative
     # error of the resistivity is 200% - that is then equivalent to an uncertainty
     # in the phase angle of 90 degrees:
-    if np.iterable(z_real):
-        phi_err = np.degrees(np.arctan(z_rel_err))
-        phi_err[res_rel_err > 1.0] = 90.0
-
-    else:
-        if res_rel_err > 1.0:
-            phi_err = 90
-        else:
-            phi_err = np.degrees(np.arctan(z_rel_err))
+    phi_err = np.degrees(np.arctan(z_rel_err))
+    phi_err[res_rel_err > 1.0] = 90.0
 
     return res_rel_err, phi_err
-
-
-def old_z_error2r_phi_error(x, x_error, y, y_error):
-    """
-    Error estimation from rect to polar, but with small variation needed for
-    MT: the so called 'relative phase error' is NOT the relative phase error,
-    but the ABSOLUTE uncertainty in the angle that corresponds to the relative
-    error in the amplitude.
-
-    So, here we calculate the transformation from rect to polar coordinates,
-    esp. the absolute/length of the value. Then we find the uncertainty in
-    this length and calculate the relative error of this. The relative error of
-    the resistivity will be double this value, because it's calculated by taking
-    the square of this length.
-
-    The relative uncertainty in length defines a circle around (x,y)
-    (APPROXIMATION!). The uncertainty in phi is now the absolute of the
-    angle beween the vector to (x,y) and the origin-vector tangential to the
-    circle.
-    BUT....since the phase angle uncertainty is interpreted with regard to
-    the resistivity and not the Z-amplitude, we have to look at the square of
-    the length, i.e. the relative error in question has to be halfed to get
-    the correct relationship between resistivity and phase errors!!.
-
-    """
-
-    # x_error, y_error define a  rectangular uncertainty box
-
-    # rho error is the difference between the closest and furthest point of the box (w.r.t. the origin)
-    # approximation: just take corners and midpoint of edges
-    lo_points = [
-        (x + x_error, y),
-        (x - x_error, y),
-        (x, y - y_error),
-        (x, y + y_error),
-        (x - x_error, y - y_error),
-        (x + x_error, y - y_error),
-        (x + x_error, y + y_error),
-        (x - x_error, y + y_error),
-    ]
-
-    lo_polar_points = [cmath.polar(np.complex(*i)) for i in lo_points]
-
-    lo_rho = [i[0] for i in lo_polar_points]
-
-    # uncertainty in amplitude is defined by half the diameter of the box around x,y
-    rho_err = 0.5 * (max(lo_rho) - min(lo_rho))
-
-    rho = cmath.polar(np.complex(x, y))[0]
-    try:
-        rel_error_rho = rho_err / rho
-    except:
-        rel_error_rho = 0.0
-
-    # if the relative error of the amplitude is >=100% that means that the relative
-    # error of the resistivity is 200% - that is then equivalent to an uncertainty
-    # in the phase angle of 90 degrees:
-    if rel_error_rho > 1.0:
-        phi_err = 90
-    else:
-        phi_err = np.degrees(np.arcsin(rel_error_rho))
-
-    return rho_err, phi_err
 
 
 # rotation:

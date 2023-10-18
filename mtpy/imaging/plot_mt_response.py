@@ -154,6 +154,10 @@ class PlotMTResponse(PlotBase):
             self.Tipper.rotate(theta_r)
             self.pt.rotate(theta_r)
 
+            self._rotation_angle += theta_r
+        else:
+            self._rotation_angle = theta_r
+
     def _has_tipper(self):
         if self.plot_tipper.find("y") >= 0:
             if self.Tipper is None or (self.Tipper.tipper == 0 + 0j).all():
@@ -286,7 +290,7 @@ class PlotMTResponse(PlotBase):
 
         if mode == "od":
             axr.set_ylabel(
-                "App. Res. ($\mathbf{\Omega \cdot m}$)",
+                r"App. Res. ($\mathbf{\Omega \cdot m}$)",
                 fontdict=self.font_dict,
             )
         axr.legend(
@@ -372,7 +376,7 @@ class PlotMTResponse(PlotBase):
 
         self.axr.legend(
             (self.ebxyr[0], self.ebyxr[0], self.ebdetr[0]),
-            ("$Z_{xy}$", "$Z_{yx}$", "$\det(\mathbf{\hat{Z}})$"),
+            ("$Z_{xy}$", "$Z_{yx}$", r"$\det(\mathbf{\hat{Z}})$"),
             loc=3,
             markerscale=1,
             borderaxespad=0.01,
@@ -462,6 +466,12 @@ class PlotMTResponse(PlotBase):
                 fontdict={"size": self.font_size},
             )
 
+    def _initiate_figure(self):
+        """make figure instance"""
+        self._set_subplot_params()
+        self.fig = plt.figure(self.fig_num, self.fig_size, dpi=self.fig_dpi)
+        self.fig.clf()
+
     def plot(self):
         """
         plotResPhase(filename,fig_num) will plot the apparent resistivity and
@@ -477,10 +487,8 @@ class PlotMTResponse(PlotBase):
             self.x_limits = self.set_period_limits(self.period)
         if self.res_limits is None:
             self.res_limits = self.set_resistivity_limits(self.Z.resistivity)
-        # make figure instance
-        self._set_subplot_params()
-        self.fig = plt.figure(self.fig_num, self.fig_size, dpi=self.fig_dpi)
-        self.fig.clf()
+
+        self._initiate_figure()
 
         self._setup_subplots()
 

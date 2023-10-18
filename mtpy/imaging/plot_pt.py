@@ -255,7 +255,7 @@ class PlotPhaseTensor(PlotBase):
 
         self.ax_phase.legend(
             (ermin[0], ermax[0]),
-            ("$\phi_{min}$", "$\phi_{max}$"),
+            (r"$\phi_{min}$", r"$\phi_{max}$"),
             loc="lower left",
             markerscale=0.5 * self.marker_size,
             borderaxespad=0.01,

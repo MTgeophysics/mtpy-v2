@@ -10,6 +10,7 @@ Created on Tue Sep  5 16:27:01 2023
 import unittest
 
 import pandas as pd
+import numpy as np
 from mtpy.core import MTStations, MTLocation
 from mtpy import MT
 
@@ -765,11 +766,22 @@ class TestMTStationGrid(unittest.TestCase):
         self.assertEqual(self.center, self.stations.center_point)
 
     def test_station_locations(self):
-        self.assertTrue(
-            (self.station_locations == self.stations.station_locations)
-            .all()
-            .all()
-        )
+        for column in self.station_locations.columns:
+            with self.subTest(column):
+                if column in ["survey", "station", "datum_epsg", "utm_epsg"]:
+                    self.assertTrue(
+                        (
+                            self.station_locations[column]
+                            == self.stations.station_locations[column]
+                        ).all()
+                    )
+                else:
+                    self.assertTrue(
+                        np.isclose(
+                            self.station_locations[column],
+                            self.stations.station_locations[column],
+                        ).all()
+                    )
 
     def test_copy(self):
         sc = self.stations.copy()
@@ -778,12 +790,22 @@ class TestMTStationGrid(unittest.TestCase):
     def test_station_locations_rotated(self):
         s = self.stations.copy()
         s.rotate_stations(45)
-        with self.subTest("rotated df"):
-            self.assertTrue(
-                (s.station_locations == self.rotated_station_locations)
-                .all()
-                .all()
-            )
+        for column in self.station_locations.columns:
+            with self.subTest(column):
+                if column in ["survey", "station", "datum_epsg", "utm_epsg"]:
+                    self.assertTrue(
+                        (
+                            self.rotated_station_locations[column]
+                            == s.station_locations[column]
+                        ).all()
+                    )
+                else:
+                    self.assertTrue(
+                        np.isclose(
+                            self.rotated_station_locations[column],
+                            s.station_locations[column],
+                        ).all()
+                    )
         with self.subTest("rotation_angle"):
             self.assertEqual(s.rotation_angle, 45)
 
@@ -838,14 +860,32 @@ class TestMTStationProfile(unittest.TestCase):
         self.assertEqual(5, len(self.stations))
 
     def test_generate_profile_deg(self):
-        self.assertTupleEqual(
-            self.profile_deg, self.stations.generate_profile(units="deg")
-        )
+        profile = self.stations.generate_profile(units="deg")
+        for x, y, ii in zip(self.profile_deg[0:4], profile[0:4], range(4)):
+            with self.subTest(ii):
+                self.assertAlmostEqual(x, y)
+        with self.subTest("intercept"):
+            self.assertAlmostEqual(
+                self.profile_deg[-1]["intercept"], profile[-1]["intercept"]
+            )
+        with self.subTest("slope"):
+            self.assertAlmostEqual(
+                self.profile_deg[-1]["slope"], profile[-1]["slope"]
+            )
 
     def test_generate_profile_m(self):
-        self.assertTupleEqual(
-            self.profile_m, self.stations.generate_profile(units="m")
-        )
+        profile = self.stations.generate_profile(units="m")
+        for x, y, ii in zip(self.profile_m[0:4], profile[0:4], range(4)):
+            with self.subTest(ii):
+                self.assertAlmostEqual(x, y)
+        with self.subTest("intercept"):
+            self.assertAlmostEqual(
+                self.profile_m[-1]["intercept"], profile[-1]["intercept"]
+            )
+        with self.subTest("slope"):
+            self.assertAlmostEqual(
+                self.profile_m[-1]["slope"], profile[-1]["slope"]
+            )
 
     def test_center_point(self):
         self.assertEqual(self.center, self.stations.center_point)

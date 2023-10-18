@@ -16,6 +16,7 @@ ModEM
 # =============================================================================
 from pathlib import Path
 import numpy as np
+import xarray as xr
 from scipy import stats as stats
 from loguru import logger
 
@@ -1157,6 +1158,9 @@ class StructuredGrid3D:
         parameter_dict["model.size"] = self.res_model.shape
 
         return parameter_dict
+
+    def to_xarray(self, **kwargs):
+        pass
 
     def write_gocad_sgrid_file(
         self, fn=None, origin=[0, 0, 0], clip=0, no_data_value=-99999

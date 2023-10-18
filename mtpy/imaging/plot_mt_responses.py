@@ -202,7 +202,7 @@ class PlotMultipleResponses(PlotBase):
             )
         if index == 0:
             axr.set_ylabel(
-                "App. Res. ($\mathbf{\Omega \cdot m}$)",
+                r"App. Res. ($\mathbf{\Omega \cdot m}$)",
                 fontdict=self.font_dict,
             )
         else:

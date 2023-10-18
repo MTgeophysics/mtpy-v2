@@ -136,13 +136,18 @@ def plot_resistivity(ax, period, resistivity, error, **properties):
     :rtype: TYPE
 
     """
+    if resistivity is None:
+        return [None]
     nz = np.nonzero(resistivity)
+
+    if error is not None:
+        error = error[nz]
 
     return plot_errorbar(
         ax,
         period[nz],
         resistivity[nz],
-        y_error=error[nz],
+        y_error=error,
         **properties,
     )
 
@@ -163,21 +168,25 @@ def plot_phase(ax, period, phase, error, yx=False, **properties):
     :rtype: TYPE
 
     """
+    if phase is None:
+        return [None]
     # need this for the yx component
     nz = np.nonzero(phase)
+    if error is not None:
+        error = error[nz]
     if yx:
         return plot_errorbar(
             ax,
             period[nz],
             phase[nz] + 180,
-            y_error=error[nz],
+            y_error=error,
             **properties,
         )
     return plot_errorbar(
         ax,
         period[nz],
         phase[nz],
-        y_error=error[nz],
+        y_error=error,
         **properties,
     )
 
