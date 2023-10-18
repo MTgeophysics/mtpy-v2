@@ -103,7 +103,16 @@ class TestGisTools(unittest.TestCase):
         )
 
     def test_convert_position_float2str_fail(self):
-        self.assertRaises(TypeError, gis_tools.convert_position_str2float, {})
+        self.assertRaises(TypeError, gis_tools.convert_position_float2str, {})
+
+    def test_validate_input_values(self):
+        in_array = np.array([1, 20, 45, 67.2342])
+        self.assertTrue(
+            (
+                in_array
+                == gis_tools.validate_input_values(in_array.tolist(), "lat")
+            ).all()
+        )
 
 
 # =============================================================================
