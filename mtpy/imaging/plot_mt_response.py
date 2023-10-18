@@ -290,7 +290,7 @@ class PlotMTResponse(PlotBase):
 
         if mode == "od":
             axr.set_ylabel(
-                "App. Res. ($\mathbf{\Omega \cdot m}$)",
+                r"App. Res. ($\mathbf{\Omega \cdot m}$)",
                 fontdict=self.font_dict,
             )
         axr.legend(
@@ -376,7 +376,7 @@ class PlotMTResponse(PlotBase):
 
         self.axr.legend(
             (self.ebxyr[0], self.ebyxr[0], self.ebdetr[0]),
-            ("$Z_{xy}$", "$Z_{yx}$", "$\det(\mathbf{\hat{Z}})$"),
+            ("$Z_{xy}$", "$Z_{yx}$", r"$\det(\mathbf{\hat{Z}})$"),
             loc=3,
             markerscale=1,
             borderaxespad=0.01,

@@ -21,104 +21,98 @@ from mtpy.core import Tipper
 
 class PlotStrike(PlotBase):
     """
-    PlotStrike will plot the strike estimated from the invariants, phase tensor
-    and the tipper in either a rose diagram of xy plot
+        PlotStrike will plot the strike estimated from the invariants, phase tensor
+        and the tipper in either a rose diagram of xy plot
 
 
-    plots the strike angle as determined by phase tensor azimuth (Caldwell et
-    al. [2004]) and invariants of the impedance tensor (Weaver et al. [2003]).
+        plots the strike angle as determined by phase tensor azimuth (Caldwell et
+        al. [2004]) and invariants of the impedance tensor (Weaver et al. [2003]).
 
-    The data is split into decades where the histogram for each is plotted in
-    the form of a rose diagram with a range of 0 to 180 degrees.
-    Where 0 is North and 90 is East.   The median angle of the period band is
-    set in polar diagram.  The top row is the strike estimated from
-    the invariants of the impedance tensor.  The bottom row is the azimuth
-    estimated from the phase tensor.  If tipper is 'y' then the 3rd row is the
-    strike determined from the tipper, which is orthogonal to the induction
-    arrow direction.
+        The data is split into decades where the histogram for each is plotted in
+        the form of a rose diagram with a range of 0 to 180 degrees.
+        Where 0 is North and 90 is East.   The median angle of the period band is
+        set in polar diagram.  The top row is the strike estimated from
+        the invariants of the impedance tensor.  The bottom row is the azimuth
+        estimated from the phase tensor.  If tipper is 'y' then the 3rd row is the
+        strike determined from the tipper, which is orthogonal to the induction
+        arrow direction.
 
-    Arguments
-    ----------
-
-
-        :param fs: font size for labels of plotting. *Default* is 10
-
-        :param rot_z: angle of rotation clockwise positive. *Default* is 0
-
-        :param period_tolerance: float
-                   Tolerance level to match periods from different edi files.
-                   *Default* is 0.05
-
-        :param text_pad: padding of the angle label at the bottom of each
-                         polar diagram.  *Default* is 1.65
-
-        :param text_size: font size
+        Arguments
+        ----------
 
 
-        :param plot_range: [ 'data' | (period_min,period_max) ]
-                    period range to estimate the strike angle. Options are:
-                        * *'data'* for estimating the strike for all periods
-                            in the data.
-                        * (pmin,pmax) for period min and period max, input as
-                          (log10(pmin),log10(pmax))
+            :param fs: font size for labels of plotting. *Default* is 10
 
-        :param plot_type: [ 1 | 2 ]
-                        - *1* to plot individual decades in one plot
-                        - *2* to plot all period ranges into one polar diagram
-                              for each strike angle estimation
+            :param rot_z: angle of rotation clockwise positive. *Default* is 0
 
-        :param plot_tipper: [ True | False ]
-                          - True to plot the tipper strike
-                          - False to not plot tipper strike
+            :param period_tolerance: float
+                       Tolerance level to match periods from different edi files.
+                       *Default* is 0.05
 
-        :param pt_error_floor: Maximum error in degrees that is allowed to
-                               estimate strike. *Default* is None allowing all
-                               estimates to be used.
+            :param text_pad: padding of the angle label at the bottom of each
+                             polar diagram.  *Default* is 1.65
 
-        :param fold: [ True | False ]
-                    * True to plot only from 0 to 180
-                    * False to plot from 0 to 360
+            :param text_size: font size
 
-        :param plot_orthogonal: [ True | False]
-                                * True to plot the orthogonal strike directions
-                                * False to not
 
-        :param color: [ True | False ]
-                      * True to plot shade colors
-                      * False to plot all in one color
+            :param plot_range: [ 'data' | (period_min,period_max) ]
+                        period range to estimate the strike angle. Options are:
+                            * *'data'* for estimating the strike for all periods
+                                in the data.
+                            * (pmin,pmax) for period min and period max, input as
+                              (log10(pmin),log10(pmax))
 
-        :param color_inv: color of invariants plots
+            :param plot_type: [ 1 | 2 ]
+                            - *1* to plot individual decades in one plot
+                            - *2* to plot all period ranges into one polar diagram
+                                  for each strike angle estimation
 
-        :param color_pt: color of phase tensor plots
+            :param plot_tipper: [ True | False ]
+                              - True to plot the tipper strike
+                              - False to not plot tipper strike
 
-        :param color_tip: color of tipper plots
+            :param pt_error_floor: Maximum error in degrees that is allowed to
+                                   estimate strike. *Default* is None allowing all
+                                   estimates to be used.
 
-        :param ring_spacing: spacing of rings in polar plots
+            :param fold: [ True | False ]
+                        * True to plot only from 0 to 180
+                        * False to plot from 0 to 360
 
-        :param ring_limits: (min count, max count) set each plot have these
-                            limits
+            :param plot_orthogonal: [ True | False]
+                                    * True to plot the orthogonal strike directions
+                                    * False to not
 
-        :param plot_orientation: [ 'h' | 'v' ] horizontal or vertical plots
+            :param color: [ True | False ]
+                          * True to plot shade colors
+                          * False to plot all in one color
 
-    :Example: ::
+            :param color_inv: color of invariants plots
 
-        >>> import glob
-        >>> import mtpy.imaging.mtplot as mtplot
-        >>> edi_dir = r"/home/EDIFiles"
-        >>> edi_list = glob.glob("{0}\*.edi".format(edi_dir)
-        >>> #---plot rose plots in decades
-        >>> strike = mtplot.plot_strike(fn_list=edilist, plot_type=1)
-        >>> #---Turn on Tipper
-        >>> strike.plot_tipper = True
-        >>> #---Plot only main directions
-        >>> strike.plot_orthogonal = False
-        >>> # Redraw plot
-        >>> strike.redraw_plot()
-        >>> # plot only from 0-180
-        >>> strike.fold = True
-        >>> strike.redraw_plot()
-        >>> #---save the plot---
-        >>> strike.save_plot(r"/home/Figures")
+            :param color_pt: color of phase tensor plots
+
+            :param color_tip: color of tipper plots
+
+            :param ring_spacing: spacing of rings in polar plots
+
+            :param ring_limits: (min count, max count) set each plot have these
+                                limits
+
+            :param plot_orientation: [ 'h' | 'v' ] horizontal or vertical plots
+
+        :Example: ::
+    )
+            >>> #---Turn on Tipper
+            >>> strike.plot_tipper = True
+            >>> #---Plot only main directions
+            >>> strike.plot_orthogonal = False
+            >>> # Redraw plot
+            >>> strike.redraw_plot()
+            >>> # plot only from 0-180
+            >>> strike.fold = True
+            >>> strike.redraw_plot()
+            >>> #---save the plot---
+            >>> strike.save_plot(r"/home/Figures")
 
     """
 
