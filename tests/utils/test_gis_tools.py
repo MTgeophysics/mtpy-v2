@@ -29,18 +29,11 @@ class TestGisTools(unittest.TestCase):
         self.lon_d = 149.2010301
 
         self.elev_d = 1254.1
-        self.elev_fail = "1200m"
 
-        self.zone = "55H"
-        self.zone_number = 55
-        self.is_northern = False
-        self.utm_letter = "H"
-        self.zone_epsg = 32755
-        self.easting = 702562.690286
-        self.northing = 6202448.52785
-        self.atol = 0.3  # tolerance of error
-        self.from_epsg = 4326
-        self.to_epsg = 28355
+        self.easting = 702562.1378419038
+        self.northing = 6202447.112735093
+        self.datum_epsg = 4326
+        self.utm_epsg = 28355
 
     def test_assert_minutes(self):
         self.assertEqual(10, gis_tools.assert_minutes(10))
@@ -67,11 +60,17 @@ class TestGisTools(unittest.TestCase):
             ValueError, gis_tools.convert_position_str2float, self.lat_fail
         )
 
+    def test_convert_position_str2float_None(self):
+        self.assertEqual(0, gis_tools.convert_position_str2float(None))
+
     def test_assert_lat_value_none(self):
         self.assertEqual(0, gis_tools.assert_lat_value(None))
 
     def test_assert_lat_value_pass(self):
         self.assertEqual(10.0, gis_tools.assert_lat_value(10))
+
+    def test_assert_lat_value_str(self):
+        self.assertEqual(10.0, gis_tools.assert_lat_value("10"))
 
     def test_assert_lat_value_type_error(self):
         self.assertRaises(TypeError, gis_tools.assert_lat_value, {})
@@ -84,6 +83,9 @@ class TestGisTools(unittest.TestCase):
 
     def test_assert_lon_value_pass(self):
         self.assertEqual(10.0, gis_tools.assert_lon_value(10))
+
+    def test_assert_lon_value_str(self):
+        self.assertEqual(10.0, gis_tools.assert_lon_value("10"))
 
     def test_assert_lon_value_type_error(self):
         self.assertRaises(TypeError, gis_tools.assert_lon_value, {})
@@ -164,6 +166,115 @@ class TestGisTools(unittest.TestCase):
             in_array,
             "lat",
         )
+
+    def test_project_point_fail_old_epsg(self):
+        self.assertRaises(
+            ValueError, gis_tools.project_point, 1, 2, None, None
+        )
+
+    def test_project_point_fail_new_epsg(self):
+        self.assertRaises(
+            ValueError, gis_tools.project_point, 1, 2, 4326, None
+        )
+
+    def test_project_point_fail_x_zeros(self):
+        self.assertRaises(
+            ValueError, gis_tools.project_point, 0, 10, 4326, 32611
+        )
+
+    def test_project_point_fail_y_zeros(self):
+        self.assertRaises(
+            ValueError, gis_tools.project_point, 10, 0, 4326, 32611
+        )
+
+    def test_project_point(self):
+        point = gis_tools.project_point(
+            self.lon_d, self.lat_d, self.datum_epsg, self.utm_epsg
+        )
+
+        with self.subTest("easting"):
+            self.assertAlmostEqual(point[0], self.easting)
+        with self.subTest("northing"):
+            self.assertAlmostEqual(point[1], self.northing)
+
+    def test_project_point_ll2utm_point(self):
+        points = gis_tools.project_point_ll2utm(
+            self.lat_d,
+            self.lon_d,
+            datum="WGS84",
+            epsg=self.utm_epsg,
+        )
+
+        with self.subTest("type"):
+            self.assertIsInstance(points, tuple)
+
+        with self.subTest("easting"):
+            self.assertAlmostEqual(self.easting, points[0])
+        with self.subTest("northing"):
+            self.assertAlmostEqual(self.northing, points[1])
+        with self.subTest("zone"):
+            self.assertEqual("None", points[2])
+
+    def test_project_point_ll2utm_arrays(self):
+        points = gis_tools.project_point_ll2utm(
+            np.repeat(self.lat_d, 5),
+            np.repeat(self.lon_d, 5),
+            datum="WGS84",
+            epsg=self.utm_epsg,
+        )
+
+        with self.subTest("type"):
+            self.assertIsInstance(points, np.recarray)
+
+        with self.subTest("easting"):
+            self.assertTrue(
+                np.isclose(np.repeat(self.easting, 5), points.easting).all()
+            )
+
+        with self.subTest("northing"):
+            self.assertTrue(
+                np.isclose(np.repeat(self.northing, 5), points.northing).all()
+            )
+        with self.subTest("elevation"):
+            self.assertTrue(np.isclose(np.repeat(0, 5), points.elev).all())
+        with self.subTest("zone"):
+            self.assertTrue((np.repeat("None", 5) == points.utm_zone).all())
+
+    def test_project_point_utm2ll_point(self):
+        points = gis_tools.project_point_utm2ll(
+            self.easting,
+            self.northing,
+            self.utm_epsg,
+            datum_epsg=self.datum_epsg,
+        )
+
+        with self.subTest("type"):
+            self.assertIsInstance(points, tuple)
+
+        with self.subTest("lat"):
+            self.assertAlmostEqual(self.lat_d, points[0], 5)
+        with self.subTest("northing"):
+            self.assertAlmostEqual(self.lon_d, points[1], 5)
+
+    def test_project_point_utm2ll_arrays(self):
+        points = gis_tools.project_point_utm2ll(
+            np.repeat(self.easting, 5),
+            np.repeat(self.northing, 5),
+            self.utm_epsg,
+            datum_epsg=self.datum_epsg,
+        )
+
+        with self.subTest("type"):
+            self.assertIsInstance(points, np.recarray)
+
+        with self.subTest("lat"):
+            self.assertTrue(
+                np.isclose(np.repeat(self.lat_d, 5), points.latitude).all()
+            )
+        with self.subTest("lon"):
+            self.assertTrue(
+                np.isclose(np.repeat(self.lon_d, 5), points.longitude).all()
+            )
 
 
 # =============================================================================
