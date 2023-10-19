@@ -1,4 +1,4 @@
-# MTpy-v2: A Python Toolbox for Magnetotelluric (MT) Data Processing, Analysis, Modelling and Visualization
+# MTpy-v2: A Python Toolbox for working with Magnetotelluric (MT) Data
 
 [![codecov](https://codecov.io/gh/MTgeophysics/mtpy-v2/graph/badge.svg?token=TQPFBFMYDQ)](https://codecov.io/gh/MTgeophysics/mtpy-v2)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -6,13 +6,13 @@
 
 # Description
 
-A Python toolbox for working with magnetotelluric (MT) data, including:
+A Python toolbox for working with magnetotelluric (MT) data, usually in the form of transfer functions, including
 
-    - Analysis (plotting, strike analysis, phase tensors, etc.)
+    - Transfer function analysis (plotting, strike analysis, phase tensors, etc.)
     - Write files for time series processing (BIRRP, Aurora, etc.)
     - Read/Write files for modeling programs (ModEM, Occam, Mare2DEM, etc)
+    - Utility functions for GIS
 
-The main input into `mtpy` are transfer functions which can be in many formats.
 
 **Note**: that this repository has superseded the [geophysics/mtpy](https://github.com/geophysics/mtpy/tree/beta)
 and [GeoscienceAustralia/mtpy2](https://github.com/GeoscienceAustralia/mtpy2/tree/develop) and is an upgrade to [MTgeophysics/mtpy](https://github.com/MTgeophysics/mtpy).
@@ -52,8 +52,8 @@ with MTCollection() as mc:
         mc.make_file_list(
             transfer_function_path,
             file_types=["edi", "xml", "j", "zmm", "zss", "avg"],
-            )
         )
+    )
  
 ```
 
