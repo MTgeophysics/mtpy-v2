@@ -1,0 +1,19 @@
+name: mtpy-docs
+channels:
+  # Don't change to pkgs/main, as it causes random timeouts in readthedocs
+  - conda-forge
+dependencies:
+  - python=3.10
+  - ipykernel
+  - ipython
+  - jupyter_client
+  - nbsphinx
+  - setuptools
+  - sphinx>=2.3
+  - sphinx_rtd_theme>=0.4
+  - PyYAML
+  - pip
+  - pip:
+    - loguru
+    - mt-metadata
+    - mth5
