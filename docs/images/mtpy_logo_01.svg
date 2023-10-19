@@ -9,6 +9,9 @@
    id="svg5"
    inkscape:version="1.2.1 (9c6d41e410, 2022-07-14)"
    sodipodi:docname="mtpy_logo_01.svg"
+   inkscape:export-filename="mtpy_logo_01.png"
+   inkscape:export-xdpi="300"
+   inkscape:export-ydpi="300"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -112,14 +115,14 @@
        sodipodi:nodetypes="csssc" />
     <text
        xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:50.8px;font-family:'Segoe UI Historic';-inkscape-font-specification:'Segoe UI Historic';white-space:pre;inline-size:122.482;opacity:1;fill:url(#meshgradient1011);fill-opacity:1;stroke:#000001;stroke-width:0.95709609;stroke-opacity:1;stroke-dasharray:none"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:50.8px;font-family:'Segoe UI Historic';-inkscape-font-specification:'Segoe UI Historic';white-space:pre;inline-size:122.482;display:inline;opacity:1;fill:url(#meshgradient1011);fill-opacity:1;stroke:#000001;stroke-width:0.957096;stroke-dasharray:none;stroke-opacity:1"
        x="33.546249"
        y="105.84421"
        id="text236"
        transform="matrix(1.2550397,0,0,0.99958797,-8.1845902,0.03929282)"><tspan
          x="33.546249"
          y="105.84421"
-         id="tspan3247">mtpy</tspan></text>
+         id="tspan3633">mtpy</tspan></text>
   </g>
   <script
      id="mesh_polyfill"
