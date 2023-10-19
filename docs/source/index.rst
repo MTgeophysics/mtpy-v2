@@ -15,7 +15,7 @@ Because the workflow has changed from mtpy v1, there are example notebooks to de
 Examples
 -------------
 
-.. |Binder| image:: https://mybinder.org/badge_logo.svg
+.. image:: https://mybinder.org/badge_logo.svg
  :target: https://mybinder.org/v2/gh/MTgeophysics/mtpy-v2/main
  
  
