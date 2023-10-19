@@ -1,10 +1,11 @@
 Welcome to MTpy-v2 documentation!
 ======================================
 
-.. |License| image:: https://img.shields.io/github/license/Naereen/StrapDown.js.svg
-   :target: https://github.com/Naereen/StrapDown.js/blob/master/LICENSE
-.. |Codecov|image:: https://codecov.io/gh/MTgeophysics/mtpy-v2/graph/badge.svg?token=TQPFBFMYDQ 
- :target: https://codecov.io/gh/MTgeophysics/mtpy-v2
+.. |MIT license| image:: https://img.shields.io/badge/License-MIT-blue.svg
+   :target: https://lbesson.mit-license.org
+   
+.. |Codecov| image:: https://codecov.io/gh/MTgeophysics/mtpy-v2/graph/badge.svg?token=TQPFBFMYDQ 
+   :target: https://codecov.io/gh/MTgeophysics/mtpy-v2
 
 
 `mtpy` provides tools for working with magnetotelluric (MT) data.  MTpy-v2 is an update version of [mtpy](https://github.com/MTgeophysics/mtpy). Many things have changed under the hood and usage is different from mtpy v1. The main difference is that there is a central data type that can hold transfer functions and then read/write to your modeling program, plot, and analyze your data.  No longer will you need a directory of EDI files and then read them in everytime you want to do something.  You only need to build a project once and save it to an MTH5 file and you are ready to go. All metadata uses [mt-metadata](https://github.com/kujaku11/mt-metadata).  
