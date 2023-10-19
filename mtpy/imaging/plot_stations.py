@@ -50,7 +50,7 @@ class PlotStations(PlotBase):
 
         self.image_file = None
         self.image_extent = None
-        self.pad = 0.005
+        self.pad = 0.0005
 
         super().__init__(**kwargs)
 
