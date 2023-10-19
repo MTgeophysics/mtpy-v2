@@ -8,13 +8,13 @@ build:
   os: "ubuntu-22.04"
   tools:
     python: "mambaforge-22.9"
+  commands:
+    - pip install .
+    - mkdir _readthedocs/html
 
 conda:
     environment: docs/environment.yml
 
-python:
-  install:
-    - method: pip 
 sphinx:
   configuration: docs/source/conf.py
 
