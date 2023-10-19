@@ -2,21 +2,47 @@
 
 [![codecov](https://codecov.io/gh/MTgeophysics/mtpy-v2/graph/badge.svg?token=TQPFBFMYDQ)](https://codecov.io/gh/MTgeophysics/mtpy-v2)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
+[![Documentation Status](https://readthedocs.org/projects/mtpy-v2/badge/?version=latest)](https://mtpy-v2.readthedocs.io/en/latest/?badge=latest)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/MTgeophysics/mtpy-v2/main)
 
 # Description
+ 
+`mtpy` provides tools for working with magnetotelluric (MT) data.  MTpy-v2 is an update version of [mtpy](https://github.com/MTgeophysics/mtpy). Many things have changed under the hood and usage is different from mtpy v1. The main difference is that there is a central data type that can hold transfer functions and then read/write to your modeling program, plot, and analyze your data.  No longer will you need a directory of EDI files and then read them in everytime you want to do something.  You only need to build a project once and save it to an MTH5 file and you are ready to go. All metadata uses [mt-metadata](https://github.com/kujaku11/mt-metadata).  
 
-A Python toolbox for working with magnetotelluric (MT) data, usually in the form of transfer functions, including
+## Functionality
 
-- Transfer function analysis (plotting, strike analysis, phase tensors, etc.)
-- Write files for time series processing (BIRRP, Aurora, etc.)
-- Read/Write files for modeling programs (ModEM, Occam, Mare2DEM, etc)
+- Read/write transfer function files (EDI, EMTFXML, J-file, Z-file, AVG-file)
+- Read/write [MTH5](https://github.com/kujaku11/mth5) files for full surveys/project in a single file
 - Utility functions for GIS
+ 
+### Plotting
 
+- Single transfer function 
+  - apparent resistivity and phase
+  - induction vectors
+  - phase tensors
+  - strike
+  - depth of investigation
+- Survey of transfer functions
+  - station map
+  - phase tensor and induction vector map and pseudosection
+  - apparent resistivity and phase maps and pseudosections
+  - depth of investigation map	
 
-### **Note**: that this repository is an upgrade to [MTgeophysics/mtpy](https://github.com/MTgeophysics/mtpy).
+### Processing
+  - Read/write files for time series processing
+    - BIRRP
+    - [Aurora](https://github.com/simpeg/aurora)
 
-# What's been Updated
+### Modeling
+
+- Read/Write files for modeling programs
+  - ModEM
+  - Occam 1D and 2D
+  - Mare2DEM (?)
+  - Pek 1D and 2D
+
+# What's been Updated in version 2
 
 The main updates in `mtpy-v2` are:
 
