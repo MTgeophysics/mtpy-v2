@@ -1,10 +1,10 @@
 Welcome to MTpy-v2 documentation!
 ======================================
 
-.. |MIT license| image:: https://img.shields.io/badge/License-MIT-blue.svg
+.. image:: https://img.shields.io/badge/License-MIT-blue.svg
    :target: https://lbesson.mit-license.org
    
-.. |Codecov| image:: https://codecov.io/gh/MTgeophysics/mtpy-v2/graph/badge.svg?token=TQPFBFMYDQ 
+.. image:: https://codecov.io/gh/MTgeophysics/mtpy-v2/graph/badge.svg?token=TQPFBFMYDQ 
    :target: https://codecov.io/gh/MTgeophysics/mtpy-v2
 
 
