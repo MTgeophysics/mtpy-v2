@@ -8,10 +8,10 @@
 
 A Python toolbox for working with magnetotelluric (MT) data, usually in the form of transfer functions, including
 
-    - Transfer function analysis (plotting, strike analysis, phase tensors, etc.)
-    - Write files for time series processing (BIRRP, Aurora, etc.)
-    - Read/Write files for modeling programs (ModEM, Occam, Mare2DEM, etc)
-    - Utility functions for GIS
+- Transfer function analysis (plotting, strike analysis, phase tensors, etc.)
+- Write files for time series processing (BIRRP, Aurora, etc.)
+- Read/Write files for modeling programs (ModEM, Occam, Mare2DEM, etc)
+- Utility functions for GIS
 
 
 **Note**: that this repository has superseded the [geophysics/mtpy](https://github.com/geophysics/mtpy/tree/beta)
