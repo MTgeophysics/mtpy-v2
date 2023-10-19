@@ -9,13 +9,12 @@ build:
   tools:
     python: "mambaforge-22.9"
 
-python:
-  install:
-    - method: pip  
-
 conda:
     environment: docs/environment.yml
 
+python:
+  install:
+    - method: pip 
 sphinx:
   configuration: docs/source/conf.py
 
