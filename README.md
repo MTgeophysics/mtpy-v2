@@ -14,8 +14,7 @@ A Python toolbox for working with magnetotelluric (MT) data, usually in the form
 - Utility functions for GIS
 
 
-**Note**: that this repository has superseded the [geophysics/mtpy](https://github.com/geophysics/mtpy/tree/beta)
-and [GeoscienceAustralia/mtpy2](https://github.com/GeoscienceAustralia/mtpy2/tree/develop) and is an upgrade to [MTgeophysics/mtpy](https://github.com/MTgeophysics/mtpy).
+### **Note**: that this repository is an upgrade to [MTgeophysics/mtpy](https://github.com/MTgeophysics/mtpy).
 
 # What's been Updated
 
