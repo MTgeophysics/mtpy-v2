@@ -1,0 +1,10 @@
+ipykernel
+ipython
+jupyter_client
+nbsphinx
+sphinx>=2.3
+sphinx_rtd_theme>=0.4
+PyYAML
+loguru
+mt-metadata
+mth5
