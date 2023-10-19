@@ -606,7 +606,7 @@ class TFBase:
         :rtype: TYPE
 
         """
-        print(f"NAN Method: {na_method}")
+
         da_dict = {}
         for key in self._dataset.data_vars:
             # need to interpolate over nans first, if use dropna loose a lot
