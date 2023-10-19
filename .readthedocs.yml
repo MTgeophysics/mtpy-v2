@@ -10,6 +10,7 @@ build:
     python: "mambaforge-22.9"
   commands:
     - pip install .
+    - mkdir --parents _readthedocs/html/
 
 conda:
     environment: docs/environment.yml
