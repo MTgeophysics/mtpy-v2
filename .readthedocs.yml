@@ -9,7 +9,7 @@ build:
   tools:
     python: "mambaforge-22.9"
   commands:
-    - pip install . -e
+    - pip install -e .
     - mkdir --parents _readthedocs/html/
 
 conda:
