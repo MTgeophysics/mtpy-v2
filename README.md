@@ -93,7 +93,7 @@ If you use this software in a scientific publication, we'd very much appreciate 
 
 # License
 
-MTpy is licensed under the GPL version 3
+MTpy is licensed under the MIT license
 
 The license agreement is contained in the repository and should be kept together with the code.
 
