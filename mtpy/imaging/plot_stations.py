@@ -85,24 +85,24 @@ class PlotStations(PlotBase):
 
     def _get_xlimits(self, x):
         if np.sign(x.min()) == -1:
-            self.xlimits = (
+            return (
                 x.min() * (1 + self.pad),
                 x.max() * (1 - self.pad),
             )
         else:
-            self.xlimits = (
+            return (
                 x.min() * (1 - self.pad),
                 x.max() * (1 + self.pad),
             )
 
     def _get_ylimits(self, y):
         if np.sign(y.min()) == -1:
-            self.xlimits = (
+            return (
                 y.min() * (1 + self.pad),
                 y.max() * (1 - self.pad),
             )
         else:
-            self.xlimits = (
+            return (
                 y.min() * (1 - self.pad),
                 y.max() * (1 + self.pad),
             )
