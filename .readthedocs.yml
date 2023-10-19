@@ -8,9 +8,10 @@ build:
   os: "ubuntu-22.04"
   tools:
     python: "mambaforge-22.9"
-  commands:
-    - pip install .
-    
+
+python:
+  install:
+    - method: pip  
 
 conda:
     environment: docs/environment.yml
