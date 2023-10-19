@@ -2,9 +2,9 @@
 #
 
 # You can set these variables from the command line.
-SPHINXOPTS    =
-SPHINXBUILD   = python -msphinx
-SPHINXPROJ    = mtpy
+SPHINXOPTS    ?=
+SPHINXBUILD   ?= sphinx-build
+SPHINXPROJ    = mtpy-v2
 SOURCEDIR     = source
 BUILDDIR      = _build
 
