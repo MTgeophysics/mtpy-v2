@@ -80,6 +80,37 @@ class PlotMesh(PlotBase):
         mycb.outline.set_linewidth(2)
         mycb.set_label(label="Elevation (m)", size=12)
 
+    def _plot_topography_ax2(self):
+        """
+        Plot topography if asked
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        if not "topography" in self.model_obj.surface_dict.keys():
+
+            topo = self.model_obj._get_topography_from_model()
+            if topo is not None:
+                self.model_obj.surface_dict["topography"] = topo
+
+            else:
+                self.logger.warning(
+                    "Cannot find topography information, skipping"
+                )
+                return
+
+        # x, y = np.meshgrid(
+        #     self.model_obj.grid_east[0:-1], self.model_obj.grid_z[0:-1]
+        # )
+        x, y = np.meshgrid(self.model_obj.grid_east, self.model_obj.grid_z)
+        plot_topo = self.model_obj.res_model.copy()[
+            int(self.model_obj.nodes_north.size / 2), :, :
+        ].T
+
+        self.ax2.pcolormesh(x, y, plot_topo)
+
     def plot(self):
         """
         Plot the mesh to show model grid
@@ -217,6 +248,8 @@ class PlotMesh(PlotBase):
         # ---------------------------------------
         # plot depth view along the east direction
         self.ax2 = self.fig.add_subplot(1, 2, 2, aspect="auto", sharex=self.ax1)
+        if self.plot_topography:
+            self._plot_topography_ax2()
 
         # plot the grid
         east_line_xlist = []
