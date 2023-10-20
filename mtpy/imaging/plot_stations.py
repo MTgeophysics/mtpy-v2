@@ -162,8 +162,12 @@ class PlotStations(PlotBase):
         if self.pad is None:
             self.pad = self._get_pad()
         # set axis properties
-        self.ax.set_xlabel("latitude", fontdict=self.font_dict)
-        self.ax.set_ylabel("longitude", fontdict=self.font_dict)
+        if self.plot_cx:
+            self.ax.set_ylabel("latitude (deg)", fontdict=self.font_dict)
+            self.ax.set_xlabel("longitude (deg)", fontdict=self.font_dict)
+        else:
+            self.ax.set_xlabel("relative east (m)", fontdict=self.font_dict)
+            self.ax.set_ylabel("relative north (m)", fontdict=self.font_dict)
         self.ax.grid(alpha=0.35, color=(0.35, 0.35, 0.35), lw=0.35)
         self.ax.set_xlim(self._get_xlimits(self.gdf.geometry.x))
         self.ax.set_ylim(self._get_ylimits(self.gdf.geometry.y))
