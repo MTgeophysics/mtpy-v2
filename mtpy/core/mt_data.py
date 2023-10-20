@@ -472,19 +472,25 @@ class MTData(OrderedDict, MTStations):
             mt_object.from_dataframe(sdf)
             self.add_station(mt_object, compute_relative_location=False)
 
-    def to_geo_df(self):
+    def to_geo_df(self, model_locations=False):
         """
         Make a geopandas dataframe for easier GIS manipulation
 
         """
 
         df = self.station_locations
-
-        gdf = gpd.GeoDataFrame(
-            df,
-            geometry=gpd.points_from_xy(df.longitude, df.latitude),
-            crs=self.datum_crs,
-        )
+        if model_locations:
+            gdf = gpd.GeoDataFrame(
+                df,
+                geometry=gpd.points_from_xy(df.model_east, df.model_north),
+                crs=None,
+            )
+        else:
+            gdf = gpd.GeoDataFrame(
+                df,
+                geometry=gpd.points_from_xy(df.longitude, df.latitude),
+                crs=self.datum_crs,
+            )
 
         return gdf
 
@@ -972,7 +978,9 @@ class MTData(OrderedDict, MTStations):
             )
             return mt_object.plot_mt_response(**kwargs)
 
-    def plot_stations(self, map_epsg=4326, bounding_box=None, **kwargs):
+    def plot_stations(
+        self, map_epsg=4326, bounding_box=None, model_locations=False, **kwargs
+    ):
         """
         plot stations
 
@@ -983,7 +991,9 @@ class MTData(OrderedDict, MTStations):
 
         """
 
-        gdf = self.to_geo_df()
+        gdf = self.to_geo_df(model_locations=model_locations)
+        if model_locations:
+            kwargs["plot_cx"] = False
         return PlotStations(gdf, **kwargs)
 
     def plot_strike(self, **kwargs):
