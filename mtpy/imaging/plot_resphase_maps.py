@@ -421,6 +421,7 @@ class PlotResPhaseMaps(PlotBaseMaps):
                 self.label_dict[comp],
                 fontdict={"size": self.font_size + 2},
                 transform=ax.transAxes,
+                bbox=dict(facecolor="white", alpha=0.5),
             )
 
             if (
