@@ -147,7 +147,7 @@ class Data:
 
         self.logger = logger
         self.dataframe = dataframe
-        self.data_fn = None
+        self.data_filename = None
         self.fn_basename = "OccamDataFile.dat"
         self.save_path = Path()
         self.freq = None
@@ -173,15 +173,33 @@ class Data:
         self.edi_type = "z"
         self.masked_data = None
 
+        self._line_keys = [
+            "station",
+            "frequency",
+            "profile_offset",
+            "res_xy",
+            "res_yx",
+            "phase_xy",
+            "phase_yx",
+            "tzx_real",
+            "tzx_imag",
+            "res_xy_error",
+            "res_yx_error",
+            "phase_xy_error",
+            "phase_yx_error",
+            "tzx_real_error",
+            "tzx_imag_error",
+        ]
+
         self.occam_dict = {
-            "1": "log_te_res",
-            "2": "te_phase",
-            "3": "re_tip",
-            "4": "im_tip",
-            "5": "log_tm_res",
-            "6": "tm_phase",
-            "9": "te_res",
-            "10": "tm_res",
+            "1": "res_xy",
+            "2": "phase_xy",
+            "3": "tzx_real",
+            "4": "tzx_imag",
+            "5": "res_yx",
+            "6": "phase_yx",
+            "9": "res_xy",
+            "10": "res_yx",
         }
 
         self.mode_dict = {
@@ -221,6 +239,47 @@ class Data:
         for key, value in kwargs.items():
             setattr(self, key, value)
 
+    def __str__(self):
+        lines = ["Occam2D Data"]
+        lines.append(f"\tNumber of Stations:     {self.n_stations}")
+        lines.append(f"\tNumber of Frequencies:  {self.n_frequencies}")
+        lines.append(f"\tNumber of data:         {self.n_data}")
+
+        return "\n".join(lines)
+
+    def __repr__(self):
+        return self.__str__()
+
+    def _has_data(self):
+        return self._mt_dataframe._has_data()
+
+    @property
+    def n_stations(self):
+        if self._has_data():
+            return self.dataframe.station.unique().size
+        return 0
+
+    @property
+    def n_frequencies(self):
+        if self._has_data():
+            return self.dataframe.period.unique().size
+        return 0
+
+    @property
+    def n_data(self):
+        return self._mt_dataframe.nonzero_items
+
+    @property
+    def data_filename(self):
+        return self._data_fn
+
+    @data_filename.setter
+    def data_filename(self, value):
+        if value is None:
+            self._data_fn = None
+        else:
+            self._data_fn = Path(value)
+
     @property
     def dataframe(self):
         return self._mt_dataframe.dataframe
@@ -247,6 +306,9 @@ class Data:
                 f"Input must be a dataframe or MTDataFrame object not {type(df)}"
             )
 
+    def _line_entry(self):
+        return dict([(key, np.nan) for key in self._line_keys])
+
     def read_data_file(self, data_fn=None):
         """
         Read in an existing data file and populate appropriate attributes
@@ -271,18 +333,16 @@ class Data:
         """
 
         if data_fn is not None:
-            self.data_fn = data_fn
+            self.data_filename = data_fn
 
-        if not self.data_fn.is_file():
-            raise ValueError("Could not find {0}".format(self.data_fn))
-        if self.data_fn is None:
-            raise ValueError("data_fn is None, input filename")
+        if not self.data_filename.is_file():
+            raise ValueError(f"Could not find {self.data_filename}")
+        if self.data_filename is None:
+            raise ValueError("data_filename is None, input filename")
 
-        self.save_path = self.data_fn.parent
+        self.save_path = self.data_filename.parent
 
-        print(f"Reading from {self.data_fn}")
-
-        with open(self.data_fn, "r") as dfid:
+        with open(self.data_filename, "r") as dfid:
             dlines = dfid.readlines()
 
         # get format of input data
@@ -305,7 +365,7 @@ class Data:
                     elif key == "strike":
                         key = "geoelectric_strike"
                     value = t_list[1].split("deg")[0].strip()
-                    print("    {0} = {1}".format(key, value))
+                    self.logger.debug(f"{key} = {value}")
                     try:
                         setattr(self, key, float(value))
                     except ValueError:
@@ -313,15 +373,13 @@ class Data:
 
         # get number of sites
         nsites = int(dlines[2].strip().split(":")[1].strip())
-        print("    {0} = {1}".format("number of sites", nsites))
+        self.logger.debug(f"number of sites = {nsites}")
 
         # get station names
-        self.station_list = np.array(
-            [dlines[ii].strip() for ii in range(3, nsites + 3)]
-        )
+        stations = np.array([dlines[ii].strip() for ii in range(3, nsites + 3)])
 
         # get offsets in meters
-        self.station_locations = np.array(
+        offsets = np.array(
             [
                 float(dlines[ii].strip())
                 for ii in range(4 + nsites, 4 + 2 * nsites)
@@ -330,64 +388,69 @@ class Data:
 
         # get number of frequencies
         nfreq = int(dlines[4 + 2 * nsites].strip().split(":")[1].strip())
-        print("    {0} = {1}".format("number of frequencies", nfreq))
+        self.logger.debug("number of frequencies = {nfreq}")
 
         # get frequencies
-        self.freq = np.array(
+        frequency = np.array(
             [
                 float(dlines[ii].strip())
                 for ii in range(5 + 2 * nsites, 5 + 2 * nsites + nfreq)
             ]
         )
 
-        # get periods
-        self.period = 1.0 / self.freq
-
         # -----------get data-------------------
         # set zero array size the first row will be the data and second the
         # error
-        asize = (2, self.freq.shape[0])
-
-        # make a list of dictionaries for each station.
-        self.data = [
-            {
-                "station": station,
-                "offset": offset,
-                "te_phase": np.zeros(asize),
-                "tm_phase": np.zeros(asize),
-                "re_tip": np.zeros(asize),
-                "im_tip": np.zeros(asize),
-                "te_res": np.zeros(asize),
-                "tm_res": np.zeros(asize),
-            }
-            for station, offset in zip(
-                self.station_list, self.station_locations
-            )
-        ]
 
         self.data_list = dlines[7 + 2 * nsites + nfreq :]
+        entries = []
         for line in self.data_list:
             try:
-                station, freq, comp, odata, oerr = line.split()
+                s_index, f_index, comp, odata, oerr = line.split()
                 # station index -1 cause python starts at 0
-                ss = int(station) - 1
+                s_index = int(s_index) - 1
 
                 # frequency index -1 cause python starts at 0
-                ff = int(freq) - 1
+                f_index = int(f_index) - 1
                 # data key
                 key = self.occam_dict[comp]
 
                 # put into array
                 if int(comp) == 1 or int(comp) == 5:
-                    self.data[ss][key[4:]][0, ff] = 10 ** float(odata)
+                    value = 10 ** float(odata)
                     # error
-                    self.data[ss][key[4:]][1, ff] = float(oerr) * np.log(10)
+                    value_error = float(oerr) * np.log(10)
                 else:
-                    self.data[ss][key][0, ff] = float(odata)
+                    value = float(odata)
                     # error
-                    self.data[ss][key][1, ff] = float(oerr)
+                    value_error = float(oerr)
+
+                entry = self._line_entry()
+                entry["station"] = stations[s_index]
+                entry["frequency"] = frequency[f_index]
+                entry["profile_offset"] = offsets[s_index]
+                entry[key] = value
+                entry[f"{key}_error"] = value_error
+                entries.append(entry)
             except ValueError:
-                print("Could not read line {0}".format(line))
+                self.logger.debug("Could not read line {0}".format(line))
+
+        df = pd.DataFrame(entries)
+        df["tzx"] = df.tzx_real + 1j * df.tzx_imag
+        df["tzx_error"] = df.tzx_real_error
+        df["period"] = 1.0 / df.frequency
+        df = df.drop(
+            columns=[
+                "tzx_real",
+                "tzx_imag",
+                "tzx_real_error",
+                "tzx_imag_error",
+                "frequency",
+            ],
+            axis=1,
+        )
+        df = df.groupby(["station", "period"]).agg("first").reset_index()
+        self.dataframe = df
 
     def _get_frequencies(self):
         """
@@ -454,7 +517,7 @@ class Data:
         # check, if frequency list is longer than given max value
         if self.freq_num is not None:
             if int(self.freq_num) < self.freq.shape[0]:
-                print(
+                self.logger.debug(
                     (
                         "Number of frequencies exceeds freq_num "
                         "{0} > {1} ".format(self.freq.shape[0], self.freq_num)
@@ -963,7 +1026,7 @@ class Data:
         dfid.writelines(data_lines)
         dfid.close()
 
-        print("Wrote Occam2D data file to {0}".format(self.data_fn))
+        self.logger.debug("Wrote Occam2D data file to {0}".format(self.data_fn))
 
     def get_profile_origin(self):
         """

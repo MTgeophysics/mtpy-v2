@@ -137,6 +137,21 @@ class MTDataFrame:
         other = self._validata_data(other)
         return self.dataframe == other
 
+    @property
+    def nonzero_items(self):
+        """return number of non zero entries"""
+
+        if self._has_data():
+            cols = [
+                dtype[0]
+                for dtype in self._dtype_list[14:]
+                if "error" not in dtype[0]
+            ]
+
+            return np.count_nonzero(self.dataframe[cols])
+        else:
+            return 0
+
     def _validate_data(self, data):
         """
 
