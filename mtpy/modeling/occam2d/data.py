@@ -83,6 +83,8 @@ class Occam2DData:
             "station",
             "frequency",
             "profile_offset",
+            "east",
+            "north",
             "model_east",
             "model_north",
             "res_xy",
@@ -259,6 +261,55 @@ class Occam2DData:
             profile_offset * np.sin(np.deg2rad(profile_angle)),
         )
 
+    def _read_title_string(self, title_string):
+        """
+        get information from the title string
+
+        :param title_string: DESCRIPTION
+        :type title_string: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        title_list = title_string.split(",", 3)
+        self.title = title_list[0]
+
+        # get strike angle and profile angle
+        if len(title_list) > 1:
+            for t_str in title_list[1:]:
+                t_list = t_str.split("=")
+                if len(t_list) > 1:
+                    key = t_list[0].strip().lower().replace(" ", "_")
+                    if key in ["profile", "profile_angle"]:
+                        key = "profile_angle"
+                    elif key in ["strike", "geoelectric_strke"]:
+                        key = "geoelectric_strike"
+                    elif key in ["origin", "profile_origin"]:
+                        key = "profile_origin"
+                    value = (
+                        t_list[1]
+                        .split("deg")[0]
+                        .strip()
+                        .replace("(", "")
+                        .replace(")", "")
+                    )
+                    self.logger.debug(f"{key} = {value}")
+                    if "," not in value:
+                        try:
+                            setattr(self, key, float(value))
+                        except ValueError:
+                            setattr(self, key, value)
+                    else:
+                        try:
+                            setattr(
+                                self,
+                                key,
+                                tuple([float(ii) for ii in value.split(",")]),
+                            )
+                        except ValueError:
+                            setattr(self, key, (0, 0))
+
     def read_data_file(self, data_fn=None):
         """
         Read in an existing data file and populate appropriate attributes
@@ -299,27 +350,7 @@ class Occam2DData:
         self.occam_format = dlines[0].strip().split(":")[1].strip()
 
         # get title
-        title_str = dlines[1].strip().split(":")[1].strip()
-
-        title_list = title_str.split(",")
-        self.title = title_list[0]
-
-        # get strike angle and profile angle
-        if len(title_list) > 1:
-            for t_str in title_list[1:]:
-                t_list = t_str.split("=")
-                if len(t_list) > 1:
-                    key = t_list[0].strip().lower().replace(" ", "_")
-                    if key == "profile":
-                        key = "profile_angle"
-                    elif key == "strike":
-                        key = "geoelectric_strike"
-                    value = t_list[1].split("deg")[0].strip()
-                    self.logger.debug(f"{key} = {value}")
-                    try:
-                        setattr(self, key, float(value))
-                    except ValueError:
-                        setattr(self, key, value)
+        self._read_title_string(dlines[1].strip().split(":")[1].strip())
 
         # get number of sites
         nsites = int(dlines[2].strip().split(":")[1].strip())
@@ -387,6 +418,11 @@ class Occam2DData:
                 ) = self._get_model_locations(
                     entry["profile_offset"], self.profile_angle
                 )
+                if self.profile_origin != (0, 0):
+                    entry["east"] = entry["model_east"] + self.profile_origin[0]
+                    entry["north"] = (
+                        entry["model_north"] + self.profile_origin[1]
+                    )
                 entry[key] = value
                 entry[f"{key}_model_error"] = value_error
                 entries.append(entry)
