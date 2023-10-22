@@ -909,6 +909,14 @@ class MTData(OrderedDict, MTStations):
             >>> md.from_occam2d_data(f"/path/to/data/file.dat")
             >>> plot_stations = md.plot_stations(model_locations=True)
 
+        :Read response file: ::
+
+            >>> md.from_occam2d_data(f"/path/to/response/file.dat")
+
+        .. note:: When reading in a response file the survey will be called
+         model.  So now you can have the data and model response in the
+         same object.
+
         """
 
         occam2d_data = Occam2DData()
