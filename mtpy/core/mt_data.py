@@ -24,6 +24,7 @@ from .mt_stations import MTStations
 
 from mtpy.modeling.errors import ModelErrors
 from mtpy.modeling.modem import Data
+from mtpy.modeling.occam2d import Occam2DData
 from mtpy.imaging import (
     PlotStations,
     PlotMultipleResponses,
@@ -896,6 +897,28 @@ class MTData(OrderedDict, MTStations):
                 if "." not in key
             ]
         )
+
+    def from_occam2d_data(self, data_filename, file_type="data", **kwargs):
+        """
+        read in occam data from a 2D data file *.dat
+
+        :Read data file and plot: ::
+
+            >>> from mtpy import MTData
+            >>> md = MTData()
+            >>> md.from_occam2d_data(f"/path/to/data/file.dat")
+            >>> plot_stations = md.plot_stations(model_locations=True)
+
+        """
+
+        occam2d_data = Occam2DData()
+        occam2d_data.read_data_file(data_filename)
+        if file_type in ["data"]:
+            occam2d_data.dataframe["survey"] = "data"
+        elif file_type in ["response", "model"]:
+            occam2d_data.dataframe["survey"] = "model"
+
+        self.from_dataframe(occam2d_data.dataframe)
 
     def add_white_noise(self, value, inplace=True):
         """

@@ -18,7 +18,7 @@ from mtpy.core.mt_dataframe import MTDataFrame
 # =============================================================================
 
 
-class Data:
+class Occam2DData:
     """
     Reads and writes data files and more.
 
@@ -44,102 +44,13 @@ class Data:
     ===================== =====================================================
 
 
-    **data** : is a list of dictioinaries containing the data for each station.
-               keys include:
-                   * 'station' -- name of station
-                   * 'offset' -- profile line offset
-                   * 'te_res' -- TE resisitivity in linear scale
-                   * 'tm_res' -- TM resistivity in linear scale
-                   * 'te_phase' -- TE phase in degrees
-                   * 'tm_phase' --  TM phase in degrees in first quadrant
-                   * 're_tip' -- real part of tipper along profile
-                   * 'im_tip' -- imaginary part of tipper along profile
-
-               each key is a np.ndarray(2, num_freq)
-               index 0 is for data
-               index 1 is for error
-
-    ===================== =====================================================
-    Key Words/Attributes  Desctription
-    ===================== =====================================================
-    _data_header          header line in data file
-    _data_string          full data string
-    _profile_generated    [ True | False ] True if profile has already been
-                          generated.
-    _rotate_to_strike     [ True | False ] True to rotate data to strike
-                          angle.  *default* is True
-    data                  list of dictionaries of data for each station.
-                          see above
-    data_fn               full path to data file
-    data_list             list of lines to write to data file
-    edi_list              list of mtpy.core.mt instances for each .edi file
-                          read
-    edi_path              directory path where .edi files are
-    edi_type              [ 'z' | 'spectra' ] for .edi format
-    elevation_model       model elevation np.ndarray(east, north, elevation)
-                          in meters
-    elevation_profile     elevation along profile np.ndarray (x, elev) (m)
-    fn_basename           data file basename *default* is OccamDataFile.dat
-    freq                  list of frequencies to use for the inversion
-    freq_max              max frequency to use in inversion. *default* is None
-    freq_min              min frequency to use in inversion. *default* is None
-    freq_num              number of frequencies to use in inversion
-    geoelectric_strike    geoelectric strike angle assuming N = 0, E = 90
-    masked_data           similar to data, but any masked points are now 0
-    mode_dict             dictionary of model modes to chose from
-    model_mode            model mode to use for inversion, see above
-    num_edi               number of stations to invert for
-    occam_dict            dictionary of occam parameters to use internally
-    occam_format          occam format of data file.
-                          *default* is OCCAM2MTDATA_1.0
-    phase_te_err          percent error in phase for TE mode. *default* is 5
-    phase_tm_err          percent error in phase for TM mode. *default* is 5
-    profile_angle         angle of profile line realtive to N = 0, E = 90
-    profile_line          m, b coefficients for mx+b definition of profile line
-    res_te_err            percent error in resistivity for TE mode.
-                          *default* is 10
-    res_tm_err            percent error in resistivity for TM mode.
-                          *default* is 10
-    error_type            'floor' or 'absolute' - option to set error as floor
-                          (i.e. maximum of the data error and a specified value)
-                          or a straight value
-    save_path             directory to save files to
-    station_list          list of station for inversion
-    station_locations     station locations along profile line
-    tipper_err            percent error in tipper. *default* is 5
-    title                 title in data file.
-    ===================== =====================================================
-
-    =========================== ===============================================
-    Methods                     Description
-    =========================== ===============================================
-    _fill_data                  fills the data array that is described above
-    _get_data_list              gets the lines to write to data file
-    _get_frequencies            gets frequency list to invert for
-    get_profile_origin          get profile origin in UTM coordinates
-    mask_points                 masks points in data picked from
-                                plot_mask_points
-    plot_mask_points            plots data responses to interactively mask
-                                data points.
-    plot_resonse                plots data/model responses, returns
-                                PlotResponse data type.
-    read_data_file              read in existing data file and fill appropriate
-                                attributes.
-    write_data_file             write a data file according to Data attributes
-    =========================== ===============================================
-
     :Example Write Data File: ::
-        >>> import mtpy.modeling.occam2d as occam2d
-        >>> edipath = r"/home/mt/edi_files"
-        >>> slst = ['mt{0:03}'.format(ss) for ss in range(1, 20)]
-        >>> ocd = occam2d.Data(edi_path=edipath, station_list=slst)
-        >>> # model just the tm mode and tipper
-        >>> ocd.model_mode = 3
-        >>> ocd.save_path = r"/home/occam/Line1/Inv1"
-        >>> ocd.write_data_file()
-        >>> # mask points
-        >>> ocd.plot_mask_points()
-        >>> ocd.mask_points()
+
+        >>> from mtpy.modeling.occam2d import Data
+        >>> occam_data_object = Data()
+        >>> occam_data_object.read_data_file(r"path/to/data/file.dat")
+        >>> occam_data_object.model_mode = 2
+        >>> occam_data_object.write_data_file(r"path/to/new/data/file_te.dat")
 
     """
 
@@ -150,11 +61,8 @@ class Data:
         self.data_filename = None
         self.fn_basename = "OccamDataFile.dat"
         self.save_path = Path()
-        self.freq = None
         self.interpolate_freq = None
         self.model_mode = "1"
-        self.data = None
-        self.data_list = None
 
         self.res_te_err = 10
         self.res_tm_err = 10
@@ -162,33 +70,33 @@ class Data:
         self.phase_tm_err = 5
         self.tipper_err = 10
         self.error_type = "floor"
-
-        self.freq_min = None
-        self.freq_max = None
-        self.freq_num = None
-        self.freq_tol = None
+        self.profile_origin = (0, 0)
+        self.profile_angle = 0
+        self.geoelectric_strike = 0
 
         self.occam_format = "OCCAM2MTDATA_1.0"
         self.title = "MTpy-OccamDatafile"
-        self.edi_type = "z"
         self.masked_data = None
+        self._tab = " " * 3
 
         self._line_keys = [
             "station",
             "frequency",
             "profile_offset",
+            "model_east",
+            "model_north",
             "res_xy",
             "res_yx",
             "phase_xy",
             "phase_yx",
             "tzx_real",
             "tzx_imag",
-            "res_xy_error",
-            "res_yx_error",
-            "phase_xy_error",
-            "phase_yx_error",
-            "tzx_real_error",
-            "tzx_imag_error",
+            "res_xy_model_error",
+            "res_yx_model_error",
+            "phase_xy_model_error",
+            "phase_yx_model_error",
+            "tzx_real_model_error",
+            "tzx_imag_model_error",
         ]
 
         self.occam_dict = {
@@ -200,6 +108,14 @@ class Data:
             "6": "phase_yx",
             "9": "res_xy",
             "10": "res_yx",
+        }
+
+        self.df_dict = {
+            "1": "res_xy",
+            "2": "phase_xy",
+            "3": "tzx",
+            "5": "res_yx",
+            "6": "phase_yx",
         }
 
         self.mode_dict = {
@@ -231,8 +147,7 @@ class Data:
             "13": [3, 4],
         }
 
-        self._data_string = "{0:^6}{1:^6}{2:^6} {3: >8} {4: >8}\n"
-        self._data_header = "{0:<6}{1:<6}{2:<6} {3:<8} {4:<8}\n".format(
+        self._data_header = "{0:<6}{1:<6}{2:<6} {3:<8} {4:<8}".format(
             "SITE", "FREQ", "TYPE", "DATUM", "ERROR"
         )
 
@@ -262,12 +177,33 @@ class Data:
     @property
     def n_frequencies(self):
         if self._has_data():
-            return self.dataframe.period.unique().size
+            return self._mt_dataframe.period.size
         return 0
 
     @property
     def n_data(self):
         return self._mt_dataframe.nonzero_items
+
+    @property
+    def frequencies(self):
+        if self._has_data():
+            return pd.Series(self._mt_dataframe.frequency)
+
+    @property
+    def stations(self):
+        if self._has_data():
+            return pd.Series(self.dataframe.station.unique())
+
+    @property
+    def offsets(self):
+        return np.array(
+            [
+                self.dataframe.loc[
+                    self.dataframe.station == ss, "profile_offset"
+                ].iloc[0]
+                for ss in self.stations
+            ]
+        )
 
     @property
     def data_filename(self):
@@ -308,6 +244,20 @@ class Data:
 
     def _line_entry(self):
         return dict([(key, np.nan) for key in self._line_keys])
+
+    def _get_model_locations(self, profile_offset, profile_angle):
+        """
+        get the origin of the profile in real world coordinates
+
+        Author: Alison Kirkby (2013)
+
+        NEED TO ADAPT THIS TO THE CURRENT SETUP.
+        """
+
+        return (
+            profile_offset * np.cos(np.deg2rad(profile_angle)),
+            profile_offset * np.sin(np.deg2rad(profile_angle)),
+        )
 
     def read_data_file(self, data_fn=None):
         """
@@ -402,9 +352,10 @@ class Data:
         # set zero array size the first row will be the data and second the
         # error
 
-        self.data_list = dlines[7 + 2 * nsites + nfreq :]
+        data_list = dlines[7 + 2 * nsites + nfreq :]
         entries = []
-        for line in self.data_list:
+        res_log = False
+        for line in data_list:
             try:
                 s_index, f_index, comp, odata, oerr = line.split()
                 # station index -1 cause python starts at 0
@@ -417,6 +368,7 @@ class Data:
 
                 # put into array
                 if int(comp) == 1 or int(comp) == 5:
+                    res_log = True
                     value = 10 ** float(odata)
                     # error
                     value_error = float(oerr) * np.log(10)
@@ -429,487 +381,123 @@ class Data:
                 entry["station"] = stations[s_index]
                 entry["frequency"] = frequency[f_index]
                 entry["profile_offset"] = offsets[s_index]
+                (
+                    entry["model_east"],
+                    entry["model_north"],
+                ) = self._get_model_locations(
+                    entry["profile_offset"], self.profile_angle
+                )
                 entry[key] = value
-                entry[f"{key}_error"] = value_error
+                entry[f"{key}_model_error"] = value_error
                 entries.append(entry)
             except ValueError:
                 self.logger.debug("Could not read line {0}".format(line))
 
+        # format dataframe
         df = pd.DataFrame(entries)
         df["tzx"] = df.tzx_real + 1j * df.tzx_imag
-        df["tzx_error"] = df.tzx_real_error
+        df["tzx_model_error"] = df.tzx_real_model_error
         df["period"] = 1.0 / df.frequency
         df = df.drop(
             columns=[
                 "tzx_real",
                 "tzx_imag",
-                "tzx_real_error",
-                "tzx_imag_error",
+                "tzx_real_model_error",
+                "tzx_imag_model_error",
                 "frequency",
             ],
             axis=1,
         )
-        df = df.groupby(["station", "period"]).agg("first").reset_index()
+        df = df.groupby(["station", "period"]).agg("first")
+        df = df.sort_values("profile_offset").reset_index()
         self.dataframe = df
 
-    def _get_frequencies(self):
+        self.inv_mode = self._get_model_mode_from_data(res_log)
+
+    def _get_model_mode_from_data(self, res_log):
         """
-        from the list of edi's get a frequency list to invert for.
+        Get inversion mode from the data
 
-        Uses Attributes:
-        ------------
-            **freq_min** : float (Hz)
-                           minimum frequency to invert for.
-                           *default* is None and will use the data to find min
+        :param res_log: DESCRIPTION
+        :type res_log: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
 
-            **freq_max** : float (Hz)
-                           maximum frequency to invert for
-                           *default* is None and will use the data to find max
-
-            **freq_num** : int
-                           number of frequencies to invert for
-                           *default* is None and will use the data to find num
         """
-        if self.interpolate_freq:
-            if self.freq is not None:
-                return
-
-        if self.freq is not None:
-            return
-
-        # get all frequencies from all edi files
-        lo_all_freqs = []
-        for edi in self.edi_list:
-            lo_all_freqs.extend(list(edi.Z.freq))
-
-        # sort all frequencies so that they are in descending order,
-        # use set to remove repeats and make an array
-        all_freqs = np.array(sorted(list(set(lo_all_freqs)), reverse=True))
-
-        # --> get min and max values if none are given
-        if (
-            (self.freq_min is None)
-            or (self.freq_min < all_freqs.min())
-            or (self.freq_min > all_freqs.max())
-        ):
-            self.freq_min = all_freqs.min()
-
-        if (
-            (self.freq_max is None)
-            or (self.freq_max > all_freqs.max())
-            or (self.freq_max < all_freqs.min())
-        ):
-            self.freq_max = all_freqs.max()
-
-        # --> get all frequencies within the given range
-        self.freq = all_freqs[
-            np.where(
-                (all_freqs >= self.freq_min) & (all_freqs <= self.freq_max)
-            )
-        ]
-
-        if len(self.freq) == 0:
-            raise ValueError(
-                "No frequencies in user-defined interval "
-                "[{0}, {1}]".format(self.freq_min, self.freq_max)
-            )
-
-        # check, if frequency list is longer than given max value
-        if self.freq_num is not None:
-            if int(self.freq_num) < self.freq.shape[0]:
-                self.logger.debug(
-                    (
-                        "Number of frequencies exceeds freq_num "
-                        "{0} > {1} ".format(self.freq.shape[0], self.freq_num)
-                        + "Trimming frequencies to {0}".format(self.freq_num)
-                    )
-                )
-
-                excess = self.freq.shape[0] / float(self.freq_num)
-                if excess < 2:
-                    offset = 0
+        inv_list = []
+        for inv_mode, comp in self.df_dict.items():
+            if np.count_nonzero(self.dataframe[comp]) > 0:
+                if comp == "res_xy":
+                    if res_log:
+                        inv_list.append(1)
+                    else:
+                        inv_list.append(9)
+                elif comp == "res_yx":
+                    if res_log:
+                        inv_list.append(5)
+                    else:
+                        inv_list.append(10)
+                elif comp == "tzx":
+                    inv_list.append(3)
+                    inv_list.append(4)
                 else:
-                    stepsize = (self.freq.shape[0] - 1) / self.freq_num
-                    offset = stepsize / 2.0
-                indices = np.array(
-                    np.around(
-                        np.linspace(
-                            offset,
-                            self.freq.shape[0] - 1 - offset,
-                            self.freq_num,
-                        ),
-                        0,
-                    ),
-                    dtype="int",
-                )
-                if indices[0] > (self.freq.shape[0] - 1 - indices[-1]):
-                    indices -= 1
-                self.freq = self.freq[indices]
+                    inv_list.append(int(inv_mode))
 
-    def _fill_data(self):
+        return self._match_inv_list_to_mode(inv_list)
+
+    def _match_inv_list_to_mode(self, inv_list):
         """
-        Read all Edi files.
-        Create a profile
-        rotate impedance and tipper
-        Extract frequencies.
+        match the modes to the inversion mode
+        :param inv_list: DESCRIPTION
+        :type inv_list: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
 
-        Collect all information sorted according to occam specifications.
-
-        Data of Z given in muV/m/nT = km/s
-        Error is assumed to be 1 stddev.
         """
 
-        # create a profile line, this sorts the stations by offset and rotates
-        # data.
-        self.generate_profile()
-        self.plot_profile()
+        for inv_mode, comp_list in self.mode_dict.items():
+            if sorted(inv_list) == sorted(comp_list):
+                return inv_mode
 
-        # --> get frequencies to invert for
-        self._get_frequencies()
-
-        # set zero array size the first row will be the data and second the
-        # error
-        asize = (2, self.freq.shape[0])
-
-        # make a list of dictionaries for each station.
-        self.data = [
-            {
-                "station": station,
-                "offset": offset,
-                "te_phase": np.zeros(asize),
-                "tm_phase": np.zeros(asize),
-                "re_tip": np.zeros(asize),
-                "im_tip": np.zeros(asize),
-                "te_res": np.zeros(asize),
-                "tm_res": np.zeros(asize),
-            }
-            for station, offset in zip(
-                self.station_list, self.station_locations
-            )
-        ]
-
-        # loop over mt object in edi_list and use a counter starting at 1
-        # because that is what occam starts at.
-        for s_index, edi in enumerate(self.edi_list):
-
-            if self.interpolate_freq:
-                station_freq = edi.Z.freq
-                interp_freq = self.freq[
-                    np.where(
-                        (self.freq >= station_freq.min())
-                        & (self.freq <= station_freq.max())
-                    )
-                ]
-                # interpolate data onto given frequency list
-                z_interp, t_interp = edi.interpolate(interp_freq)
-                z_interp.compute_resistivity_phase()
-
-                rho = z_interp.resistivity
-                phi = z_interp.phase
-                rho_err = z_interp.resistivity_err
-                if t_interp is not None:
-                    tipper = t_interp.tipper
-                    tipper_err = t_interp.tipper_err
-                else:
-                    tipper = None
-                    tipper_err = None
-                # update station freq, as we've now interpolated new z values
-                # for the station
-                station_freq = self.freq[
-                    np.where(
-                        (self.freq >= station_freq.min())
-                        & (self.freq <= station_freq.max())
-                    )
-                ]
-            else:
-                station_freq = edi.Z.freq
-                rho = edi.Z.resistivity
-                rho_err = edi.Z.resistivity_err
-                phi = edi.Z.phase
-                tipper = edi.Tipper.tipper
-                tipper_err = edi.Tipper.tipper_err
-
-            self.data[s_index]["station"] = edi.station
-            self.data[s_index]["offset"] = edi.offset
-
-            for freq_num, frequency in enumerate(self.freq):
-                if self.freq_tol is not None:
-                    try:
-                        f_index = np.where(
-                            (station_freq >= frequency * (1 - self.freq_tol))
-                            & (station_freq <= frequency * (1 + self.freq_tol))
-                        )[0][0]
-
-                    except IndexError:
-                        f_index = None
-                else:
-                    # skip, if the listed frequency is not available for the
-                    # station
-                    if frequency in station_freq:
-                        # find the respective frequency index for the station
-                        f_index = np.abs(station_freq - frequency).argmin()
-                    else:
-                        f_index = None
-
-                if f_index == None:
-                    continue
-
-                # --> get te resistivity
-                self.data[s_index]["te_res"][0, freq_num] = rho[f_index, 0, 1]
-                # compute error
-                if rho[f_index, 0, 1] != 0.0:
-                    # --> get error from data
-                    if (self.res_te_err is None) or (
-                        self.error_type == "floor"
-                    ):
-                        error_val = np.abs(rho_err[f_index, 0, 1])
-                        if error_val > rho[f_index, 0, 1]:
-                            error_val = rho[f_index, 0, 1]
-                            # set error floor if desired
-                        if self.error_type == "floor":
-                            error_val = max(
-                                error_val,
-                                rho[f_index, 0, 1] * self.res_te_err / 100.0,
-                            )
-
-                        self.data[s_index]["te_res"][1, freq_num] = error_val
-                        # --> set generic error
-                    else:
-                        self.data[s_index]["te_res"][1, freq_num] = (
-                            self.res_te * self.res_te_err / 100.0
-                        )
-
-                # --> get tm resistivity
-                self.data[s_index]["tm_res"][0, freq_num] = rho[f_index, 1, 0]
-                # compute error
-                if rho[f_index, 1, 0] != 0.0:
-                    # --> get error from data
-                    if (self.res_tm_err is None) or (
-                        self.error_type == "floor"
-                    ):
-                        error_val = np.abs(rho_err[f_index, 1, 0])
-                        if error_val > rho[f_index, 1, 0]:
-                            error_val = rho[f_index, 1, 0]
-                        if self.error_type == "floor":
-                            error_val = max(
-                                error_val,
-                                rho[f_index, 1, 0] * self.res_tm_err / 100.0,
-                            )
-                        self.data[s_index]["tm_res"][1, freq_num] = error_val
-                    # --> set generic error
-                    else:
-                        self.data[s_index]["tm_res"][1, freq_num] = (
-                            self.res_tm * self.res_tm_err / 100.0
-                        )
-
-                # --> get te phase
-                # be sure the phase is positive and in the first quadrant
-                phase_te = phi[f_index, 0, 1] % 180
-
-                if (phase_te < 0) or (phase_te > 90):
-                    phase_te = 0
-                    self.data[s_index]["te_res"][0, freq_num] = 0
-
-                # assign phase to array
-                self.data[s_index]["te_phase"][0, freq_num] = phase_te
-
-                # compute error
-                # if phi[f_index, 0, 1] != 0.0:
-                # --> get error from data
-                if (self.phase_te_err is None) or (self.error_type == "floor"):
-                    error_val = np.degrees(
-                        np.arcsin(
-                            min(
-                                0.5
-                                * rho_err[f_index, 0, 1]
-                                / rho[f_index, 0, 1],
-                                1.0,
-                            )
-                        )
-                    )
-                    if self.error_type == "floor":
-                        error_val = max(
-                            error_val, (self.phase_te_err / 100.0) * 57.0 / 2.0
-                        )
-                    self.data[s_index]["te_phase"][1, freq_num] = error_val
-                # --> set generic error floor
-                else:
-                    self.data[s_index]["te_phase"][1, freq_num] = (
-                        (self.phase_te_err / 100.0) * 57.0 / 2.0
-                    )
-
-                # --> get tm phase and be sure it's positive and in the first quadrant
-                phase_tm = phi[f_index, 1, 0] % 180
-
-                if (phase_tm < 0) or (phase_tm > 90):
-                    phase_tm = 0
-                    self.data[s_index]["tm_res"][0, freq_num] = 0
-
-                # assign phase to array
-                self.data[s_index]["tm_phase"][0, freq_num] = phase_tm
-
-                # compute error
-                # if phi[f_index, 1, 0] != 0.0:
-                # --> get error from data
-                if (self.phase_tm_err is None) or (self.error_type == "floor"):
-                    error_val = np.degrees(
-                        np.arcsin(
-                            min(
-                                0.5
-                                * rho_err[f_index, 1, 0]
-                                / rho[f_index, 1, 0],
-                                1.0,
-                            )
-                        )
-                    )
-                    if self.error_type == "floor":
-                        error_val = max(
-                            error_val, (self.phase_tm_err / 100.0) * 57.0 / 2.0
-                        )
-                    self.data[s_index]["tm_phase"][1, freq_num] = error_val
-                # --> set generic error floor
-                else:
-                    self.data[s_index]["tm_phase"][1, freq_num] = (
-                        (self.phase_tm_err / 100.0) * 57.0 / 2.0
-                    )
-
-                # --> get Tipper
-                if tipper is not None:
-                    self.data[s_index]["re_tip"][0, freq_num] = tipper[
-                        f_index, 0, 1
-                    ].real
-                    self.data[s_index]["im_tip"][0, freq_num] = tipper[
-                        f_index, 0, 1
-                    ].imag
-
-                    # get error
-                    if (self.tipper_err is not None) or (
-                        self.error_type == "floor"
-                    ):
-                        error_val = self.tipper_err / 100.0
-                        if self.error_type == "floor":
-                            error_val = max(
-                                error_val, tipper_err[f_index, 0, 1]
-                            )
-                        self.data[s_index]["re_tip"][1, freq_num] = error_val
-                        self.data[s_index]["im_tip"][1, freq_num] = error_val
-                    else:
-                        self.data[s_index]["re_tip"][1, freq_num] = (
-                            tipper[f_index, 0, 1].real
-                            / tipper_err[f_index, 0, 1]
-                        )
-                        self.data[s_index]["im_tip"][1, freq_num] = (
-                            tipper[f_index, 0, 1].imag
-                            / tipper_err[f_index, 0, 1]
-                        )
-
-    def _get_data_list(self):
+    def _get_data_block(self):
         """
         Get all the data needed to write a data file.
 
         """
+        if not self._has_data():
+            raise ValueError("Cannot write data from an empty dataframe.")
+        data_list = []
+        for s_index, station in self.stations.iteritems():
+            sdf = self.dataframe.loc[self.dataframe.station == station]
+            for f_index, frequency in self.frequencies.iteritems():
+                fdf = sdf[
+                    (sdf.period >= (1.0 / frequency) * 0.99)
+                    & (sdf.period <= (1.0 / frequency) * 1.01)
+                ]
+                for comp_number in self.mode_dict[self.inv_mode]:
+                    comp = self.df_dict[str(comp_number)]
+                    value = fdf[comp].values[0]
+                    if value != 0:
+                        if comp_number in [1, 5]:
+                            error_value = fdf[f"{comp}_model_error"].values[
+                                0
+                            ] / np.log(10)
+                            value = np.log10(value)
 
-        self.data_list = []
-        for ss, sdict in enumerate(self.data, 1):
-            for ff in range(self.freq.shape[0]):
-                for mmode in self.mode_dict[self.model_mode]:
-                    # log(te_res)
-                    if mmode == 1:
-                        if sdict["te_res"][0, ff] != 0.0:
-                            dvalue = np.log10(sdict["te_res"][0, ff])
-                            derror = (
-                                sdict["te_res"][1, ff] / sdict["te_res"][0, ff]
-                            ) / np.log(10.0)
-                            dstr = "{0:.4f}".format(dvalue)
-                            derrstr = "{0:.4f}".format(derror)
-                            line = self._data_string.format(
-                                ss, ff + 1, mmode, dstr, derrstr
-                            )
-                            self.data_list.append(line)
-                    # te_res
-                    if mmode == 9:
-                        if sdict["te_res"][0, ff] != 0.0:
-                            dvalue = sdict["te_res"][0, ff]
-                            derror = sdict["te_res"][1, ff]
-                            dstr = "{0:.4f}".format(dvalue)
-                            derrstr = "{0:.4f}".format(derror)
-                            line = self._data_string.format(
-                                ss, ff + 1, mmode, dstr, derrstr
-                            )
-                            self.data_list.append(line)
-
-                    # te_phase
-                    if mmode == 2:
-                        if sdict["te_phase"][0, ff] != 0.0:
-                            dvalue = sdict["te_phase"][0, ff]
-                            derror = sdict["te_phase"][1, ff]
-                            dstr = "{0:.4f}".format(dvalue)
-                            derrstr = "{0:.4f}".format(derror)
-                            line = self._data_string.format(
-                                ss, ff + 1, mmode, dstr, derrstr
-                            )
-                            self.data_list.append(line)
-                            # log(tm_res)
-                    if mmode == 5:
-                        if sdict["tm_res"][0, ff] != 0.0:
-                            dvalue = np.log10(sdict["tm_res"][0, ff])
-                            (
-                                sdict["tm_res"][1, ff] / sdict["tm_res"][0, ff]
-                            ) / np.log(10)
-                            dstr = "{0:.4f}".format(dvalue)
-                            derrstr = "{0:.4f}".format(derror)
-                            line = self._data_string.format(
-                                ss, ff + 1, mmode, dstr, derrstr
-                            )
-                            self.data_list.append(line)
-
-                    # tm_res
-                    if mmode == 10:
-                        if sdict["tm_res"][0, ff] != 0.0:
-                            dvalue = sdict["tm_res"][0, ff]
-                            derror = sdict["tm_res"][1, ff]
-                            dstr = "{0:.4f}".format(dvalue)
-                            derrstr = "{0:.4f}".format(derror)
-                            line = self._data_string.format(
-                                ss, ff + 1, mmode, dstr, derrstr
-                            )
-                            self.data_list.append(line)
-
-                    # tm_phase
-                    if mmode == 6:
-                        if sdict["tm_phase"][0, ff] != 0.0:
-                            dvalue = sdict["tm_phase"][0, ff]
-                            derror = sdict["tm_phase"][1, ff]
-                            dstr = "{0:.4f}".format(dvalue)
-                            derrstr = "{0:.4f}".format(derror)
-                            line = self._data_string.format(
-                                ss, ff + 1, mmode, dstr, derrstr
-                            )
-                            self.data_list.append(line)
-
-                    # Re_tip
-                    if mmode == 3:
-                        if sdict["re_tip"][0, ff] != 0.0:
-                            dvalue = sdict["re_tip"][0, ff]
-                            derror = sdict["re_tip"][1, ff]
-                            dstr = "{0:.4f}".format(dvalue)
-                            derrstr = "{0:.4f}".format(derror)
-                            line = self._data_string.format(
-                                ss, ff + 1, mmode, dstr, derrstr
-                            )
-                            self.data_list.append(line)
-
-                    # Im_tip
-                    if mmode == 4:
-                        if sdict["im_tip"][0, ff] != 0.0:
-                            dvalue = sdict["im_tip"][0, ff]
-                            derror = sdict["im_tip"][1, ff]
-                            dstr = "{0:.4f}".format(dvalue)
-                            derrstr = "{0:.4f}".format(derror)
-                            line = self._data_string.format(
-                                ss, ff + 1, mmode, dstr, derrstr
-                            )
-                            self.data_list.append(line)
+                        elif comp_number in [3]:
+                            value = value.real
+                            error_value = fdf[f"{comp}_model_error"].values[0]
+                        elif comp_number in [4]:
+                            value = value.imag
+                            error_value = fdf[f"{comp}_model_error"].values[0]
+                        else:
+                            value = value
+                            error_value = fdf[f"{comp}_model_error"].values[0]
+                        data_list.append(
+                            f"{s_index + 1:^6}{f_index + 1:^6}{comp_number:^6} "
+                            f"{value:>8.4f} {error_value:>8.4f}"
+                        )
+        return data_list
 
     def mask_from_datafile(self, mask_datafn):
         """
@@ -918,7 +506,7 @@ class Data:
         must match exactly.
 
         """
-        ocdm = Data()
+        ocdm = Occam2DData()
         ocdm.read_data_file(mask_datafn)
         # list of stations, in order, for the mask_datafn and the input data
         # file
@@ -944,6 +532,16 @@ class Data:
         )
         self.write_data_file()
 
+    def _make_title(self):
+        """
+        make title with profile angle, strike and origin
+        """
+        return (
+            f"{self.title}, Profile={self.profile_angle:.1f} deg, "
+            f"Strike={self.geoelectric_strike:.1f} deg, "
+            f"Origin={self.profile_origin}"
+        )
+
     def write_data_file(self, data_fn=None):
         """
         Write a data file.
@@ -968,12 +566,6 @@ class Data:
 
         """
 
-        if self.data is None:
-            self._fill_data()
-
-        # get the appropriate data to write to file
-        self._get_data_list()
-
         if data_fn is not None:
             self.data_fn = data_fn
         else:
@@ -987,59 +579,30 @@ class Data:
         data_lines = []
 
         # --> header line
-        data_lines.append("{0:<18}{1}\n".format("FORMAT:", self.occam_format))
-
-        # --> title line
-        if self.profile_angle is None:
-            self.profile_angle = 0
-        if self.geoelectric_strike is None:
-            self.geoelectric_strike = 0.0
-        t_str = "{0}, Profile={1:.1f} deg, Strike={2:.1f} deg".format(
-            self.title, self.profile_angle, self.geoelectric_strike
-        )
-        data_lines.append("{0:<18}{1}\n".format("TITLE:", t_str))
+        data_lines.append(f"{'format:'.upper():<18}{self.occam_format}")
+        data_lines.append(f"{'title:'.upper():<18}{self._make_title()}")
 
         # --> sites
-        data_lines.append("{0:<18}{1}\n".format("SITES:", len(self.data)))
-        for sdict in self.data:
-            data_lines.append("   {0}\n".format(sdict["station"]))
+        data_lines.append(f"{'sites:'.upper():<18}{self.n_stations}")
+        for station in self.stations:
+            data_lines.append(f"{self._tab}{station}")
 
         # --> offsets
-        data_lines.append("{0:<18}\n".format("OFFSETS (M):"))
-        for sdict in self.data:
-            data_lines.append("   {0:.1f}\n".format(sdict["offset"]))
+        data_lines.append(f"{'offset (m):'.upper():<18}")
+        for offset in self.offsets:
+            data_lines.append(f"{self._tab}{offset:.1f}")
         # --> frequencies
-        data_lines.append(
-            "{0:<18}{1}\n".format("FREQUENCIES:", self.freq.shape[0])
-        )
-        for ff in self.freq:
-            data_lines.append("   {0:<10.6e}\n".format(ff))
+        data_lines.append(f"{'frequencies:'.upper():<18}{self.n_frequencies}")
+        for ff in self.frequencies:
+            data_lines.append(f"{self._tab}{ff:<10.6e}")
 
+        data_block = self._get_data_block()
         # --> data
-        data_lines.append(
-            "{0:<18}{1}\n".format("DATA BLOCKS:", len(self.data_list))
-        )
+        data_lines.append(f"{'data blocks:'.upper():<18}{len(data_block)}")
         data_lines.append(self._data_header)
-        data_lines += self.data_list
+        data_lines += data_block
 
-        dfid = open(self.data_fn, "w")
-        dfid.writelines(data_lines)
-        dfid.close()
+        with open(self.data_fn, "w") as dfid:
+            dfid.write("\n".join(data_lines))
 
-        self.logger.debug("Wrote Occam2D data file to {0}".format(self.data_fn))
-
-    def get_profile_origin(self):
-        """
-        get the origin of the profile in real world coordinates
-
-        Author: Alison Kirkby (2013)
-
-        NEED TO ADAPT THIS TO THE CURRENT SETUP.
-        """
-
-        x, y = self.easts, self.norths
-        x1, y1 = x[0], y[0]
-        [m, c1] = self.profile
-        x0 = (y1 + (1.0 / m) * x1 - c1) / (m + (1.0 / m))
-        y0 = m * x0 + c1
-        self.profile_origin = [x0, y0]
+        self.logger.debug(f"Wrote Occam2D data file to {self.data_fn}")

@@ -278,7 +278,7 @@ class MTDataFrame:
         """
 
         if self._has_data():
-            return 1.0 / self.dataframe.period
+            return 1.0 / self.period
 
     @property
     def survey(self):

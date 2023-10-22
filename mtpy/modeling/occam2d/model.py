@@ -12,7 +12,7 @@ import numpy as np
 from mtpy.modeling.occam2d import Startup, Regularization
 
 # =============================================================================
-class Model(Startup):
+class Occam2DModel(Startup):
     """
     Read .iter file output by Occam2d.  Builds the resistivity model from
     mesh and regularization files found from the .iter file.  The resistivity

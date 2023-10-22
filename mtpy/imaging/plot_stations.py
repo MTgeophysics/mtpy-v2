@@ -85,8 +85,13 @@ class PlotStations(PlotBase):
         plt.rcParams["figure.subplot.top"] = self.subplot_top
 
     def _get_pad(self):
-        return (
-            np.abs(self.gdf.geometry.x.min() - self.gdf.geometry.x.max()) * 0.05
+        return max(
+            [
+                np.abs(self.gdf.geometry.x.min() - self.gdf.geometry.x.max())
+                * 0.05,
+                np.abs(self.gdf.geometry.y.min() - self.gdf.geometry.y.max())
+                * 0.05,
+            ]
         )
 
     def _get_xlimits(self, x):
