@@ -919,7 +919,7 @@ class MTData(OrderedDict, MTStations):
 
         """
 
-        occam2d_data = Occam2DData()
+        occam2d_data = Occam2DData(**kwargs)
         occam2d_data.read_data_file(data_filename)
         if file_type in ["data"]:
             occam2d_data.dataframe["survey"] = "data"
@@ -927,6 +927,32 @@ class MTData(OrderedDict, MTStations):
             occam2d_data.dataframe["survey"] = "model"
 
         self.from_dataframe(occam2d_data.dataframe)
+
+    def to_occam2d_data(self, data_filename=None, **kwargs):
+        """
+        write an Occam2D data file
+
+        :param data_filename: DESCRIPTION
+        :type data_filename: TYPE
+        :param **kwargs: DESCRIPTION
+        :type **kwargs: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+
+
+        """
+
+        occam2d_data = Occam2DData(**kwargs)
+        occam2d_data.dataframe = self.to_dataframe()
+        occam2d_data.profile_origin = (
+            self.center_point.east,
+            self.center_point.north,
+        )
+
+        if data_filename is not None:
+            occam2d_data.write_data_file(data_filename)
+        return occam2d_data
 
     def add_white_noise(self, value, inplace=True):
         """

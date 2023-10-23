@@ -448,7 +448,7 @@ class Occam2DData:
         df = df.sort_values("profile_offset").reset_index()
         self.dataframe = df
 
-        self.inv_mode = self._get_model_mode_from_data(res_log)
+        self.model_mode = self._get_model_mode_from_data(res_log)
 
     def _get_model_mode_from_data(self, res_log):
         """
@@ -510,7 +510,7 @@ class Occam2DData:
                     (sdf.period >= (1.0 / frequency) * 0.99)
                     & (sdf.period <= (1.0 / frequency) * 1.01)
                 ]
-                for comp_number in self.mode_dict[self.inv_mode]:
+                for comp_number in self.mode_dict[self.model_mode]:
                     comp = self.df_dict[str(comp_number)]
                     value = fdf[comp].values[0]
                     if value != 0:
