@@ -44,7 +44,7 @@ setup(
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: MIT",
+        "License :: OSI Approved :: MIT License",
         "Natural Language :: English",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.8",
@@ -59,7 +59,7 @@ setup(
     long_description_content_type="text/markdown",
     include_package_data=True,
     keywords="magnetotellurics",
-    name="mtpy",
+    name="mtpy-v2",
     packages=find_packages(include=["mtpy", "mtpy.*"]),
     setup_requires=setup_requirements,
     test_suite="tests",
