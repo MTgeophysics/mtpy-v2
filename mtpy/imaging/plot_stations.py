@@ -47,10 +47,11 @@ class PlotStations(PlotBase):
 
         self.map_epsg = 4326
         self.plot_names = True
+        self.plot_cx = True
 
         self.image_file = None
         self.image_extent = None
-        self.pad = 0.005
+        self.pad = None
 
         super().__init__(**kwargs)
 
@@ -59,7 +60,7 @@ class PlotStations(PlotBase):
 
         self.cx_source = None
         self.cx_zoom = None
-        if has_cx:
+        if has_cx and self.plot_cx:
             self.cx_source = cx.providers.USGS.USTopo
         self._set_subplot_parameters()
 
@@ -83,29 +84,21 @@ class PlotStations(PlotBase):
         plt.rcParams["figure.subplot.bottom"] = self.subplot_bottom
         plt.rcParams["figure.subplot.top"] = self.subplot_top
 
+    def _get_pad(self):
+        return max(
+            [
+                np.abs(self.gdf.geometry.x.min() - self.gdf.geometry.x.max())
+                * 0.05,
+                np.abs(self.gdf.geometry.y.min() - self.gdf.geometry.y.max())
+                * 0.05,
+            ]
+        )
+
     def _get_xlimits(self, x):
-        if np.sign(x.min()) == -1:
-            self.xlimits = (
-                x.min() * (1 + self.pad),
-                x.max() * (1 - self.pad),
-            )
-        else:
-            self.xlimits = (
-                x.min() * (1 - self.pad),
-                x.max() * (1 + self.pad),
-            )
+        return (x.min() - self.pad, x.max() + self.pad)
 
     def _get_ylimits(self, y):
-        if np.sign(y.min()) == -1:
-            self.xlimits = (
-                y.min() * (1 + self.pad),
-                y.max() * (1 - self.pad),
-            )
-        else:
-            self.xlimits = (
-                y.min() * (1 - self.pad),
-                y.max() * (1 + self.pad),
-            )
+        return (y.min() - self.pad, y.max() + self.pad)
 
     def plot(self):
         """
@@ -154,7 +147,7 @@ class PlotStations(PlotBase):
                 fontweight=self.text_weight,
             )
         if self.image_file is None:
-            if has_cx:
+            if has_cx and self.plot_cx:
                 try:
                     cx_kwargs = {
                         "crs": self.gdf.crs.to_string(),
@@ -170,9 +163,16 @@ class PlotStations(PlotBase):
                     self.logger.warning(
                         f"Could not add base map because {error}"
                     )
+
+        if self.pad is None:
+            self.pad = self._get_pad()
         # set axis properties
-        self.ax.set_xlabel("latitude", fontdict=self.font_dict)
-        self.ax.set_ylabel("longitude", fontdict=self.font_dict)
+        if self.plot_cx:
+            self.ax.set_ylabel("latitude (deg)", fontdict=self.font_dict)
+            self.ax.set_xlabel("longitude (deg)", fontdict=self.font_dict)
+        else:
+            self.ax.set_xlabel("relative east (m)", fontdict=self.font_dict)
+            self.ax.set_ylabel("relative north (m)", fontdict=self.font_dict)
         self.ax.grid(alpha=0.35, color=(0.35, 0.35, 0.35), lw=0.35)
         self.ax.set_xlim(self._get_xlimits(self.gdf.geometry.x))
         self.ax.set_ylim(self._get_ylimits(self.gdf.geometry.y))

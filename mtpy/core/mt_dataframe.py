@@ -137,6 +137,21 @@ class MTDataFrame:
         other = self._validata_data(other)
         return self.dataframe == other
 
+    @property
+    def nonzero_items(self):
+        """return number of non zero entries"""
+
+        if self._has_data():
+            cols = [
+                dtype[0]
+                for dtype in self._dtype_list[14:]
+                if "error" not in dtype[0]
+            ]
+
+            return np.count_nonzero(self.dataframe[cols])
+        else:
+            return 0
+
     def _validate_data(self, data):
         """
 
@@ -263,7 +278,7 @@ class MTDataFrame:
         """
 
         if self._has_data():
-            return 1.0 / self.dataframe.period
+            return 1.0 / self.period
 
     @property
     def survey(self):
@@ -712,16 +727,16 @@ class MTDataFrame:
         if (z == 0).all():
             # only load in resistivity and phase if impedance is 0, otherwise
             # its recreated from z.
-            if (res != 0).all():
-                if (phase != 0).all():
+            if not (res == 0).all():
+                if not (phase == 0).all():
                     z_object.set_resistivity_phase(
                         res,
                         phase,
                         self.frequency,
-                        res_err=res_err,
-                        phase_err=phase_err,
-                        res_model_err=res_model_err,
-                        phase_model_err=phase_model_err,
+                        res_error=res_err,
+                        phase_error=phase_err,
+                        res_model_error=res_model_err,
+                        phase_model_error=phase_model_err,
                     )
                 else:
                     raise ValueError(

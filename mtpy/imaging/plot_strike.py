@@ -211,7 +211,7 @@ class PlotStrike(PlotBase):
 
                 # subtract 90 because polar plot assumes 0 is on the x an 90 is
                 # on the y
-                zs = 90 - zinv.strike
+                zs = 270 - zinv.strike
                 # make a dictionary of strikes with keys as period
                 for period, plot_strike, strike in zip(
                     mt.period, zs, zinv.strike
@@ -228,7 +228,7 @@ class PlotStrike(PlotBase):
                 # subtract 90 because polar plot assumes 0 is on the x an 90 is
                 # on the y
                 pt = mt.pt
-                az = 90 - pt.azimuth
+                az = 270 - pt.azimuth
                 az_err = pt.azimuth_error
                 az[pt.phimax == 0] = np.nan
 
@@ -262,8 +262,15 @@ class PlotStrike(PlotBase):
                 # on the y
                 tipr = 270 - tip.angle_real
 
+                tipr[np.where(abs(tipr) == 0.0)] = np.nan
+                tipr[np.where(abs(tipr) == 90)] = np.nan
                 tipr[np.where(abs(tipr) == 180.0)] = np.nan
-                tipr[np.where(abs(tipr) == 0)] = np.nan
+                tipr[np.where(abs(tipr) == 270)] = np.nan
+
+                tip.angle_real[np.where(abs(tipr) == 0.0)] = np.nan
+                tip.angle_real[np.where(abs(tipr) == 90)] = np.nan
+                tip.angle_real[np.where(abs(tipr) == 180.0)] = np.nan
+                tip.angle_real[np.where(abs(tipr) == 270)] = np.nan
 
                 # make a dictionary of strikes with keys as period
                 for period, plot_strike, strike in zip(
@@ -353,7 +360,7 @@ class PlotStrike(PlotBase):
         estimate_df = self.get_estimate(estimate, period_range)
         # array goes from
         st_array = estimate_df.plot_strike.to_numpy().flatten()
-        st_array = st_array[np.isfinite(st_array)]
+        st_array = st_array[np.isfinite(st_array)] % 360
         plot_array = np.hstack([st_array, (st_array + 180) % 360])
 
         if self.plot_orthogonal:
@@ -464,7 +471,7 @@ class PlotStrike(PlotBase):
                             ax_tip = self.fig.add_subplot(
                                 nb,
                                 n_subplots,
-                                index * n_subplots(n_subplots - 3),
+                                index * n_subplots - (n_subplots - 3),
                                 polar=True,
                             )
                     else:
@@ -472,7 +479,7 @@ class PlotStrike(PlotBase):
                             ax_tip = self.fig.add_subplot(
                                 nb,
                                 n_subplots,
-                                index * n_subplots(n_subplots - 2),
+                                index * n_subplots - (n_subplots - 2),
                                 polar=True,
                             )
                 else:
@@ -487,7 +494,7 @@ class PlotStrike(PlotBase):
                             ax_tip = self.fig.add_subplot(
                                 nb,
                                 n_subplots,
-                                index * n_subplots(n_subplots - 2),
+                                index * n_subplots - (n_subplots - 2),
                                 polar=True,
                             )
                     else:
@@ -495,7 +502,7 @@ class PlotStrike(PlotBase):
                             ax_tip = self.fig.add_subplot(
                                 nb,
                                 n_subplots,
-                                index * n_subplots(n_subplots - 1),
+                                index * n_subplots - (n_subplots - 1),
                                 polar=True,
                             )
 

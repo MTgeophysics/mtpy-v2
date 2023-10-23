@@ -17,7 +17,6 @@ Updated 2022 by J. Peacock to work with new framework
 import copy
 import numpy as np
 
-import mtpy.utils.calculator as MTcc
 from .base import TFBase
 from .pt import PhaseTensor
 from .z_analysis import (
@@ -203,7 +202,7 @@ class Z(TFBase):
         """
 
         old_shape = None
-        if not self._has_tf_error():
+        if not self._has_tf_model_error():
             old_shape = self._dataset.transfer_function_error.shape
 
         elif self._has_frequency():

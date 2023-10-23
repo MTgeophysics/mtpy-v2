@@ -24,6 +24,7 @@ from .mt_stations import MTStations
 
 from mtpy.modeling.errors import ModelErrors
 from mtpy.modeling.modem import Data
+from mtpy.modeling.occam2d import Occam2DData
 from mtpy.imaging import (
     PlotStations,
     PlotMultipleResponses,
@@ -472,19 +473,25 @@ class MTData(OrderedDict, MTStations):
             mt_object.from_dataframe(sdf)
             self.add_station(mt_object, compute_relative_location=False)
 
-    def to_geo_df(self):
+    def to_geo_df(self, model_locations=False):
         """
         Make a geopandas dataframe for easier GIS manipulation
 
         """
 
         df = self.station_locations
-
-        gdf = gpd.GeoDataFrame(
-            df,
-            geometry=gpd.points_from_xy(df.longitude, df.latitude),
-            crs=self.datum_crs,
-        )
+        if model_locations:
+            gdf = gpd.GeoDataFrame(
+                df,
+                geometry=gpd.points_from_xy(df.model_east, df.model_north),
+                crs=None,
+            )
+        else:
+            gdf = gpd.GeoDataFrame(
+                df,
+                geometry=gpd.points_from_xy(df.longitude, df.latitude),
+                crs=self.datum_crs,
+            )
 
         return gdf
 
@@ -891,6 +898,62 @@ class MTData(OrderedDict, MTStations):
             ]
         )
 
+    def from_occam2d_data(self, data_filename, file_type="data", **kwargs):
+        """
+        read in occam data from a 2D data file *.dat
+
+        :Read data file and plot: ::
+
+            >>> from mtpy import MTData
+            >>> md = MTData()
+            >>> md.from_occam2d_data(f"/path/to/data/file.dat")
+            >>> plot_stations = md.plot_stations(model_locations=True)
+
+        :Read response file: ::
+
+            >>> md.from_occam2d_data(f"/path/to/response/file.dat")
+
+        .. note:: When reading in a response file the survey will be called
+         model.  So now you can have the data and model response in the
+         same object.
+
+        """
+
+        occam2d_data = Occam2DData(**kwargs)
+        occam2d_data.read_data_file(data_filename)
+        if file_type in ["data"]:
+            occam2d_data.dataframe["survey"] = "data"
+        elif file_type in ["response", "model"]:
+            occam2d_data.dataframe["survey"] = "model"
+
+        self.from_dataframe(occam2d_data.dataframe)
+
+    def to_occam2d_data(self, data_filename=None, **kwargs):
+        """
+        write an Occam2D data file
+
+        :param data_filename: DESCRIPTION
+        :type data_filename: TYPE
+        :param **kwargs: DESCRIPTION
+        :type **kwargs: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+
+
+        """
+
+        occam2d_data = Occam2DData(**kwargs)
+        occam2d_data.dataframe = self.to_dataframe()
+        occam2d_data.profile_origin = (
+            self.center_point.east,
+            self.center_point.north,
+        )
+
+        if data_filename is not None:
+            occam2d_data.write_data_file(data_filename)
+        return occam2d_data
+
     def add_white_noise(self, value, inplace=True):
         """
         Add white noise to the data, useful for synthetic tests.
@@ -972,7 +1035,9 @@ class MTData(OrderedDict, MTStations):
             )
             return mt_object.plot_mt_response(**kwargs)
 
-    def plot_stations(self, map_epsg=4326, bounding_box=None, **kwargs):
+    def plot_stations(
+        self, map_epsg=4326, bounding_box=None, model_locations=False, **kwargs
+    ):
         """
         plot stations
 
@@ -983,7 +1048,9 @@ class MTData(OrderedDict, MTStations):
 
         """
 
-        gdf = self.to_geo_df()
+        gdf = self.to_geo_df(model_locations=model_locations)
+        if model_locations:
+            kwargs["plot_cx"] = False
         return PlotStations(gdf, **kwargs)
 
     def plot_strike(self, **kwargs):
