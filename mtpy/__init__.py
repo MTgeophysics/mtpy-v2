@@ -18,7 +18,7 @@ from mtpy.core.mt_collection import MTCollection
 from mtpy.imaging.mtcolors import MT_CMAP_DICT, register_cmaps
 
 
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 __all__ = ["MT", "MTData", "MTCollection"]
 
 # =============================================================================
