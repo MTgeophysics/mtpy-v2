@@ -759,7 +759,14 @@ class MT(TF, MTLocation):
         self.tipper_model_error = t_model_error
 
     def flip_phase(
-        self, zxx=False, zxy=False, zyx=False, zyy=False, tzx=False, tzy=False
+        self,
+        zxx=False,
+        zxy=False,
+        zyx=False,
+        zyy=False,
+        tzx=False,
+        tzy=False,
+        inplace=False,
     ):
         """
         Flip the phase of a station in case its plotting in the wrong quadrant
@@ -838,14 +845,28 @@ class MT(TF, MTLocation):
                         self.logger.debug(
                             "tipper_model_error is None, cannot flip"
                         )
-
-        if z_change:
-            self.Z = z_obj
-        if t_change:
-            self.Tipper = t_obj
+        if inplace:
+            if z_change:
+                self.Z = z_obj
+            if t_change:
+                self.Tipper = t_obj
+        else:
+            return_obj = self.copy()
+            if z_change:
+                return_obj.Z = z_obj
+            if t_change:
+                return_obj.Tipper = t_obj
+            return return_obj
 
     def remove_component(
-        self, zxx=False, zxy=False, zyy=False, zyx=False, tzx=False, tzy=False
+        self,
+        zxx=False,
+        zxy=False,
+        zyy=False,
+        zyx=False,
+        tzx=False,
+        tzy=False,
+        inplace=False,
     ):
         """
         Remove a component for a given station(s)
@@ -925,10 +946,18 @@ class MT(TF, MTLocation):
                             "tipper_model_error is None, cannot remove"
                         )
 
-        if z_change:
-            self.Z = z_obj
-        if t_change:
-            self.Tipper = t_obj
+        if inplace:
+            if z_change:
+                self.Z = z_obj
+            if t_change:
+                self.Tipper = t_obj
+        else:
+            return_obj = self.copy()
+            if z_change:
+                return_obj.Z = z_obj
+            if t_change:
+                return_obj.Tipper = t_obj
+            return return_obj
 
     def add_white_noise(self, value, inplace=True):
         """
