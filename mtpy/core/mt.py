@@ -809,15 +809,35 @@ class MT(TF, MTLocation):
                 ii, jj = dd["index"]
                 if "z" in ckey:
                     z_change = True
-                    z_obj.z[:, ii, jj] *= -1
-                    z_obj.z_error[:, ii, jj] *= -1
-                    z_obj.z_model_error[:, ii, jj] *= -1
+                    try:
+                        z_obj.z[:, ii, jj] *= -1
+                    except TypeError:
+                        self.logger.debug("z is None, cannot flip")
+                    try:
+                        z_obj.z_error[:, ii, jj] *= -1
+                    except TypeError:
+                        self.logger.debug("z_error is None, cannot flip")
+                    try:
+                        z_obj.z_model_error[:, ii, jj] *= -1
+                    except TypeError:
+                        self.logger.debug("z_model_error is None, cannot flip")
 
                 elif "t" in ckey:
                     t_change = True
-                    t_obj.tipper[:, ii, jj] *= -1
-                    t_obj.tipper_error[:, ii, jj] *= -1
-                    t_obj.tipper_model_error[:, ii, jj] *= -1
+                    try:
+                        t_obj.tipper[:, ii, jj] *= -1
+                    except TypeError:
+                        self.logger.debug("tipper is None, cannot flip")
+                    try:
+                        t_obj.tipper_error[:, ii, jj] *= -1
+                    except TypeError:
+                        self.logger.debug("tipper_error is None, cannot flip")
+                    try:
+                        t_obj.tipper_model_error[:, ii, jj] *= -1
+                    except TypeError:
+                        self.logger.debug(
+                            "tipper_model_error is None, cannot flip"
+                        )
 
         if z_change:
             self.Z = z_obj
@@ -873,15 +893,37 @@ class MT(TF, MTLocation):
                 ii, jj = dd["index"]
                 if "z" in ckey:
                     z_change = True
-                    z_obj.z[:, ii, jj] = 0
-                    z_obj.z_error[:, ii, jj] = 0
-                    z_obj.z_model_error[:, ii, jj] = 0
+                    try:
+                        z_obj.z[:, ii, jj] = 0
+                    except TypeError:
+                        self.logger.debug("z is None, cannot remove")
+                    try:
+                        z_obj.z_error[:, ii, jj] = 0
+                    except TypeError:
+                        self.logger.debug("z_error is None, cannot remove")
+                    try:
+                        z_obj.z_model_error[:, ii, jj] = 0
+                    except TypeError:
+                        self.logger.debug(
+                            "z_model_error is None, cannot remove"
+                        )
 
                 elif "t" in ckey:
                     t_change = True
-                    t_obj.tipper[:, ii, jj] = 0
-                    t_obj.tipper_error[:, ii, jj] = 0
-                    t_obj.tipper_model_error[:, ii, jj] = 0
+                    try:
+                        t_obj.tipper[:, ii, jj] = 0
+                    except TypeError:
+                        self.logger.debug("tipper is None, cannot remove")
+                    try:
+                        t_obj.tipper_error[:, ii, jj] = 0
+                    except TypeError:
+                        self.logger.debug("tipper_error is None, cannot remove")
+                    try:
+                        t_obj.tipper_model_error[:, ii, jj] = 0
+                    except TypeError:
+                        self.logger.debug(
+                            "tipper_model_error is None, cannot remove"
+                        )
 
         if z_change:
             self.Z = z_obj
@@ -920,9 +962,7 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j
-                * self._transfer_function.transfer_function.imag
-                * noise_imag
+                1j * self._transfer_function.transfer_function.imag * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
@@ -936,9 +976,7 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j
-                * self._transfer_function.transfer_function.imag
-                * noise_imag
+                1j * self._transfer_function.transfer_function.imag * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
