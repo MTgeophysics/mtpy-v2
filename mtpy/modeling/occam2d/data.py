@@ -394,15 +394,18 @@ class Occam2DData:
 
                 # frequency index -1 cause python starts at 0
                 f_index = int(f_index) - 1
+
                 # data key
                 key = self.occam_dict[comp]
 
                 # put into array
-                if int(comp) == 1 or int(comp) == 5:
+                if int(comp) in [1, 5]:
                     res_log = True
                     value = 10 ** float(odata)
                     # error
                     value_error = float(oerr) * np.log(10)
+                elif int(comp) in [6]:
+                    value = float(odata) - 180
                 else:
                     value = float(odata)
                     # error
@@ -525,6 +528,9 @@ class Occam2DData:
                             error_value = fdf[f"{comp}_model_error"].values[0]
                         elif comp_number in [4]:
                             value = value.imag
+                            error_value = fdf[f"{comp}_model_error"].values[0]
+                        elif comp_number in [6]:
+                            value = value + 180
                             error_value = fdf[f"{comp}_model_error"].values[0]
                         else:
                             value = value

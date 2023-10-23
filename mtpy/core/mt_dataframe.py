@@ -727,16 +727,16 @@ class MTDataFrame:
         if (z == 0).all():
             # only load in resistivity and phase if impedance is 0, otherwise
             # its recreated from z.
-            if (res != 0).all():
-                if (phase != 0).all():
+            if not (res == 0).all():
+                if not (phase == 0).all():
                     z_object.set_resistivity_phase(
                         res,
                         phase,
                         self.frequency,
-                        res_err=res_err,
-                        phase_err=phase_err,
-                        res_model_err=res_model_err,
-                        phase_model_err=phase_model_err,
+                        res_error=res_err,
+                        phase_error=phase_err,
+                        res_model_error=res_model_err,
+                        phase_model_error=phase_model_err,
                     )
                 else:
                     raise ValueError(
