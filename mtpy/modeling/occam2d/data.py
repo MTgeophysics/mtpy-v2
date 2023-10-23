@@ -406,6 +406,7 @@ class Occam2DData:
                     value_error = float(oerr) * np.log(10)
                 elif int(comp) in [6]:
                     value = float(odata) - 180
+                    value_error = float(oerr)
                 else:
                     value = float(odata)
                     # error
