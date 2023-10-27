@@ -18,6 +18,7 @@ from pathlib import Path
 import numpy as np
 import xarray as xr
 from scipy import stats as stats
+from scipy import interpolate
 from loguru import logger
 
 import mtpy.modeling.mesh_tools as mtmesh
@@ -28,6 +29,7 @@ import mtpy.utils.filehandling as mtfh
 from mtpy.utils.gis_tools import project_point
 from mtpy.modeling.plots.plot_mesh import PlotMesh
 from mtpy.core.mt_location import MTLocation
+from mtpy.gis import array2raster
 
 from pyevtk.hl import gridToVTK
 
@@ -569,8 +571,7 @@ class StructuredGrid3D:
         for s_north in sorted(self.station_locations.model_north):
             try:
                 node_index = np.where(
-                    abs(s_north - self.grid_north)
-                    < 0.02 * self.cell_size_north
+                    abs(s_north - self.grid_north) < 0.02 * self.cell_size_north
                 )[0][0]
                 if s_north - self.grid_north[node_index] > 0:
                     self.grid_north[node_index] -= 0.02 * self.cell_size_north
@@ -599,9 +600,7 @@ class StructuredGrid3D:
             )
 
         # compute grid center
-        center_east = np.round(
-            self.grid_east.min() - self.grid_east.mean(), -1
-        )
+        center_east = np.round(self.grid_east.min() - self.grid_east.mean(), -1)
         center_north = np.round(
             self.grid_north.min() - self.grid_north.mean(), -1
         )
@@ -988,9 +987,7 @@ class StructuredGrid3D:
         self.nodes_east = np.array(
             [float(nn) for nn in ilines[3].strip().split()]
         )
-        self.nodes_z = np.array(
-            [float(nn) for nn in ilines[4].strip().split()]
-        )
+        self.nodes_z = np.array([float(nn) for nn in ilines[4].strip().split()])
 
         self.res_model = np.zeros((n_north, n_east, n_z))
 
@@ -1582,9 +1579,7 @@ class StructuredGrid3D:
                 # adjust level to topography min
                 if max_elev is not None:
                     self.grid_z -= max_elev
-                    ztops = np.where(
-                        self.surface_dict["topography"] > max_elev
-                    )
+                    ztops = np.where(self.surface_dict["topography"] > max_elev)
                     self.surface_dict["topography"][ztops] = max_elev
                 else:
                     self.grid_z -= topo_core.max()
@@ -1674,6 +1669,128 @@ class StructuredGrid3D:
                 "Provided or default ns_ext not sufficient to fit stations + padding, updating extent"
             )
             self.ns_ext = np.ceil(extent_ratio * inner_ns_ext)
+
+    def interpolate_to_even_grid(
+        self, cell_size, pad_north=None, pad_east=None
+    ):
+        """
+        Interpolate the model onto an even grid for plotting as a raster or
+        netCDF.
+
+        :param cell_size: DESCRIPTION
+        :type cell_size: TYPE
+        :param pad_north: DESCRIPTION, defaults to None
+        :type pad_north: TYPE, optional
+        :param pad_east: DESCRIPTION, defaults to None
+        :type pad_east: TYPE, optional
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        if pad_east is None:
+            pad_east = self.pad_east
+
+        if pad_north is None:
+            pad_north = self.pad_north
+
+        # need -2 because grid is + 1 of size
+        new_east = np.arange(
+            self.grid_east[pad_east],
+            self.grid_east[-pad_east - 2],
+            cell_size,
+        )
+        new_north = np.arange(
+            self.grid_north[pad_north],
+            self.grid_north[-pad_north - 2],
+            cell_size,
+        )
+
+        # needs to be -1 because the grid is n+1 as it is the edges of the
+        # the nodes.
+        model_n, model_e = np.broadcast_arrays(
+            self.grid_north[:-1, None],
+            self.grid_east[None, :-1],
+        )
+
+        new_res_arr = np.zeros(
+            (new_north.size, new_east.size, self.nodes_z.size)
+        )
+
+        for z_index in range(self.grid_z.shape[0] - 1):
+            res = self.res_model[:, :, z_index]
+            new_res_arr[:, :, z_index] = interpolate.griddata(
+                (model_n.ravel(), model_e.ravel()),
+                res.ravel(),
+                (new_north[:, None], new_east[None, :]),
+            )
+
+        return new_north, new_east, new_res_arr
+
+    def to_raster(
+        self,
+        cell_size,
+        pad_north=None,
+        pad_east=None,
+        save_path=None,
+        depth_min=None,
+        depth_max=None,
+        rotation_angle=0,
+    ):
+        """
+        write out each depth slice as a raster in UTM coordinates.
+
+        :param cell_size: DESCRIPTION
+        :type cell_size: TYPE
+        :param pad_north: DESCRIPTION, defaults to None
+        :type pad_north: TYPE, optional
+        :param pad_east: DESCRIPTION, defaults to None
+        :type pad_east: TYPE, optional
+        :param save_path: DESCRIPTION, defaults to None
+        :type save_path: TYPE, optional
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        if self.center_point.utm_crs is None:
+            raise ValueError("Need to input center point and UTM CRS.")
+
+        if rotation_angle is not None:
+            rotation_angle = float(rotation_angle)
+
+        if self.lower_left_corner is None:
+            raise ValueError("Need to input an lower_left_corner as (lon, lat)")
+        if save_path is not None:
+            self.save_path = save_path
+
+        if not os.path.exists(self.save_path):
+            os.mkdir(self.save_path)
+
+        self.interpolate_grid(
+            pad_east=pad_east, pad_north=pad_north, cell_size=cell_size
+        )
+
+        for ii in range(self.res_array.shape[2]):
+            d = self.grid_z[ii]
+            raster_fn = os.path.join(
+                self.save_path,
+                "Depth_{0:.2f}_{1}.tif".format(d, self.projection),
+            )
+            array2raster(
+                raster_fn,
+                self.lower_left_corner,
+                self.cell_size_east,
+                self.cell_size_north,
+                np.log10(self.res_array[:, :, ii]),
+                projection=self.projection,
+                rotation_angle=self.rotation_angle,
+            )
+            print(
+                os.path.join(
+                    self.save_path,
+                    "Depth_{0:.2f}_{1}.tif".format(d, self.projection),
+                )
+            )
 
     def _get_xyzres(self, location_type, origin, model_epsg, clip):
         # try getting centre location info from file
