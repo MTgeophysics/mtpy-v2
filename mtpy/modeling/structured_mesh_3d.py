@@ -29,7 +29,7 @@ import mtpy.utils.filehandling as mtfh
 from mtpy.utils.gis_tools import project_point
 from mtpy.modeling.plots.plot_mesh import PlotMesh
 from mtpy.core.mt_location import MTLocation
-from mtpy.gis import array2raster
+from mtpy.gis.raster_tools import array2raster
 
 from pyevtk.hl import gridToVTK
 
