@@ -8,6 +8,11 @@ Created on Sun May 11 12:15:37 2014
 # =============================================================================
 # Imports
 # =============================================================================
+from pathlib import Path
+
+import numpy as np
+from mtpy.core.mt_location import MTLocation
+
 try:
     from osgeo import ogr, gdal, osr
 except ImportError:
@@ -15,8 +20,6 @@ except ImportError:
         "Did not find GDAL, be sure it is installed correctly and "
         "all the paths are correct."
     )
-import numpy as np
-from mtpy import MTLocation
 
 ogr.UseExceptions()
 # =============================================================================
@@ -400,8 +403,7 @@ ogr.UseExceptions()
 def array2raster(
     raster_fn,
     utm_lower_left_mt_location,
-    cell_width,
-    cell_height,
+    cell_size,
     res_array,
     utm_epsg,
     rotation_angle=0.0,
@@ -411,37 +413,25 @@ def array2raster(
 
     utm_lower_left_mt_location should be a MTLocation object with a UTM
     projection and represents the lower left hand corner of the grid.
-
-    Arguments:
-    --------------
-        **raster_fn** : string
-                        full path to save raster file to
-
-        **origin** : (lon, lat)
-                     longitude and latitude of southwest corner of the array
-
-        **cell_width** : float (in meters)
-                         size of model cells in east-west direction
-
-        **cell_height** : float (in meters)
-                         size of model cells in north-south direction
-
-        **res_array** : np.ndarray(east, north)
-                        resistivity array in linear scale.
-
-        **projection** : string
-                        name of the projection datum
-
-        **rotation_angle** : float
-                             angle in degrees to rotate grid.
-                             Assuming N = 0 and E = 90, positive clockwise
-
-    Output:
-    ----------
-        * creates a geotiff file projected into projection in UTM.  The
-          values are in log scale for coloring purposes.
+    :param raster_fn: DESCRIPTION
+    :type raster_fn: TYPE
+    :param utm_lower_left_mt_location: DESCRIPTION
+    :type utm_lower_left_mt_location: TYPE
+    :param cell_size: DESCRIPTION
+    :type cell_size: TYPE
+    :param res_array: DESCRIPTION
+    :type res_array: TYPE
+    :param utm_epsg: DESCRIPTION
+    :type utm_epsg: TYPE
+    :param rotation_angle: DESCRIPTION, defaults to 0.0
+    :type rotation_angle: TYPE, optional
+    :raises TypeError: DESCRIPTION
+    :raises ValueError: DESCRIPTION
+    :return: DESCRIPTION
+    :rtype: TYPE
 
     """
+
     # convert rotation angle to radians
     r_theta = np.deg2rad(rotation_angle)
 
@@ -463,16 +453,18 @@ def array2raster(
     driver = gdal.GetDriverByName("GTiff")
 
     # make a raster with the shape of the array to be written
+    if isinstance(raster_fn, Path):
+        raster_fn = raster_fn.as_posix()
     out_raster = driver.Create(raster_fn, ncols, nrows, 1, gdal.GDT_Float32)
 
     out_raster.SetGeoTransform(
         (
             ll_origin.east,
-            np.cos(r_theta) * cell_width,
-            -np.sin(r_theta) * cell_width,
+            np.cos(r_theta) * cell_size,
+            -np.sin(r_theta) * cell_size,
             ll_origin.north,
-            np.sin(r_theta) * cell_height,
-            np.cos(r_theta) * cell_height,
+            np.sin(r_theta) * cell_size,
+            np.cos(r_theta) * cell_size,
         )
     )
 

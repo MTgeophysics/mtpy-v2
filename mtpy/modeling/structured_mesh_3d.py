@@ -1727,6 +1727,70 @@ class StructuredGrid3D:
 
         return new_north, new_east, new_res_arr
 
+    def get_lower_left_corner(self, pad_east, pad_north):
+        """
+        get the lower left corner in UTM coordinates for raster.
+
+        :param pad_east: number of padding cells to skip from outside in.
+        :type pad_east: integer
+        :param pad_north: number of padding cells to skip from outside in.
+        :type pad_north: integer
+        :return: Lower left hand corner
+        :rtype: :class:`mtpy.core.MTLocation`
+
+        """
+
+        if self.center_point.utm_crs is None:
+            raise ValueError("Need to input center point and UTM CRS.")
+
+        lower_left = MTLocation()
+        lower_left.utm_crs = self.center_point.utm_crs
+        lower_left.datum_crs = self.center_point.datum_crs
+        lower_left.east = self.center_point.east + self.grid_east[pad_east]
+        lower_left.north = self.center_point.north + self.grid_east[pad_north]
+
+        return lower_left
+
+    def _get_depth_min_index(self, depth_min):
+        """
+        get index of minimum depth, if None, return None.
+
+        :param depth_min: DESCRIPTION
+        :type depth_min: TYPE
+        :raises IndexError: DESCRIPTION
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        if depth_min is not None:
+            try:
+                depth_min = np.where(self.grid_z >= depth_min)[0][0]
+            except IndexError:
+                raise IndexError(
+                    f"Could not locate depths deeper than {depth_min}."
+                )
+        return depth_min
+
+    def _get_depth_max_index(self, depth_max):
+        """
+        get index of minimum depth, if None, return None.
+
+        :param depth_max: DESCRIPTION
+        :type depth_max: TYPE
+        :raises IndexError: DESCRIPTION
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        if depth_max is not None:
+            try:
+                depth_max = np.where(self.grid_z <= depth_max)[0][-1]
+            except IndexError:
+                raise IndexError(
+                    f"Could not locate depths shallower than {depth_max}."
+                )
+        return depth_max
+
     def to_raster(
         self,
         cell_size,
@@ -1736,61 +1800,90 @@ class StructuredGrid3D:
         depth_min=None,
         depth_max=None,
         rotation_angle=0,
+        verbose=True,
     ):
         """
-        write out each depth slice as a raster in UTM coordinates.
+        write out each depth slice as a raster in UTM coordinates.  Expecting
+        a grid that is interoplated onto a regular grid of square cells with
+        size `cell_size`.
 
-        :param cell_size: DESCRIPTION
-        :type cell_size: TYPE
-        :param pad_north: DESCRIPTION, defaults to None
-        :type pad_north: TYPE, optional
-        :param pad_east: DESCRIPTION, defaults to None
-        :type pad_east: TYPE, optional
-        :param save_path: DESCRIPTION, defaults to None
-        :type save_path: TYPE, optional
-        :return: DESCRIPTION
+        :param cell_size: square cell size (cell_size x cell_size) in meters.
+        :type cell_size: float
+        :param pad_north: number of padding cells to skip from outside in,
+         if None defaults to self.pad_north, defaults to None
+        :type pad_north: integer, optional
+        :param pad_east: number of padding cells to skip from outside in
+         if None defaults to self.pad_east, defaults to None
+        :type pad_east: integer, optional
+        :param save_path: Path to save files to. If None use self.save_path,
+         defaults to None
+        :type save_path: string or Path, optional
+        :param depth_min: minimum depth to make raster for in meters,
+         defaults to None which will use shallowest depth.
+        :type depth_min: float, optional
+        :param depth_max: maximum depth to make raster for in meters,
+         defaults to None which will use deepest depth.
+        :type depth_max: float, optional
+        :param rotation_angle: Angle (degrees) to rotate the raster assuming
+         clockwise positive rotation where North = 0, East = 90, defaults to 0
+        :type rotation_angle: float, optional
+        :raises ValueError: If utm_epsg is not input.
+        :return: list of file paths to rasters.
         :rtype: TYPE
 
         """
+
         if self.center_point.utm_crs is None:
             raise ValueError("Need to input center point and UTM CRS.")
 
         if rotation_angle is not None:
             rotation_angle = float(rotation_angle)
 
-        if self.lower_left_corner is None:
-            raise ValueError("Need to input an lower_left_corner as (lon, lat)")
-        if save_path is not None:
-            self.save_path = save_path
+        if save_path is None:
+            save_path = self.save_path
+        else:
+            save_path = Path(save_path)
 
-        if not os.path.exists(self.save_path):
-            os.mkdir(self.save_path)
+        if not save_path.exists():
+            save_path.mkdir()
 
-        self.interpolate_grid(
-            pad_east=pad_east, pad_north=pad_north, cell_size=cell_size
+        if pad_east is None:
+            pad_east = self.pad_east
+
+        if pad_north is None:
+            pad_north = self.pad_north
+
+        _, _, raster_array = self.interpolate_to_even_grid(
+            cell_size, pad_east=pad_east, pad_north=pad_north
         )
 
-        for ii in range(self.res_array.shape[2]):
-            d = self.grid_z[ii]
-            raster_fn = os.path.join(
-                self.save_path,
-                "Depth_{0:.2f}_{1}.tif".format(d, self.projection),
+        raster_depths = self.grid_z[
+            slice(
+                self._get_depth_min_index(depth_min),
+                self._get_depth_max_index(depth_max),
             )
-            array2raster(
+        ]
+
+        lower_left = self.get_lower_left_corner(pad_east, pad_north)
+
+        raster_fn_list = []
+        for ii, d in enumerate(raster_depths):
+            raster_fn = self.save_path.joinpath(
+                f"{ii}_depth_{d:.2f}m_utm_{self.utm_epsg}.tif"
+            )
+            array2raster.array2raster(
                 raster_fn,
-                self.lower_left_corner,
-                self.cell_size_east,
-                self.cell_size_north,
-                np.log10(self.res_array[:, :, ii]),
-                projection=self.projection,
-                rotation_angle=self.rotation_angle,
+                lower_left,
+                cell_size,
+                np.log10(raster_array[:, :, ii]),
+                self.center_point.utm_epsg,
+                rotation_angle=rotation_angle,
             )
-            print(
-                os.path.join(
-                    self.save_path,
-                    "Depth_{0:.2f}_{1}.tif".format(d, self.projection),
-                )
-            )
+            raster_fn_list.append(raster_fn)
+            if verbose:
+                self.logger.info(f"Wrote depth index {ii} to {raster_fn}")
+
+        return raster_fn_list
 
     def _get_xyzres(self, location_type, origin, model_epsg, clip):
         # try getting centre location info from file
