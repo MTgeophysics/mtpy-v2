@@ -1144,6 +1144,111 @@ class StructuredGrid3D:
             },
         )
 
+    def to_netcdf(self, fn, pad_east=None, pad_north=None, metadata={}):
+        """
+        create a netCDF file to read into GIS software
+
+        works about 50% of the time.
+
+        """
+        if self.center_point.utm_epsg is None:
+            raise ValueError("Must input UTM CRS or EPSG")
+
+        pad_east = self._validate_pad_east(pad_east)
+        pad_north = self._validate_pad_north(pad_north)
+
+        east, north = np.broadcast_arrays(
+            self.grid_north[pad_north : -(pad_north + 1), None]
+            + self.center_point.north,
+            self.grid_east[None, pad_east : -(pad_east + 1)]
+            + self.center_point.east,
+        )
+
+        lat, lon = project_point(
+            north.ravel(),
+            east.ravel(),
+            self.center_point.utm_epsg,
+            self.center_point.datum_epsg,
+        )
+
+        latitude = np.linspace(lat.min(), lat.max(), east.shape[0])
+        longitude = np.linspace(lon.min(), lon.max(), east.shape[1])
+        depth = (self.grid_z[:-1] + self.center_point.elevation) / 1000
+
+        # need to depth, latitude, longitude for NetCDF
+        x_res = np.swapaxes(
+            np.log10(
+                self.res_model[pad_north:-pad_north, pad_east:-pad_east, :]
+            ),
+            0,
+            1,
+        ).T
+        x = xr.DataArray(
+            x_res,
+            coords=[
+                ("depth", depth),
+                ("latitude", latitude),
+                ("longitude", longitude),
+            ],
+            dims=["depth", "latitude", "longitude"],
+        )
+
+        # =============================================================================
+        # fill in the metadata
+        x.name = "electrical_resistivity"
+        x.attrs["long_name"] = "electrical resistivity"
+        x.attrs["units"] = "Ohm-m"
+        x.attrs["standard_name"] = "resistivity"
+        x.attrs["display_name"] = "log10(resistivity)"
+
+        # metadata for coordinates
+        x.coords["latitude"].attrs["long_name"] = "Latitude; positive_north"
+        x.coords["latitude"].attrs["units"] = "degrees_north"
+        x.coords["latitude"].attrs["standard_name"] = "Latitude"
+
+        x.coords["longitude"].attrs["long_name"] = "longitude; positive_east"
+        x.coords["longitude"].attrs["units"] = "degrees_east"
+        x.coords["longitude"].attrs["standard_name"] = "longitude"
+
+        x.coords["depth"].attrs["long_name"] = "depth; positive_down"
+        x.coords["depth"].attrs["display_name"] = "depth"
+        x.coords["depth"].attrs["units"] = "km"
+        x.coords["depth"].attrs["standard_name"] = "depth"
+
+        ds = xr.Dataset(*[{"resistivity": x}])
+
+        # fill in some metadata
+
+        ds.attrs["Conventions"] = "CF-1.0"
+        ds.attrs["Metadata_Conventions"] = "Unidata Dataset Discovery v1.0"
+        ds.attrs[
+            "NCO"
+        ] = "netCDF Operators version 4.7.5 (Homepage = http://nco.sf.net, Code=http://github/nco/nco"
+
+        for key, value in metadata.items():
+            ds.attrs[key] = value
+
+        # geospatial metadata
+        ds.attrs["geospatial_lat_min"] = latitude.min()
+        ds.attrs["geospatial_lat_max"] = latitude.max()
+        ds.attrs["geospatial_lat_units"] = "degrees_north"
+        ds.attrs["geospatial_lat_resolution"] = np.diff(latitude).mean()
+
+        ds.attrs["geospatial_lon_min"] = longitude.min()
+        ds.attrs["geospatial_lon_max"] = longitude.max()
+        ds.attrs["geospatial_lon_units"] = "degrees_east"
+        ds.attrs["geospatial_lon_resolution"] = np.diff(longitude).mean()
+
+        ds.attrs["geospatial_vertical_min"] = depth.min()
+        ds.attrs["geospatial_vertical_max"] = depth.max()
+        ds.attrs["geospatial_vertical_units"] = "km"
+        ds.attrs["geospatial_vertical_positive"] = "down"
+
+        # write to netcdf
+        ds.to_netcdf(path=fn)
+
+        return ds
+
     def to_gocad_sgrid(
         self, fn=None, origin=[0, 0, 0], clip=0, no_data_value=-99999
     ):
