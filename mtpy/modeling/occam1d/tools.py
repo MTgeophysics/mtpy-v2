@@ -372,7 +372,7 @@ def generate_inputfiles(**input_parameters):
         for mode in input_parameters["modes"]:
             # create a data file for each mode
             ocd = Data()
-            ocd._data_fn = "Occam1d_DataFile_rot%03i" % rotangle
+            ocd._data_fn = f"Occam1d_DataFile_rot{int(rotangle):03}"
             ocd.write_data_file(
                 res_errorfloor=input_parameters["resistivity_errorfloor"],
                 phase_errorfloor=input_parameters["phase_errorfloor"],

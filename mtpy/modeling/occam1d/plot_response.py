@@ -669,7 +669,7 @@ class Plot1DResponse(object):
             if self.depth_scale == "log":
                 self.axm.set_yscale("log", nonposy="clip")
             self.axm.set_ylabel(
-                "Depth ({0})".format(self.depth_units),
+                f"Depth ({self.depth_units})",
                 fontdict={"size": self.font_size, "weight": "bold"},
             )
             self.axm.set_xlabel(

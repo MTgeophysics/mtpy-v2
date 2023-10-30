@@ -224,7 +224,7 @@ class PlotOccam1DL2(PlotBase):
                 self.ax2.text(
                     rough,
                     rms,
-                    "{0}".format(ii),
+                    f"{ii}",
                     horizontalalignment="center",
                     verticalalignment="center",
                     fontdict={
@@ -240,8 +240,8 @@ class PlotOccam1DL2(PlotBase):
             [
                 "RMS",
                 "Roughness",
-                "Median_RMS={0:.2f}".format(med_rms),
-                "Mean_RMS={0:.2f}".format(mean_rms),
+                f"Median_RMS={med_rms:.2f}",
+                f"Mean_RMS={mean_rms:.2f}",
             ],
             ncol=1,
             loc="upper right",

@@ -63,13 +63,14 @@ class Occam1DData(object):
 
         self._string_fmt = "+.6e"
         self._ss = 6 * " "
-        self._acceptable_modes = ["te", "tm", "det", "detz", "tez", "tmz"]
+        self._acceptable_modes = ["te" "tm", "det", "detz", "tez", "tmz"]
         self._data_fn = "Occam1d_DataFile"
         self._header_line = "!{0}\n".format(
             "      ".join(["Type", "Freq#", "TX#", "Rx#", "Data", "Std_Error"])
         )
         self.mode = "det"
         self.data = None
+        self.rotation_angle = 0
 
         self.data_1 = None
         self.data_1_error = None
@@ -124,65 +125,126 @@ class Occam1DData(object):
                 f"Mode {mode} not in accetable modes {self._acceptable_modes}"
             )
         self._mode = mode
+
+    @property
+    def data_1(self):
+
         # get the data requested by the given mode
         if self._mode == "te":
             self.data_1 = self.mt_dataframe.res_xy
-            self.data_1_err = self.mt_dataframe.res_xy_model_error
-
-            self.data_2 = self.mt_dataframe.phase_xy
-            self.data_2_err = self.mt_dataframe.phase_xy_model_error
 
         elif self._mode == "tm":
             self.data_1 = self.mt_dataframe.res_yx
-            self.data_1_err = self.mt_dataframe.res_yx_model_error
-
-            self.data_2 = self.mt_dataframe.phase_yx % 180
-            self.data_2_err = self.mt_dataframe.phase_yx_model_error
 
         elif self._mode == "det":
             z_obj = self.mt_dataframe.to_z_object()
 
             self.data_1 = z_obj.res_det
-            self.data_1_err = z_obj.res_det_model_error
-
-            self.data_2 = z_obj.phase_det
-            self.data_2_err = z_obj.phase_det_model_error
 
         elif self._mode == "detz":
             z_obj = self.mt_dataframe.to_z_object()
 
             self.data_1 = z_obj.det.real * np.pi * 4e-4
-            self.data_1_err = z_obj.det_model_error * np.pi * 4e-4
-
-            self.data_2 = z_obj.det.imag * np.pi * 4e-4
-            self.data_2_err = z_obj.det_model_error * np.pi * 4e-4
 
         elif self.mode == "tez":
             # convert to si units
             self.data_1 = self.mt_dataframe.zxy.real * np.pi * 4e-4
-            self.data_1_err = self.mt_dataframe.zxy_model_error * np.pi * 4e-4
-
-            self.data_2 = self.mt_dataframe.zxy.imag * np.pi * 4e-4
-            self.data_2_err = self.mt_dataframe.zxy_model_error * np.pi * 4e-4
 
         elif self.mode == "tmz":
             # convert to si units
             self.data_1 = self.mt_dataframe.zyx.real * np.pi * 4e-4
+
+    @property
+    def data_1_error(self):
+        # get the data requested by the given mode
+        if self._mode == "te":
+            self.data_1_err = self.mt_dataframe.res_xy_model_error
+
+        elif self._mode == "tm":
+
+            self.data_1_err = self.mt_dataframe.res_yx_model_error
+
+        elif self._mode == "det":
+            z_obj = self.mt_dataframe.to_z_object()
+
+            self.data_1_err = z_obj.res_det_model_error
+
+        elif self._mode == "detz":
+            z_obj = self.mt_dataframe.to_z_object()
+
+            self.data_1_err = z_obj.det_model_error * np.pi * 4e-4
+
+        elif self.mode == "tez":
+            # convert to si units
+            self.data_1_err = self.mt_dataframe.zxy_model_error * np.pi * 4e-4
+
+        elif self.mode == "tmz":
+            # convert to si units
             self.data_1_err = self.mt_dataframe.zyx_model_error * np.pi * 4e-4
 
+    @property
+    def data_2(self):
+        # get the data requested by the given mode
+        if self._mode == "te":
+
+            self.data_2 = self.mt_dataframe.phase_xy
+
+        elif self._mode == "tm":
+
+            self.data_2 = self.mt_dataframe.phase_yx % 180
+
+        elif self._mode == "det":
+            z_obj = self.mt_dataframe.to_z_object()
+
+            self.data_2 = z_obj.phase_det
+
+        elif self._mode == "detz":
+            z_obj = self.mt_dataframe.to_z_object()
+
+            self.data_2 = z_obj.det.imag * np.pi * 4e-4
+
+        elif self.mode == "tez":
+            # convert to si units
+
+            self.data_2 = self.mt_dataframe.zxy.imag * np.pi * 4e-4
+
+        elif self.mode == "tmz":
+            # convert to si units
+
             self.data_2 = self.mt_dataframe.zyx.imag * np.pi * 4e-4
+
+    @property
+    def data_2_error(self):
+        # get the data requested by the given mode
+        if self._mode == "te":
+            self.data_2_err = self.mt_dataframe.phase_xy_model_error
+
+        elif self._mode == "tm":
+            self.data_2_err = self.mt_dataframe.phase_yx_model_error
+
+        elif self._mode == "det":
+            z_obj = self.mt_dataframe.to_z_object()
+
+            self.data_2_err = z_obj.phase_det_model_error
+
+        elif self._mode == "detz":
+            z_obj = self.mt_dataframe.to_z_object()
+
+            self.data_2_err = z_obj.det_model_error * np.pi * 4e-4
+
+        elif self.mode == "tez":
+            # convert to si units
+
+            self.data_2_err = self.mt_dataframe.zxy_model_error * np.pi * 4e-4
+
+        elif self.mode == "tmz":
+            # convert to si units
             self.data_2_err = self.mt_dataframe.zyx_model_error * np.pi * 4e-4
 
     def write_data_file(
         self,
         filename,
         mode="det",
-        res_err="data",
-        phase_err="data",
-        thetar=0,
-        res_errorfloor=0.0,
-        phase_errorfloor=0.0,
-        z_errorfloor=0.0,
         remove_outofquadrant=False,
     ):
         """
@@ -253,91 +315,35 @@ class Occam1DData(object):
         self.mode = mode.lower()
 
         if remove_outofquadrant:
-            (
-                freq,
-                data_1,
-                data_1_err,
-                data_2,
-                data_2_err,
-            ) = self._remove_outofquadrant_phase(
-                freq, data_1, data_1_err, data_2, data_2_err
-            )
-            nf = len(freq)
-
-        # ---> get errors--------------------------------------
-        # set error floors
-        if "z" in self.mode:
-            if z_errorfloor > 0:
-                data_1_err = np.abs(data_1_err)
-                test = (
-                    data_1_err / np.abs(data_1 + 1j * data_2)
-                    < z_errorfloor / 100.0
-                )
-                data_1_err[test] = (
-                    np.abs(data_1 + 1j * data_2)[test] * z_errorfloor / 100.0
-                )
-                data_2_err = data_1_err.copy()
-        else:
-            if res_errorfloor > 0:
-                test = data_1_err / data_1 < res_errorfloor / 100.0
-                data_1_err[test] = data_1[test] * res_errorfloor / 100.0
-            if phase_errorfloor > 0:
-                data_2_err[data_2_err < phase_errorfloor] = phase_errorfloor
-
-            if res_err != "data":
-                data_1_err = data_1 * res_err / 100.0
-            if phase_err != "data":
-                data_2_err = np.repeat(phase_err / 100.0 * (180 / np.pi), nf)
+            self._remove_outofquadrant_phase()
 
         # --> write file
         # make sure the savepath exists, if not create it
-        if save_path is not None:
-            self.save_path = Path(save_path)
-        if self.save_path is None:
-            try:
-                self.save_path = edi_file
-            except TypeError:
-                pass
-        elif os.path.basename(self.save_path).find(".") > 0:
-            self.save_path = os.path.dirname(self.save_path)
-            self._data_fn = os.path.basename(self.save_path)
-        if not os.path.exists(self.save_path):
-            os.mkdir(self.save_path)
-
-        if self.data_fn is None:
-            self.data_fn = os.path.join(
-                self.save_path,
-                "{0}_{1}.dat".format(self._data_fn, mode.upper()),
-            )
+        self.data_fn = Path(filename)
 
         # --> write file as a list of lines
         dlines = []
 
         dlines.append("Format:  EMData_1.1 \n")
-        dlines.append("!mode:   {0}\n".format(mode.upper()))
-        dlines.append("!rotation_angle = {0:.2f}\n".format(thetar))
+        dlines.append(f"!mode:   {mode.upper()}\n")
+        dlines.append(f"!rotation_angle = {self.rotation_angle:.2f}\n")
 
         # needs a transmitter to work so put in a dummy one
         dlines.append("# Transmitters: 1\n")
         dlines.append("0 0 0 0 0 \n")
 
+        nf = max([self.data_1.size, self.data_2.size])
         # write frequencies
-        dlines.append("# Frequencies:   {0}\n".format(nf))
-        if freq[0] < freq[-1]:
-            freq = freq[::-1]
-            data_1 = data_1[::-1]
-            data_2 = data_2[::-1]
-            data_1_err = data_1_err[::-1]
-            data_2_err = data_2_err[::-1]
+        dlines.append(f"# Frequencies:   {nf}\n")
         for ff in freq:
-            dlines.append("   {0:{1}}\n".format(ff, self._string_fmt))
+            dlines.append(f"   {ff:{{1}}}\n")
 
         # needs a receiver to work so put in a dummy one
         dlines.append("# Receivers: 1 \n")
         dlines.append("0 0 0 0 0 0 \n")
 
         # write data
-        dlines.append("# Data:{0}{1}\n".format(self._ss, 2 * nf))
+        dlines.append(f"# Data:{self._ss}{2 * nf}\n")
         num_data_line = len(dlines)
 
         dlines.append(self._header_line)
@@ -356,10 +362,8 @@ class Occam1DData(object):
                             str(ii + 1),
                             "0",
                             "1",
-                            "{0:{1}}".format(data_1[ii], self._string_fmt),
-                            "{0:{1}}\n".format(
-                                data_1_err[ii], self._string_fmt
-                            ),
+                            f"{data_1[ii]:{{1}}}",
+                            f"{data_1_err[ii]:{{1}}}\n",
                         ]
                     )
                 )
@@ -372,71 +376,48 @@ class Occam1DData(object):
                             str(ii + 1),
                             "0",
                             "1",
-                            "{0:{1}}".format(data_2[ii], self._string_fmt),
-                            "{0:{1}}\n".format(
-                                data_2_err[ii], self._string_fmt
-                            ),
+                            f"{data_2[ii]:{{1}}}",
+                            f"{data_2_err[ii]:{{1}}}\n",
                         ]
                     )
                 )
                 data_count += 1
 
         # --> write file
-        dlines[num_data_line - 1] = "# Data:{0}{1}\n".format(
-            self._ss, data_count
-        )
+        dlines[num_data_line - 1] = f"# Data:{self._ss}{data_count}\n"
 
         with open(self.data_fn, "w") as dfid:
             dfid.writelines(dlines)
 
-        print("Wrote Data File to : {0}".format(self.data_fn))
+        self.logger.info(f"Wrote Data File to : {self.data_fn}")
 
-        # --> set attributes
-
-        if "z" in mode.lower():
-            self.z = data_1 + 1j * data_2
-            self.z_err = data_1_err
-        else:
-            if "det" in mode.lower():
-                self.res_det = data_1
-                self.phase_det = data_2
-            elif self.mode == "te":
-                self.res_te = data_1
-                self.phase_te = data_2
-            elif self.mode == "tm":
-                self.res_tm = data_1
-                self.phase_tm = data_2
-            self.res_err = data_1_err
-            self.phase_err = data_2_err
-
-        self.freq = freq
-
-    def _remove_outofquadrant_phase(self, freq, d1, d1_err, d2, d2_err):
+    def _remove_outofquadrant_phase(self):
         """
         remove out of quadrant phase from data
         """
         # remove data points with phase out of quadrant
         if "z" in self.mode:
-            include = (d1 / d2 > 0) & (d1 / d2 > 0)
+            self.mt_dataframe.dataframe.loc[
+                (
+                    self.mt_dataframe.dataframe.zxy.real
+                    / self.mt_dataframe.dataframe.zxy.imag
+                    > 0
+                )
+            ] = 0
+            self.mt_dataframe.dataframe.loc[
+                (
+                    self.mt_dataframe.dataframe.zyx.real
+                    / self.mt_dataframe.dataframe.zyx.imag
+                    > 0
+                )
+            ] = 0
         elif self.mode in ["det", "te", "tm"]:
-            include = (
-                (d2 % 180 <= 90)
-                & (d2 % 180 >= 0)
-                & (d2 % 180 <= 90)
-                & (d2 % 180 >= 0)
-            )
-
-        newfreq, nd1, nd1_err, nd2, nd2_err = [
-            arr[include] for arr in [freq, d1, d1_err, d2, d2_err]
-        ]
-        # fix any zero errors to 100% of the res value or 90 degrees for phase
-        nd1_err[nd1_err == 0] = nd1[nd1_err == 0]
-        if "z" in self.mode:
-            nd2_err[nd2_err == 0] = nd2[nd2_err == 0]
-        else:
-            nd2_err[nd2_err == 0] = 90
-
-        return newfreq, nd1, nd1_err, nd2, nd2_err
+            self.mt_dataframe.dataframe.loc[
+                (self.mt_dataframe.dataframe.phase_xy % 180 < 0)
+            ] = 0
+            self.mt_dataframe.dataframe.loc[
+                (self.mt_dataframe.dataframe.phase_yx % 180 < 0)
+            ] = 0
 
     def read_data_file(self, data_fn=None):
         """
@@ -476,7 +457,7 @@ class Occam1DData(object):
         if self.data_fn is None:
             raise IOError("Need to input a data file")
         elif os.path.isfile(self.data_fn) == False:
-            raise IOError("Could not find {0}, check path".format(self.data_fn))
+            raise IOError(f"Could not find {self.data_fn}, check path")
 
         self._data_fn = os.path.basename(self.data_fn)
         self.save_path = os.path.dirname(self.data_fn)

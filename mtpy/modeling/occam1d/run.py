@@ -38,5 +38,5 @@ class Occam1DRun(object):
         if test == 0:
             print("=========== Ran Inversion ==========")
             print(
-                "  check {0} for files".format(os.path.dirname(self.startup_fn))
+                f"  check {os.path.dirname(self.startup_fn)} for files"
             )

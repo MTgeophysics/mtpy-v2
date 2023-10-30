@@ -152,22 +152,20 @@ class Startup(object):
 
             # --> write input file
         infid = open(self.startup_fn, "w")
-        infid.write("{0:<21}{1}\n".format("Format:", "OCCAMITER_FLEX"))
-        infid.write("{0:<21}{1}\n".format("Description:", self.description))
+        infid.write(f"{'Format:':<21}OCCAMITER_FLEX\n")
+        infid.write(f"{'Description:':<21}{self.description}\n")
         infid.write(
-            "{0:<21}{1}\n".format(
-                "Model File:", os.path.basename(self.model_fn)
-            )
+            f"{'Model File:':<21}{os.path.basename(self.model_fn)}\n"
         )
         infid.write(
-            "{0:<21}{1}\n".format("Data File:", os.path.basename(self.data_fn))
+            f"{'Data File:':<21}{os.path.basename(self.data_fn)}\n"
         )
-        infid.write("{0:<21}{1}\n".format("Date/Time:", time.ctime()))
-        infid.write("{0:<21}{1}\n".format("Max Iter:", self.max_iter))
-        infid.write("{0:<21}{1}\n".format("Target Misfit:", self.target_rms))
-        infid.write("{0:<21}{1}\n".format("Roughness Type:", self.rough_type))
+        infid.write(f"{'Date/Time:':<21}{time.ctime()}\n")
+        infid.write(f"{'Max Iter:':<21}{self.max_iter}\n")
+        infid.write(f"{'Target Misfit:':<21}{self.target_rms}\n")
+        infid.write(f"{'Roughness Type:':<21}{self.rough_type}\n")
         if self.min_max_bounds == None:
-            infid.write("{0:<21}{1}\n".format("!Model Bounds:", "min,max"))
+            infid.write(f"{'!Model Bounds:':<21}min,max\n")
         else:
             infid.write(
                 "{0:<21}{1},{2}\n".format(
@@ -178,29 +176,29 @@ class Startup(object):
             )
         if self.model_step == None:
             infid.write(
-                "{0:<21}{1}\n".format("!Model Value Steps:", "stepsize")
+                f"{'!Model Value Steps:':<21}stepsize\n"
             )
         else:
             infid.write(
-                "{0:<21}{1}\n".format("Model Value Steps:", self.model_step)
+                f"{'Model Value Steps:':<21}{self.model_step}\n"
             )
-        infid.write("{0:<21}{1}\n".format("Debug Level:", self.debug_level))
-        infid.write("{0:<21}{1}\n".format("Iteration:", self.start_iter))
+        infid.write(f"{'Debug Level:':<21}{self.debug_level}\n")
+        infid.write(f"{'Iteration:':<21}{self.start_iter}\n")
         infid.write(
-            "{0:<21}{1}\n".format("Lagrange Value:", self.start_lagrange)
+            f"{'Lagrange Value:':<21}{self.start_lagrange}\n"
         )
-        infid.write("{0:<21}{1}\n".format("Roughness Value:", self.start_rough))
-        infid.write("{0:<21}{1}\n".format("Misfit Value:", self.start_misfit))
-        infid.write("{0:<21}{1}\n".format("Misfit Reached:", 0))
-        infid.write("{0:<21}{1}\n".format("Param Count:", model.num_params))
+        infid.write(f"{'Roughness Value:':<21}{self.start_rough}\n")
+        infid.write(f"{'Misfit Value:':<21}{self.start_misfit}\n")
+        infid.write(f"{'Misfit Reached:':<21}{0}\n")
+        infid.write(f"{'Param Count:':<21}{model.num_params}\n")
 
         for ii in range(model.num_params):
             infid.write(
-                "{0}{1:.2f}\n".format(self._ss, np.log10(self.start_rho))
+                f"{self._ss}{np.log10(self.start_rho):.2f}\n"
             )
 
         infid.close()
-        print("Wrote Input File: {0}".format(self.startup_fn))
+        print(f"Wrote Input File: {self.startup_fn}")
 
     def read_startup_file(self, startup_fn):
         """

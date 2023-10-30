@@ -116,9 +116,7 @@ class Occam1DModel(object):
         elif self.target_depth / self.z1_layer < z1_threshold:
             self.z1_layer = self.target_depth / z1_threshold
             print(
-                "z1 layer not deep enough for target depth, set to {} m".format(
-                    self.z1_layer
-                )
+                f"z1 layer not deep enough for target depth, set to {self.z1_layer} m"
             )
 
     def write_model_file(self, save_path=None, **kwargs):
@@ -210,7 +208,7 @@ class Occam1DModel(object):
         # make the model file
         modfid = open(self.model_fn, "w")
         modfid.write("Format: Resistivity1DMod_1.0" + "\n")
-        modfid.write("#LAYERS:    {0}\n".format(self.num_params))
+        modfid.write(f"#LAYERS:    {self.num_params}\n")
         modfid.write("!Set free values to -1 or ? \n")
         modfid.write(
             "!penalize between 1 and 0,"
@@ -257,7 +255,7 @@ class Occam1DModel(object):
             modfid.write(
                 self._ss.join(
                     [
-                        "{0:{1}}".format(np.ceil(ll), self._string_fmt),
+                        f"{np.ceil(ll):{{1}}}",
                         "-1",
                         "1",
                         "0",
@@ -269,7 +267,7 @@ class Occam1DModel(object):
 
         modfid.close()
 
-        print("Wrote Model file: {0}".format(self.model_fn))
+        print(f"Wrote Model file: {self.model_fn}")
 
     def read_model_file(self, model_fn=None):
         """
@@ -304,7 +302,7 @@ class Occam1DModel(object):
         if self.model_fn is None:
             raise IOError("Need to input a model file")
         elif os.path.isfile(self.model_fn) == False:
-            raise IOError("Could not find{0}, check path".format(self.model_fn))
+            raise IOError(f"Could not find{self.model_fn}, check path")
 
         self._model_fn = os.path.basename(self.model_fn)
         self.save_path = os.path.dirname(self.model_fn)
