@@ -10,7 +10,7 @@ Created on Mon Oct 30 13:35:16 2023
 # =============================================================================
 
 # =============================================================================
-class Run(object):
+class Occam1DRun(object):
     """
     run occam 1d from python given the correct files and location of occam1d
     executable

@@ -63,6 +63,7 @@ class Occam1DData(object):
 
         self._string_fmt = "+.6e"
         self._ss = 6 * " "
+        self._acceptable_modes = ["te", "tm", "det", "detz", "tez", "tmz"]
         self._data_fn = "Occam1d_DataFile"
         self._header_line = "!{0}\n".format(
             "      ".join(["Type", "Freq#", "TX#", "Rx#", "Data", "Std_Error"])
@@ -70,12 +71,10 @@ class Occam1DData(object):
         self.mode = "det"
         self.data = None
 
-        self.freq = None
-        self.res_te = None
-        self.res_tm = None
-        self.phase_te = None
-        self.phase_tm = None
-        self.resp_fn = None
+        self.data_1 = None
+        self.data_1_error = None
+        self.data_2 = None
+        self.data_2_error = None
 
         self.save_path = Path().cwd()
         self.data_fn = self.save_path.joinpath(self._data_fn)
@@ -113,10 +112,70 @@ class Occam1DData(object):
         elif self.mode == "tmz":
             return "ImagZyx"
 
+    @property
+    def mode(self):
+        return self._mode
+
+    @mode.setter
+    def mode(self, mode):
+
+        if mode not in self._acceptable_modes:
+            raise ValueError(
+                f"Mode {mode} not in accetable modes {self._acceptable_modes}"
+            )
+        self._mode = mode
+        # get the data requested by the given mode
+        if self._mode == "te":
+            self.data_1 = self.mt_dataframe.res_xy
+            self.data_1_err = self.mt_dataframe.res_xy_model_error
+
+            self.data_2 = self.mt_dataframe.phase_xy
+            self.data_2_err = self.mt_dataframe.phase_xy_model_error
+
+        elif self._mode == "tm":
+            self.data_1 = self.mt_dataframe.res_yx
+            self.data_1_err = self.mt_dataframe.res_yx_model_error
+
+            self.data_2 = self.mt_dataframe.phase_yx % 180
+            self.data_2_err = self.mt_dataframe.phase_yx_model_error
+
+        elif self._mode == "det":
+            z_obj = self.mt_dataframe.to_z_object()
+
+            self.data_1 = z_obj.res_det
+            self.data_1_err = z_obj.res_det_model_error
+
+            self.data_2 = z_obj.phase_det
+            self.data_2_err = z_obj.phase_det_model_error
+
+        elif self._mode == "detz":
+            z_obj = self.mt_dataframe.to_z_object()
+
+            self.data_1 = z_obj.det.real * np.pi * 4e-4
+            self.data_1_err = z_obj.det_model_error * np.pi * 4e-4
+
+            self.data_2 = z_obj.det.imag * np.pi * 4e-4
+            self.data_2_err = z_obj.det_model_error * np.pi * 4e-4
+
+        elif self.mode == "tez":
+            # convert to si units
+            self.data_1 = self.mt_dataframe.zxy.real * np.pi * 4e-4
+            self.data_1_err = self.mt_dataframe.zxy_model_error * np.pi * 4e-4
+
+            self.data_2 = self.mt_dataframe.zxy.imag * np.pi * 4e-4
+            self.data_2_err = self.mt_dataframe.zxy_model_error * np.pi * 4e-4
+
+        elif self.mode == "tmz":
+            # convert to si units
+            self.data_1 = self.mt_dataframe.zyx.real * np.pi * 4e-4
+            self.data_1_err = self.mt_dataframe.zyx_model_error * np.pi * 4e-4
+
+            self.data_2 = self.mt_dataframe.zyx.imag * np.pi * 4e-4
+            self.data_2_err = self.mt_dataframe.zyx_model_error * np.pi * 4e-4
+
     def write_data_file(
         self,
         filename,
-        dataframe,
         mode="det",
         res_err="data",
         phase_err="data",
@@ -192,136 +251,6 @@ class Occam1DData(object):
         """
         # be sure that the input mode is not case sensitive
         self.mode = mode.lower()
-
-        if edi_file is not None:
-
-            # read in edifile
-            mt_obj = mt.MT(edi_file)
-            z_obj = mt_obj.Z
-            z_obj.compute_resistivity_phase()
-
-            # get frequencies to invert
-            freq = z_obj.freq
-            nf = len(freq)
-
-            # rotate if necessary
-            if thetar != 0:
-                z_obj.rotate(thetar)
-
-            # get the data requested by the given mode
-            if self.mode == "te":
-                data_1 = z_obj.resistivity[:, 0, 1]
-                data_1_err = z_obj.resistivity_err[:, 0, 1]
-
-                data_2 = z_obj.phase[:, 0, 1]
-                data_2_err = z_obj.phase_err[:, 0, 1]
-
-            elif self.mode == "tm":
-                data_1 = z_obj.resistivity[:, 1, 0]
-                data_1_err = z_obj.resistivity_err[:, 1, 0]
-
-                # need to put the angle in the right quadrant
-                data_2 = z_obj.phase[:, 1, 0] % 180
-                data_2_err = z_obj.phase_err[:, 1, 0]
-
-            elif self.mode.startswith("det"):
-
-                # take square root as determinant is similar to z squared
-                zdetreal = (z_obj.det**0.5).real
-                zdetimag = (z_obj.det**0.5).imag
-
-                # error propagation - new error is 0.5 * relative error in zdet
-                # then convert back to absolute error
-                det_err = mtcc.compute_determinant_error(z_obj.z, z_obj.z_err)
-
-                #                # relative errors of real and imaginary components of sqrt determinant
-                zereal = zdetreal * det_err * 0.5 / z_obj.det.real
-                zeimag = zdetimag * det_err * 0.5 / z_obj.det.imag
-
-                if self.mode.endswith("z"):
-                    # convert to si units if we are modelling impedance tensor
-
-                    data_1 = zdetreal * np.pi * 4e-4
-                    data_1_err = zereal * np.pi * 4e-4
-                    data_2 = zdetimag * np.pi * 4e-4
-                    data_2_err = zeimag * np.pi * 4e-4
-                else:
-                    # convert to res/phase
-                    # data_1 is resistivity
-                    # need to take absolute of square root before squaring it
-                    data_1 = 0.2 / freq * np.abs(z_obj.det**0.5) ** 2
-                    # data_2 is phase
-                    data_2 = np.rad2deg(np.arctan2(zdetimag, zdetreal))
-
-                    # initialise error arrays
-                    data_1_err = np.zeros_like(data_1, dtype=np.float)
-                    data_2_err = np.zeros_like(data_2, dtype=np.float)
-
-                    # assign errors, use error based on sqrt of z
-                    for zdr, zdi, zer, zei, ii in zip(
-                        zdetreal,
-                        zdetimag,
-                        zereal,
-                        zeimag,
-                        list(range(len(z_obj.det))),
-                    ):
-                        # now we can convert errors to polar coordinates
-                        de1, de2 = mtcc.z_error2r_phi_error(
-                            zdr, zdi, (zei + zer) / 2.0
-                        )
-                        # convert relative resistivity error to absolute
-                        de1 *= data_1[ii]
-                        data_1_err[ii] = de1
-                        data_2_err[ii] = de2
-
-            elif self.mode == "tez":
-                # convert to si units
-                data_1 = z_obj.z[:, 0, 1].real * np.pi * 4e-4
-                data_1_err = z_obj.z_err[:, 0, 1] * np.pi * 4e-4
-
-                data_2 = z_obj.z[:, 0, 1].imag * np.pi * 4e-4
-                data_2_err = z_obj.z_err[:, 0, 1] * np.pi * 4e-4
-
-            elif self.mode == "tmz":
-                # convert to si units
-                data_1 = z_obj.z[:, 1, 0].real * np.pi * 4e-4
-                data_1_err = z_obj.z_err[:, 1, 0] * np.pi * 4e-4
-
-                data_2 = z_obj.z[:, 1, 0].imag * np.pi * 4e-4
-                data_2_err = z_obj.z_err[:, 1, 0] * np.pi * 4e-4
-
-            else:
-                raise IOError("Mode {0} is not supported.".format(self.mode))
-
-        if rp_tuple is not None:
-            if len(rp_tuple) != 5:
-                raise IOError(
-                    "Be sure rp_array is correctly formated\n"
-                    "should be freq, res, res_err, phase, phase_err"
-                )
-            freq, rho, rho_err, phi, phi_err = rp_tuple
-            nf = len(freq)
-
-            if self.mode in "te":
-                data_1 = rho[:, 0, 1]
-                data_1_err = rho_err[:, 0, 1]
-
-                data_2 = phi[:, 0, 1]
-                data_2_err = phi_err[:, 0, 1]
-
-            elif self.mode in "tm":
-                data_1 = rho[:, 1, 0]
-                data_1_err = rho_err[:, 1, 0]
-
-                data_2 = phi[:, 1, 0] % 180
-                data_2_err = phi_err[:, 1, 0]
-
-            if "det" in mode.lower():
-                data_1 = rho[:, 0, 1]
-                data_1_err = rho_err[:, 0, 1]
-
-                data_2 = phi[:, 0, 1]
-                data_2_err = phi_err[:, 0, 1]
 
         if remove_outofquadrant:
             (

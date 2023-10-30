@@ -78,8 +78,6 @@ import mtpy.core.mt as mt
 import mtpy.utils.calculator as mtcc
 import mtpy.analysis.geometry as mtg
 import matplotlib.pyplot as plt
-
-
 # =============================================================================
 
 
