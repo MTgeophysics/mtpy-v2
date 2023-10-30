@@ -1,0 +1,837 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Oct 30 13:31:30 2023
+
+@author: jpeacock
+"""
+
+# =============================================================================
+# Imports
+# =============================================================================
+from pathlib import Path
+
+import numpy as np
+
+from mtpy.core import MTDataFrame
+import mtpy.utils.calculator as mtcc
+
+# =============================================================================
+class Occam1DData(object):
+    """
+    reads and writes occam 1D data files
+
+    ===================== =====================================================
+    Attributes             Description
+    ===================== =====================================================
+    _data_fn              basename of data file *default* is Occam1DDataFile
+    _header_line          header line for description of data columns
+    _ss                   string spacing *default* is 6*' '
+    _string_fmt           format of data *default* is '+.6e'
+    data                  array of data
+    data_fn               full path to data file
+    freq                  frequency array of data
+    mode                  mode to invert for [ 'TE' | 'TM' | 'det' ]
+    phase_te              array of TE phase
+    phase_tm              array of TM phase
+    res_te                array of TE apparent resistivity
+    res_tm                array of TM apparent resistivity
+    resp_fn               full path to response file
+    save_path             path to save files to
+    ===================== =====================================================
+
+
+    ===================== =====================================================
+    Methods               Description
+    ===================== =====================================================
+    write_data_file       write an Occam1D data file
+    read_data_file        read an Occam1D data file
+    read_resp_file        read a .resp file output by Occam1D
+    ===================== =====================================================
+
+    :Example: ::
+
+        >>> import mtpy.modeling.occam1d as occam1d
+        >>> #--> make a data file for TE mode
+        >>> d1 = occam1d.Data()
+        >>> d1.write_data_file(edi_file=r'/home/MT/mt01.edi', res_err=10, phase_err=2.5,
+        >>> ...                save_path=r"/home/occam1d/mt01/TE", mode='TE')
+
+    """
+
+    def __init__(self, mt_dataframe, **kwargs):
+        self.dataframe = MTDataFrame(data=mt_dataframe)
+
+        self._string_fmt = "+.6e"
+        self._ss = 6 * " "
+        self._data_fn = "Occam1d_DataFile"
+        self._header_line = "!{0}\n".format(
+            "      ".join(["Type", "Freq#", "TX#", "Rx#", "Data", "Std_Error"])
+        )
+        self.mode = "det"
+        self.data = None
+
+        self.freq = None
+        self.res_te = None
+        self.res_tm = None
+        self.phase_te = None
+        self.phase_tm = None
+        self.resp_fn = None
+
+        self.save_path = Path().cwd()
+        self.data_fn = self.save_path.joinpath(self._data_fn)
+
+        for key in list(kwargs.keys()):
+            setattr(self, key, kwargs[key])
+
+    @property
+    def mode_01(self):
+        if self.mode == "te":
+            return "RhoZxy"
+        elif self.mode == "tm":
+            return "RhoZyx"
+        elif self.mode == "det":
+            return "RhoZxy"
+        elif self.mode == "detz":
+            return "RealZxy"
+        elif self.mode == "tez":
+            return "RealZxy"
+        elif self.mode == "tmz":
+            return "RealZyx"
+
+    @property
+    def mode_02(self):
+        if self.mode == "te":
+            return "PhsZxy"
+        elif self.mode == "tm":
+            return "PhsZyx"
+        elif self.mode == "det":
+            return "PhsZxy"
+        elif self.mode == "detz":
+            return "ImagZxy"
+        elif self.mode == "tez":
+            return "ImagZxy"
+        elif self.mode == "tmz":
+            return "ImagZyx"
+
+    def write_data_file(
+        self,
+        filename,
+        dataframe,
+        mode="det",
+        res_err="data",
+        phase_err="data",
+        thetar=0,
+        res_errorfloor=0.0,
+        phase_errorfloor=0.0,
+        z_errorfloor=0.0,
+        remove_outofquadrant=False,
+    ):
+        """
+        make1Ddatafile will write a data file for Occam1D
+
+        Arguments:
+        ---------
+            **rp_tuple** : np.ndarray (freq, res, res_err, phase, phase_err)
+                            with res, phase having shape (num_freq, 2, 2).
+
+            **edi_file** : string
+                          full path to edi file to be modeled.
+
+            **save_path** : string
+                           path to save the file, if None set to dirname of
+                           station if edipath = None.  Otherwise set to
+                           dirname of edipath.
+
+            **thetar** : float
+                         rotation angle to rotate Z. Clockwise positive and N=0
+                         *default* = 0
+
+            **mode** : [ 'te' | 'tm' | 'det']
+                              mode to model can be (*default*='both'):
+                                - 'te' for just TE mode (res/phase)
+                                - 'tm' for just TM mode (res/phase)
+                                - 'det' for the determinant of Z (converted to
+                                        res/phase)
+                              add 'z' to any of these options to model
+                              impedance tensor values instead of res/phase
+
+
+            **res_err** : float
+                        errorbar for resistivity values.  Can be set to (
+                        *default* = 'data'):
+
+                        - 'data' for errorbars from the data
+                        - percent number ex. 10 for ten percent
+
+            **phase_err** : float
+                          errorbar for phase values.  Can be set to (
+                          *default* = 'data'):
+
+                            - 'data' for errorbars from the data
+                            - percent number ex. 10 for ten percent
+            **res_errorfloor**: float
+                                error floor for resistivity values
+                                in percent
+            **phase_errorfloor**: float
+                                  error floor for phase in degrees
+            **remove_outofquadrant**: True/False; option to remove the resistivity and
+                                      phase values for points with phases out
+                                      of the 1st/3rd quadrant (occam requires
+                                      0 < phase < 90 degrees; phases in the 3rd
+                                      quadrant are shifted to the first by
+                                      adding 180 degrees)
+
+        :Example: ::
+
+            >>> import mtpy.modeling.occam1d as occam1d
+            >>> #--> make a data file
+            >>> d1 = occam1d.Data()
+            >>> d1.write_data_file(edi_file=r'/home/MT/mt01.edi', res_err=10,
+            >>> ...                phase_err=2.5, mode='TE',
+            >>> ...                save_path=r"/home/occam1d/mt01/TE")
+        """
+        # be sure that the input mode is not case sensitive
+        self.mode = mode.lower()
+
+        if edi_file is not None:
+
+            # read in edifile
+            mt_obj = mt.MT(edi_file)
+            z_obj = mt_obj.Z
+            z_obj.compute_resistivity_phase()
+
+            # get frequencies to invert
+            freq = z_obj.freq
+            nf = len(freq)
+
+            # rotate if necessary
+            if thetar != 0:
+                z_obj.rotate(thetar)
+
+            # get the data requested by the given mode
+            if self.mode == "te":
+                data_1 = z_obj.resistivity[:, 0, 1]
+                data_1_err = z_obj.resistivity_err[:, 0, 1]
+
+                data_2 = z_obj.phase[:, 0, 1]
+                data_2_err = z_obj.phase_err[:, 0, 1]
+
+            elif self.mode == "tm":
+                data_1 = z_obj.resistivity[:, 1, 0]
+                data_1_err = z_obj.resistivity_err[:, 1, 0]
+
+                # need to put the angle in the right quadrant
+                data_2 = z_obj.phase[:, 1, 0] % 180
+                data_2_err = z_obj.phase_err[:, 1, 0]
+
+            elif self.mode.startswith("det"):
+
+                # take square root as determinant is similar to z squared
+                zdetreal = (z_obj.det**0.5).real
+                zdetimag = (z_obj.det**0.5).imag
+
+                # error propagation - new error is 0.5 * relative error in zdet
+                # then convert back to absolute error
+                det_err = mtcc.compute_determinant_error(z_obj.z, z_obj.z_err)
+
+                #                # relative errors of real and imaginary components of sqrt determinant
+                zereal = zdetreal * det_err * 0.5 / z_obj.det.real
+                zeimag = zdetimag * det_err * 0.5 / z_obj.det.imag
+
+                if self.mode.endswith("z"):
+                    # convert to si units if we are modelling impedance tensor
+
+                    data_1 = zdetreal * np.pi * 4e-4
+                    data_1_err = zereal * np.pi * 4e-4
+                    data_2 = zdetimag * np.pi * 4e-4
+                    data_2_err = zeimag * np.pi * 4e-4
+                else:
+                    # convert to res/phase
+                    # data_1 is resistivity
+                    # need to take absolute of square root before squaring it
+                    data_1 = 0.2 / freq * np.abs(z_obj.det**0.5) ** 2
+                    # data_2 is phase
+                    data_2 = np.rad2deg(np.arctan2(zdetimag, zdetreal))
+
+                    # initialise error arrays
+                    data_1_err = np.zeros_like(data_1, dtype=np.float)
+                    data_2_err = np.zeros_like(data_2, dtype=np.float)
+
+                    # assign errors, use error based on sqrt of z
+                    for zdr, zdi, zer, zei, ii in zip(
+                        zdetreal,
+                        zdetimag,
+                        zereal,
+                        zeimag,
+                        list(range(len(z_obj.det))),
+                    ):
+                        # now we can convert errors to polar coordinates
+                        de1, de2 = mtcc.z_error2r_phi_error(
+                            zdr, zdi, (zei + zer) / 2.0
+                        )
+                        # convert relative resistivity error to absolute
+                        de1 *= data_1[ii]
+                        data_1_err[ii] = de1
+                        data_2_err[ii] = de2
+
+            elif self.mode == "tez":
+                # convert to si units
+                data_1 = z_obj.z[:, 0, 1].real * np.pi * 4e-4
+                data_1_err = z_obj.z_err[:, 0, 1] * np.pi * 4e-4
+
+                data_2 = z_obj.z[:, 0, 1].imag * np.pi * 4e-4
+                data_2_err = z_obj.z_err[:, 0, 1] * np.pi * 4e-4
+
+            elif self.mode == "tmz":
+                # convert to si units
+                data_1 = z_obj.z[:, 1, 0].real * np.pi * 4e-4
+                data_1_err = z_obj.z_err[:, 1, 0] * np.pi * 4e-4
+
+                data_2 = z_obj.z[:, 1, 0].imag * np.pi * 4e-4
+                data_2_err = z_obj.z_err[:, 1, 0] * np.pi * 4e-4
+
+            else:
+                raise IOError("Mode {0} is not supported.".format(self.mode))
+
+        if rp_tuple is not None:
+            if len(rp_tuple) != 5:
+                raise IOError(
+                    "Be sure rp_array is correctly formated\n"
+                    "should be freq, res, res_err, phase, phase_err"
+                )
+            freq, rho, rho_err, phi, phi_err = rp_tuple
+            nf = len(freq)
+
+            if self.mode in "te":
+                data_1 = rho[:, 0, 1]
+                data_1_err = rho_err[:, 0, 1]
+
+                data_2 = phi[:, 0, 1]
+                data_2_err = phi_err[:, 0, 1]
+
+            elif self.mode in "tm":
+                data_1 = rho[:, 1, 0]
+                data_1_err = rho_err[:, 1, 0]
+
+                data_2 = phi[:, 1, 0] % 180
+                data_2_err = phi_err[:, 1, 0]
+
+            if "det" in mode.lower():
+                data_1 = rho[:, 0, 1]
+                data_1_err = rho_err[:, 0, 1]
+
+                data_2 = phi[:, 0, 1]
+                data_2_err = phi_err[:, 0, 1]
+
+        if remove_outofquadrant:
+            (
+                freq,
+                data_1,
+                data_1_err,
+                data_2,
+                data_2_err,
+            ) = self._remove_outofquadrant_phase(
+                freq, data_1, data_1_err, data_2, data_2_err
+            )
+            nf = len(freq)
+
+        # ---> get errors--------------------------------------
+        # set error floors
+        if "z" in self.mode:
+            if z_errorfloor > 0:
+                data_1_err = np.abs(data_1_err)
+                test = (
+                    data_1_err / np.abs(data_1 + 1j * data_2)
+                    < z_errorfloor / 100.0
+                )
+                data_1_err[test] = (
+                    np.abs(data_1 + 1j * data_2)[test] * z_errorfloor / 100.0
+                )
+                data_2_err = data_1_err.copy()
+        else:
+            if res_errorfloor > 0:
+                test = data_1_err / data_1 < res_errorfloor / 100.0
+                data_1_err[test] = data_1[test] * res_errorfloor / 100.0
+            if phase_errorfloor > 0:
+                data_2_err[data_2_err < phase_errorfloor] = phase_errorfloor
+
+            if res_err != "data":
+                data_1_err = data_1 * res_err / 100.0
+            if phase_err != "data":
+                data_2_err = np.repeat(phase_err / 100.0 * (180 / np.pi), nf)
+
+        # --> write file
+        # make sure the savepath exists, if not create it
+        if save_path is not None:
+            self.save_path = Path(save_path)
+        if self.save_path is None:
+            try:
+                self.save_path = edi_file
+            except TypeError:
+                pass
+        elif os.path.basename(self.save_path).find(".") > 0:
+            self.save_path = os.path.dirname(self.save_path)
+            self._data_fn = os.path.basename(self.save_path)
+        if not os.path.exists(self.save_path):
+            os.mkdir(self.save_path)
+
+        if self.data_fn is None:
+            self.data_fn = os.path.join(
+                self.save_path,
+                "{0}_{1}.dat".format(self._data_fn, mode.upper()),
+            )
+
+        # --> write file as a list of lines
+        dlines = []
+
+        dlines.append("Format:  EMData_1.1 \n")
+        dlines.append("!mode:   {0}\n".format(mode.upper()))
+        dlines.append("!rotation_angle = {0:.2f}\n".format(thetar))
+
+        # needs a transmitter to work so put in a dummy one
+        dlines.append("# Transmitters: 1\n")
+        dlines.append("0 0 0 0 0 \n")
+
+        # write frequencies
+        dlines.append("# Frequencies:   {0}\n".format(nf))
+        if freq[0] < freq[-1]:
+            freq = freq[::-1]
+            data_1 = data_1[::-1]
+            data_2 = data_2[::-1]
+            data_1_err = data_1_err[::-1]
+            data_2_err = data_2_err[::-1]
+        for ff in freq:
+            dlines.append("   {0:{1}}\n".format(ff, self._string_fmt))
+
+        # needs a receiver to work so put in a dummy one
+        dlines.append("# Receivers: 1 \n")
+        dlines.append("0 0 0 0 0 0 \n")
+
+        # write data
+        dlines.append("# Data:{0}{1}\n".format(self._ss, 2 * nf))
+        num_data_line = len(dlines)
+
+        dlines.append(self._header_line)
+        data_count = 0
+
+        #        data1 = np.abs(data1)
+        #        data2 = np.abs(data2)
+
+        for ii in range(nf):
+            # write lines
+            if data_1[ii] != 0.0:
+                dlines.append(
+                    self._ss.join(
+                        [
+                            d1_str,
+                            str(ii + 1),
+                            "0",
+                            "1",
+                            "{0:{1}}".format(data_1[ii], self._string_fmt),
+                            "{0:{1}}\n".format(
+                                data_1_err[ii], self._string_fmt
+                            ),
+                        ]
+                    )
+                )
+                data_count += 1
+            if data_2[ii] != 0.0:
+                dlines.append(
+                    self._ss.join(
+                        [
+                            d2_str,
+                            str(ii + 1),
+                            "0",
+                            "1",
+                            "{0:{1}}".format(data_2[ii], self._string_fmt),
+                            "{0:{1}}\n".format(
+                                data_2_err[ii], self._string_fmt
+                            ),
+                        ]
+                    )
+                )
+                data_count += 1
+
+        # --> write file
+        dlines[num_data_line - 1] = "# Data:{0}{1}\n".format(
+            self._ss, data_count
+        )
+
+        with open(self.data_fn, "w") as dfid:
+            dfid.writelines(dlines)
+
+        print("Wrote Data File to : {0}".format(self.data_fn))
+
+        # --> set attributes
+
+        if "z" in mode.lower():
+            self.z = data_1 + 1j * data_2
+            self.z_err = data_1_err
+        else:
+            if "det" in mode.lower():
+                self.res_det = data_1
+                self.phase_det = data_2
+            elif self.mode == "te":
+                self.res_te = data_1
+                self.phase_te = data_2
+            elif self.mode == "tm":
+                self.res_tm = data_1
+                self.phase_tm = data_2
+            self.res_err = data_1_err
+            self.phase_err = data_2_err
+
+        self.freq = freq
+
+    def _remove_outofquadrant_phase(self, freq, d1, d1_err, d2, d2_err):
+        """
+        remove out of quadrant phase from data
+        """
+        # remove data points with phase out of quadrant
+        if "z" in self.mode:
+            include = (d1 / d2 > 0) & (d1 / d2 > 0)
+        elif self.mode in ["det", "te", "tm"]:
+            include = (
+                (d2 % 180 <= 90)
+                & (d2 % 180 >= 0)
+                & (d2 % 180 <= 90)
+                & (d2 % 180 >= 0)
+            )
+
+        newfreq, nd1, nd1_err, nd2, nd2_err = [
+            arr[include] for arr in [freq, d1, d1_err, d2, d2_err]
+        ]
+        # fix any zero errors to 100% of the res value or 90 degrees for phase
+        nd1_err[nd1_err == 0] = nd1[nd1_err == 0]
+        if "z" in self.mode:
+            nd2_err[nd2_err == 0] = nd2[nd2_err == 0]
+        else:
+            nd2_err[nd2_err == 0] = 90
+
+        return newfreq, nd1, nd1_err, nd2, nd2_err
+
+    def read_data_file(self, data_fn=None):
+        """
+        reads a 1D data file
+
+        Arguments:
+        ----------
+            **data_fn** : full path to data file
+
+        Returns:
+        --------
+            **Occam1D.rpdict** : dictionary with keys:
+
+                *'freq'* : an array of frequencies with length nf
+
+                *'resxy'* : TE resistivity array with shape (nf,4) for (0) data,
+                          (1) dataerr, (2) model, (3) modelerr
+
+                *'resyx'* : TM resistivity array with shape (nf,4) for (0) data,
+                          (1) dataerr, (2) model, (3) modelerr
+
+                *'phasexy'* : TE phase array with shape (nf,4) for (0) data,
+                            (1) dataerr, (2) model, (3) modelerr
+
+                *'phaseyx'* : TM phase array with shape (nf,4) for (0) data,
+                            (1) dataerr, (2) model, (3) modelerr
+
+        :Example: ::
+
+            >>> old = occam1d.Data()
+            >>> old.data_fn = r"/home/Occam1D/Line1/Inv1_TE/MT01TE.dat"
+            >>> old.read_data_file()
+        """
+
+        if data_fn is not None:
+            self.data_fn = data_fn
+        if self.data_fn is None:
+            raise IOError("Need to input a data file")
+        elif os.path.isfile(self.data_fn) == False:
+            raise IOError("Could not find {0}, check path".format(self.data_fn))
+
+        self._data_fn = os.path.basename(self.data_fn)
+        self.save_path = os.path.dirname(self.data_fn)
+
+        dfid = open(self.data_fn, "r")
+
+        # read in lines
+        dlines = dfid.readlines()
+        dfid.close()
+
+        # make a dictionary of all the fields found so can put them into arrays
+        finddict = {}
+        for ii, dline in enumerate(dlines):
+            if dline.find("#") <= 3:
+                fkey = dline[2:].strip().split(":")[0]
+                fvalue = ii
+                finddict[fkey] = fvalue
+
+        # get number of frequencies
+        nfreq = int(
+            dlines[finddict["Frequencies"]][2:].strip().split(":")[1].strip()
+        )
+
+        # frequency list
+        freq = np.array(
+            [
+                float(ff)
+                for ff in dlines[
+                    finddict["Frequencies"] + 1 : finddict["Receivers"]
+                ]
+            ]
+        )
+
+        # data dictionary to put things into
+        # check to see if there is alread one, if not make a new one
+        if self.data is None:
+            self.data = {
+                "freq": freq,
+                "zxy": np.zeros((4, nfreq), dtype=complex),
+                "zyx": np.zeros((4, nfreq), dtype=complex),
+                "resxy": np.zeros((4, nfreq)),
+                "resyx": np.zeros((4, nfreq)),
+                "phasexy": np.zeros((4, nfreq)),
+                "phaseyx": np.zeros((4, nfreq)),
+            }
+
+        # get data
+        for dline in dlines[finddict["Data"] + 1 :]:
+            if dline.find("!") == 0:
+                pass
+            else:
+                dlst = dline.strip().split()
+                dlst = [dd.strip() for dd in dlst]
+                if len(dlst) > 4:
+                    jj = int(dlst[1]) - 1
+                    dvalue = float(dlst[4])
+                    derr = float(dlst[5])
+                    if dlst[0] == "RhoZxy" or dlst[0] == "103":
+                        self.mode = "TE"
+                        self.data["resxy"][0, jj] = dvalue
+                        self.data["resxy"][1, jj] = derr
+                    if dlst[0] == "PhsZxy" or dlst[0] == "104":
+                        self.mode = "TE"
+                        self.data["phasexy"][0, jj] = dvalue
+                        self.data["phasexy"][1, jj] = derr
+                    if dlst[0] == "RhoZyx" or dlst[0] == "105":
+                        self.mode = "TM"
+                        self.data["resyx"][0, jj] = dvalue
+                        self.data["resyx"][1, jj] = derr
+                    if dlst[0] == "PhsZyx" or dlst[0] == "106":
+                        self.mode = "TM"
+                        self.data["phaseyx"][0, jj] = dvalue
+                        self.data["phaseyx"][1, jj] = derr
+                    if dlst[0] == "RealZxy" or dlst[0] == "113":
+                        self.mode = "TEz"
+                        self.data["zxy"][0, jj] = dvalue / (np.pi * 4e-4)
+                        self.data["zxy"][1, jj] = derr / (np.pi * 4e-4)
+                    if dlst[0] == "ImagZxy" or dlst[0] == "114":
+                        self.mode = "TEz"
+                        self.data["zxy"][0, jj] += 1j * dvalue / (np.pi * 4e-4)
+                        self.data["zxy"][1, jj] = derr / (np.pi * 4e-4)
+                    if dlst[0] == "RealZyx" or dlst[0] == "115":
+                        self.mode = "TMz"
+                        self.data["zyx"][0, jj] = dvalue / (np.pi * 4e-4)
+                        self.data["zyx"][1, jj] = derr / (np.pi * 4e-4)
+                    if dlst[0] == "ImagZyx" or dlst[0] == "116":
+                        self.mode = "TMz"
+                        self.data["zyx"][0, jj] += 1j * dvalue / (np.pi * 4e-4)
+                        self.data["zyx"][1, jj] = derr / (np.pi * 4e-4)
+
+        if "z" in self.mode:
+            if "TE" in self.mode:
+                pol = "xy"
+            elif "TM" in self.mode:
+                pol = "yx"
+
+            self.data["res" + pol][0] = (
+                0.2 * np.abs(self.data["z" + pol][0]) ** 2.0 / freq
+            )
+            self.data["phase" + pol][0] = np.rad2deg(
+                np.arctan(
+                    self.data["res" + pol][0].imag
+                    / self.data["res" + pol][0].real
+                )
+            )
+            for jjj in range(len(freq)):
+                res_rel_err, phase_err = mtcc.z_error2r_phi_error(
+                    self.data["z" + pol][0, jjj].real,
+                    self.data["z" + pol][0, jjj].imag,
+                    self.data["z" + pol][1, jjj],
+                )
+
+                (
+                    self.data["res" + pol][1, jjj],
+                    self.data["phase" + pol][1, jjj],
+                ) = (
+                    res_rel_err * self.data["res" + pol][0, jjj],
+                    phase_err,
+                )
+
+            self.data["resyx"][0] = (
+                0.2 * np.abs(self.data["zxy"][0]) ** 2.0 / freq
+            )
+
+        self.freq = freq
+        self.res_te = self.data["resxy"]
+        self.res_tm = self.data["resyx"]
+        self.phase_te = self.data["phasexy"]
+        self.phase_tm = self.data["phaseyx"]
+
+    def read_resp_file(self, resp_fn=None, data_fn=None):
+        """
+         read response file
+
+         Arguments:
+         ---------
+             **resp_fn** : full path to response file
+
+             **data_fn** : full path to data file
+
+         Fills:
+         --------
+
+             *freq* : an array of frequencies with length nf
+
+             *res_te* : TE resistivity array with shape (nf,4) for (0) data,
+                       (1) dataerr, (2) model, (3) modelerr
+
+             *res_tm* : TM resistivity array with shape (nf,4) for (0) data,
+                       (1) dataerr, (2) model, (3) modelerr
+
+             *phase_te* : TE phase array with shape (nf,4) for (0) data,
+                         (1) dataerr, (2) model, (3) modelerr
+
+             *phase_tm* : TM phase array with shape (nf,4) for (0) data,
+                         (1) dataerr, (2) model, (3) modelerr
+
+        :Example: ::
+             >>> o1d = occam1d.Data()
+             >>> o1d.data_fn = r"/home/occam1d/mt01/TE/Occam1D_DataFile_TE.dat"
+             >>> o1d.read_resp_file(r"/home/occam1d/mt01/TE/TE_7.resp")
+
+        """
+
+        if resp_fn is not None:
+            self.resp_fn = resp_fn
+        if self.resp_fn is None:
+            raise IOError("Need to input response file")
+
+        if data_fn is not None:
+            self.data_fn = data_fn
+        if self.data_fn is None:
+            raise IOError("Need to input data file")
+        # --> read in data file
+        self.read_data_file()
+
+        # --> read response file
+        dfid = open(self.resp_fn, "r")
+
+        dlines = dfid.readlines()
+        dfid.close()
+
+        finddict = {}
+        for ii, dline in enumerate(dlines):
+            if dline.find("#") <= 3:
+                fkey = dline[2:].strip().split(":")[0]
+                fvalue = ii
+                finddict[fkey] = fvalue
+
+        for dline in dlines[finddict["Data"] + 1 :]:
+            if dline.find("!") == 0:
+                pass
+            else:
+                dlst = dline.strip().split()
+                if len(dlst) > 4:
+                    jj = int(dlst[1]) - 1
+                    dvalue = float(dlst[4])
+                    derr = float(dlst[5])
+                    rvalue = float(dlst[6])
+                    try:
+                        rerr = float(dlst[7])
+                    except ValueError:
+                        rerr = 1000.0
+                    if dlst[0] == "RhoZxy" or dlst[0] == "103":
+                        self.res_te[0, jj] = dvalue
+                        self.res_te[1, jj] = derr
+                        self.res_te[2, jj] = rvalue
+                        self.res_te[3, jj] = rerr
+                    if dlst[0] == "PhsZxy" or dlst[0] == "104":
+                        self.phase_te[0, jj] = dvalue
+                        self.phase_te[1, jj] = derr
+                        self.phase_te[2, jj] = rvalue
+                        self.phase_te[3, jj] = rerr
+                    if dlst[0] == "RhoZyx" or dlst[0] == "105":
+                        self.res_tm[0, jj] = dvalue
+                        self.res_tm[1, jj] = derr
+                        self.res_tm[2, jj] = rvalue
+                        self.res_tm[3, jj] = rerr
+                    if dlst[0] == "PhsZyx" or dlst[0] == "106":
+                        self.phase_tm[0, jj] = dvalue
+                        self.phase_tm[1, jj] = derr
+                        self.phase_tm[2, jj] = rvalue
+                        self.phase_tm[3, jj] = rerr
+                    if dlst[0] == "RealZxy" or dlst[0] == "113":
+                        self.mode = "TEz"
+                        self.data["zxy"][0, jj] = dvalue / (np.pi * 4e-4)
+                        self.data["zxy"][1, jj] = derr / (np.pi * 4e-4)
+                        self.data["zxy"][2, jj] = rvalue / (np.pi * 4e-4)
+                        self.data["zxy"][3, jj] = rerr
+                    if dlst[0] == "ImagZxy" or dlst[0] == "114":
+                        self.mode = "TEz"
+                        self.data["zxy"][0, jj] += 1j * dvalue / (np.pi * 4e-4)
+                        self.data["zxy"][1, jj] = derr / (np.pi * 4e-4)
+                        self.data["zxy"][2, jj] += 1j * rvalue / (np.pi * 4e-4)
+                        self.data["zxy"][3, jj] = rerr
+                    if dlst[0] == "RealZyx" or dlst[0] == "115":
+                        self.mode = "TMz"
+                        self.data["zyx"][0, jj] = dvalue / (np.pi * 4e-4)
+                        self.data["zyx"][1, jj] = derr / (np.pi * 4e-4)
+                        self.data["zyx"][2, jj] = rvalue / (np.pi * 4e-4)
+                        self.data["zyx"][3, jj] = rerr
+                    if dlst[0] == "ImagZyx" or dlst[0] == "116":
+                        self.mode = "TMz"
+                        self.data["zyx"][0, jj] += 1j * dvalue / (np.pi * 4e-4)
+                        self.data["zyx"][1, jj] = derr / (np.pi * 4e-4)
+                        self.data["zyx"][2, jj] += 1j * rvalue / (np.pi * 4e-4)
+                        self.data["zyx"][3, jj] = rerr
+        if "z" in self.mode:
+            if "TE" in self.mode:
+                pol = "xy"
+            elif "TM" in self.mode:
+                pol = "yx"
+            for ii in [0, 2]:
+                self.data["res" + pol][0 + ii] = (
+                    0.2
+                    * np.abs(self.data["z" + pol][0 + ii]) ** 2.0
+                    / self.freq
+                )
+                self.data["phase" + pol][0 + ii] = np.rad2deg(
+                    np.arctan(
+                        self.data["z" + pol][0 + ii].imag
+                        / self.data["z" + pol][0 + ii].real
+                    )
+                )
+
+                self.data["res" + pol][1 + ii] = (
+                    self.data["res" + pol][0 + ii]
+                    * self.data["z" + pol][1 + ii].real
+                    / np.abs(self.data["z" + pol][0 + ii])
+                )
+
+                for jjj in range(len(self.freq)):
+                    self.data["phase" + pol][
+                        1 + ii, jjj
+                    ] = mtcc.z_error2r_phi_error(
+                        self.data["z" + pol][0 + ii, jjj].real,
+                        self.data["z" + pol][0 + ii, jjj].imag,
+                        self.data["z" + pol][1 + ii, jjj].real,
+                    )[
+                        1
+                    ]
+            if pol == "xy":
+                self.res_te = self.data["resxy"]
+                self.phase_te = self.data["phasexy"]
+            elif pol == "yx":
+                self.res_tm = self.data["resyx"]
+                self.phase_tm = self.data["phaseyx"]
