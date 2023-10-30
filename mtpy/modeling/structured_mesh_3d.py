@@ -539,7 +539,7 @@ class StructuredGrid3D:
             )
         else:
             raise NameError(
-                'Padding method "{}" is not supported'.format(self.pad_method)
+                f'Padding method "{self.pad_method}" is not supported'
             )
 
         # make the horizontal grid
@@ -731,7 +731,7 @@ class StructuredGrid3D:
         gcz = np.mean([self.grid_z[:-1], self.grid_z[1:]], axis=0)
 
         self._logger.debug(
-            "gcz is the cells centre coordinates: %s, %s" % (len(gcz), gcz)
+            f"gcz is the cells centre coordinates: {len(gcz)}, {gcz}"
         )
 
         # assign resistivity value
@@ -742,7 +742,7 @@ class StructuredGrid3D:
                 )[0]
                 self.res_model[j, i, ii] = resistivity_value
 
-    def to_modem(self, **kwargs):
+    def to_modem(self, model_fn=None, **kwargs):
         """
         will write an initial file for ModEM.
 
@@ -759,23 +759,6 @@ class StructuredGrid3D:
         Key Word Arguments:
         ----------------------
 
-            **nodes_north** : np.array(nx)
-                        block dimensions (m) in the N-S direction.
-                        **Note** that the code reads the grid assuming that
-                        index=0 is the southern most point.
-
-            **nodes_east** : np.array(ny)
-                        block dimensions (m) in the E-W direction.
-                        **Note** that the code reads in the grid assuming that
-                        index=0 is the western most point.
-
-            **nodes_z** : np.array(nz)
-                        block dimensions (m) in the vertical direction.
-                        This is positive downwards.
-
-            **save_path** : string
-                          Path to where the initial file will be saved
-                          to save_path/model_fn_basename
 
             **model_fn_basename** : string
                                     basename to save file to
@@ -785,15 +768,6 @@ class StructuredGrid3D:
             **title** : string
                         Title that goes into the first line
                         *default* is Model File written by MTpy.modeling.modem
-
-            **res_model** : np.array((nx,ny,nz))
-                        Prior resistivity model.
-
-                        .. note:: again that the modeling code
-                        assumes that the first row it reads in is the southern
-                        most row and the first column it reads in is the
-                        western most column.  Similarly, the first plane it
-                        reads in is the Earth's surface.
 
             **res_starting_value** : float
                                      starting model resistivity value,
@@ -820,96 +794,77 @@ class StructuredGrid3D:
             )
             self.res_model[:, :, :] = self.res_initial_value
 
-        elif type(self.res_model) in [float, int]:
-            self.res_initial_value = self.res_model
-            self.res_model = np.zeros(
-                (
-                    self.nodes_north.size,
-                    self.nodes_east.size,
-                    self.nodes_z.size,
-                )
-            )
-            self.res_model[:, :, :] = self.res_initial_value
-
         # --> write file
+        lines = []
+
+        lines.append(f"# {self.title.upper()}")
+        lines.append(
+            f"{self.nodes_north.size:>5}{self.nodes_east.size:>5}"
+            f"{self.nodes_z.size:>5}{0:>5} {self.res_scale.upper()}"
+        )
+
+        # write S --> N node block
+        lines.append(
+            "".join([f"{abs(nnode):>12.3f}" for nnode in self.nodes_north])
+        )
+
+        # write W --> E node block
+        lines.append(
+            "".join([f"{abs(enode):>12.3f}" for enode in self.nodes_east])
+        )
+
+        # write top --> bottom node block
+        lines.append(
+            "".join([f"{abs(znode):>12.3f}" for znode in self.nodes_z])
+        )
+
+        # write the resistivity in log e format
+        if self.res_scale.lower() == "loge":
+            write_res_model = np.log(self.res_model[::-1, :, :])
+        elif (
+            self.res_scale.lower() == "log" or self.res_scale.lower() == "log10"
+        ):
+            write_res_model = np.log10(self.res_model[::-1, :, :])
+        elif self.res_scale.lower() == "linear":
+            write_res_model = self.res_model[::-1, :, :]
+        else:
+            raise ValueError(
+                f'resistivity scale "{self.res_scale}" is not supported.'
+            )
+
+        # write out the layers from resmodel
+        for zz in range(self.nodes_z.size):
+            lines.append("")
+            for ee in range(self.nodes_east.size):
+                line = []
+                for nn in range(self.nodes_north.size):
+                    line.append(f"{write_res_model[nn, ee, zz]:>13.5E}")
+                lines.append("".join(line))
+
+        if self.grid_center is None:
+            # compute grid center
+            center_east = -self.nodes_east.__abs__().sum() / 2
+            center_north = -self.nodes_north.__abs__().sum() / 2
+            center_z = 0
+            self.grid_center = np.array([center_north, center_east, center_z])
+
+        lines.append("")
+        lines.append(
+            f"{self.grid_center[0]:>16.3f}{self.grid_center[1]:>16.3f}{self.grid_center[2]:>16.3f}"
+        )
+
+        if self.mesh_rotation_angle is None:
+            lines.append(f"{0:>9.3f}")
+        else:
+            lines.append(f"{self.mesh_rotation_angle:>9.3f}")
+
+        if model_fn is not None:
+            self.model_fn = model_fn
+
         with open(self.model_fn, "w") as ifid:
-            ifid.write("# {0}\n".format(self.title.upper()))
-            ifid.write(
-                "{0:>5}{1:>5}{2:>5}{3:>5} {4}\n".format(
-                    self.nodes_north.size,
-                    self.nodes_east.size,
-                    self.nodes_z.size,
-                    0,
-                    self.res_scale.upper(),
-                )
-            )
+            ifid.write("\n".join(lines))
 
-            # write S --> N node block
-            for ii, nnode in enumerate(self.nodes_north):
-                ifid.write("{0:>12.3f}".format(abs(nnode)))
-
-            ifid.write("\n")
-
-            # write W --> E node block
-            for jj, enode in enumerate(self.nodes_east):
-                ifid.write("{0:>12.3f}".format(abs(enode)))
-            ifid.write("\n")
-
-            # write top --> bottom node block
-            for kk, zz in enumerate(self.nodes_z):
-                ifid.write("{0:>12.3f}".format(abs(zz)))
-            ifid.write("\n")
-
-            # write the resistivity in log e format
-            if self.res_scale.lower() == "loge":
-                write_res_model = np.log(self.res_model[::-1, :, :])
-            elif (
-                self.res_scale.lower() == "log"
-                or self.res_scale.lower() == "log10"
-            ):
-                write_res_model = np.log10(self.res_model[::-1, :, :])
-            elif self.res_scale.lower() == "linear":
-                write_res_model = self.res_model[::-1, :, :]
-            else:
-                raise ValueError(
-                    'resistivity scale "{}" is not supported.'.format(
-                        self.res_scale
-                    )
-                )
-
-            # write out the layers from resmodel
-            for zz in range(self.nodes_z.size):
-                ifid.write("\n")
-                for ee in range(self.nodes_east.size):
-                    for nn in range(self.nodes_north.size):
-                        ifid.write(
-                            "{0:>13.5E}".format(write_res_model[nn, ee, zz])
-                        )
-                    ifid.write("\n")
-
-            if self.grid_center is None:
-                # compute grid center
-                center_east = -self.nodes_east.__abs__().sum() / 2
-                center_north = -self.nodes_north.__abs__().sum() / 2
-                center_z = 0
-                self.grid_center = np.array(
-                    [center_north, center_east, center_z]
-                )
-
-            ifid.write(
-                "\n{0:>16.3f}{1:>16.3f}{2:>16.3f}\n".format(
-                    self.grid_center[0],
-                    self.grid_center[1],
-                    self.grid_center[2],
-                )
-            )
-
-            if self.mesh_rotation_angle is None:
-                ifid.write("{0:>9.3f}\n".format(0))
-            else:
-                ifid.write("{0:>9.3f}\n".format(self.mesh_rotation_angle))
-
-        self._logger.info("Wrote file to: {0}".format(self.model_fn))
+        self._logger.info(f"Wrote file to: {self.model_fn}")
 
     def from_modem(self, model_fn=None):
         """
@@ -1147,7 +1102,7 @@ class StructuredGrid3D:
 
         parameter_dict = {}
         for parameter in parameter_list:
-            key = "model.{0}".format(parameter)
+            key = f"model.{parameter}"
             parameter_dict[key] = getattr(self, parameter)
 
         parameter_dict["model.size"] = self.res_model.shape
@@ -1420,10 +1375,10 @@ class StructuredGrid3D:
                 surface_name = surface_file.name
             else:
                 ii = 1
-                surface_name = "surface%01i" % ii
+                surface_name = f"surface{int(ii):01}"
                 while surface_name in list(self.surface_dict.keys()):
                     ii += 1
-                    surface_name = "surface%01i" % ii
+                    surface_name = f"surface{int(ii):01}"
             return elev_mg, surface_name
         else:
             return elev_mg
@@ -1613,7 +1568,7 @@ class StructuredGrid3D:
                     axis=0,
                 )
 
-            self._logger.debug("self.grid_z[0:2] {}".format(self.grid_z[0:2]))
+            self._logger.debug(f"self.grid_z[0:2] {self.grid_z[0:2]}")
 
         # update the z-centre as the top air layer
         self.grid_center[2] = self.grid_z[0]
@@ -2010,7 +1965,7 @@ class StructuredGrid3D:
 
         for k in depthindices:
             fname = save_path.joinpath(
-                outfile_basename + "_%1im.xyz" % self.grid_z[k]
+                outfile_basename + f"_{int(self.grid_z[k]):1}m.xyz"
             )
 
             # get relevant depth slice
@@ -2096,7 +2051,7 @@ class StructuredGrid3D:
 
         gridToVTK(vtk_fn.as_posix(), vtk_x, vtk_y, vtk_z, cellData=cell_data)
 
-        self._logger.info("Wrote model file to {}".format(vtk_fn))
+        self._logger.info(f"Wrote model file to {vtk_fn}")
 
     def write_geosoft_xyz_file(
         self,
@@ -2228,18 +2183,18 @@ class StructuredGrid3D:
 
             # write S --> N node block
             for ii, nnode in enumerate(self.nodes_east):
-                ifid.write("{0:>12.3f}".format(abs(nnode)))
+                ifid.write(f"{abs(nnode):>12.3f}")
 
             ifid.write("\n")
 
             # write W --> E node block
             for jj, enode in enumerate(self.nodes_north):
-                ifid.write("{0:>12.3f}".format(abs(enode)))
+                ifid.write(f"{abs(enode):>12.3f}")
             ifid.write("\n")
 
             # write top --> bottom node block
             for kk, zz in enumerate(self.nodes_z):
-                ifid.write("{0:>12.3f}".format(abs(zz)))
+                ifid.write(f"{abs(zz):>12.3f}")
             ifid.write("\n")
 
             # write the resistivity in log e format
@@ -2251,9 +2206,7 @@ class StructuredGrid3D:
                 ifid.write(f"{count}\n")
                 for nn in range(self.nodes_north.size):
                     for ee in range(self.nodes_east.size):
-                        ifid.write(
-                            "{0:>13.5E}".format(write_res_model[nn, ee, zz])
-                        )
+                        ifid.write(f"{write_res_model[nn, ee, zz]:>13.5E}")
                     ifid.write("\n")
                 count += 1
 
@@ -2269,7 +2222,7 @@ class StructuredGrid3D:
             ifid.write(f"   {shift_elevation:.3f}       (top elevation)\n")
             ifid.write("\n")
 
-        self._logger.info("Wrote file to: {0}".format(save_fn))
+        self._logger.info(f"Wrote file to: {save_fn}")
 
     def write_ubc_files(self, basename, c_east=0, c_north=0, c_z=0):
         """
