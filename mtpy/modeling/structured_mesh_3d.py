@@ -742,7 +742,7 @@ class StructuredGrid3D:
                 )[0]
                 self.res_model[j, i, ii] = resistivity_value
 
-    def write_modem_file(self, **kwargs):
+    def to_modem(self, **kwargs):
         """
         will write an initial file for ModEM.
 
@@ -909,11 +909,9 @@ class StructuredGrid3D:
             else:
                 ifid.write("{0:>9.3f}\n".format(self.mesh_rotation_angle))
 
-            # not needed ifid.close()
-
         self._logger.info("Wrote file to: {0}".format(self.model_fn))
 
-    def read_modem_file(self, model_fn=None):
+    def from_modem(self, model_fn=None):
         """
         read an initial file and return the pertinent information including
         grid positions in coordinates relative to the center point (0,0) and
