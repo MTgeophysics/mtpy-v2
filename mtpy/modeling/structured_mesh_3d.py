@@ -248,7 +248,7 @@ class StructuredGrid3D:
         self.save_path = Path().cwd()
         self.model_fn_basename = "ModEM_Model_File.rho"
 
-        self.title = "Model File written by MTpy.modeling.modem"
+        self._modem_title = "Model File written by MTpy.modeling.modem"
         self.res_scale = "loge"
 
         for key, value in kwargs.items():
@@ -260,7 +260,7 @@ class StructuredGrid3D:
                 )
 
     def __str__(self):
-        lines = ["ModEM Model Object:", "-" * 20]
+        lines = ["Structured3DMesh Model Object:", "-" * 20]
         # --> print out useful information
         try:
             lines.append(
@@ -278,6 +278,7 @@ class StructuredGrid3D:
         lines.append(f"\t\tz1_layer:          {self.z1_layer}")
         lines.append(f"\t\tz_target_depth:    {self.z_target_depth}")
         lines.append(f"\t\tn_layers:          {self.n_layers}")
+        lines.append(f"\t\tn_air_layers:      {self.n_air_layers}")
         lines.append(f"\t\tres_initial_value: {self.res_initial_value}")
         lines.append("\tDimensions: ")
         lines.append(f"\t\te-w: {self.grid_east.size}")
@@ -293,9 +294,9 @@ class StructuredGrid3D:
             )
 
             lines.append(
-                " ** Note ModEM does not accommodate mesh rotations, it assumes"
+                " ** Note rotations are assumed to have stations rotated."
             )
-            lines.append("    all coordinates are aligned to geographic N, E")
+            lines.append("    All coordinates are aligned to geographic N, E")
             lines.append(
                 "    therefore rotating the stations will have a similar effect"
             )
@@ -797,7 +798,7 @@ class StructuredGrid3D:
         # --> write file
         lines = []
 
-        lines.append(f"# {self.title.upper()}")
+        lines.append(f"# {self._modem_title.upper()}")
         lines.append(
             f"{self.nodes_north.size:>5}{self.nodes_east.size:>5}"
             f"{self.nodes_z.size:>5}{0:>5} {self.res_scale.upper()}"
@@ -924,7 +925,7 @@ class StructuredGrid3D:
         with open(self.model_fn, "r") as ifid:
             ilines = ifid.readlines()
 
-        self.title = ilines[0].strip()
+        self._modem_title = ilines[0].replace("#", "").strip()
 
         # get size of dimensions, remembering that x is N-S, y is E-W, z is + down
         nsize = ilines[1].strip().split()
@@ -1036,6 +1037,13 @@ class StructuredGrid3D:
         if topo is not None:
             self.surface_dict["topography"] = topo
 
+        try:
+            self.n_air_layers = np.where(self.res_model > 1e10)[-1].max()
+        except IndexError:
+            self.n_air_layers = 0
+
+        self.n_layers = self.nodes_z.size - self.n_air_layers
+
     def _get_topography_from_model(self):
         """
         Get topography from an input model if air layers are found
@@ -1110,9 +1118,33 @@ class StructuredGrid3D:
         return parameter_dict
 
     def to_xarray(self, **kwargs):
-        pass
+        """
+        put model in xarray format
+        """
 
-    def write_gocad_sgrid_file(
+        return xr.DataArray(
+            self.res_model,
+            coords={
+                "north": self.grid_north[0:-1] + self.center_point.north,
+                "east": self.grid_east[0:-1] + self.center_point.east,
+                "z": self.grid_z[0:-1] + self.center_point.elevation,
+            },
+            dims=["north", "east", "z"],
+            name="resistivity",
+            attrs={
+                "center_latitude": self.center_point.latitude,
+                "center_longitude": self.center_point.longitude,
+                "center_elevation": self.center_point.elevation,
+                "datum_epsg": self.center_point.datum_epsg,
+                "datum_wkt": self.center_point.datum_crs.to_wkt(),
+                "center_point_east": self.center_point.east,
+                "center_point_north": self.center_point.north,
+                "utm_epsg": self.center_point.utm_epsg,
+                "utm_wkt": self.center_point.utm_crs.to_wkt(),
+            },
+        )
+
+    def to_gocad_sgrid(
         self, fn=None, origin=[0, 0, 0], clip=0, no_data_value=-99999
     ):
         """
@@ -1184,7 +1216,7 @@ class StructuredGrid3D:
         )
         sg_obj.write_sgrid_file()
 
-    def read_gocad_sgrid_file(
+    def from_gocad_sgrid(
         self,
         sgrid_header_file,
         air_resistivity=1e39,
@@ -1641,11 +1673,8 @@ class StructuredGrid3D:
 
         """
 
-        if pad_east is None:
-            pad_east = self.pad_east
-
-        if pad_north is None:
-            pad_north = self.pad_north
+        pad_east = self._validate_pad_east(pad_east)
+        pad_north = self._validate_pad_north(pad_north)
 
         # need -2 because grid is + 1 of size
         new_east = np.arange(
@@ -1744,6 +1773,51 @@ class StructuredGrid3D:
                 )
         return depth_max
 
+    def _get_pad_slice(self, pad):
+        """
+        get padding slice
+
+        :param pad: DESCRIPTION
+        :type pad: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        if pad is not None:
+            return slice(pad, -pad)
+        else:
+            return slice(pad, pad)
+
+    def _validate_pad_east(self, pad_east):
+        """
+        pad east if None, return self.pad_east
+        """
+        if pad_east is None:
+            return self.pad_east
+        return pad_east
+
+    def _validate_pad_north(self, pad_north):
+        """
+        pad north if None, return self.pad_north
+        """
+        if pad_north is None:
+            return self.pad_north
+        return pad_north
+
+    def _clip_model(self, pad_east, pad_north):
+        """
+        clip model based on excluding the number of padding cells.
+
+        :param pad_east: DESCRIPTION
+        :type pad_east: TYPE
+        :param pad_north: DESCRIPTION
+        :type pad_north: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
     def to_raster(
         self,
         cell_size,
@@ -1800,11 +1874,8 @@ class StructuredGrid3D:
         if not save_path.exists():
             save_path.mkdir()
 
-        if pad_east is None:
-            pad_east = self.pad_east
-
-        if pad_north is None:
-            pad_north = self.pad_north
+        pad_east = self._validate_pad_east(pad_east)
+        pad_north = self._validate_pad_north(pad_north)
 
         _, _, raster_array = self.interpolate_to_even_grid(
             cell_size, pad_east=pad_east, pad_north=pad_north
@@ -1824,7 +1895,7 @@ class StructuredGrid3D:
             raster_fn = self.save_path.joinpath(
                 f"{ii}_depth_{d:.2f}m_utm_{self.utm_epsg}.tif"
             )
-            array2raster.array2raster(
+            array2raster(
                 raster_fn,
                 lower_left,
                 cell_size,
@@ -1838,43 +1909,46 @@ class StructuredGrid3D:
 
         return raster_fn_list
 
-    def _get_xyzres(self, location_type, origin, model_epsg, clip):
-        # try getting centre location info from file
-        if type(origin) == str:
-            try:
-                origin = np.loadtxt(origin)
-            except:
-                print(
-                    "Please provide origin as a list, array or tuple or as a valid filename containing this info"
-                )
-                origin = [0, 0]
+    def _get_xyzres(self, location_type, pad_east=None, pad_north=None):
+        """
+        Get xyz resistivity
+
+        :param location_type: 'll' or 'utm'
+        :type location_type: TYPE
+        :param origin: DESCRIPTION
+        :type origin: TYPE
+        :param model_epsg: DESCRIPTION
+        :type model_epsg: TYPE
+        :param clip: DESCRIPTION
+        :type clip: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
 
         # reshape the data and get grid centres
         x, y, z = [
             np.mean([arr[1:], arr[:-1]], axis=0)
             for arr in [
-                self.grid_east + origin[0],
-                self.grid_north + origin[1],
+                self.grid_east + self.center_point.east,
+                self.grid_north + self.center_point.north,
                 self.grid_z,
             ]
         ]
-        xsize, ysize = x.shape[0], y.shape[0]
+
+        pad_east = self._validate_pad_east(pad_east)
+        pad_north = self._validate_pad_north(pad_north)
+
         x, y, z = np.meshgrid(
-            x[clip[0] : xsize - clip[0]], y[clip[1] : ysize - clip[1]], z
+            x[slice(pad_east, -pad_east), slice(pad_north, -pad_north)], z
         )
 
         # set format for saving data
         fmt = ["%.1f", "%.1f", "%.3e"]
 
         # convert to lat/long if needed
-        if location_type == "LL":
-            if np.any(origin) == 0:
-                print(
-                    "Warning, origin coordinates provided as zero, output lat/long are likely to be incorrect"
-                )
-            # project using epsg_project as preference as it is faster, but if pyproj not installed, use gdal
-
-            xp, yp = project_point(x, y, model_epsg, 4326)
+        if location_type in ["ll"]:
+            xp, yp = project_point(x, y, self.center_point.utm_epsg, 4326)
 
             # update format to accommodate lat/lon
             fmt[:2] = ["%.6f", "%.6f"]
@@ -1882,27 +1956,25 @@ class StructuredGrid3D:
             xp, yp = x, y
 
         resvals = self.res_model[
-            clip[1] : ysize - clip[1], clip[0] : xsize - clip[0]
+            slice(pad_north, -pad_north), slice(pad_east, -pad_east)
         ]
 
         return xp, yp, z, resvals, fmt
 
-    def write_xyzres(
+    def to_xyzres(
         self,
         savefile=None,
         location_type="EN",
-        origin=[0, 0],
-        model_epsg=None,
         log_res=False,
-        model_utm_zone=None,
-        clip=[0, 0],
+        pad_east=None,
+        pad_north=None,
     ):
         """
         save a model file as a space delimited x y z res file
 
         """
         xp, yp, z, resvals, fmt = self._get_xyzres(
-            location_type, origin, model_epsg, clip
+            location_type, pad_east=pad_east, pad_north=pad_north
         )
         fmt.insert(2, "%.1f")
         xp, yp, z, resvals = (
@@ -1914,16 +1986,15 @@ class StructuredGrid3D:
 
         np.savetxt(savefile, np.vstack([xp, yp, z, resvals]).T, fmt=fmt)
 
-    def write_xyres(
+    def to_xyres(
         self,
         save_path=None,
         location_type="EN",
-        origin=[0, 0],
-        model_epsg=None,
         depth_index="all",
         outfile_basename="DepthSlice",
         log_res=False,
-        clip=[0, 0],
+        pad_east=None,
+        pad_north=None,
     ):
         """
         write files containing depth slice data (x, y, res for each depth)
@@ -1950,7 +2021,7 @@ class StructuredGrid3D:
             save_path.mkdir()
 
         xp, yp, z, resvals, fmt = self._get_xyzres(
-            location_type, origin, model_epsg, clip
+            location_type, pad_east=pad_east, pad_north=pad_north
         )
         xp = xp[:, :, 0].flatten()
         yp = yp[:, :, 0].flatten()
@@ -1978,13 +2049,11 @@ class StructuredGrid3D:
 
             np.savetxt(fname, data, fmt=fmt)
 
-    def write_vtk_file(
+    def to_vtk(
         self,
         vtk_save_path=None,
         vtk_fn_basename="ModEM_model_res",
-        shift_east=0,
-        shift_north=0,
-        shift_z=0,
+        geographic_coordinates=False,
         units="km",
         coordinate_system="nez+",
         label="resistivity",
@@ -1995,21 +2064,17 @@ class StructuredGrid3D:
         :param vtk_save_path: directory to save vtk file to, defaults to None
         :type vtk_save_path: string or Path, optional
         :param vtk_fn_basename: filename basename of vtk file, note that .vtr
-        extension is automatically added, defaults to "ModEM_stations"
+         extension is automatically added, defaults to "ModEM_stations"
         :type vtk_fn_basename: string, optional
-        :type geographic: boolean, optional
-        :param shift_east: shift in east directions in meters, defaults to 0
-        :type shift_east: float, optional
-        :param shift_north: shift in north direction in meters, defaults to 0
-        :type shift_north: float, optional
-        :param shift_z: shift in elevation + down in meters, defaults to 0
-        :type shift_z: float, optional
+        :param geographic_coordinates: [ True | False ] True for geographic
+         coordinates.
+        :type geographic_coordinates: boolean, optional
         :param units: Units of the spatial grid [ km | m | ft ], defaults to "km"
         :type units: string, optional
         :type : string
         :param coordinate_system: coordinate system for the station, either the
-        normal MT right-hand coordinate system with z+ down or the sinister
-        z- down [ nez+ | enz- ], defaults to nez+
+         normal MT right-hand coordinate system with z+ down or the sinister
+         z- down [ nez+ | enz- ], defaults to nez+
         :return: full path to VTK file
         :rtype: Path
 
@@ -2036,6 +2101,14 @@ class StructuredGrid3D:
         else:
             vtk_fn = Path(vtk_save_path).joinpath(vtk_fn_basename)
 
+        shift_north = 0
+        shift_east = 0
+        shift_z = 0
+        if geographic_coordinates:
+            shift_north = self.center_point.north
+            shift_east = self.center_point.east
+            shift_z = self.center_point.elevation
+
         # use cellData, this makes the grid properly as grid is n+1
         if coordinate_system == "nez+":
             vtk_x = (self.grid_north + shift_north) * scale
@@ -2053,12 +2126,9 @@ class StructuredGrid3D:
 
         self._logger.info(f"Wrote model file to {vtk_fn}")
 
-    def write_geosoft_xyz_file(
+    def to_geosoft_xyz(
         self,
         save_fn,
-        c_east=0,
-        c_north=0,
-        c_z=0,
         pad_north=0,
         pad_east=0,
         pad_z=0,
@@ -2070,12 +2140,6 @@ class StructuredGrid3D:
 
         :param save_fn: full path to save file to
         :type save_fn: string or Path
-        :param c_east: center point in the east direction, defaults to 0
-        :type c_east: float, optional
-        :param c_north: center point in the north direction, defaults to 0
-        :type c_north: float, optional
-        :param c_z: center point elevation, defaults to 0
-        :type c_z: float, optional
         :param pad_north: number of cells to cut from the north-south edges, defaults to 0
         :type pad_north: int, optional
         :param pad_east: number of cells to cut from the east-west edges, defaults to 0
@@ -2098,14 +2162,18 @@ class StructuredGrid3D:
             for jj, yy in enumerate(self.grid_east[pad_east:-pad_east]):
                 for ii, xx in enumerate(self.grid_north[pad_north:-pad_north]):
                     lines.append(
-                        f"{yy + c_east:.3f} {xx + c_north:.3f} {-(zz + c_z):.3f} {self.res_model[ii, jj, kk]:.3f}"
+                        f"{yy + self.center_point.east:.3f} "
+                        f"{xx + self.center_point.north:.3f} "
+                        f"{-(zz + self.center_point.elevation):.3f} "
+                        f"{self.res_model[ii, jj, kk]:.3f}"
                     )
 
         with open(save_fn, "w") as fid:
             fid.write("\n".join(lines))
 
-    def write_out_file(
-        self, save_fn, geographic_east, geographic_north, geographic_elevation
+    def to_winglink_out(
+        self,
+        save_fn,
     ):
         """
         will write an .out file for LeapFrog.
@@ -2116,12 +2184,6 @@ class StructuredGrid3D:
 
         :param save_fn: full path to save file to
         :type save_fn: string or Path
-        :param geographic_east: geographic center in easting (meters)
-        :type geographic_east: float
-        :param geographic_north: geographic center in northing (meters)
-        :type geographic_north: float
-        :param geographic_elevation: elevation of geographic center (meters)
-        :type geographic_elevation: float
         :return: DESCRIPTION
         :rtype: TYPE
 
@@ -2150,7 +2212,7 @@ class StructuredGrid3D:
             self.res_model[:, :, :] = self.res_initial_value
 
         shift_east = (
-            geographic_east
+            self.center_point.east
             - (
                 self.nodes_east[0]
                 - self.nodes_east[1] / 2
@@ -2158,7 +2220,7 @@ class StructuredGrid3D:
             )
         ) / 1000.0
         shift_north = (
-            geographic_north
+            self.center_point.north
             + (
                 self.nodes_north[0]
                 - self.nodes_north[1] / 2
@@ -2166,7 +2228,7 @@ class StructuredGrid3D:
             )
         ) / 1000.0
 
-        shift_elevation = geographic_elevation / 1000.0
+        shift_elevation = self.center_point.elevation / 1000.0
 
         # --> write file
         with open(save_fn, "w") as ifid:
@@ -2224,18 +2286,12 @@ class StructuredGrid3D:
 
         self._logger.info(f"Wrote file to: {save_fn}")
 
-    def write_ubc_files(self, basename, c_east=0, c_north=0, c_z=0):
+    def to_ubc(self, basename):
         """
         Write a UBC .msh and .mod file
 
         :param save_fn: DESCRIPTION
         :type save_fn: TYPE
-        :param c_east: DESCRIPTION, defaults to 0
-        :type c_east: TYPE, optional
-        :param c_north: DESCRIPTION, defaults to 0
-        :type c_north: TYPE, optional
-        :param c_z: DESCRIPTION, defaults to 0
-        :type c_z: TYPE, optional
         :return: DESCRIPTION
         :rtype: TYPE
 
