@@ -11,6 +11,7 @@ Created on Mon Oct 30 13:31:30 2023
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 from mtpy.core import MTDataFrame
 import mtpy.utils.calculator as mtcc
@@ -126,120 +127,85 @@ class Occam1DData(object):
             )
         self._mode = mode
 
-    @property
-    def data_1(self):
-
-        # get the data requested by the given mode
+    def _get_sub_dataframe(self):
         if self._mode == "te":
-            self.data_1 = self.mt_dataframe.res_xy
+            sub_df = pd.DataFrame(
+                {
+                    "frequency": 1.0 / self.mt_dataframe.dataframe.period,
+                    "data_1": self.mt_dataframe.res_xy,
+                    "data_1_error": self.mt_dataframe.res_xy_model_error,
+                    "data_2": self.mt_dataframe.phase_xy,
+                    "data_2_error": self.mt_dataframe.phase_xy_model_error,
+                }
+            )
 
         elif self._mode == "tm":
-            self.data_1 = self.mt_dataframe.res_yx
+            sub_df = pd.DataFrame(
+                {
+                    "frequency": 1.0 / self.mt_dataframe.dataframe.period,
+                    "data_1": self.mt_dataframe.res_yx,
+                    "data_1_error": self.mt_dataframe.res_yx_model_error,
+                    "data_2": self.mt_dataframe.phase_yx,
+                    "data_2_error": self.mt_dataframe.phase_yx_model_error,
+                }
+            )
 
         elif self._mode == "det":
             z_obj = self.mt_dataframe.to_z_object()
 
-            self.data_1 = z_obj.res_det
+            sub_df = pd.DataFrame(
+                {
+                    "frequency": 1.0 / self.mt_dataframe.dataframe.period,
+                    "data_1": z_obj.det.real,
+                    "data_1_error": z_obj.det_model_error,
+                    "data_2": z_obj.det.imag,
+                    "data_2_error": z_obj.det_model_error,
+                }
+            )
 
         elif self._mode == "detz":
             z_obj = self.mt_dataframe.to_z_object()
-
-            self.data_1 = z_obj.det.real * np.pi * 4e-4
-
-        elif self.mode == "tez":
-            # convert to si units
-            self.data_1 = self.mt_dataframe.zxy.real * np.pi * 4e-4
-
-        elif self.mode == "tmz":
-            # convert to si units
-            self.data_1 = self.mt_dataframe.zyx.real * np.pi * 4e-4
-
-    @property
-    def data_1_error(self):
-        # get the data requested by the given mode
-        if self._mode == "te":
-            self.data_1_err = self.mt_dataframe.res_xy_model_error
-
-        elif self._mode == "tm":
-
-            self.data_1_err = self.mt_dataframe.res_yx_model_error
-
-        elif self._mode == "det":
-            z_obj = self.mt_dataframe.to_z_object()
-
-            self.data_1_err = z_obj.res_det_model_error
-
-        elif self._mode == "detz":
-            z_obj = self.mt_dataframe.to_z_object()
-
-            self.data_1_err = z_obj.det_model_error * np.pi * 4e-4
+            sub_df = pd.DataFrame(
+                {
+                    "frequency": 1.0 / self.mt_dataframe.dataframe.period,
+                    "data_1": z_obj.det.real * np.pi * 4e-4,
+                    "data_1_error": z_obj.det_model_error * np.pi * 4e-4,
+                    "data_2": z_obj.det.imag * np.pi * 4e-4,
+                    "data_2_error": z_obj.det_model_error * np.pi * 4e-4,
+                }
+            )
 
         elif self.mode == "tez":
-            # convert to si units
-            self.data_1_err = self.mt_dataframe.zxy_model_error * np.pi * 4e-4
+            sub_df = pd.DataFrame(
+                {
+                    "frequency": 1.0 / self.mt_dataframe.dataframe.period,
+                    "data_1": self.mt_dataframe.zxy.real * np.pi * 4e-4,
+                    "data_1_error": self.mt_dataframe.zxy_model_error
+                    * np.pi
+                    * 4e-4,
+                    "data_2": self.mt_dataframe.zxy.imag * np.pi * 4e-4,
+                    "data_2_error": self.mt_dataframe.zxy_model_error
+                    * np.pi
+                    * 4e-4,
+                }
+            )
 
         elif self.mode == "tmz":
-            # convert to si units
-            self.data_1_err = self.mt_dataframe.zyx_model_error * np.pi * 4e-4
+            sub_df = pd.DataFrame(
+                {
+                    "frequency": 1.0 / self.mt_dataframe.dataframe.period,
+                    "data_1": self.mt_dataframe.zyx.real * np.pi * 4e-4,
+                    "data_1_error": self.mt_dataframe.zyx_model_error
+                    * np.pi
+                    * 4e-4,
+                    "data_2": self.mt_dataframe.zyx.imag * np.pi * 4e-4,
+                    "data_2_error": self.mt_dataframe.zyx_model_error
+                    * np.pi
+                    * 4e-4,
+                }
+            )
 
-    @property
-    def data_2(self):
-        # get the data requested by the given mode
-        if self._mode == "te":
-
-            self.data_2 = self.mt_dataframe.phase_xy
-
-        elif self._mode == "tm":
-
-            self.data_2 = self.mt_dataframe.phase_yx % 180
-
-        elif self._mode == "det":
-            z_obj = self.mt_dataframe.to_z_object()
-
-            self.data_2 = z_obj.phase_det
-
-        elif self._mode == "detz":
-            z_obj = self.mt_dataframe.to_z_object()
-
-            self.data_2 = z_obj.det.imag * np.pi * 4e-4
-
-        elif self.mode == "tez":
-            # convert to si units
-
-            self.data_2 = self.mt_dataframe.zxy.imag * np.pi * 4e-4
-
-        elif self.mode == "tmz":
-            # convert to si units
-
-            self.data_2 = self.mt_dataframe.zyx.imag * np.pi * 4e-4
-
-    @property
-    def data_2_error(self):
-        # get the data requested by the given mode
-        if self._mode == "te":
-            self.data_2_err = self.mt_dataframe.phase_xy_model_error
-
-        elif self._mode == "tm":
-            self.data_2_err = self.mt_dataframe.phase_yx_model_error
-
-        elif self._mode == "det":
-            z_obj = self.mt_dataframe.to_z_object()
-
-            self.data_2_err = z_obj.phase_det_model_error
-
-        elif self._mode == "detz":
-            z_obj = self.mt_dataframe.to_z_object()
-
-            self.data_2_err = z_obj.det_model_error * np.pi * 4e-4
-
-        elif self.mode == "tez":
-            # convert to si units
-
-            self.data_2_err = self.mt_dataframe.zxy_model_error * np.pi * 4e-4
-
-        elif self.mode == "tmz":
-            # convert to si units
-            self.data_2_err = self.mt_dataframe.zyx_model_error * np.pi * 4e-4
+        return sub_df
 
     def write_data_file(
         self,
@@ -313,6 +279,8 @@ class Occam1DData(object):
         """
         # be sure that the input mode is not case sensitive
         self.mode = mode.lower()
+
+        sub_df = self._get_sub_dataframe()
 
         if remove_outofquadrant:
             self._remove_outofquadrant_phase()
@@ -391,33 +359,22 @@ class Occam1DData(object):
 
         self.logger.info(f"Wrote Data File to : {self.data_fn}")
 
-    def _remove_outofquadrant_phase(self):
+    def _remove_outofquadrant_phase(self, sub_df):
         """
         remove out of quadrant phase from data
         """
         # remove data points with phase out of quadrant
         if "z" in self.mode:
-            self.mt_dataframe.dataframe.loc[
-                (
-                    self.mt_dataframe.dataframe.zxy.real
-                    / self.mt_dataframe.dataframe.zxy.imag
-                    > 0
-                )
-            ] = 0
-            self.mt_dataframe.dataframe.loc[
-                (
-                    self.mt_dataframe.dataframe.zyx.real
-                    / self.mt_dataframe.dataframe.zyx.imag
-                    > 0
-                )
-            ] = 0
+            sub_df.loc[(sub_df.data_1 / sub_df.data_2 > 0)] = 0
+
         elif self.mode in ["det", "te", "tm"]:
-            self.mt_dataframe.dataframe.loc[
-                (self.mt_dataframe.dataframe.phase_xy % 180 < 0)
-            ] = 0
-            self.mt_dataframe.dataframe.loc[
-                (self.mt_dataframe.dataframe.phase_yx % 180 < 0)
-            ] = 0
+            sub_df.loc[(sub_df.data_2 % 180 < 0)] = 0
+
+        return sub_df
+
+    def _remove_zeros(self, sub_df):
+        sub_df.loc[(sub_df != 0).any(axis=1)]
+        return sub_df
 
     def read_data_file(self, data_fn=None):
         """
