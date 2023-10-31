@@ -205,6 +205,8 @@ class Occam1DData(object):
                 }
             )
 
+        sub_df = sub_df.sort_values("frequency")
+
         return sub_df
 
     def write_data_file(
