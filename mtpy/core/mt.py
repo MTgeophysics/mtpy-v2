@@ -24,6 +24,7 @@ from mtpy.imaging import (
     PlotPenetrationDepth1D,
 )
 from mtpy.modeling.errors import ModelErrors
+from mtpy.modeling.occam1d import Occam1DData
 
 
 # =============================================================================
@@ -938,7 +939,9 @@ class MT(TF, MTLocation):
                     try:
                         t_obj.tipper_error[:, ii, jj] = 0
                     except TypeError:
-                        self.logger.debug("tipper_error is None, cannot remove")
+                        self.logger.debug(
+                            "tipper_error is None, cannot remove"
+                        )
                     try:
                         t_obj.tipper_model_error[:, ii, jj] = 0
                     except TypeError:
@@ -991,7 +994,9 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j * self._transfer_function.transfer_function.imag * noise_imag
+                1j
+                * self._transfer_function.transfer_function.imag
+                * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
@@ -1005,10 +1010,41 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j * self._transfer_function.transfer_function.imag * noise_imag
+                1j
+                * self._transfer_function.transfer_function.imag
+                * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
                 self._transfer_function.transfer_function_error + value
             )
             return new_mt_obj
+
+    def to_occam1d(self, data_filename=None, mode="det"):
+        """
+        write an Occam1DData data file
+
+        :param data_filename: path to write file, if None returns Occam1DData
+         object.
+        :type data_filename: string or Path
+        :param mode: [ 'te', 'tm', 'det', 'tez', 'tmz', 'detz'], defaults to "det"
+        :type mode: string, optional
+        :return: Occam1DData object
+        :rtype: :class:`mtpy.modeling.occam1d.Occam1DData`
+
+
+        :Example:
+
+            >>> mt_object = MT()
+            >>> mt_object.read(r"/path/to/tranfer_function/file")
+            >>> mt_object.compute_model_z_error()
+            >>> occam_data = mt_object.to_occam1d(data_filename=r"/path/to/data_file.dat")
+
+
+        """
+
+        occam_data = Occam1DData(self.to_dataframe(), mode=mode)
+        if data_filename is not None:
+            occam_data.write_data_file(data_filename)
+
+        return occam_data

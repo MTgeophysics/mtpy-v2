@@ -12,6 +12,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from loguru import logger
 
 from mtpy.core import MTDataFrame
 import mtpy.utils.calculator as mtcc
@@ -60,6 +61,7 @@ class Occam1DData(object):
     """
 
     def __init__(self, mt_dataframe, **kwargs):
+        self.logger = logger
         self.dataframe = MTDataFrame(data=mt_dataframe)
 
         self._string_fmt = "+.6e"
@@ -83,6 +85,15 @@ class Occam1DData(object):
 
         for key in list(kwargs.keys()):
             setattr(self, key, kwargs[key])
+
+    def __str__(self):
+        lines = ["Occam 1D Data:"]
+        lines.append(f"\tMode:     {self.mode}")
+
+        return "\n".join(lines)
+
+    def __repr__(self):
+        return self.__str__()
 
     @property
     def mode_01(self):
@@ -131,31 +142,31 @@ class Occam1DData(object):
         if self._mode == "te":
             sub_df = pd.DataFrame(
                 {
-                    "frequency": 1.0 / self.mt_dataframe.dataframe.period,
-                    "data_1": self.mt_dataframe.res_xy,
-                    "data_1_error": self.mt_dataframe.res_xy_model_error,
-                    "data_2": self.mt_dataframe.phase_xy,
-                    "data_2_error": self.mt_dataframe.phase_xy_model_error,
+                    "frequency": 1.0 / self.dataframe.dataframe.period,
+                    "data_1": self.dataframe.res_xy,
+                    "data_1_error": self.dataframe.res_xy_model_error,
+                    "data_2": self.dataframe.phase_xy,
+                    "data_2_error": self.dataframe.phase_xy_model_error,
                 }
             )
 
         elif self._mode == "tm":
             sub_df = pd.DataFrame(
                 {
-                    "frequency": 1.0 / self.mt_dataframe.dataframe.period,
-                    "data_1": self.mt_dataframe.res_yx,
-                    "data_1_error": self.mt_dataframe.res_yx_model_error,
-                    "data_2": self.mt_dataframe.phase_yx,
-                    "data_2_error": self.mt_dataframe.phase_yx_model_error,
+                    "frequency": 1.0 / self.dataframe.dataframe.period,
+                    "data_1": self.dataframe.res_yx,
+                    "data_1_error": self.dataframe.res_yx_model_error,
+                    "data_2": self.dataframe.phase_yx,
+                    "data_2_error": self.dataframe.phase_yx_model_error,
                 }
             )
 
         elif self._mode == "det":
-            z_obj = self.mt_dataframe.to_z_object()
+            z_obj = self.dataframe.to_z_object()
 
             sub_df = pd.DataFrame(
                 {
-                    "frequency": 1.0 / self.mt_dataframe.dataframe.period,
+                    "frequency": 1.0 / self.dataframe.dataframe.period,
                     "data_1": z_obj.det.real,
                     "data_1_error": z_obj.det_model_error,
                     "data_2": z_obj.det.imag,
@@ -164,10 +175,10 @@ class Occam1DData(object):
             )
 
         elif self._mode == "detz":
-            z_obj = self.mt_dataframe.to_z_object()
+            z_obj = self.dataframe.to_z_object()
             sub_df = pd.DataFrame(
                 {
-                    "frequency": 1.0 / self.mt_dataframe.dataframe.period,
+                    "frequency": 1.0 / self.dataframe.dataframe.period,
                     "data_1": z_obj.det.real * np.pi * 4e-4,
                     "data_1_error": z_obj.det_model_error * np.pi * 4e-4,
                     "data_2": z_obj.det.imag * np.pi * 4e-4,
@@ -178,13 +189,13 @@ class Occam1DData(object):
         elif self.mode == "tez":
             sub_df = pd.DataFrame(
                 {
-                    "frequency": 1.0 / self.mt_dataframe.dataframe.period,
-                    "data_1": self.mt_dataframe.zxy.real * np.pi * 4e-4,
-                    "data_1_error": self.mt_dataframe.zxy_model_error
+                    "frequency": 1.0 / self.dataframe.dataframe.period,
+                    "data_1": self.dataframe.zxy.real * np.pi * 4e-4,
+                    "data_1_error": self.dataframe.zxy_model_error
                     * np.pi
                     * 4e-4,
-                    "data_2": self.mt_dataframe.zxy.imag * np.pi * 4e-4,
-                    "data_2_error": self.mt_dataframe.zxy_model_error
+                    "data_2": self.dataframe.zxy.imag * np.pi * 4e-4,
+                    "data_2_error": self.dataframe.zxy_model_error
                     * np.pi
                     * 4e-4,
                 }
@@ -193,19 +204,19 @@ class Occam1DData(object):
         elif self.mode == "tmz":
             sub_df = pd.DataFrame(
                 {
-                    "frequency": 1.0 / self.mt_dataframe.dataframe.period,
-                    "data_1": self.mt_dataframe.zyx.real * np.pi * 4e-4,
-                    "data_1_error": self.mt_dataframe.zyx_model_error
+                    "frequency": 1.0 / self.dataframe.dataframe.period,
+                    "data_1": self.dataframe.zyx.real * np.pi * 4e-4,
+                    "data_1_error": self.dataframe.zyx_model_error
                     * np.pi
                     * 4e-4,
-                    "data_2": self.mt_dataframe.zyx.imag * np.pi * 4e-4,
-                    "data_2_error": self.mt_dataframe.zyx_model_error
+                    "data_2": self.dataframe.zyx.imag * np.pi * 4e-4,
+                    "data_2_error": self.dataframe.zyx_model_error
                     * np.pi
                     * 4e-4,
                 }
             )
 
-        sub_df = sub_df.sort_values("frequency")
+        sub_df = sub_df.sort_values("frequency", ascending=False).reindex()
 
         return sub_df
 
@@ -302,11 +313,11 @@ class Occam1DData(object):
         dlines.append("# Transmitters: 1\n")
         dlines.append("0 0 0 0 0 \n")
 
-        nf = max([self.data_1.size, self.data_2.size])
+        nf = sub_df.frequency.size
         # write frequencies
         dlines.append(f"# Frequencies:   {nf}\n")
-        for ff in freq:
-            dlines.append(f"   {ff:{{1}}}\n")
+        for ff in sub_df.frequency:
+            dlines.append(f"   {ff:{self._string_fmt}}\n")
 
         # needs a receiver to work so put in a dummy one
         dlines.append("# Receivers: 1 \n")
@@ -319,39 +330,34 @@ class Occam1DData(object):
         dlines.append(self._header_line)
         data_count = 0
 
-        #        data1 = np.abs(data1)
-        #        data2 = np.abs(data2)
-
-        for ii in range(nf):
+        for row in sub_df.itertuples():
             # write lines
-            if data_1[ii] != 0.0:
-                dlines.append(
-                    self._ss.join(
-                        [
-                            d1_str,
-                            str(ii + 1),
-                            "0",
-                            "1",
-                            f"{data_1[ii]:{{1}}}",
-                            f"{data_1_err[ii]:{{1}}}\n",
-                        ]
-                    )
+            dlines.append(
+                self._ss.join(
+                    [
+                        self.mode_01,
+                        str(row.Index + 1),
+                        "0",
+                        "1",
+                        f"{row.data_1:{self._string_fmt}}",
+                        f"{row.data_1_error:{self._string_fmt}}\n",
+                    ]
                 )
-                data_count += 1
-            if data_2[ii] != 0.0:
-                dlines.append(
-                    self._ss.join(
-                        [
-                            d2_str,
-                            str(ii + 1),
-                            "0",
-                            "1",
-                            f"{data_2[ii]:{{1}}}",
-                            f"{data_2_err[ii]:{{1}}}\n",
-                        ]
-                    )
+            )
+            data_count += 1
+            dlines.append(
+                self._ss.join(
+                    [
+                        self.mode_02,
+                        str(row.Index + 1),
+                        "0",
+                        "1",
+                        f"{row.data_2:{self._string_fmt}}",
+                        f"{row.data_2_error:{self._string_fmt}}\n",
+                    ]
                 )
-                data_count += 1
+            )
+            data_count += 1
 
         # --> write file
         dlines[num_data_line - 1] = f"# Data:{self._ss}{data_count}\n"
@@ -367,18 +373,29 @@ class Occam1DData(object):
         """
         # remove data points with phase out of quadrant
         if "z" in self.mode:
-            sub_df.loc[(sub_df.data_1 / sub_df.data_2 > 0)] = 0
+            sub_df.loc[
+                (sub_df.data_1 / sub_df.data_2 > 0), ["data_1", "data_2"]
+            ] = 0
 
         elif self.mode in ["det", "te", "tm"]:
-            sub_df.loc[(sub_df.data_2 % 180 < 0)] = 0
+            sub_df.loc[(sub_df.data_2 % 180 < 0), "data_2"] = 0
 
         return sub_df
 
     def _remove_zeros(self, sub_df):
+        """
+        remove zeros from the data frame
+
+        :param sub_df: DESCRIPTION
+        :type sub_df: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
         sub_df.loc[(sub_df != 0).any(axis=1)]
         return sub_df
 
-    def read_data_file(self, data_fn=None):
+    def read_data_file(self, data_fn):
         """
         reads a 1D data file
 
@@ -411,21 +428,14 @@ class Occam1DData(object):
             >>> old.read_data_file()
         """
 
-        if data_fn is not None:
-            self.data_fn = data_fn
-        if self.data_fn is None:
-            raise IOError("Need to input a data file")
-        elif os.path.isfile(self.data_fn) == False:
+        self.data_fn = Path(data_fn)
+        if not self.data_fn.exists():
             raise IOError(f"Could not find {self.data_fn}, check path")
 
-        self._data_fn = os.path.basename(self.data_fn)
-        self.save_path = os.path.dirname(self.data_fn)
+        self.save_path = self.data_fn.parent
 
-        dfid = open(self.data_fn, "r")
-
-        # read in lines
-        dlines = dfid.readlines()
-        dfid.close()
+        with open(self.data_fn, "r") as fid:
+            dlines = fid.readlines()
 
         # make a dictionary of all the fields found so can put them into arrays
         finddict = {}
@@ -452,16 +462,21 @@ class Occam1DData(object):
 
         # data dictionary to put things into
         # check to see if there is alread one, if not make a new one
-        if self.data is None:
-            self.data = {
-                "freq": freq,
-                "zxy": np.zeros((4, nfreq), dtype=complex),
-                "zyx": np.zeros((4, nfreq), dtype=complex),
-                "resxy": np.zeros((4, nfreq)),
-                "resyx": np.zeros((4, nfreq)),
-                "phasexy": np.zeros((4, nfreq)),
-                "phaseyx": np.zeros((4, nfreq)),
-            }
+        data = {
+            "frequency": freq,
+            "zxy": np.zeros(nfreq, dtype=complex),
+            "zyx": np.zeros(nfreq, dtype=complex),
+            "res_xy": np.zeros(nfreq),
+            "res_yx": np.zeros(nfreq),
+            "phase_xy": np.zeros(nfreq),
+            "phase_yx": np.zeros(nfreq),
+            "zxy_model_error": np.zeros(nfreq),
+            "zyx_model_error": np.zeros(nfreq),
+            "res_xy_model_error": np.zeros(nfreq),
+            "res_yx_model_error": np.zeros(nfreq),
+            "phase_xy_model_error": np.zeros(nfreq),
+            "phase_yx_model_error": np.zeros(nfreq),
+        }
 
         # get data
         for dline in dlines[finddict["Data"] + 1 :]:
@@ -474,78 +489,41 @@ class Occam1DData(object):
                     jj = int(dlst[1]) - 1
                     dvalue = float(dlst[4])
                     derr = float(dlst[5])
-                    if dlst[0] == "RhoZxy" or dlst[0] == "103":
-                        self.mode = "TE"
-                        self.data["resxy"][0, jj] = dvalue
-                        self.data["resxy"][1, jj] = derr
-                    if dlst[0] == "PhsZxy" or dlst[0] == "104":
-                        self.mode = "TE"
-                        self.data["phasexy"][0, jj] = dvalue
-                        self.data["phasexy"][1, jj] = derr
-                    if dlst[0] == "RhoZyx" or dlst[0] == "105":
+                    if dlst[0] in ["RhoZxy", "103"]:
+                        self.mode = "te"
+                        data["res_xy"][jj] = dvalue
+                        data["res_xy_model_error"][jj] = derr
+                    elif dlst[0] in ["PhsZxy", "104"]:
+                        self.mode = "te"
+                        data["phase_xy"][jj] = dvalue
+                        data["phase_xy_model_error"][jj] = derr
+                    elif dlst[0] in ["RhoZyx", "105"]:
+                        self.mode = "tm"
+                        data["res_yx"][jj] = dvalue
+                        data["res_yx_model_error"][jj] = derr
+                    elif dlst[0] in ["PhsZyx", "106"]:
                         self.mode = "TM"
-                        self.data["resyx"][0, jj] = dvalue
-                        self.data["resyx"][1, jj] = derr
-                    if dlst[0] == "PhsZyx" or dlst[0] == "106":
-                        self.mode = "TM"
-                        self.data["phaseyx"][0, jj] = dvalue
-                        self.data["phaseyx"][1, jj] = derr
-                    if dlst[0] == "RealZxy" or dlst[0] == "113":
-                        self.mode = "TEz"
-                        self.data["zxy"][0, jj] = dvalue / (np.pi * 4e-4)
-                        self.data["zxy"][1, jj] = derr / (np.pi * 4e-4)
-                    if dlst[0] == "ImagZxy" or dlst[0] == "114":
-                        self.mode = "TEz"
-                        self.data["zxy"][0, jj] += 1j * dvalue / (np.pi * 4e-4)
-                        self.data["zxy"][1, jj] = derr / (np.pi * 4e-4)
-                    if dlst[0] == "RealZyx" or dlst[0] == "115":
-                        self.mode = "TMz"
-                        self.data["zyx"][0, jj] = dvalue / (np.pi * 4e-4)
-                        self.data["zyx"][1, jj] = derr / (np.pi * 4e-4)
-                    if dlst[0] == "ImagZyx" or dlst[0] == "116":
-                        self.mode = "TMz"
-                        self.data["zyx"][0, jj] += 1j * dvalue / (np.pi * 4e-4)
-                        self.data["zyx"][1, jj] = derr / (np.pi * 4e-4)
+                        data["phase_yx"][jj] = dvalue
+                        data["phase_yx_model_error"][jj] = derr
+                    elif dlst[0] in ["RealZxy", "113"]:
+                        self.mode = "tez"
+                        data["zxy"][jj] += dvalue / (np.pi * 4e-4)
+                        data["zxy_model_error"][jj] = derr / (np.pi * 4e-4)
+                    elif dlst[0] in ["ImagZxy", "114"]:
+                        self.mode = "tez"
+                        data["zxy"][jj] += 1j * dvalue / (np.pi * 4e-4)
+                        data["zxy_model_error"][jj] = derr / (np.pi * 4e-4)
+                    elif dlst[0] in ["RealZyx", "115"]:
+                        self.mode = "tmz"
+                        data["zyx"][jj] += dvalue / (np.pi * 4e-4)
+                        data["zyx_model_error"][jj] = derr / (np.pi * 4e-4)
+                    elif dlst[0] in ["ImagZyx", "116"]:
+                        self.mode = "tmz"
+                        data["zyx"][jj] += 1j * dvalue / (np.pi * 4e-4)
+                        data["zyx_model_error"][jj] = derr / (np.pi * 4e-4)
 
-        if "z" in self.mode:
-            if "TE" in self.mode:
-                pol = "xy"
-            elif "TM" in self.mode:
-                pol = "yx"
-
-            self.data["res" + pol][0] = (
-                0.2 * np.abs(self.data["z" + pol][0]) ** 2.0 / freq
-            )
-            self.data["phase" + pol][0] = np.rad2deg(
-                np.arctan(
-                    self.data["res" + pol][0].imag
-                    / self.data["res" + pol][0].real
-                )
-            )
-            for jjj in range(len(freq)):
-                res_rel_err, phase_err = mtcc.z_error2r_phi_error(
-                    self.data["z" + pol][0, jjj].real,
-                    self.data["z" + pol][0, jjj].imag,
-                    self.data["z" + pol][1, jjj],
-                )
-
-                (
-                    self.data["res" + pol][1, jjj],
-                    self.data["phase" + pol][1, jjj],
-                ) = (
-                    res_rel_err * self.data["res" + pol][0, jjj],
-                    phase_err,
-                )
-
-            self.data["resyx"][0] = (
-                0.2 * np.abs(self.data["zxy"][0]) ** 2.0 / freq
-            )
-
-        self.freq = freq
-        self.res_te = self.data["resxy"]
-        self.res_tm = self.data["resyx"]
-        self.phase_te = self.data["phasexy"]
-        self.phase_tm = self.data["phaseyx"]
+        df = pd.DataFrame(data)
+        self.dataframe = MTDataFrame(data=df)
 
     def read_resp_file(self, resp_fn=None, data_fn=None):
         """
@@ -622,46 +600,46 @@ class Occam1DData(object):
                         rerr = 1000.0
                     if dlst[0] == "RhoZxy" or dlst[0] == "103":
                         self.res_te[0, jj] = dvalue
-                        self.res_te[1, jj] = derr
+                        self.res_te[jj] = derr
                         self.res_te[2, jj] = rvalue
                         self.res_te[3, jj] = rerr
                     if dlst[0] == "PhsZxy" or dlst[0] == "104":
                         self.phase_te[0, jj] = dvalue
-                        self.phase_te[1, jj] = derr
+                        self.phase_te[jj] = derr
                         self.phase_te[2, jj] = rvalue
                         self.phase_te[3, jj] = rerr
                     if dlst[0] == "RhoZyx" or dlst[0] == "105":
                         self.res_tm[0, jj] = dvalue
-                        self.res_tm[1, jj] = derr
+                        self.res_tm[jj] = derr
                         self.res_tm[2, jj] = rvalue
                         self.res_tm[3, jj] = rerr
                     if dlst[0] == "PhsZyx" or dlst[0] == "106":
                         self.phase_tm[0, jj] = dvalue
-                        self.phase_tm[1, jj] = derr
+                        self.phase_tm[jj] = derr
                         self.phase_tm[2, jj] = rvalue
                         self.phase_tm[3, jj] = rerr
                     if dlst[0] == "RealZxy" or dlst[0] == "113":
                         self.mode = "TEz"
                         self.data["zxy"][0, jj] = dvalue / (np.pi * 4e-4)
-                        self.data["zxy"][1, jj] = derr / (np.pi * 4e-4)
+                        self.data["zxy"][jj] = derr / (np.pi * 4e-4)
                         self.data["zxy"][2, jj] = rvalue / (np.pi * 4e-4)
                         self.data["zxy"][3, jj] = rerr
                     if dlst[0] == "ImagZxy" or dlst[0] == "114":
                         self.mode = "TEz"
                         self.data["zxy"][0, jj] += 1j * dvalue / (np.pi * 4e-4)
-                        self.data["zxy"][1, jj] = derr / (np.pi * 4e-4)
+                        self.data["zxy"][jj] = derr / (np.pi * 4e-4)
                         self.data["zxy"][2, jj] += 1j * rvalue / (np.pi * 4e-4)
                         self.data["zxy"][3, jj] = rerr
                     if dlst[0] == "RealZyx" or dlst[0] == "115":
                         self.mode = "TMz"
                         self.data["zyx"][0, jj] = dvalue / (np.pi * 4e-4)
-                        self.data["zyx"][1, jj] = derr / (np.pi * 4e-4)
+                        self.data["zyx"][jj] = derr / (np.pi * 4e-4)
                         self.data["zyx"][2, jj] = rvalue / (np.pi * 4e-4)
                         self.data["zyx"][3, jj] = rerr
                     if dlst[0] == "ImagZyx" or dlst[0] == "116":
                         self.mode = "TMz"
                         self.data["zyx"][0, jj] += 1j * dvalue / (np.pi * 4e-4)
-                        self.data["zyx"][1, jj] = derr / (np.pi * 4e-4)
+                        self.data["zyx"][jj] = derr / (np.pi * 4e-4)
                         self.data["zyx"][2, jj] += 1j * rvalue / (np.pi * 4e-4)
                         self.data["zyx"][3, jj] = rerr
         if "z" in self.mode:

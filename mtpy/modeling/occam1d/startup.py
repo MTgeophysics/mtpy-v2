@@ -8,9 +8,15 @@ Created on Mon Oct 30 13:32:42 2023
 # =============================================================================
 # Imports
 # =============================================================================
+from pathlib import Path
+import time
+
+import numpy as np
+
+from mtpy.modeling.occam1d import Occam1DData, Occam1DModel
 
 # =============================================================================
-class Startup(object):
+class Occam1DStartup(object):
     """
     read and write input files for Occam1D
 
@@ -45,25 +51,50 @@ class Startup(object):
         self.model_fn = model_fn
 
         if self.data_fn is not None:
-            self.save_path = os.path.dirname(self.data_fn)
+            self.save_path = self.data_fn.parent
         elif self.model_fn is not None:
-            self.save_path = os.path.dirname(self.model_fn)
+            self.save_path = self.model_fn.parent
 
         self.startup_fn = None
-        self.rough_type = kwargs.pop("rough_type", 1)
-        self.max_iter = kwargs.pop("max_iter", 20)
-        self.target_rms = kwargs.pop("target_rms", 1)
-        self.start_rho = kwargs.pop("start_rho", 100)
-        self.description = kwargs.pop("description", "1D_Occam_Inv")
-        self.start_lagrange = kwargs.pop("start_lagrange", 5.0)
-        self.start_rough = kwargs.pop("start_rough", 1.0e7)
-        self.debug_level = kwargs.pop("debug_level", 1)
-        self.start_iter = kwargs.pop("start_iter", 0)
-        self.start_misfit = kwargs.pop("start_misfit", 100)
-        self.min_max_bounds = kwargs.pop("min_max_bounds", None)
-        self.model_step = kwargs.pop("model_step", None)
+        self.rough_type = 1
+        self.max_iter = 20
+        self.target_rms = 1
+        self.start_rho = 100
+        self.description = "1D_Occam_Inv"
+        self.start_lagrange = 5.0
+        self.start_rough = 1.0e7
+        self.debug_level = 1
+        self.start_iter = 0
+        self.start_misfit = 100
+        self.min_max_bounds = None
+        self.model_step = None
         self._startup_fn = "OccamStartup1D"
         self._ss = " " * 3
+
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    @property
+    def data_fn(self):
+        return self._data_fn
+
+    @data_fn.setter
+    def data_fn(self, fn):
+        if fn is not None:
+            self._data_fn = Path(fn)
+        else:
+            self._data_fn = None
+
+    @property
+    def model_fn(self):
+        return self._model_fn
+
+    @model_fn.setter
+    def model_fn(self, fn):
+        if fn is not None:
+            self._model_fn = Path(fn)
+        else:
+            self._model_fn = None
 
     def write_startup_file(self, save_path=None, **kwargs):
         """
@@ -127,23 +158,23 @@ class Startup(object):
 
         if save_path is not None:
             self.save_path = save_path
-        if os.path.isdir(self.save_path) == False:
-            os.mkdir(self.save_path)
+        if not self.save_path.is_dir():
+            self.save_path.mkdir()
 
-        self.startup_fn = os.path.join(self.save_path, self._startup_fn)
+        self.startup_fn = self.save_path.joinpath(self._startup_fn)
 
         # --> read data file
         if self.data_fn is None:
             raise IOError("Need to input data file name.")
         else:
-            data = Data()
+            data = Occam1DData()
             data.read_data_file(self.data_fn)
 
         # --> read model file
         if self.model_fn is None:
             raise IOError("Need to input model file name.")
         else:
-            model = Model()
+            model = Occam1DModel()
             model.read_model_file(self.model_fn)
 
             # --> get any keywords
@@ -154,12 +185,8 @@ class Startup(object):
         infid = open(self.startup_fn, "w")
         infid.write(f"{'Format:':<21}OCCAMITER_FLEX\n")
         infid.write(f"{'Description:':<21}{self.description}\n")
-        infid.write(
-            f"{'Model File:':<21}{os.path.basename(self.model_fn)}\n"
-        )
-        infid.write(
-            f"{'Data File:':<21}{os.path.basename(self.data_fn)}\n"
-        )
+        infid.write(f"{'Model File:':<21}{self.model_fn.name}\n")
+        infid.write(f"{'Data File:':<21}{self.data_fn.name}\n")
         infid.write(f"{'Date/Time:':<21}{time.ctime()}\n")
         infid.write(f"{'Max Iter:':<21}{self.max_iter}\n")
         infid.write(f"{'Target Misfit:':<21}{self.target_rms}\n")
@@ -175,27 +202,19 @@ class Startup(object):
                 )
             )
         if self.model_step == None:
-            infid.write(
-                f"{'!Model Value Steps:':<21}stepsize\n"
-            )
+            infid.write(f"{'!Model Value Steps:':<21}stepsize\n")
         else:
-            infid.write(
-                f"{'Model Value Steps:':<21}{self.model_step}\n"
-            )
+            infid.write(f"{'Model Value Steps:':<21}{self.model_step}\n")
         infid.write(f"{'Debug Level:':<21}{self.debug_level}\n")
         infid.write(f"{'Iteration:':<21}{self.start_iter}\n")
-        infid.write(
-            f"{'Lagrange Value:':<21}{self.start_lagrange}\n"
-        )
+        infid.write(f"{'Lagrange Value:':<21}{self.start_lagrange}\n")
         infid.write(f"{'Roughness Value:':<21}{self.start_rough}\n")
         infid.write(f"{'Misfit Value:':<21}{self.start_misfit}\n")
         infid.write(f"{'Misfit Reached:':<21}{0}\n")
         infid.write(f"{'Param Count:':<21}{model.num_params}\n")
 
         for ii in range(model.num_params):
-            infid.write(
-                f"{self._ss}{np.log10(self.start_rho):.2f}\n"
-            )
+            infid.write(f"{self._ss}{np.log10(self.start_rho):.2f}\n")
 
         infid.close()
         print(f"Wrote Input File: {self.startup_fn}")
@@ -226,12 +245,11 @@ class Startup(object):
         if self.startup_fn is None:
             raise IOError("Need to input a startup file.")
 
-        self._startup_fn = os.path.basename(self.startup_fn)
-        self.save_path = os.path.dirname(self.startup_fn)
+        self._startup_fn = Path(self.startup_fn).name
+        self.save_path = Path(self.startup_fn).parent
 
-        infid = open(self.startup_fn, "r")
-        ilines = infid.readlines()
-        infid.close()
+        with open(self.startup_fn, "r") as infid:
+            ilines = infid.readlines()
 
         self.indict = {}
         res = []
