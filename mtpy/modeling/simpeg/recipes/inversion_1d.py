@@ -365,7 +365,7 @@ class Simpeg1D:
         # ax0.legend()
         ax0.set_xlabel("Resistivity ($\Omega$m)")
         ax0.grid(which="both", alpha=0.5)
-        ax0.set_ylim((self.thicknesses.sum() / 1000, 0.001))
+        ax0.set_ylim((self._plot_z.max(), 0.001))
         ax0.set_ylabel("Depth (km)")
 
         nf = len(self.frequencies)
