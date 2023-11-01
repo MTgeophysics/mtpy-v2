@@ -62,7 +62,7 @@ class Occam1DData(object):
 
     def __init__(self, mt_dataframe, **kwargs):
         self.logger = logger
-        self.dataframe = MTDataFrame(data=mt_dataframe)
+        self.mt_dataframe = MTDataFrame(data=mt_dataframe)
 
         self._string_fmt = "+.6e"
         self._ss = 6 * " "
@@ -142,31 +142,31 @@ class Occam1DData(object):
         if self._mode == "te":
             sub_df = pd.DataFrame(
                 {
-                    "frequency": 1.0 / self.dataframe.dataframe.period,
-                    "data_1": self.dataframe.res_xy,
-                    "data_1_error": self.dataframe.res_xy_model_error,
-                    "data_2": self.dataframe.phase_xy,
-                    "data_2_error": self.dataframe.phase_xy_model_error,
+                    "frequency": 1.0 / self.mt_dataframe.dataframe.period,
+                    "data_1": self.mt_dataframe.dataframe.res_xy,
+                    "data_1_error": self.mt_dataframe.dataframe.res_xy_model_error,
+                    "data_2": self.mt_dataframe.dataframe.phase_xy,
+                    "data_2_error": self.mt_dataframe.dataframe.phase_xy_model_error,
                 }
             )
 
         elif self._mode == "tm":
             sub_df = pd.DataFrame(
                 {
-                    "frequency": 1.0 / self.dataframe.dataframe.period,
-                    "data_1": self.dataframe.res_yx,
-                    "data_1_error": self.dataframe.res_yx_model_error,
-                    "data_2": self.dataframe.phase_yx,
-                    "data_2_error": self.dataframe.phase_yx_model_error,
+                    "frequency": 1.0 / self.mt_dataframe.dataframe.period,
+                    "data_1": self.mt_dataframe.dataframe.res_yx,
+                    "data_1_error": self.mt_dataframe.dataframe.res_yx_model_error,
+                    "data_2": self.mt_dataframe.dataframe.phase_yx,
+                    "data_2_error": self.mt_dataframe.dataframe.phase_yx_model_error,
                 }
             )
 
         elif self._mode == "det":
-            z_obj = self.dataframe.to_z_object()
+            z_obj = self.mt_dataframe.to_z_object()
 
             sub_df = pd.DataFrame(
                 {
-                    "frequency": 1.0 / self.dataframe.dataframe.period,
+                    "frequency": 1.0 / self.mt_dataframe.dataframe.period,
                     "data_1": z_obj.det.real,
                     "data_1_error": z_obj.det_model_error,
                     "data_2": z_obj.det.imag,
@@ -175,10 +175,10 @@ class Occam1DData(object):
             )
 
         elif self._mode == "detz":
-            z_obj = self.dataframe.to_z_object()
+            z_obj = self.mt_dataframe.to_z_object()
             sub_df = pd.DataFrame(
                 {
-                    "frequency": 1.0 / self.dataframe.dataframe.period,
+                    "frequency": 1.0 / self.mt_dataframe.dataframe.period,
                     "data_1": z_obj.det.real * np.pi * 4e-4,
                     "data_1_error": z_obj.det_model_error * np.pi * 4e-4,
                     "data_2": z_obj.det.imag * np.pi * 4e-4,
@@ -189,13 +189,17 @@ class Occam1DData(object):
         elif self.mode == "tez":
             sub_df = pd.DataFrame(
                 {
-                    "frequency": 1.0 / self.dataframe.dataframe.period,
-                    "data_1": self.dataframe.zxy.real * np.pi * 4e-4,
-                    "data_1_error": self.dataframe.zxy_model_error
+                    "frequency": 1.0 / self.mt_dataframe.dataframe.period,
+                    "data_1": self.mt_dataframe.dataframe.zxy.real
                     * np.pi
                     * 4e-4,
-                    "data_2": self.dataframe.zxy.imag * np.pi * 4e-4,
-                    "data_2_error": self.dataframe.zxy_model_error
+                    "data_1_error": self.mt_dataframe.dataframe.zxy_model_error
+                    * np.pi
+                    * 4e-4,
+                    "data_2": self.mt_dataframe.dataframe.zxy.imag
+                    * np.pi
+                    * 4e-4,
+                    "data_2_error": self.mt_dataframe.dataframe.zxy_model_error
                     * np.pi
                     * 4e-4,
                 }
@@ -204,13 +208,17 @@ class Occam1DData(object):
         elif self.mode == "tmz":
             sub_df = pd.DataFrame(
                 {
-                    "frequency": 1.0 / self.dataframe.dataframe.period,
-                    "data_1": self.dataframe.zyx.real * np.pi * 4e-4,
-                    "data_1_error": self.dataframe.zyx_model_error
+                    "frequency": 1.0 / self.mt_dataframe.dataframe.period,
+                    "data_1": self.mt_dataframe.dataframe.zyx.real
                     * np.pi
                     * 4e-4,
-                    "data_2": self.dataframe.zyx.imag * np.pi * 4e-4,
-                    "data_2_error": self.dataframe.zyx_model_error
+                    "data_1_error": self.mt_dataframe.dataframe.zyx_model_error
+                    * np.pi
+                    * 4e-4,
+                    "data_2": self.mt_dataframe.dataframe.zyx.imag
+                    * np.pi
+                    * 4e-4,
+                    "data_2_error": self.mt_dataframe.dataframe.zyx_model_error
                     * np.pi
                     * 4e-4,
                 }
@@ -523,7 +531,7 @@ class Occam1DData(object):
                         data["zyx_model_error"][jj] = derr / (np.pi * 4e-4)
 
         df = pd.DataFrame(data)
-        self.dataframe = MTDataFrame(data=df)
+        self.mt_dataframe = MTDataFrame(data=df)
 
     def read_resp_file(self, resp_fn=None, data_fn=None):
         """
