@@ -9,6 +9,7 @@ Created on Wed Nov  1 11:58:59 2023
 # =============================================================================
 import numpy as np
 
+from mtpy.core import MTDataFrame
 from SimPEG.electromagnetics import natural_source as nsem
 
 from discretize import TensorMesh
@@ -32,24 +33,65 @@ class Simpeg1D:
 
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, mt_dataframe=None, **kwargs):
 
-        self.dz = 50
-        self.n_layers = 30
+        self.mt_dataframe = MTDataFrame(data=mt_dataframe)
+
+        self.mode = "det"
+        self.dz = 5
+        self.n_layers = 50
         self.z_factor = 1.2
 
         for key, value in kwargs.items():
             setattr(self, key, value)
 
     @property
-    def depth_model(self):
+    def thicknesses(self):
         return self.dz * self.z_factor ** np.arange(self.n_layer)[::-1]
 
     @property
     def mesh(self):
         return TensorMesh(
-            [(np.r_[self.depth_model, self.depth_model[-1]])], "N"
+            [(np.r_[self.thicknesses, self.thicknesses[-1]])], "N"
         )
+
+    @property
+    def data(self):
+        if self.mode == "det":
+            z_object = self.mt_dataframe.to_z_object()
+            return np.c_[z_object.res_det, z_object.phase_det].flatten()
+        elif self.mode in ["xy", "te"]:
+            return np.c_[
+                self.mt_dataframe.dataframe.res_xy,
+                self.mt_dataframe.dataframe.phase_xy,
+            ].flatten()
+        elif self.mode in ["yx", "tm"]:
+            return np.c_[
+                self.mt_dataframe.dataframe.res_yx,
+                self.mt_dataframe.dataframe.phase_yx,
+            ].flatten()
+        else:
+            raise ValueError(f"Mode {self.mode} is not supported")
+
+    @property
+    def data_error(self):
+        if self.mode == "det":
+            z_object = self.mt_dataframe.to_z_object()
+            return np.c_[
+                z_object.res_model_error_det, z_object.phase_model_error_det
+            ].flatten()
+        elif self.mode in ["xy", "te"]:
+            return np.c_[
+                self.mt_dataframe.dataframe.res_xy_model_error,
+                self.mt_dataframe.dataframe.phase_xy_model_error,
+            ].flatten()
+        elif self.mode in ["yx", "tm"]:
+            return np.c_[
+                self.mt_dataframe.dataframe.res_yx_model_error,
+                self.mt_dataframe.dataframe.phase_yx_model_error,
+            ].flatten()
+        else:
+            raise ValueError(f"Mode {self.mode} is not supported")
 
     def run_fixed_layer_inversion(
         self,
@@ -57,6 +99,7 @@ class Simpeg1D:
         standard_deviation,
         rho_0,
         rho_ref,
+        frequencies,
         maxIter=10,
         maxIterCG=30,
         alpha_s=1e-10,
@@ -85,7 +128,7 @@ class Simpeg1D:
         simulation = nsem.simulation_1d.Simulation1DRecursive(
             survey=survey,
             sigmaMap=sigma_map,
-            thicknesses=layer_thicknesses_inv,
+            thicknesses=self.thicknesses,
         )
         # Define the data
         data_object = data.Data(
@@ -93,10 +136,10 @@ class Simpeg1D:
         )
 
         # Initial model
-        m0 = np.ones(len(layer_thicknesses_inv) + 1) * np.log(1.0 / rho_0)
+        m0 = np.ones(self.n_layers + 1) * np.log(1.0 / rho_0)
 
         # Reference model
-        mref = np.ones(len(layer_thicknesses_inv) + 1) * np.log(1.0 / rho_ref)
+        mref = np.ones(self.n_layers + 1) * np.log(1.0 / rho_ref)
 
         dmis = data_misfit.L2DataMisfit(
             simulation=simulation, data=data_object
@@ -104,11 +147,11 @@ class Simpeg1D:
 
         # Define the regularization (model objective function)
         reg = regularization.Sparse(
-            mesh_inv,
+            self.mesh,
             alpha_s=alpha_s,
             alpha_x=alpha_z,
             mref=mref,
-            mapping=maps.IdentityMap(mesh_inv),
+            mapping=maps.IdentityMap(self.mesh),
         )
 
         # Define how the optimization problem is solved. Here we will use an inexact

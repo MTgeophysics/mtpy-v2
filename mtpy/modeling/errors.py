@@ -26,6 +26,7 @@ class ModelErrors:
             "percent": self.compute_percent_error,
             "absolute": self.compute_absolute_error,
             "abs": self.compute_absolute_error,
+            "data": self.use_measurement_error,
         }
 
         self._array_shapes = {
@@ -61,7 +62,9 @@ class ModelErrors:
 
     def __eq__(self, other):
         if not isinstance(other, ModelErrors):
-            raise TypeError(f"Cannot compare ModelErrors to type {type(other)}")
+            raise TypeError(
+                f"Cannot compare ModelErrors to type {type(other)}"
+            )
 
         for key in ["error_value", "error_type", "floor", "mode"]:
             value_og = getattr(self, key)
@@ -243,6 +246,9 @@ class ModelErrors:
             error_array[index] = self.measurement_error[index]
 
         return error_array
+
+    def use_measurement_error(self):
+        return self.measurement_error
 
     def compute_percent_error(self):
         """
