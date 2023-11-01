@@ -163,7 +163,7 @@ class Simpeg1D:
 
     def run_fixed_layer_inversion(
         self,
-        maxIter=10,
+        maxIter=40,
         maxIterCG=30,
         alpha_s=1e-10,
         alpha_z=1,
@@ -287,7 +287,7 @@ class Simpeg1D:
 
         self.output_dict = save_dictionary.outDict
 
-    def plot_model_fitting(self, scale="log"):
+    def plot_model_fitting(self, scale="log", fig_num=1):
         """
         plot predicted vs model
 
@@ -307,16 +307,18 @@ class Simpeg1D:
             phi_ms[ii] = self.output_dict[iteration]["phi_m"]
             betas[ii] = self.output_dict[iteration]["beta"]
 
-        fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+        fig, ax = plt.subplots(1, 1, figsize=(5, 5), num=fig_num, dpi=200)
 
-        ax.plot(phi_ms, phi_ds)
-        ax.plot(phi_ms[iteration - 1], phi_ds[iteration - 1], "ro")
+        ax.plot(phi_ms, phi_ds, marker="o", mfc="w", color="r", ls=":", ms=10)
+        for x, y, num in zip(phi_ms, phi_ds, range(len(phi_ms))):
+            ax.text(x, y, num, ha="center", va="center")
         ax.set_xlabel("$\phi_m$")
         ax.set_ylabel("$\phi_d$")
         if scale == "log":
             ax.set_xscale("log")
             ax.set_yscale("log")
         xlim = ax.get_xlim()
+        ax.grid(which="both", alpha=0.5)
         ax.plot(xlim, np.ones(2) * target_misfit, "--")
         ax.set_title(
             "Iteration={:d}, Beta = {:.1e}".format(
@@ -333,7 +335,7 @@ class Simpeg1D:
         z_grid = np.r_[0.0, np.cumsum(self.thicknesses[::-1])]
         return z_grid / 1000
 
-    def plot_response(self, iteration=None):
+    def plot_response(self, iteration=None, fig_num=2):
         """
         plot response
 
@@ -349,13 +351,13 @@ class Simpeg1D:
         dpred = self.output_dict[iteration]["dpred"]
         m = self.output_dict[iteration]["m"]
 
-        fig = plt.figure(figsize=(10, 6), dpi=200)
+        fig = plt.figure(fig_num, figsize=(10, 6), dpi=200)
         gs = gridspec.GridSpec(
             1, 5, figure=fig, wspace=0.4, hspace=0.4, left=0.08, right=0.91
         )
 
         ax0 = fig.add_subplot(gs[0, 0])
-        ax0.loglog(
+        ax0.step(
             (1.0 / (np.exp(m))),
             self._plot_z,
             color="k",
@@ -367,6 +369,8 @@ class Simpeg1D:
         ax0.grid(which="both", alpha=0.5)
         ax0.set_ylim((self._plot_z.max(), 0.001))
         ax0.set_ylabel("Depth (km)")
+        ax0.set_xscale("log")
+        ax0.set_yscale("log")
 
         nf = len(self.frequencies)
 
@@ -380,7 +384,7 @@ class Simpeg1D:
             self.data_error.reshape((nf, 2))[:, 0],
             **{
                 "marker": "s",
-                "ms": 2.5,
+                "ms": 5,
                 "mew": 1,
                 "mec": (0.25, 0.35, 0.75),
                 "color": (0.25, 0.35, 0.75),
@@ -396,8 +400,8 @@ class Simpeg1D:
             self.periods,
             dpred.reshape((nf, 2))[:, 0],
             **{
-                "marker": "s",
-                "ms": 2.5,
+                "marker": "v",
+                "ms": 4,
                 "mew": 1,
                 "mec": (0.25, 0.5, 0.5),
                 "color": (0.25, 0.5, 0.5),
@@ -417,7 +421,7 @@ class Simpeg1D:
             self.data_error.reshape((nf, 2))[:, 1],
             **{
                 "marker": "o",
-                "ms": 2.5,
+                "ms": 5,
                 "mew": 1,
                 "mec": (0.75, 0.25, 0.25),
                 "color": (0.75, 0.25, 0.25),
@@ -433,8 +437,8 @@ class Simpeg1D:
             self.periods,
             dpred.reshape((nf, 2))[:, 1],
             **{
-                "marker": "o",
-                "ms": 2.5,
+                "marker": "d",
+                "ms": 4,
                 "mew": 1,
                 "mec": (0.9, 0.5, 0.05),
                 "color": (0.9, 0.5, 0.05),
@@ -457,11 +461,6 @@ class Simpeg1D:
         ax.set_ylabel("Apparent resistivity ($\Omega$m)")
         ax_1.set_ylabel("Phase ($\degree$)")
         ax.set_xlabel("Period(s)")
-        # ax.legend(loc=2)
-        # ax_1.legend(loc=1)
-        # ax.set_ylim(1, 10000)
-        # ax_1.set_ylim(0, 90)
-        # ax0.set_xlim(1, 10000)
         plt.show()
 
         return fig

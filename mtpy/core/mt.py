@@ -25,7 +25,7 @@ from mtpy.imaging import (
 )
 from mtpy.modeling.errors import ModelErrors
 from mtpy.modeling.occam1d import Occam1DData
-
+from mtpy.modeling.simpeg.recipes.inversion_1d import Simpeg1D
 
 # =============================================================================
 class MT(TF, MTLocation):
@@ -1048,3 +1048,32 @@ class MT(TF, MTLocation):
             occam_data.write_data_file(data_filename)
 
         return occam_data
+
+    def to_simpeg_1d(self, mode="det", **kwargs):
+        """
+        helper method to run a 1D inversion using Simpeg
+
+        default is smooth parameters
+
+        :To run sharp inversion:
+
+        >>> mt_object.to_simpeg_1d({"p_s": 2, "p_z": 0, "use_irls": True})
+
+        :To run sharp inversion adn compact:
+
+        >>> mt_object.to_simpeg_1d({"p_s": 0, "p_z": 0, "use_irls": True})
+
+
+        :param **kwargs: DESCRIPTION
+        :type **kwargs: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        simpeg_1d = Simpeg1D(self.to_dataframe(), mode=mode, **kwargs)
+        simpeg_1d.run_fixed_layer_inversion(**kwargs)
+        simpeg_1d.plot_model_fitting(fig_num=1)
+        simpeg_1d.plot_response(fig_num=2)
+
+        return simpeg_1d
