@@ -9,22 +9,26 @@ Created on Wed Nov  1 11:58:59 2023
 # =============================================================================
 import numpy as np
 import pandas as pd
+from loguru import logger
 
 from mtpy.core import MTDataFrame
 from mtpy.imaging.mtplot_tools.plotters import plot_errorbar
 
-from discretize import TensorMesh
-from SimPEG.electromagnetics import natural_source as nsem
-from SimPEG import (
-    maps,
-    data,
-    data_misfit,
-    regularization,
-    optimization,
-    inverse_problem,
-    inversion,
-    directives,
-)
+try:
+    from discretize import TensorMesh
+    from SimPEG.electromagnetics import natural_source as nsem
+    from SimPEG import (
+        maps,
+        data,
+        data_misfit,
+        regularization,
+        optimization,
+        inverse_problem,
+        inversion,
+        directives,
+    )
+except ImportError:
+    logger.warning("Could not import Simpeg.")
 
 from matplotlib import pyplot as plt
 import matplotlib.gridspec as gridspec

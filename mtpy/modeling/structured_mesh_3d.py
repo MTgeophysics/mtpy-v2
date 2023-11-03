@@ -572,7 +572,8 @@ class StructuredGrid3D:
         for s_north in sorted(self.station_locations.model_north):
             try:
                 node_index = np.where(
-                    abs(s_north - self.grid_north) < 0.02 * self.cell_size_north
+                    abs(s_north - self.grid_north) < 0.02 *
+                    self.cell_size_north
                 )[0][0]
                 if s_north - self.grid_north[node_index] > 0:
                     self.grid_north[node_index] -= 0.02 * self.cell_size_north
@@ -601,7 +602,8 @@ class StructuredGrid3D:
             )
 
         # compute grid center
-        center_east = np.round(self.grid_east.min() - self.grid_east.mean(), -1)
+        center_east = np.round(self.grid_east.min() -
+                               self.grid_east.mean(), -1)
         center_north = np.round(
             self.grid_north.min() - self.grid_north.mean(), -1
         )
@@ -941,7 +943,8 @@ class StructuredGrid3D:
         self.nodes_east = np.array(
             [float(nn) for nn in ilines[3].strip().split()]
         )
-        self.nodes_z = np.array([float(nn) for nn in ilines[4].strip().split()])
+        self.nodes_z = np.array([float(nn)
+                                for nn in ilines[4].strip().split()])
 
         self.res_model = np.zeros((n_north, n_east, n_z))
 
@@ -1158,9 +1161,9 @@ class StructuredGrid3D:
         pad_north = self._validate_pad_north(pad_north)
 
         east, north = np.broadcast_arrays(
-            self.grid_north[pad_north : -(pad_north + 1), None]
+            self.grid_north[pad_north: -(pad_north + 1), None]
             + self.center_point.north,
-            self.grid_east[None, pad_east : -(pad_east + 1)]
+            self.grid_east[None, pad_east: -(pad_east + 1)]
             + self.center_point.east,
         )
 
@@ -1289,8 +1292,8 @@ class StructuredGrid3D:
         nyin, nxin, nzin = np.array(self.res_model.shape) + 1
 
         gx, gy = mtmesh.rotate_mesh(
-            self.grid_east[clip[0] : nxin - clip[0]],
-            self.grid_north[clip[1] : nyin - clip[1]],
+            self.grid_east[clip[0]: nxin - clip[0]],
+            self.grid_north[clip[1]: nyin - clip[1]],
             origin[:2],
             self.mesh_rotation_angle,
         )
@@ -1308,8 +1311,8 @@ class StructuredGrid3D:
 
         # resistivity values, clipped to one smaller than grid edges
         resvals = self.res_model[
-            clip[1] : nyin - clip[1] - 1,
-            clip[0] : nxin - clip[0] - 1,
+            clip[1]: nyin - clip[1] - 1,
+            clip[0]: nxin - clip[0] - 1,
             : nzin - clip[2] - 1,
         ]
 
@@ -1669,7 +1672,8 @@ class StructuredGrid3D:
                 # adjust level to topography min
                 if max_elev is not None:
                     self.grid_z -= max_elev
-                    ztops = np.where(self.surface_dict["topography"] > max_elev)
+                    ztops = np.where(
+                        self.surface_dict["topography"] > max_elev)
                     self.surface_dict["topography"][ztops] = max_elev
                 else:
                     self.grid_z -= topo_core.max()
@@ -1723,7 +1727,7 @@ class StructuredGrid3D:
         )
 
         if "down" not in airlayer_type:
-            new_res_model[:, :, self.n_air_layers :] = self.res_model
+            new_res_model[:, :, self.n_air_layers:] = self.res_model
 
         self.res_model = new_res_model
 
@@ -1749,13 +1753,13 @@ class StructuredGrid3D:
         inner_ns_ext = north - south
 
         if self.ew_ext < extent_ratio * inner_ew_ext:
-            self._logger.warn(
+            self._logger.warning(
                 "Provided or default ew_ext not sufficient to fit stations + padding, updating extent"
             )
             self.ew_ext = np.ceil(extent_ratio * inner_ew_ext)
 
         if self.ns_ext < extent_ratio * inner_ns_ext:
-            self._logger.warn(
+            self._logger.warning(
                 "Provided or default ns_ext not sufficient to fit stations + padding, updating extent"
             )
             self.ns_ext = np.ceil(extent_ratio * inner_ns_ext)
