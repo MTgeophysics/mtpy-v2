@@ -26,7 +26,7 @@ requirements = [
     "contextily",
     "pyevtk",
     "loguru",
-    "gdal",
+    "GDAL",
     "simpeg",
 ]
 
