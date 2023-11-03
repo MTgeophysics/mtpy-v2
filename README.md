@@ -9,15 +9,26 @@
 
 # Description
  
-`mtpy` provides tools for working with magnetotelluric (MT) data.  MTpy-v2 is an updated version of [mtpy](https://github.com/MTgeophysics/mtpy). Many things have changed under the hood and usage is different from mtpy v1. The main difference is that there is a central data type that can hold transfer functions and then read/write to your modeling program, plot, and analyze your data.  No longer will you need a directory of EDI files and then read them in everytime you want to do something.  You only need to build a project once and save it to an MTH5 file and you are ready to go. All metadata uses [mt-metadata](https://github.com/kujaku11/mt-metadata).  
+`mtpy` provides tools for working with magnetotelluric (MT) data.  MTpy-v2 is an updated version of [mtpy](https://github.com/MTgeophysics/mtpy). Many things have changed under the hood and usage is different from mtpy v1. The main difference is that there is a central data type that can hold transfer functions and then read/write to your modeling program, plot, and analyze your data.  No longer will you need a directory of EDI files and then read them in everytime you want to do something.  You only need to build a project once and save it to an MTH5 file and you are ready to go. All metadata uses [mt-metadata](https://github.com/kujaku11/mt-metadata).
 
-## Functionality
+# Installation
+
+## Using Pip
+
+`> pip install mtpy-v2`
+
+## Using conda
+
+`> conda install -c conda-forge mtpy-v2`
+  
+
+# Functionality
 
 - Read/write transfer function files (EDI, EMTFXML, J-file, Z-file, AVG-file) using [mt-metadata](https://github.com/kujaku11/mt-metadata)
 - Read/write [MTH5](https://github.com/kujaku11/mth5) files for full surveys/project in a single file
 - Utility functions for GIS
  
-### Plotting
+## Plotting
 
 - Single transfer function 
   - apparent resistivity and phase
@@ -31,12 +42,12 @@
   - apparent resistivity and phase maps and pseudosections
   - depth of investigation map	
 
-### Processing
+## Processing
   - Read/write files for time series processing
     - BIRRP
     - [Aurora](https://github.com/simpeg/aurora)
 
-### Modeling
+## Modeling
 
 - Read/Write files for modeling programs
   - ModEM
