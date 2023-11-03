@@ -26,6 +26,8 @@ requirements = [
     "contextily",
     "pyevtk",
     "loguru",
+    "gdal",
+    "simpeg",
 ]
 
 setup_requirements = [
