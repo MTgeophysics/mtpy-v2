@@ -13,9 +13,7 @@ from mtpy.core import MTDataFrame
 
 # ==============================================================================
 
-# ==============================================================================
-# Data class
-# ==============================================================================
+
 class WSData:
     """
     Includes tools for reading and writing data files intended to be used with
@@ -337,7 +335,7 @@ class WSData:
         self.logger.info(f"Wrote WS3DINV file to {self.data_filename}")
         return self.data_filename
 
-    def read_data_file(self, data_filename, wl_sites_fn=None, station_fn=None):
+    def read_data_file(self, data_filename):
         """
         read in data file
 
@@ -404,18 +402,7 @@ class WSData:
         ncol = len(dlines[nsstart].strip().split())
 
         # get site names if entered a sites file
-        if wl_sites_fn != None:
-            self.wl_site_fn = wl_sites_fn
-            slist, station_list = wl.read_sites_file(self.wl_sites_fn)
-            self.data["station"] = station_list
-
-        elif station_fn != None:
-            self.station_fn = station_fn
-            stations = WSStation(self.station_fn)
-            stations.read_station_file()
-            self.data["station"] = stations.names
-        else:
-            self.data["station"] = np.arange(n_stations)
+        self.data["station"] = np.arange(n_stations)
 
         # get N-S locations
         for ii, dline in enumerate(dlines[findlist[0] + 1 : findlist[1]], 0):
