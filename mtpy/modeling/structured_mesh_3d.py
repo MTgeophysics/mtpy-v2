@@ -2609,7 +2609,7 @@ class StructuredGrid3D:
         with open(initial_fn, "r") as ifid:
             ilines = ifid.readlines()
 
-        # get size of dimensions, remembering that x is N-S, y is E-W, z is + down
+        # get size of dimensions
         nsize = ilines[1].strip().split()
         n_north = int(nsize[0])
         n_east = int(nsize[1])
@@ -2690,3 +2690,107 @@ class StructuredGrid3D:
             # furthest south, even though ws3dinv outputs as first
             # index as furthest north.
             self.res_model = res_model[::-1, :, :]
+
+        return res_list
+
+    def from_ws3dinv(self, model_fn):
+        """
+        read WS3DINV iteration model file.
+
+        :param model_fn: DESCRIPTION
+        :type model_fn: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        with open(model_fn, "r") as mfid:
+            mlines = mfid.readlines()
+
+        # get info at the beggining of file
+        info = mlines[0].strip().split()
+        iteration_number = int(info[2])
+        rms = float(info[5])
+        try:
+            lagrange = float(info[8])
+        except IndexError:
+            self.logger.warning("Did not get Lagrange Multiplier")
+
+        # get lengths of things
+        n_north, n_east, n_z, n_res = np.array(
+            mlines[1].strip().split(), dtype=int
+        )
+
+        # make empty arrays to put stuff into
+        self.nodes_north = np.zeros(n_north)
+        self.nodes_east = np.zeros(n_east)
+        self.nodes_z = np.zeros(n_z)
+        self.res_model = np.zeros((n_north, n_east, n_z))
+
+        # get the grid line locations
+        line_index = 2  # line number in file
+        count_n = 0  # number of north nodes found
+        while count_n < n_north:
+            mline = mlines[line_index].strip().split()
+            for north_node in mline:
+                self.nodes_north[count_n] = float(north_node)
+                count_n += 1
+            line_index += 1
+
+        count_e = 0  # number of east nodes found
+        while count_e < n_east:
+            mline = mlines[line_index].strip().split()
+            for east_node in mline:
+                self.nodes_east[count_e] = float(east_node)
+                count_e += 1
+            line_index += 1
+
+        count_z = 0  # number of vertical nodes
+        while count_z < n_z:
+            mline = mlines[line_index].strip().split()
+            for z_node in mline:
+                self.nodes_z[count_z] = float(z_node)
+                count_z += 1
+            line_index += 1
+
+        # --> get resistivity values
+        # need to read in the north backwards so that the first index is
+        # southern most point
+        for kk in range(n_z):
+            for jj in range(n_east):
+                for ii in range(n_north):
+                    self.res_model[(n_north - 1) - ii, jj, kk] = float(
+                        mlines[line_index].strip()
+                    )
+                    line_index += 1
+
+        return {
+            "rms": rms,
+            "lagrange_mulitplier": lagrange,
+            "info": info,
+            "iteration": iteration_number,
+        }
+
+    def estimate_skin_depth(self, apparent_resistivity, period, scale="km"):
+        """
+        Estimate skin depth from apparent resistivity and period
+
+        :param apparent_resistivity: DESCRIPTION
+        :type apparent_resistivity: TYPE
+        :param period: DESCRIPTION
+        :type period: TYPE
+        :param scale: DESCRIPTION, defaults to "km"
+        :type scale: TYPE, optional
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        if scale in ["km", "kilometers"]:
+            dscale = 1000
+        elif scale in ["m", "meters"]:
+            dscale = 1
+        elif scale in ["ft", "feet"]:
+            dscale = 3.2808399
+        else:
+            raise ValueError(f"Could not understand scale {scale}.")
+        return 503 * np.sqrt(apparent_resistivity * period) / dscale
