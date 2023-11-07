@@ -19,7 +19,13 @@ from mtpy.core.mt_location import MTLocation
 
 
 def array2raster(
-    raster_fn, array, lower_left, cell_size_north, cell_size_east, crs
+    raster_fn,
+    array,
+    lower_left,
+    cell_size_north,
+    cell_size_east,
+    crs,
+    rotation_angle=0,
 ):
     """
     Use rasterio to write raster file.
@@ -45,10 +51,15 @@ def array2raster(
 
     if not isinstance(array, np.ndarray):
         raise TypeError(f"array must be a numpy array not {type(array)}.")
-    transform = Affine.translation(
-        lower_left.east,
-        lower_left.north,
-    ) * Affine.scale(cell_size_east, cell_size_north)
+
+    transform = (
+        Affine.translation(
+            lower_left.east,
+            lower_left.north,
+        )
+        * Affine.scale(cell_size_east, cell_size_north)
+        * Affine.rotation(rotation_angle)
+    )
 
     with rasterio.open(
         raster_fn,

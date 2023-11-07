@@ -1978,6 +1978,8 @@ class StructuredGrid3D:
 
         if rotation_angle is not None:
             rotation_angle = float(rotation_angle)
+        else:
+            rotation_angle = 0.0
 
         if save_path is None:
             save_path = self.save_path
@@ -2001,24 +2003,27 @@ class StructuredGrid3D:
             )
         ]
 
+        initial_index = np.where(self.grid_z == raster_depths.min())[0][0]
+
         lower_left = self.get_lower_left_corner(pad_east, pad_north)
 
         raster_fn_list = []
-        for ii, d in enumerate(raster_depths):
+        for ii, d in enumerate(raster_depths, initial_index):
             raster_fn = self.save_path.joinpath(
-                f"{ii}_depth_{d:.2f}m_utm_{self.utm_epsg}.tif"
+                f"{ii}_depth_{d:.2f}m_utm_{self.center_point.utm_epsg}.tif"
             )
             array2raster(
                 raster_fn,
+                np.log10(raster_array[:, :, ii]),
                 lower_left,
                 cell_size,
-                np.log10(raster_array[:, :, ii]),
+                cell_size,
                 self.center_point.utm_epsg,
                 rotation_angle=rotation_angle,
             )
             raster_fn_list.append(raster_fn)
             if verbose:
-                self.logger.info(f"Wrote depth index {ii} to {raster_fn}")
+                self._logger.info(f"Wrote depth index {ii} to {raster_fn}")
 
         return raster_fn_list
 

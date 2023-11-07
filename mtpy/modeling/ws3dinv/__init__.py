@@ -12,5 +12,5 @@ from .data import WSData
 from .startup import WSStartup
 
 # =============================================================================
-print("ws3dinv module is under construction")
+print("CAUTION: ws3dinv module is under construction")
 __all__ = ["WSStation", "WSData", "WSStartup"]
