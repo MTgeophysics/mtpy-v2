@@ -1018,8 +1018,12 @@ class StructuredGrid3D:
         self.grid_z += shift_z
 
         # get cell size
-        self.cell_size_east = stats.mode(self.nodes_east)[0][0]
-        self.cell_size_north = stats.mode(self.nodes_north)[0][0]
+        try:
+            self.cell_size_east = stats.mode(self.nodes_east)[0][0]
+            self.cell_size_north = stats.mode(self.nodes_north)[0][0]
+        except IndexError:
+            self.cell_size_east = stats.mode(self.nodes_east).mode
+            self.cell_size_north = stats.mode(self.nodes_north).mode
 
         # get number of padding cells
         half = int(self.nodes_east.size / 2)
