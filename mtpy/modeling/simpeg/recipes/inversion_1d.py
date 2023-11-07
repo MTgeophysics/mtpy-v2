@@ -43,7 +43,6 @@ class Simpeg1D:
     """
 
     def __init__(self, mt_dataframe=None, **kwargs):
-
         self._acceptable_modes = ["te" "tm", "det"]
         self.mt_dataframe = MTDataFrame(data=mt_dataframe)
 
@@ -65,7 +64,6 @@ class Simpeg1D:
 
     @mode.setter
     def mode(self, mode):
-
         if mode not in self._acceptable_modes:
             raise ValueError(
                 f"Mode {mode} not in accetable modes {self._acceptable_modes}"
@@ -179,7 +177,6 @@ class Simpeg1D:
         p_s=2,
         p_z=2,
     ):
-
         receivers_list = [
             nsem.receivers.PointNaturalSource(component="app_res"),
             nsem.receivers.PointNaturalSource(component="phase"),
@@ -217,7 +214,7 @@ class Simpeg1D:
             self.mesh,
             alpha_s=alpha_s,
             alpha_x=alpha_z,
-            mref=mref,
+            reference_model=mref,
             mapping=maps.IdentityMap(self.mesh),
         )
 
