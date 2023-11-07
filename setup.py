@@ -25,7 +25,7 @@ requirements = [
     "rasterio",
     "contextily",
     "pyevtk",
-    "SimPEG=0.20.0",
+    "SimPEG==0.20.0",
 ]
 
 setup_requirements = [
@@ -40,7 +40,7 @@ test_requirements = [
 setup(
     author="Jared Peacock, Alison Kirkby, Fei Zhang, Rakib Hassan, Lars Krieger, Stephan Thiel",
     author_email="jpeacock@usgs.gov",
-    python_requires=">=3.5",
+    python_requires=">=3.8",
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Developers",
