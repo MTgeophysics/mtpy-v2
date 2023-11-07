@@ -626,7 +626,9 @@ class MTDataFrame:
                 if t_object._has_tf_model_error():
                     self.dataframe.loc[
                         self.dataframe.station == self.station, key
-                    ] = t_object.tipper_model_error[:, index["ii"], index["jj"]]
+                    ] = t_object.tipper_model_error[
+                        :, index["ii"], index["jj"]
+                    ]
 
     def to_z_object(self):
         """
@@ -692,7 +694,9 @@ class MTDataFrame:
                 "res_yx_model_error",
                 "res_yy_model_error",
             ]:
-                res_model_err[:, index["ii"], index["jj"]] = self.dataframe.loc[
+                res_model_err[
+                    :, index["ii"], index["jj"]
+                ] = self.dataframe.loc[
                     self.dataframe.station == self.station, key
                 ]
 
@@ -778,3 +782,27 @@ class MTDataFrame:
                 ]
 
         return Tipper(t, t_err, self.frequency, t_model_err)
+
+    @property
+    def station_locations(self):
+        return (
+            self.dataframe.groupby("station")
+            .first()[
+                [
+                    "survey",
+                    "latitude",
+                    "longitude",
+                    "latitude",
+                    "elevation",
+                    "datum_epsg",
+                    "east",
+                    "north",
+                    "utm_epsg",
+                    "model_east",
+                    "model_north",
+                    "model_elevation",
+                    "profile_offset",
+                ]
+            ]
+            .reset_index()
+        )
