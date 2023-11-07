@@ -16,18 +16,17 @@ with open("HISTORY.rst") as history_file:
 requirements = [
     "numpy",
     "scipy",
-    "matplotlib<=3.5.3",
+    "matplotlib",
+    "simpeg=0.20.0",
     "pyproj",
     "configparser",
     "mt_metadata",
     "mth5",
     "pandas",
     "geopandas",
+    "rasterio",
     "contextily",
     "pyevtk",
-    "loguru",
-    "GDAL",
-    "simpeg",
 ]
 
 setup_requirements = [
