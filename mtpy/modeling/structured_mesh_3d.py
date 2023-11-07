@@ -2438,15 +2438,255 @@ class StructuredGrid3D:
         with open(self.save_path.joinpath(basename + ".msh"), "w") as fid:
             fid.write("\n".join(lines))
 
-    def convert_model_to_int(self, res_list):
+    def convert_model_to_int(self, res_list=None):
         """
         convert resistivity values to integers according to resistivity list
 
-        :param res_list: DESCRIPTION
-        :type res_list: TYPE
-        :return: DESCRIPTION
-        :rtype: TYPE
+        :param res_list: resistivity values in Ohm-m.
+        :type res_list: list of floats
+        :return: array of integers corresponding to the res_list
+        :rtype: np.ndarray(dtype=int)
 
         """
 
-        pass
+        res_model_int = np.ones_like(self.res_model)
+        if res_list is None:
+            return res_model_int
+        # make a dictionary of values to write to file.
+        res_dict = dict(
+            [(res, ii) for ii, res in enumerate(sorted(res_list), 1)]
+        )
+
+        for ii, res in enumerate(res_list):
+            indexes = np.where(self.res_model == res)
+            res_model_int[indexes] = res_dict[res]
+            if ii == 0:
+                indexes = np.where(self.res_model <= res)
+                res_model_int[indexes] = res_dict[res]
+            elif ii == len(res_list) - 1:
+                indexes = np.where(self.res_model >= res)
+                res_model_int[indexes] = res_dict[res]
+            else:
+                l_index = max([0, ii - 1])
+                h_index = min([len(res_list) - 1, ii + 1])
+                indexes = np.where(
+                    (self.res_model > res_list[l_index])
+                    & (self.res_model < res_list[h_index])
+                )
+                res_model_int[indexes] = res_dict[res]
+
+        return res_model_int
+
+    def to_ws3dinv_intial(self, initial_fn, res_list=None):
+        """
+        write a WS3DINV inital model file.
+        """
+
+        # check to see what resistivity in input
+        if res_list is None:
+            nr = 0
+        elif type(res_list) is not list and type(res_list) is not np.ndarray:
+            res_list = [res_list]
+            nr = len(res_list)
+        else:
+            nr = len(res_list)
+
+        # --> write file
+        lines = []
+        lines.append(f"# {'Inital Model File made in MTpy'.upper()}\n")
+        lines.append(
+            "{0} {1} {2} {3}\n".format(
+                self.nodes_north.shape[0],
+                self.nodes_east.shape[0],
+                self.nodes_z.shape[0],
+                nr,
+            )
+        )
+
+        # write S --> N node block
+        for ii, nnode in enumerate(self.nodes_north):
+            lines.append(f"{abs(nnode):>12.1f}")
+            if ii != 0 and np.remainder(ii + 1, 5) == 0:
+                lines.append("\n")
+            elif ii == self.nodes_north.shape[0] - 1:
+                lines.append("\n")
+
+        # write W --> E node block
+        for jj, enode in enumerate(self.nodes_east):
+            lines.append(f"{abs(enode):>12.1f}")
+            if jj != 0 and np.remainder(jj + 1, 5) == 0:
+                lines.append("\n")
+            elif jj == self.nodes_east.shape[0] - 1:
+                lines.append("\n")
+
+        # write top --> bottom node block
+        for kk, zz in enumerate(self.nodes_z):
+            lines.append(f"{abs(zz):>12.1f}")
+            if kk != 0 and np.remainder(kk + 1, 5) == 0:
+                lines.append("\n")
+            elif kk == self.nodes_z.shape[0] - 1:
+                lines.append("\n")
+
+        # write the resistivity list
+        if nr > 0:
+            for ff in res_list:
+                lines.append(f"{ff:.1f} ")
+            lines.append("\n")
+        else:
+            pass
+
+        if nr > 0:
+            res_model_int = self.convert_model_to_int(res_list)
+            # need to flip the array such that the 1st index written is the
+            # northern most value
+            write_res_model = res_model_int[::-1, :, :]
+            # get similar layers
+        else:
+            write_res_model = self.res_model[::-1, :, :]
+        l1 = 0
+        layers = []
+        for zz in range(self.nodes_z.shape[0] - 1):
+            if not (
+                write_res_model[:, :, zz] == write_res_model[:, :, zz + 1]
+            ).all():
+                layers.append((l1, zz))
+                l1 = zz + 1
+        # need to add on the bottom layers
+        layers.append((l1, self.nodes_z.shape[0] - 1))
+
+        # write out the layers from resmodel
+        for ll in layers:
+            lines.append(f"{ll[0] + 1} {ll[1] + 1}\n")
+            for nn in range(self.nodes_north.shape[0]):
+                for ee in range(self.nodes_east.shape[0]):
+                    if nr > 0:
+                        lines.append(f"{write_res_model[nn, ee, ll[0]]:>3.0f}")
+                    else:
+                        lines.append(f"{write_res_model[nn, ee, ll[0]]:>8.1f}")
+                lines.append("\n")
+
+        with open(initial_fn, "w") as fid:
+            fid.write("".join(lines))
+
+        self.logger.info(f"Wrote WS3DINV intial model file to: {initial_fn}")
+
+        return initial_fn
+
+    def from_ws3dinv_initial(self, initial_fn):
+        """
+        read an initial file and return the pertinent information including
+        grid positions in coordinates relative to the center point (0,0) and
+        starting model.
+
+        Arguments:
+        ----------
+
+            **initial_fn** : full path to initializing file.
+
+        Outputs:
+        --------
+
+            **nodes_north** : np.array(nx)
+                        array of nodes in S --> N direction
+
+            **nodes_east** : np.array(ny)
+                        array of nodes in the W --> E direction
+
+            **nodes_z** : np.array(nz)
+                        array of nodes in vertical direction positive downwards
+
+            **res_model** : dictionary
+                        dictionary of the starting model with keys as layers
+
+            **res_list** : list
+                        list of resistivity values in the model
+
+            **title** : string
+                         title string
+
+        """
+
+        with open(initial_fn, "r") as ifid:
+            ilines = ifid.readlines()
+
+        # get size of dimensions, remembering that x is N-S, y is E-W, z is + down
+        nsize = ilines[1].strip().split()
+        n_north = int(nsize[0])
+        n_east = int(nsize[1])
+        n_z = int(nsize[2])
+
+        # initialize empy arrays to put things into
+        self.nodes_north = np.zeros(n_north)
+        self.nodes_east = np.zeros(n_east)
+        self.nodes_z = np.zeros(n_z)
+        res_model = np.zeros((n_north, n_east, n_z))
+
+        # get the grid line locations
+        line_index = 2  # line number in file
+        count_n = 0  # number of north nodes found
+        while count_n < n_north:
+            iline = ilines[line_index].strip().split()
+            for north_node in iline:
+                self.nodes_north[count_n] = float(north_node)
+                count_n += 1
+            line_index += 1
+
+        count_e = 0  # number of east nodes found
+        while count_e < n_east:
+            iline = ilines[line_index].strip().split()
+            for east_node in iline:
+                self.nodes_east[count_e] = float(east_node)
+                count_e += 1
+            line_index += 1
+
+        count_z = 0  # number of vertical nodes
+        while count_z < n_z:
+            iline = ilines[line_index].strip().split()
+            for z_node in iline:
+                self.nodes_z[count_z] = float(z_node)
+                count_z += 1
+            line_index += 1
+
+        # get the resistivity values
+        res_list = [float(rr) for rr in ilines[line_index].strip().split()]
+        line_index += 1
+
+        # get model
+        try:
+            iline = ilines[line_index].strip().split()
+
+        except IndexError:
+            res_model[:, :, :] = res_list[0]
+            return
+
+        if len(iline) == 0 or len(iline) == 1:
+            res_model[:, :, :] = res_list[0]
+            return
+        else:
+            while line_index < len(ilines):
+                iline = ilines[line_index].strip().split()
+                if len(iline) == 2:
+                    l1 = int(iline[0]) - 1
+                    l2 = int(iline[1])
+                    if l1 == l2:
+                        l2 += 1
+                    line_index += 1
+                    count_n = 0
+                elif len(iline) == 0:
+                    break
+                else:
+                    count_e = 0
+                    while count_e < n_east:
+                        # be sure the indes of res list starts at 0 not 1 as
+                        # in ws3dinv
+                        self.res_model[count_n, count_e, l1:l2] = res_list[
+                            int(iline[count_e]) - 1
+                        ]
+                        count_e += 1
+                    count_n += 1
+                    line_index += 1
+            # Need to be sure that the resistivity array matches
+            # with the grids, such that the first index is the
+            # furthest south, even though ws3dinv outputs as first
+            # index as furthest north.
+            self.res_model = res_model[::-1, :, :]
