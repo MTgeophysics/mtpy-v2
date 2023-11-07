@@ -491,7 +491,9 @@ class Z(TFBase):
         res_error = self._validate_array_input(res_error, float)
         phase_error = self._validate_array_input(phase_error, float)
         res_model_error = self._validate_array_input(res_model_error, float)
-        phase_model_error = self._validate_array_input(phase_model_error, float)
+        phase_model_error = self._validate_array_input(
+            phase_model_error, float
+        )
 
         abs_z = np.sqrt(5.0 * self.frequency * (resistivity.T)).T
         self.z = abs_z * np.exp(1j * np.radians(phase))
@@ -518,7 +520,7 @@ class Z(TFBase):
         """
         det_z_error = None
         if self.z_error is not None:
-            det_z_error = np.zeros_like(self.det, dtype=np.float)
+            det_z_error = np.zeros_like(self.det, dtype=float)
             with np.errstate(invalid="ignore"):
                 # components of the impedance tensor are not independent variables
                 # so can't use standard error propagation
@@ -540,7 +542,7 @@ class Z(TFBase):
         """
         det_z_error = None
         if self.z_model_error is not None:
-            det_z_error = np.zeros_like(self.det, dtype=np.float)
+            det_z_error = np.zeros_like(self.det, dtype=float)
             with np.errstate(invalid="ignore"):
                 # components of the impedance tensor are not independent variables
                 # so can't use standard error propagation
