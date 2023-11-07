@@ -17,16 +17,15 @@ requirements = [
     "numpy",
     "scipy",
     "matplotlib",
-    "simpeg=0.20.0",
     "pyproj",
     "configparser",
     "mt_metadata",
     "mth5",
-    "pandas",
     "geopandas",
     "rasterio",
     "contextily",
     "pyevtk",
+    "SimPEG=0.20.0",
 ]
 
 setup_requirements = [
