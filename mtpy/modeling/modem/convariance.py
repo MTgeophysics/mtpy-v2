@@ -249,7 +249,7 @@ class Covariance(object):
                 elif len(line_list) == 3:
                     nx, ny, nz = [int(ii) for ii in line_list]
                     self.grid_dimensions = (nx, ny, nz)
-                    self.mask_arr = np.ones((nx, ny, nz), dtype=np.int)
+                    self.mask_arr = np.ones((nx, ny, nz), dtype=int)
                     self.smoothing_east = np.zeros(ny)
                     self.smoothing_north = np.zeros(nx)
                 elif len(line_list) == 2:
@@ -257,13 +257,13 @@ class Covariance(object):
                     index_00, index_01 = [int(ii) - 1 for ii in line_list]
                     count = 0
                 elif line_list[0].find(".") >= 0 and north_find == False:
-                    self.smoothing_north = np.array(line_list, dtype=np.float)
+                    self.smoothing_north = np.array(line_list, dtype=float)
                     north_find = True
                 elif line_list[0].find(".") >= 0 and north_find == True:
-                    self.smoothing_east = np.array(line_list, dtype=np.float)
+                    self.smoothing_east = np.array(line_list, dtype=float)
                     east_find = True
                 elif north_find and east_find:
-                    line_list = np.array(line_list, dtype=np.int)
+                    line_list = np.array(line_list, dtype=int)
                     line_list = line_list.reshape((ny, 1))
 
                     self.mask_arr[

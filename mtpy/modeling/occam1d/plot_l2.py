@@ -120,9 +120,9 @@ class PlotOccam1DL2(PlotBase):
             len(iter_list),
             dtype=np.dtype(
                 [
-                    ("iteration", np.int),
-                    ("rms", np.float),
-                    ("roughness", np.float),
+                    ("iteration", int),
+                    ("rms", float),
+                    ("roughness", float),
                 ]
             ),
         )
@@ -257,7 +257,8 @@ class PlotOccam1DL2(PlotBase):
             "RMS", fontdict={"size": self.font_size + 2, "weight": "bold"}
         )
         self.ax1.set_xlabel(
-            "Iteration", fontdict={"size": self.font_size + 2, "weight": "bold"}
+            "Iteration",
+            fontdict={"size": self.font_size + 2, "weight": "bold"},
         )
         self.ax1.grid(alpha=0.25, which="both", lw=self.rough_lw)
         self.ax2.set_xlabel(

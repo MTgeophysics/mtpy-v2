@@ -278,13 +278,17 @@ class PlotResidualPTPseudoSection(PlotBaseProfile):
                         self.logger.info("-" * 50)
                         self.logger.info(mt1.station)
                         self.logger.info(f"freq_index for 1:  {f_index}")
-                        self.logger.info(f"frequency looking for:  {frequency}")
+                        self.logger.info(
+                            f"frequency looking for:  {frequency}"
+                        )
                         self.logger.info(f"index in big    :  {aa}")
                         self.logger.info(f"index in 1      :  {rr}")
                         self.logger.info(
                             f"len_1 = {len(mt1.frequency)}, len_2 = {len(mt2.frequency)}"
                         )
-                        self.logger.info(f"len rpt_freq = {len(rpt.frequency)}")
+                        self.logger.info(
+                            f"len rpt_freq = {len(rpt.frequency)}"
+                        )
                 except KeyError:
                     self.logger.info(
                         f"Station {mt1.station} does not have {frequency:.5f}Hz"
@@ -351,7 +355,8 @@ class PlotResidualPTPseudoSection(PlotBaseProfile):
             color_array = rpt_array["phimax"]
 
         elif (
-            self.ellipse_colorby == "skew" or self.ellipse_colorby == "skew_seg"
+            self.ellipse_colorby == "skew"
+            or self.ellipse_colorby == "skew_seg"
         ):
             color_array = rpt_array["skew"]
 
@@ -526,7 +531,7 @@ class PlotResidualPTPseudoSection(PlotBaseProfile):
         y_max = 1
         station_list = np.zeros(
             self.rpt_array.size,
-            dtype=[("offset", np.float), ("station", "U10")],
+            dtype=[("offset", float), ("station", "U10")],
         )
 
         for ii, rpt in enumerate(self.rpt_array):

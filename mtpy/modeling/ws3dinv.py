@@ -271,9 +271,9 @@ class WSData(object):
             ("station", "|S10"),
             ("east", float),
             ("north", float),
-            ("z_data", (np.complex, z_shape)),
-            ("z_data_err", (np.complex, z_shape)),
-            ("z_err_map", (np.complex, z_shape)),
+            ("z_data", (complex, z_shape)),
+            ("z_data_err", (complex, z_shape)),
+            ("z_err_map", (complex, z_shape)),
         ]
         self.data = np.zeros(n_stations, dtype=data_dtype)
 
@@ -552,9 +552,9 @@ class WSData(object):
             ("station", "|S10"),
             ("east", float),
             ("north", float),
-            ("z_data", (np.complex, z_shape)),
-            ("z_data_err", (np.complex, z_shape)),
-            ("z_err_map", (np.complex, z_shape)),
+            ("z_data", (complex, z_shape)),
+            ("z_data_err", (complex, z_shape)),
+            ("z_err_map", (complex, z_shape)),
         ]
         self.data = np.zeros(n_stations, dtype=data_dtype)
 
@@ -2061,7 +2061,7 @@ class WSModel(object):
 
         # get lengths of things
         n_north, n_east, n_z, n_res = np.array(
-            mlines[1].strip().split(), dtype=np.int
+            mlines[1].strip().split(), dtype=int
         )
 
         # make empty arrays to put stuff into
@@ -3109,8 +3109,8 @@ class WSResponse(object):
             ("station", "|S10"),
             ("east", float),
             ("north", float),
-            ("z_resp", (np.complex, z_shape)),
-            ("z_resp_err", (np.complex, z_shape)),
+            ("z_resp", (complex, z_shape)),
+            ("z_resp_err", (complex, z_shape)),
         ]
         self.resp = np.zeros(n_stations, dtype=resp_dtype)
 
