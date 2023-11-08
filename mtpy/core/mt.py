@@ -27,6 +27,7 @@ from mtpy.modeling.errors import ModelErrors
 from mtpy.modeling.occam1d import Occam1DData
 from mtpy.modeling.simpeg.recipes.inversion_1d import Simpeg1D
 
+
 # =============================================================================
 class MT(TF, MTLocation):
     """
@@ -164,7 +165,6 @@ class MT(TF, MTLocation):
         """
         if not isinstance(z_object.frequency, type(None)):
             if self.frequency.size != z_object.frequency.shape:
-
                 self.frequency = z_object.frequency
 
             elif not (self.frequency == z_object.frequency).all():
@@ -417,7 +417,6 @@ class MT(TF, MTLocation):
 
         # check the bounds of the new frequency array
         if bounds_error:
-
             if self.period.min() > new_period.min():
                 raise ValueError(
                     f"New period minimum of {new_period.min():.5g} "
@@ -438,7 +437,6 @@ class MT(TF, MTLocation):
             new_m.Z = self.Z.interpolate(new_period, method=method, **kwargs)
             if new_m.has_impedance():
                 if np.all(np.isnan(new_m.Z.z)):
-
                     self.logger.warning(
                         f"Station {self.station}: Interpolated Z values are all NaN, "
                         "consider an alternative interpolation method. "
@@ -1070,7 +1068,9 @@ class MT(TF, MTLocation):
         :rtype: TYPE
 
         """
-
+        if not self.Z._has_tf_model_error():
+            self.compute_model_z_errors()
+            self.logger.info("Using default errors for impedance")
         simpeg_1d = Simpeg1D(self.to_dataframe(), mode=mode, **kwargs)
         simpeg_1d.run_fixed_layer_inversion(**kwargs)
         simpeg_1d.plot_model_fitting(fig_num=1)
