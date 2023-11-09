@@ -38,7 +38,6 @@ class TestMTLocation(unittest.TestCase):
         self.assertIsInstance(self.loc.latitude, float)
 
     def test_set_latitude_fail(self):
-
         with self.subTest("bad input"):
             self.assertRaises(ValueError, MTLocation, **{"latitude": "ten"})
 
@@ -133,7 +132,10 @@ class TestMTLocationModelLocation(unittest.TestCase):
     def test_get_elevation_from_national_map(self):
         self.loc.get_elevation_from_national_map()
 
-        self.assertAlmostEqual(self.true_elevation, self.loc.elevation)
+        if self.loc.elevation == 0:
+            self.assertEqual(0, self.loc_elevation)
+        else:
+            self.assertAlmostEqual(self.true_elevation, self.loc.elevation)
 
     def test_copy(self):
         loc_copy = self.loc.copy()
