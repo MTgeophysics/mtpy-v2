@@ -251,7 +251,7 @@ class Simpeg1D:
         # Setting a stopping criteria for the inversion.
         target_misfit = directives.TargetMisfit(chifact=chi_factor)
         if use_irls:
-            reg.norms = np.c_[p_s, p_z]
+            reg.norms = [p_s, p_z]
             # Reach target misfit for L2 solution, then use IRLS until model stops changing.
             IRLS = directives.Update_IRLS(
                 max_irls_iterations=40, minGNiter=1, f_min_change=1e-5
