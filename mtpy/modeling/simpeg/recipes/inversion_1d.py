@@ -52,6 +52,7 @@ class Simpeg1D:
         self.z_factor = 1.2
         self.rho_initial = 100
         self.rho_reference = 100
+        self.output_dict = None
 
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -107,7 +108,7 @@ class Simpeg1D:
                     "frequency": self.mt_dataframe.frequency,
                     "res": self.mt_dataframe.dataframe.res_yx,
                     "res_error": self.mt_dataframe.dataframe.res_yx_model_error,
-                    "phase": self.mt_dataframe.dataframe.phase_yx,
+                    "phase": self.mt_dataframe.dataframe.phase_yx % 180,
                     "phase_error": self.mt_dataframe.dataframe.phase_yx_model_error,
                 }
             )
@@ -127,6 +128,7 @@ class Simpeg1D:
 
         sub_df = sub_df.sort_values("frequency", ascending=False).reindex()
         sub_df = self._remove_outofquadrant_phase(sub_df)
+        sub_df = self._remove_nan_in_errors(sub_df)
         sub_df = self._remove_zeros(sub_df)
 
         return sub_df
@@ -140,6 +142,14 @@ class Simpeg1D:
 
         return sub_df
 
+    def _remove_nan_in_errors(self, sub_df, large_error=1e2):
+        """
+        remove nans in error
+        """
+        sub_df["res_error"] = sub_df.res_error.fillna(large_error)
+        sub_df["phase_error"] = sub_df.phase_error.fillna(large_error)
+        return sub_df
+
     def _remove_zeros(self, sub_df):
         """
         remove zeros from the data frame
@@ -150,8 +160,56 @@ class Simpeg1D:
         :rtype: TYPE
 
         """
-        sub_df.loc[(sub_df != 0).any(axis=1)]
-        return sub_df
+        return sub_df.loc[(sub_df != 0).all(axis=1)]
+
+    def cull_from_difference(
+        self, sub_df, max_diff_res=1.0, max_diff_phase=10
+    ):
+        """
+        Remove points based on a simple difference between neighboring points
+
+        uses np.diff
+
+        res difference is in log space
+
+        :param max_diff_res: DESCRIPTION, defaults to 1
+        :type max_diff_res: TYPE, optional
+        :param max_diff_phase: DESCRIPTION, defaults to 10
+        :type max_diff_phase: TYPE, optional
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        sub_df.phase[
+            np.where(abs(np.diff(sub_df.phase)) > max_diff_phase)[0] + 1
+        ] = 0
+        sub_df.phase[
+            np.where(abs(np.diff(sub_df.phase)) > max_diff_phase)[0] + 1
+        ] = 0
+        sub_df.res[
+            np.where(np.log10(abs(np.diff(sub_df.res))) > max_diff_res)[0] + 1
+        ] = 0
+        sub_df.res[
+            np.where(np.log10(abs(np.diff(sub_df.res))) > max_diff_res)[0] + 1
+        ] = 0
+
+        self._sub_df = sub_df.loc[(sub_df != 0).all(axis=1)]
+
+    def cull_from_model(self, iteration):
+        """
+        remove bad point based on initial run
+
+        :param iteration: DESCRIPTION
+        :type iteration: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        if self.output_dict is None:
+            raise ValueError("Must run an inversion first")
+        pass
 
     @property
     def data(self):
@@ -165,6 +223,7 @@ class Simpeg1D:
 
     def run_fixed_layer_inversion(
         self,
+        cull_from_difference=True,
         maxIter=40,
         maxIterCG=30,
         alpha_s=1e-10,
@@ -182,6 +241,10 @@ class Simpeg1D:
             nsem.receivers.PointNaturalSource(component="phase"),
         ]
 
+        # Cull the data
+        if cull_from_difference:
+            self.cull_from_difference(self._sub_df)
+
         source_list = []
         for freq in self.frequencies:
             source_list.append(nsem.sources.Planewave(receivers_list, freq))
@@ -194,7 +257,7 @@ class Simpeg1D:
             sigmaMap=sigma_map,
             thicknesses=self.thicknesses,
         )
-        # Define the data
+
         data_object = data.Data(
             survey, dobs=self.data, standard_deviation=self.data_error
         )
@@ -354,32 +417,39 @@ class Simpeg1D:
 
         fig = plt.figure(fig_num, figsize=(10, 6), dpi=200)
         gs = gridspec.GridSpec(
-            1, 5, figure=fig, wspace=0.4, hspace=0.4, left=0.08, right=0.91
+            3,
+            5,
+            figure=fig,
+            wspace=0.6,
+            hspace=0.25,
+            left=0.08,
+            right=0.98,
+            top=0.98,
         )
 
-        ax0 = fig.add_subplot(gs[0, 0])
-        ax0.step(
+        ax_model = fig.add_subplot(gs[:, 0])
+        ax_model.step(
             (1.0 / (np.exp(m))),
             self._plot_z,
             color="k",
             **{"linestyle": "-"},
         )
 
-        # ax0.legend()
-        ax0.set_xlabel("Resistivity ($\Omega$m)")
-        ax0.grid(which="both", alpha=0.5)
-        ax0.set_ylim((self._plot_z.max(), 0.01))
-        ax0.set_ylabel("Depth (km)")
-        ax0.set_xscale("log")
-        ax0.set_yscale("symlog")
+        # ax_model.legend()
+        ax_model.set_xlabel("Resistivity ($\Omega$m)")
+        ax_model.grid(which="both", alpha=0.5)
+        ax_model.set_ylim((self._plot_z.max(), 0.01))
+        ax_model.set_ylabel("Depth (km)")
+        ax_model.set_xscale("log")
+        ax_model.set_yscale("symlog")
 
         nf = len(self.frequencies)
 
-        ax = fig.add_subplot(gs[0, 1:])
-        ax.set_xscale("log")
-        ax.set_yscale("log")
+        ax_res = fig.add_subplot(gs[0:2, 1:])
+        ax_res.set_xscale("log")
+        ax_res.set_yscale("log")
         eb_res = plot_errorbar(
-            ax,
+            ax_res,
             self.periods,
             self.data.reshape((nf, 2))[:, 0],
             self.data_error.reshape((nf, 2))[:, 0],
@@ -397,7 +467,7 @@ class Simpeg1D:
             },
         )
         eb_res_m = plot_errorbar(
-            ax,
+            ax_res,
             self.periods,
             dpred.reshape((nf, 2))[:, 0],
             **{
@@ -414,9 +484,12 @@ class Simpeg1D:
             },
         )
 
-        ax_1 = ax.twinx()
+        ax_res.grid(True, which="both", alpha=0.5)
+        ax_res.set_ylabel("Apparent resistivity ($\Omega$m)")
+
+        ax_phase = fig.add_subplot(gs[-1, 1:], sharex=ax_res)
         eb_phase = plot_errorbar(
-            ax_1,
+            ax_phase,
             self.periods,
             self.data.reshape((nf, 2))[:, 1],
             self.data_error.reshape((nf, 2))[:, 1],
@@ -434,7 +507,7 @@ class Simpeg1D:
             },
         )
         eb_phase_m = plot_errorbar(
-            ax_1,
+            ax_phase,
             self.periods,
             dpred.reshape((nf, 2))[:, 1],
             **{
@@ -451,17 +524,15 @@ class Simpeg1D:
             },
         )
 
-        ax.legend(
+        ax_res.legend(
             [eb_res, eb_phase, eb_res_m, eb_phase_m],
             ["Res_data", "Phase_data", "Res_m", "Phase_m"],
             ncol=2,
         )
 
-        # ax.set_xlabel("Period (s)")
-        ax.grid(True, which="both", alpha=0.5)
-        ax.set_ylabel("Apparent resistivity ($\Omega$m)")
-        ax_1.set_ylabel("Phase ($\degree$)")
-        ax.set_xlabel("Period(s)")
+        ax_phase.set_ylabel("Phase ($\degree$)")
+        ax_phase.set_xlabel("Period(s)")
+        ax_phase.grid(True, which="both", alpha=0.5)
         plt.show()
 
         return fig
