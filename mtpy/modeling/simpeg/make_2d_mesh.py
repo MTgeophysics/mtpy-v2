@@ -10,35 +10,18 @@ Created on Thu Nov  9 10:43:06 2023
 
 import numpy as np
 
-import discretize
-
-from SimPEG import (
-    maps,
-    utils,
-    optimization,
-    objective_function,
-    inversion,
-    inverse_problem,
-    directives,
-    data_misfit,
-    regularization,
-    data,
-)
 from discretize import TensorMesh
-from pymatsolver import Pardiso
-from scipy.spatial import cKDTree
-from scipy.stats import norm
 
 # from dask.distributed import Client, LocalCluster
-import dill
 from geoana.em.fdem import skin_depth
 import discretize.utils as dis_utils
 import warnings
 
 warnings.filterwarnings("ignore")
+# =============================================================================
 
 
-def generate_2d_mesh_for_mt(
+def generate_2d_mesh_structured(
     rx_locs,
     frequencies,
     sigma_background,
@@ -52,6 +35,39 @@ def generate_2d_mesh_for_mt(
     pfx=1.5,
     n_max=1000,
 ):
+    """
+    creat a 2D structured mesh, the typical way to model the data with uniform
+    horizontal cells in the station area and geometrically increasing down and
+    padding cells.
+
+    :param rx_locs: DESCRIPTION
+    :type rx_locs: TYPE
+    :param frequencies: DESCRIPTION
+    :type frequencies: TYPE
+    :param sigma_background: DESCRIPTION
+    :type sigma_background: TYPE
+    :param z_factor_max: DESCRIPTION, defaults to 5
+    :type z_factor_max: TYPE, optional
+    :param z_factor_min: DESCRIPTION, defaults to 5
+    :type z_factor_min: TYPE, optional
+    :param pfz_down: DESCRIPTION, defaults to 1.2
+    :type pfz_down: TYPE, optional
+    :param pfz_up: DESCRIPTION, defaults to 1.5
+    :type pfz_up: TYPE, optional
+    :param npadz_up: DESCRIPTION, defaults to 5
+    :type npadz_up: TYPE, optional
+    :param x_factor_max: DESCRIPTION, defaults to 2
+    :type x_factor_max: TYPE, optional
+    :param spacing_factor: DESCRIPTION, defaults to 4
+    :type spacing_factor: TYPE, optional
+    :param pfx: DESCRIPTION, defaults to 1.5
+    :type pfx: TYPE, optional
+    :param n_max: DESCRIPTION, defaults to 1000
+    :type n_max: TYPE, optional
+    :return: DESCRIPTION
+    :rtype: TYPE
+
+    """
     # Setting the cells in depth dimension
     f_min = frequencies.min()
     f_max = frequencies.max()
@@ -81,7 +97,6 @@ def generate_2d_mesh_for_mt(
     mesh.origin = np.r_[
         -mesh.hx[:npadx].sum() + rx_locs[:, 0].min(), -hz_down.sum()
     ]
-    print(mesh)
     return mesh
 
 
