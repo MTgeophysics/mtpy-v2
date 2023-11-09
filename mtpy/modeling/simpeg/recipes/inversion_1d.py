@@ -43,7 +43,7 @@ class Simpeg1D:
     """
 
     def __init__(self, mt_dataframe=None, **kwargs):
-        self._acceptable_modes = ["te" "tm", "det"]
+        self._acceptable_modes = ["te", "tm", "det"]
         self.mt_dataframe = MTDataFrame(data=mt_dataframe)
 
         self.mode = "det"
