@@ -1049,7 +1049,7 @@ class StructuredGrid3D:
 
         try:
             self.n_air_layers = np.where(self.res_model > 1e10)[-1].max()
-        except IndexError:
+        except (IndexError, ValueError):
             self.n_air_layers = 0
 
         self.n_layers = self.nodes_z.size - self.n_air_layers
