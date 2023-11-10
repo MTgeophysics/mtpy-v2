@@ -395,6 +395,9 @@ class MTStations:
             return epsg
         else:
             if getattr(self, key) is None:
+                epsg = df[key].unique()[0]
+                if epsg is None:
+                    return None
                 return int(df[key].unique()[0])
 
     def compute_relative_locations(self):
