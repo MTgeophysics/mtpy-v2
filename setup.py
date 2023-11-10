@@ -16,16 +16,16 @@ with open("HISTORY.rst") as history_file:
 requirements = [
     "numpy",
     "scipy",
-    "matplotlib<=3.5.3",
+    "matplotlib",
     "pyproj",
     "configparser",
     "mt_metadata",
     "mth5",
-    "pandas",
     "geopandas",
+    "rasterio",
     "contextily",
     "pyevtk",
-    "loguru",
+    "SimPEG==0.20.0",
 ]
 
 setup_requirements = [
@@ -40,7 +40,7 @@ test_requirements = [
 setup(
     author="Jared Peacock, Alison Kirkby, Fei Zhang, Rakib Hassan, Lars Krieger, Stephan Thiel",
     author_email="jpeacock@usgs.gov",
-    python_requires=">=3.5",
+    python_requires=">=3.8",
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Developers",
@@ -65,7 +65,7 @@ setup(
     test_suite="tests",
     tests_require=test_requirements,
     url="https://github.com/MTgeophysics/mtpy-v2",
-    version="2.0.3",
+    version="2.0.5",
     zip_safe=False,
     package_data={"": []},
 )

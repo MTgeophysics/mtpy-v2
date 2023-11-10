@@ -158,11 +158,15 @@ def get_profile_specs(o2d_data, site_easts, site_norths):
     projected_origin = gis_tools.project_point_utm2ll(
         mare_origin_x, mare_origin_y, None, epsg=epsg
     )
-    utm_zone = gis_tools.get_utm_zone(projected_origin[0], projected_origin[1])[2]
+    utm_zone = gis_tools.get_utm_zone(
+        projected_origin[0], projected_origin[1]
+    )[2]
     return (x0, y0, x1, y1, mare_origin_x, mare_origin_y, epsg, utm_zone)
 
 
-def generate_profile_line(site_easts, site_norths, x0, y0, x1, y1, elevation_sample_n):
+def generate_profile_line(
+    site_easts, site_norths, x0, y0, x1, y1, elevation_sample_n
+):
     """
     Generates the profile line by creating linspaced samples between
     the start and end of the line.
@@ -192,8 +196,12 @@ def generate_profile_line(site_easts, site_norths, x0, y0, x1, y1, elevation_sam
     """
     # Select samples from Occam2D profile for loading into mare2dem
     # For whatever reason, original script ignores first and last coordinates (x0, y0), (x1, y1)
-    o2d_easts = np.delete(np.linspace(x0, x1, elevation_sample_n, endpoint=False), 0)
-    o2d_norths = np.delete(np.linspace(y0, y1, elevation_sample_n, endpoint=False), 0)
+    o2d_easts = np.delete(
+        np.linspace(x0, x1, elevation_sample_n, endpoint=False), 0
+    )
+    o2d_norths = np.delete(
+        np.linspace(y0, y1, elevation_sample_n, endpoint=False), 0
+    )
     # Add exact site locations
     # Make sure station indices align between east and north arrays
     o2d_easts = np.concatenate((o2d_easts, site_easts))
@@ -210,7 +218,11 @@ def generate_profile_line(site_easts, site_norths, x0, y0, x1, y1, elevation_sam
 
 
 def occam2d_to_mare2dem(
-    o2d_data, rot_o2d_data, surface_file, elevation_sample_n=300, flip_elevation=True
+    o2d_data,
+    rot_o2d_data,
+    surface_file,
+    elevation_sample_n=300,
+    flip_elevation=True,
 ):
     """
     Converts Occam2D profile to Mare2D format, giving station locations
@@ -313,7 +325,11 @@ def occam2d_to_mare2dem(
     # Interpolate elevation across profile points as a grid
     # We want the elevation of the non-rotated profile line
     elevation = mesh_tools.interpolate_elevation_to_grid(
-        prof_easts, prof_norths, epsg=epsg, surfacefile=surface_file, method="cubic"
+        prof_easts,
+        prof_norths,
+        epsg=epsg,
+        surfacefile=surface_file,
+        method="cubic",
     )
     elevation = elevation * -1 if flip_elevation else elevation
 
@@ -361,9 +377,9 @@ def write_elevation_file(m2d_profile, profile_elevation, savepath=None):
     savepath : str or bytes, optional
         Full path including file of where to save elevation file.
     """
-    elevation_model = np.stack((m2d_profile, profile_elevation), axis=1).astype(
-        np.float64
-    )
+    elevation_model = np.stack(
+        (m2d_profile, profile_elevation), axis=1
+    ).astype(float64)
     if savepath is None:
         savepath = os.path.join(os.getcwd(), "elevation.txt")
     np.savetxt(savepath, elevation_model)
@@ -442,15 +458,24 @@ def write_mare2dem_data(
                 o2d_datums.append(parts[3])
                 o2d_errors.append(parts[4])
 
-    sites = np.array(o2d_sites, dtype=np.int8)
-    freqs = np.array(o2d_freqs, dtype=np.int8)
-    types = np.array(o2d_types, dtype=np.int8)
-    datums = np.array(o2d_datums, dtype=np.float64)
-    errors = np.array(o2d_errors, dtype=np.float64)
+    sites = np.array(o2d_sites, dtype=int)
+    freqs = np.array(o2d_freqs, dtype=int)
+    types = np.array(o2d_types, dtype=int)
+    datums = np.array(o2d_datums, dtype=float)
+    errors = np.array(o2d_errors, dtype=float)
     # Convert occam2d types to mare2d types
     # The below is: for each element in types array, return corresponding element in conversion
     # dict, if not found in dict return original element
-    type_conversion = {1: 123, 2: 104, 3: 133, 4: 134, 5: 125, 6: 106, 9: 103, 10: 105}
+    type_conversion = {
+        1: 123,
+        2: 104,
+        3: 133,
+        4: 134,
+        5: 125,
+        6: 106,
+        9: 103,
+        10: 105,
+    }
     types = np.vectorize(lambda x: type_conversion.get(x, x))(types)
     # Put into dataframe for easier stringifying
     # Note: TX# == RX# == site ID for MT stations
@@ -461,12 +486,14 @@ def write_mare2dem_data(
     # enough that the 'Type' header will have no left whitespace padding, so we can't prepend
     # it with '!' without throwing off the alignment.
     data_df.columns = ["! Type", "Freq #", "Tx #", "Rx #", "Data", "StdErr"]
-    data_str = data_df.to_string(index=False, float_format=lambda x: "%.4f" % x)
+    data_str = data_df.to_string(
+        index=False, float_format=lambda x: "%.4f" % x
+    )
 
     # Prepare data for the Reciever block
     # Zeros of shape (n_sites) for X (as float), Theta, Alpha, Beta and Length (ints) columns
-    x_col = np.zeros(site_locations.shape, dtype=np.float64)
-    zero_ints = np.zeros(site_locations.shape, dtype=np.int8)
+    x_col = np.zeros(site_locations.shape, dtype=float)
+    zero_ints = np.zeros(site_locations.shape, dtype=int)
     t_col, a_col, b_col, l_col = zero_ints, zero_ints, zero_ints, zero_ints
     # add 0.1 m (shift the sites 10 cm beneath subsurface as recommended)
     site_elevations += 0.1
@@ -474,7 +501,9 @@ def write_mare2dem_data(
     # order
     if isinstance(solve_statics, bool):
         statics = (
-            np.ones(site_locations.shape, dtype=np.int8) if solve_statics else zero_ints
+            np.ones(site_locations.shape, dtype=int)
+            if solve_statics
+            else zero_ints
         )
     else:
         statics = np.zeros(site_locations.shape)
@@ -505,7 +534,9 @@ def write_mare2dem_data(
         "SolveStatic",
         "Name",
     ]
-    recv_str = list(recv_df.to_string(index=False, float_format=lambda x: "%.6f" % x))
+    recv_str = list(
+        recv_df.to_string(index=False, float_format=lambda x: "%.6f" % x)
+    )
     # Replace the first char of header with Mare2DEM comment symbol '!'
     # This way the header is correct but Pandas handles the alignment and spacing
     recv_str[0] = "!"

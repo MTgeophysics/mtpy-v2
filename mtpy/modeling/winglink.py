@@ -45,7 +45,7 @@ def read_output_file(output_fn):
                       * 're_tip' --> real tipper amplitude.
                       * 'im_tip' --> imaginary tipper amplitude
                       * 'rms' --> RMS for the station
-                      * 'index' --> order from left to right of station number 
+                      * 'index' --> order from left to right of station number
 
         .. note:: each data is an np.ndarray(2, num_periods) where the first
                   index is the data and the second index is the model response
@@ -124,22 +124,40 @@ def read_output_file(output_fn):
         data[st]["index"] = int(idict[st]["index"])
         data[st]["period"] = np.array(idict[st]["period"])
         data[st]["te_res"] = np.array(
-            [np.array(idict[st]["obs_te_res"]), np.array(idict[st]["mod_te_res"])]
+            [
+                np.array(idict[st]["obs_te_res"]),
+                np.array(idict[st]["mod_te_res"]),
+            ]
         )
         data[st]["tm_res"] = np.array(
-            [np.array(idict[st]["obs_tm_res"]), np.array(idict[st]["mod_tm_res"])]
+            [
+                np.array(idict[st]["obs_tm_res"]),
+                np.array(idict[st]["mod_tm_res"]),
+            ]
         )
         data[st]["te_phase"] = np.array(
-            [np.array(idict[st]["obs_te_phase"]), np.array(idict[st]["mod_te_phase"])]
+            [
+                np.array(idict[st]["obs_te_phase"]),
+                np.array(idict[st]["mod_te_phase"]),
+            ]
         )
         data[st]["tm_phase"] = np.array(
-            [np.array(idict[st]["obs_tm_phase"]), np.array(idict[st]["mod_tm_phase"])]
+            [
+                np.array(idict[st]["obs_tm_phase"]),
+                np.array(idict[st]["mod_tm_phase"]),
+            ]
         )
         data[st]["re_tip"] = np.array(
-            [np.array(idict[st]["obs_re_tip"]), np.array(idict[st]["mod_re_tip"])]
+            [
+                np.array(idict[st]["obs_re_tip"]),
+                np.array(idict[st]["mod_re_tip"]),
+            ]
         )
         data[st]["im_tip"] = np.array(
-            [np.array(idict[st]["obs_im_tip"]), np.array(idict[st]["mod_im_tip"])]
+            [
+                np.array(idict[st]["obs_im_tip"]),
+                np.array(idict[st]["mod_im_tip"]),
+            ]
         )
         data[st]["rms"] = float(idict[st]["rms"])
 
@@ -149,12 +167,12 @@ def read_output_file(output_fn):
 # ------------------------------------------------------------------------------
 def read_model_file(model_fn):
     """
-    readModelFile reads in the XYZ txt file output by Winglink.    
+    readModelFile reads in the XYZ txt file output by Winglink.
 
     Inputs:
         modelfile = fullpath and filename to modelfile
-        profiledirection = 'ew' for east-west predominantly, 'ns' for 
-                            predominantly north-south.  This gives column to 
+        profiledirection = 'ew' for east-west predominantly, 'ns' for
+                            predominantly north-south.  This gives column to
                             fix
     """
 
@@ -194,15 +212,15 @@ class PlotResponse:
                       full path to data file
 
         **resp_fn** : string or list
-                      full path(s) to response file(s)   
+                      full path(s) to response file(s)
 
 
     ==================== ======================================================
     Attributes/key words            description
     ==================== ======================================================
     ax_list              list of matplotlib.axes instances for use with
-                         OccamPointPicker    
-    color_mode           [ 'color' | 'bw' ] plot figures in color or 
+                         OccamPointPicker
+    color_mode           [ 'color' | 'bw' ] plot figures in color or
                          black and white ('bw')
     cted                 color of Data TE marker and line
     ctem                 color of Model TE marker and line
@@ -214,7 +232,7 @@ class PlotResponse:
     e_capthick           line thickness of error bar caps in points
     err_list             list of line properties of error bars for use with
                          OccamPointPicker
-    fig_dpi              figure resolution in dots-per-inch 
+    fig_dpi              figure resolution in dots-per-inch
     fig_list             list of dictionaries with key words
                          station --> station name
                          fig --> matplotlib.figure instance
@@ -226,7 +244,7 @@ class PlotResponse:
     fig_num              starting number of figure
     fig_size             size of figure in inches (width, height)
     font_size            size of axes ticklabel font in points
-    line_list            list of matplotlib.Line instances for use with 
+    line_list            list of matplotlib.Line instances for use with
                          OccamPointPicker
     lw                   line width of lines in points
     ms                   marker size in points
@@ -236,10 +254,10 @@ class PlotResponse:
     mtmd                 marker for Data TM mode
     mtmm                 marker for Model TM mode
     mtmwl                marker for Winglink TM mode
-    period               np.ndarray of periods to plot 
+    period               np.ndarray of periods to plot
     phase_limits         limits on phase plots in degrees (min, max)
-    plot_model_error     [ 'y' | 'n' ] *default* is 'y' to plot model errors 
-    plot_num             [ 1 | 2 ] 
+    plot_model_error     [ 'y' | 'n' ] *default* is 'y' to plot model errors
+    plot_num             [ 1 | 2 ]
                          1 to plot both modes in a single plot
                          2 to plot modes in separate plots (default)
     plot_tipper          [ 'y' | 'n' ] plot tipper data if desired
@@ -253,9 +271,9 @@ class PlotResponse:
     res_limits           limits on resistivity plot in log scale (min, max)
     rp_list               list of dictionaries from read2Ddata
     station_list          station_list list of stations in rp_list
-    subplot_bottom       subplot spacing from bottom (relative coordinates) 
+    subplot_bottom       subplot spacing from bottom (relative coordinates)
     subplot_hspace       vertical spacing between subplots
-    subplot_left         subplot spacing from left  
+    subplot_left         subplot spacing from left
     subplot_right        subplot spacing from right
     subplot_top          subplot spacing from top
     subplot_wspace       horizontal spacing between subplots
@@ -268,7 +286,7 @@ class PlotResponse:
     plot                plots the apparent resistiviy and phase of data and
                         model if given.  called on instantiation if plot_yn
                         is 'y'.
-    redraw_plot         call redraw_plot to redraw the figures, 
+    redraw_plot         call redraw_plot to redraw the figures,
                         if one of the attributes has been changed
     save_figures        save all the matplotlib.figure instances in fig_list
     =================== =======================================================
@@ -276,7 +294,7 @@ class PlotResponse:
 
     :Example: ::
         >>> data_fn = r"/home/occam/line1/inv1/OccamDataFile.dat"
-        >>> resp_list = [r"/home/occam/line1/inv1/test_{0:02}".format(ii) 
+        >>> resp_list = [r"/home/occam/line1/inv1/test_{0:02}".format(ii)
                          for ii in range(2, 8, 2)]
         >>> pr_obj = occam2d.PlotResponse(data_fn, resp_list, plot_tipper='y')
 
@@ -418,7 +436,9 @@ class PlotResponse:
 
         # loop over each station to plot
         for ii, jj in enumerate(pstation_list):
-            fig = plt.figure(self.station_list[jj], self.fig_size, dpi=self.fig_dpi)
+            fig = plt.figure(
+                self.station_list[jj], self.fig_size, dpi=self.fig_dpi
+            )
             plt.clf()
 
             # --> set subplot instances
@@ -730,12 +750,18 @@ class PlotResponse:
                 if self.plot_num == 1:
                     axrte.set_title(
                         self.station_list[jj],
-                        fontdict={"size": self.font_size + 2, "weight": "bold"},
+                        fontdict={
+                            "size": self.font_size + 2,
+                            "weight": "bold",
+                        },
                     )
                 elif self.plot_num == 2:
                     fig.suptitle(
                         self.station_list[jj],
-                        fontdict={"size": self.font_size + 2, "weight": "bold"},
+                        fontdict={
+                            "size": self.font_size + 2,
+                            "weight": "bold",
+                        },
                     )
 
             # set the axis properties
@@ -751,18 +777,25 @@ class PlotResponse:
 
                 # put on a grid
                 axr.grid(True, alpha=0.3, which="both", lw=0.5 * self.lw)
-                axr.yaxis.set_label_coords(self.ylabel_coord[0], self.ylabel_coord[1])
+                axr.yaxis.set_label_coords(
+                    self.ylabel_coord[0], self.ylabel_coord[1]
+                )
 
                 # set resistivity limits if desired
                 if self.res_limits != None:
-                    axr.set_ylim(10 ** self.res_limits[0], 10 ** self.res_limits[1])
+                    axr.set_ylim(
+                        10 ** self.res_limits[0], 10 ** self.res_limits[1]
+                    )
 
                 # set the tick labels to invisible
                 plt.setp(axr.xaxis.get_ticklabels(), visible=False)
                 if aa == 0:
                     axr.set_ylabel(
                         "App. Res. ($\Omega \cdot m$)",
-                        fontdict={"size": self.font_size + 2, "weight": "bold"},
+                        fontdict={
+                            "size": self.font_size + 2,
+                            "weight": "bold",
+                        },
                     )
 
                 # set legend based on the plot type
@@ -827,15 +860,23 @@ class PlotResponse:
                 else:
                     axp.set_xlabel(
                         "Period (s)",
-                        fontdict={"size": self.font_size + 2, "weight": "bold"},
+                        fontdict={
+                            "size": self.font_size + 2,
+                            "weight": "bold",
+                        },
                     )
 
                 # put the y label on the far left plot
-                axp.yaxis.set_label_coords(self.ylabel_coord[0], self.ylabel_coord[1])
+                axp.yaxis.set_label_coords(
+                    self.ylabel_coord[0], self.ylabel_coord[1]
+                )
                 if aa == 0:
                     axp.set_ylabel(
                         "Phase (deg)",
-                        fontdict={"size": self.font_size + 2, "weight": "bold"},
+                        fontdict={
+                            "size": self.font_size + 2,
+                            "weight": "bold",
+                        },
                     )
 
             # set axes properties of tipper axis
@@ -856,7 +897,10 @@ class PlotResponse:
                     # set the x axis label
                     axt.set_xlabel(
                         "Period (s)",
-                        fontdict={"size": self.font_size + 2, "weight": "bold"},
+                        fontdict={
+                            "size": self.font_size + 2,
+                            "weight": "bold",
+                        },
                     )
 
                     axt.set_xlim(
@@ -871,7 +915,10 @@ class PlotResponse:
                     if aa == 0:
                         axt.set_ylabel(
                             "Tipper",
-                            fontdict={"size": self.font_size + 2, "weight": "bold"},
+                            fontdict={
+                                "size": self.font_size + 2,
+                                "weight": "bold",
+                            },
                         )
                         if self.plot_num == 2:
                             axt.text(
@@ -942,7 +989,9 @@ class PlotResponse:
         plt.close("all")
         self.plot()
 
-    def save_figures(self, save_path, fig_fmt="pdf", fig_dpi=None, close_fig="y"):
+    def save_figures(
+        self, save_path, fig_fmt="pdf", fig_dpi=None, close_fig="y"
+    ):
         """
         save all the figure that are in self.fig_list
 
@@ -960,7 +1009,9 @@ class PlotResponse:
 
         for fdict in self.fig_list:
             svfn = "{0}_resp.{1}".format(fdict["station"], fig_fmt)
-            fdict["fig"].savefig(os.path.join(save_path, svfn), dpi=self.fig_dpi)
+            fdict["fig"].savefig(
+                os.path.join(save_path, svfn), dpi=self.fig_dpi
+            )
             if close_fig == "y":
                 plt.close(fdict["fig"])
 
@@ -972,73 +1023,73 @@ class PlotResponse:
 # ==============================================================================
 class PlotPseudoSection(object):
     """
-    plot a pseudo section of the data and response if given
+     plot a pseudo section of the data and response if given
 
 
-    Arguments:
-    -------------
-        **wl_data_fn** : string
-                         full path to winglink output data file.
+     Arguments:
+     -------------
+         **wl_data_fn** : string
+                          full path to winglink output data file.
 
-    ==================== ======================================================
-    key words            description
-    ==================== ======================================================
-    axmpte               matplotlib.axes instance for TE model phase
-    axmptm               matplotlib.axes instance for TM model phase
-    axmrte               matplotlib.axes instance for TE model app. res 
-    axmrtm               matplotlib.axes instance for TM model app. res 
-    axpte                matplotlib.axes instance for TE data phase 
-    axptm                matplotlib.axes instance for TM data phase
-    axrte                matplotlib.axes instance for TE data app. res.
-    axrtm                matplotlib.axes instance for TM data app. res.
-    cb_pad               padding between colorbar and axes
-    cb_shrink            percentage to shrink the colorbar to
-    fig                  matplotlib.figure instance
-    fig_dpi              resolution of figure in dots per inch
-    fig_num              number of figure instance
-    fig_size             size of figure in inches (width, height)
-    font_size            size of font in points
-    label_list            list to label plots
-    ml                   factor to label stations if 2 every other station
-                         is labeled on the x-axis
-    period               np.array of periods to plot
-    phase_cmap           color map name of phase
-    phase_limits_te      limits for te phase in degrees (min, max)
-    phase_limits_tm      limits for tm phase in degrees (min, max)            
-    plot_resp            [ 'y' | 'n' ] to plot response
-    plot_tipper          [ 'y' | 'n' ] to plot tipper
-    plot_yn              [ 'y' | 'n' ] 'y' to plot on instantiation
-    res_cmap             color map name for resistivity
-    res_limits_te        limits for te resistivity in log scale (min, max)
-    res_limits_tm        limits for tm resistivity in log scale (min, max)
-    rp_list               list of dictionaries as made from read2Dresp
-    station_id           index to get station name (min, max)
-    station_list          station list got from rp_list
-    subplot_bottom       subplot spacing from bottom (relative coordinates) 
-    subplot_hspace       vertical spacing between subplots
-    subplot_left         subplot spacing from left  
-    subplot_right        subplot spacing from right
-    subplot_top          subplot spacing from top
-    subplot_wspace       horizontal spacing between subplots
-    ==================== ======================================================
+     ==================== ======================================================
+     key words            description
+     ==================== ======================================================
+     axmpte               matplotlib.axes instance for TE model phase
+     axmptm               matplotlib.axes instance for TM model phase
+     axmrte               matplotlib.axes instance for TE model app. res
+     axmrtm               matplotlib.axes instance for TM model app. res
+     axpte                matplotlib.axes instance for TE data phase
+     axptm                matplotlib.axes instance for TM data phase
+     axrte                matplotlib.axes instance for TE data app. res.
+     axrtm                matplotlib.axes instance for TM data app. res.
+     cb_pad               padding between colorbar and axes
+     cb_shrink            percentage to shrink the colorbar to
+     fig                  matplotlib.figure instance
+     fig_dpi              resolution of figure in dots per inch
+     fig_num              number of figure instance
+     fig_size             size of figure in inches (width, height)
+     font_size            size of font in points
+     label_list            list to label plots
+     ml                   factor to label stations if 2 every other station
+                          is labeled on the x-axis
+     period               np.array of periods to plot
+     phase_cmap           color map name of phase
+     phase_limits_te      limits for te phase in degrees (min, max)
+     phase_limits_tm      limits for tm phase in degrees (min, max)
+     plot_resp            [ 'y' | 'n' ] to plot response
+     plot_tipper          [ 'y' | 'n' ] to plot tipper
+     plot_yn              [ 'y' | 'n' ] 'y' to plot on instantiation
+     res_cmap             color map name for resistivity
+     res_limits_te        limits for te resistivity in log scale (min, max)
+     res_limits_tm        limits for tm resistivity in log scale (min, max)
+     rp_list               list of dictionaries as made from read2Dresp
+     station_id           index to get station name (min, max)
+     station_list          station list got from rp_list
+     subplot_bottom       subplot spacing from bottom (relative coordinates)
+     subplot_hspace       vertical spacing between subplots
+     subplot_left         subplot spacing from left
+     subplot_right        subplot spacing from right
+     subplot_top          subplot spacing from top
+     subplot_wspace       horizontal spacing between subplots
+     ==================== ======================================================
 
-    =================== =======================================================
-    Methods             Description
-    =================== =======================================================
-    plot                plots a pseudo-section of apparent resistiviy and phase
-                        of data and model if given.  called on instantiation 
-                        if plot_yn is 'y'.
-    redraw_plot         call redraw_plot to redraw the figures, 
-                        if one of the attributes has been changed
-    save_figure         saves the matplotlib.figure instance to desired 
-                        location and format
-    =================== =======================================================
+     =================== =======================================================
+     Methods             Description
+     =================== =======================================================
+     plot                plots a pseudo-section of apparent resistiviy and phase
+                         of data and model if given.  called on instantiation
+                         if plot_yn is 'y'.
+     redraw_plot         call redraw_plot to redraw the figures,
+                         if one of the attributes has been changed
+     save_figure         saves the matplotlib.figure instance to desired
+                         location and format
+     =================== =======================================================
 
-   :Example: ::
+    :Example: ::
 
-        >>> import mtpy.modeling.winglink as winglink
-        >>> d_fn = r"/home/winglink/Line1/Inv1/DataRW.txt"
-        >>> ps_plot = winglink.PlotPseudoSection(d_fn) 
+         >>> import mtpy.modeling.winglink as winglink
+         >>> d_fn = r"/home/winglink/Line1/Inv1/DataRW.txt"
+         >>> ps_plot = winglink.PlotPseudoSection(d_fn)
 
     """
 
@@ -1139,7 +1190,7 @@ class PlotPseudoSection(object):
         # --> need to sort the stations to be in order
         slst = np.array(
             [(ss, wl_data[ss]["index"]) for ss in stations],
-            dtype=[("station", "|S20"), ("index", np.int)],
+            dtype=[("station", "|S20"), ("index", int)],
         )
         slst.sort(order="index")
         stations = slst["station"]
@@ -1208,7 +1259,9 @@ class PlotPseudoSection(object):
         # make list for station labels
         sindex_1 = self.station_id[0]
         sindex_2 = self.station_id[1]
-        slabel = [stations[ss][sindex_1:sindex_2] for ss in range(0, ns, self.ml)]
+        slabel = [
+            stations[ss][sindex_1:sindex_2] for ss in range(0, ns, self.ml)
+        ]
 
         xloc = offset_list[0] + abs(offset_list[0] - offset_list[1]) / 5
         yloc = 1.10 * periods[-2]
@@ -1245,7 +1298,11 @@ class PlotPseudoSection(object):
                     wspace=self.subplot_wspace,
                 )
                 gs4 = gridspec.GridSpecFromSubplotSpec(
-                    2, 2, hspace=self.subplot_hspace, wspace=0, subplot_spec=gs1[2]
+                    2,
+                    2,
+                    hspace=self.subplot_hspace,
+                    wspace=0,
+                    subplot_spec=gs1[2],
                 )
             else:
                 gs1 = gridspec.GridSpec(
@@ -1431,7 +1488,9 @@ class PlotPseudoSection(object):
                 ax.set_xlim(offset_list.min(), offset_list.max())
                 if np.remainder(xx, 2.0) == 1:
                     plt.setp(ax.yaxis.get_ticklabels(), visible=False)
-                    cbx = mcb.make_axes(ax, shrink=self.cb_shrink, pad=self.cb_pad)
+                    cbx = mcb.make_axes(
+                        ax, shrink=self.cb_shrink, pad=self.cb_pad
+                    )
                 if xx == 2 or xx == 6 or xx == 8 or xx == 10:
                     plt.setp(ax.yaxis.get_ticklabels(), visible=False)
 
@@ -1442,7 +1501,8 @@ class PlotPseudoSection(object):
                             cbx[0],
                             cmap=self.res_cmap,
                             norm=Normalize(
-                                vmin=self.res_limits_te[0], vmax=self.res_limits_te[1]
+                                vmin=self.res_limits_te[0],
+                                vmax=self.res_limits_te[1],
                             ),
                         )
                         cb.set_ticks(
@@ -1457,16 +1517,23 @@ class PlotPseudoSection(object):
                             cbx[0],
                             cmap=self.res_cmap,
                             norm=Normalize(
-                                vmin=self.res_limits_tm[0], vmax=self.res_limits_tm[1]
+                                vmin=self.res_limits_tm[0],
+                                vmax=self.res_limits_tm[1],
                             ),
                         )
                         cb.set_label(
                             "App. Res. ($\Omega \cdot$m)",
-                            fontdict={"size": self.font_size + 1, "weight": "bold"},
+                            fontdict={
+                                "size": self.font_size + 1,
+                                "weight": "bold",
+                            },
                         )
                         cb.set_label(
                             "Resistivity ($\Omega \cdot$m)",
-                            fontdict={"size": self.font_size + 1, "weight": "bold"},
+                            fontdict={
+                                "size": self.font_size + 1,
+                                "weight": "bold",
+                            },
                         )
                         cb.set_ticks(
                             np.arange(
@@ -1498,7 +1565,10 @@ class PlotPseudoSection(object):
                         )
                         cb.set_label(
                             "Phase (deg)",
-                            fontdict={"size": self.font_size + 1, "weight": "bold"},
+                            fontdict={
+                                "size": self.font_size + 1,
+                                "weight": "bold",
+                            },
                         )
                     # color bar tipper Imag
                     if xx == 9:
@@ -1506,24 +1576,32 @@ class PlotPseudoSection(object):
                             cbx[0],
                             cmap=self.tip_cmap,
                             norm=Normalize(
-                                vmin=self.tip_limits_re[0], vmax=self.tip_limits_re[1]
+                                vmin=self.tip_limits_re[0],
+                                vmax=self.tip_limits_re[1],
                             ),
                         )
                         cb.set_label(
                             "Re{T}",
-                            fontdict={"size": self.font_size + 1, "weight": "bold"},
+                            fontdict={
+                                "size": self.font_size + 1,
+                                "weight": "bold",
+                            },
                         )
                     if xx == 11:
                         cb = mcb.ColorbarBase(
                             cbx[0],
                             cmap=self.tip_cmap,
                             norm=Normalize(
-                                vmin=self.tip_limits_im[0], vmax=self.tip_limits_im[1]
+                                vmin=self.tip_limits_im[0],
+                                vmax=self.tip_limits_im[1],
                             ),
                         )
                         cb.set_label(
                             "Im{T}",
-                            fontdict={"size": self.font_size + 1, "weight": "bold"},
+                            fontdict={
+                                "size": self.font_size + 1,
+                                "weight": "bold",
+                            },
                         )
 
                 ax.text(
@@ -1538,12 +1616,18 @@ class PlotPseudoSection(object):
                 if xx == 0 or xx == 4:
                     ax.set_ylabel(
                         "Period (s)",
-                        fontdict={"size": self.font_size + 2, "weight": "bold"},
+                        fontdict={
+                            "size": self.font_size + 2,
+                            "weight": "bold",
+                        },
                     )
                 if xx > 3:
                     ax.set_xlabel(
                         "Station",
-                        fontdict={"size": self.font_size + 2, "weight": "bold"},
+                        fontdict={
+                            "size": self.font_size + 2,
+                            "weight": "bold",
+                        },
                     )
 
             plt.show()
@@ -1655,11 +1739,14 @@ class PlotPseudoSection(object):
                         cbx[0],
                         cmap=self.res_cmap,
                         norm=Normalize(
-                            vmin=self.res_limits_te[0], vmax=self.res_limits_te[1]
+                            vmin=self.res_limits_te[0],
+                            vmax=self.res_limits_te[1],
                         ),
                     )
                     cb.set_ticks(
-                        np.arange(self.res_limits_te[0], self.res_limits_te[1] + 1)
+                        np.arange(
+                            self.res_limits_te[0], self.res_limits_te[1] + 1
+                        )
                     )
                     cb.set_ticklabels(log_labels_te)
                 elif xx == 1:
@@ -1670,15 +1757,21 @@ class PlotPseudoSection(object):
                         cbx[0],
                         cmap=self.res_cmap,
                         norm=Normalize(
-                            vmin=self.res_limits_tm[0], vmax=self.res_limits_tm[1]
+                            vmin=self.res_limits_tm[0],
+                            vmax=self.res_limits_tm[1],
                         ),
                     )
                     cb.set_label(
                         "App. Res. ($\Omega \cdot$m)",
-                        fontdict={"size": self.font_size + 1, "weight": "bold"},
+                        fontdict={
+                            "size": self.font_size + 1,
+                            "weight": "bold",
+                        },
                     )
                     cb.set_ticks(
-                        np.arange(self.res_limits_tm[0], self.res_limits_tm[1] + 1)
+                        np.arange(
+                            self.res_limits_tm[0], self.res_limits_tm[1] + 1
+                        )
                     )
                     cb.set_ticklabels(log_labels_tm)
                 elif xx == 2:
@@ -1686,12 +1779,15 @@ class PlotPseudoSection(object):
                         cbx[0],
                         cmap=self.phase_cmap,
                         norm=Normalize(
-                            vmin=self.phase_limits_te[0], vmax=self.phase_limits_te[1]
+                            vmin=self.phase_limits_te[0],
+                            vmax=self.phase_limits_te[1],
                         ),
                     )
                     cb.set_ticks(
                         np.arange(
-                            self.phase_limits_te[0], self.phase_limits_te[1] + 1, 15
+                            self.phase_limits_te[0],
+                            self.phase_limits_te[1] + 1,
+                            15,
                         )
                     )
                 elif xx == 3:
@@ -1700,16 +1796,22 @@ class PlotPseudoSection(object):
                         cbx[0],
                         cmap=self.phase_cmap,
                         norm=Normalize(
-                            vmin=self.phase_limits_tm[0], vmax=self.phase_limits_tm[1]
+                            vmin=self.phase_limits_tm[0],
+                            vmax=self.phase_limits_tm[1],
                         ),
                     )
                     cb.set_label(
                         "Phase (deg)",
-                        fontdict={"size": self.font_size + 1, "weight": "bold"},
+                        fontdict={
+                            "size": self.font_size + 1,
+                            "weight": "bold",
+                        },
                     )
                     cb.set_ticks(
                         np.arange(
-                            self.phase_limits_te[0], self.phase_limits_te[1] + 1, 15
+                            self.phase_limits_te[0],
+                            self.phase_limits_te[1] + 1,
+                            15,
                         )
                     )
 
@@ -1721,11 +1823,16 @@ class PlotPseudoSection(object):
                         cbx[0],
                         cmap=self.tip_cmap,
                         norm=Normalize(
-                            vmin=self.tip_limits_re[0], vmax=self.tip_limits_re[1]
+                            vmin=self.tip_limits_re[0],
+                            vmax=self.tip_limits_re[1],
                         ),
                     )
                     cb.set_label(
-                        "Re{T}", fontdict={"size": self.font_size + 1, "weight": "bold"}
+                        "Re{T}",
+                        fontdict={
+                            "size": self.font_size + 1,
+                            "weight": "bold",
+                        },
                     )
                 # imag tipper
                 elif xx == 5:
@@ -1734,11 +1841,16 @@ class PlotPseudoSection(object):
                         cbx[0],
                         cmap=self.tip_cmap,
                         norm=Normalize(
-                            vmin=self.tip_limits_im[0], vmax=self.tip_limits_im[1]
+                            vmin=self.tip_limits_im[0],
+                            vmax=self.tip_limits_im[1],
                         ),
                     )
                     cb.set_label(
-                        "Im{T}", fontdict={"size": self.font_size + 1, "weight": "bold"}
+                        "Im{T}",
+                        fontdict={
+                            "size": self.font_size + 1,
+                            "weight": "bold",
+                        },
                     )
 
                 ax.text(
@@ -1753,12 +1865,18 @@ class PlotPseudoSection(object):
                 if xx == 0 or xx == 2:
                     ax.set_ylabel(
                         "Period (s)",
-                        fontdict={"size": self.font_size + 2, "weight": "bold"},
+                        fontdict={
+                            "size": self.font_size + 2,
+                            "weight": "bold",
+                        },
                     )
                 if xx > 1:
                     ax.set_xlabel(
                         "Station",
-                        fontdict={"size": self.font_size + 2, "weight": "bold"},
+                        fontdict={
+                            "size": self.font_size + 2,
+                            "weight": "bold",
+                        },
                     )
 
             plt.show()
@@ -1801,15 +1919,15 @@ class PlotPseudoSection(object):
             **save_fn** : string
                           full path to save figure to, can be input as
                           * directory path -> the directory path to save to
-                            in which the file will be saved as 
+                            in which the file will be saved as
                             save_fn/station_name_PhaseTensor.file_format
 
-                          * full path -> file will be save to the given 
+                          * full path -> file will be save to the given
                             path.  If you use this option then the format
                             will be assumed to be provided by the path
 
             **file_format** : [ pdf | eps | jpg | png | svg ]
-                              file type of saved figure pdf,svg,eps... 
+                              file type of saved figure pdf,svg,eps...
 
             **orientation** : [ landscape | portrait ]
                               orientation in which the file will be saved
@@ -1817,8 +1935,8 @@ class PlotPseudoSection(object):
 
             **fig_dpi** : int
                           The resolution in dots-per-inch the file will be
-                          saved.  If None then the dpi will be that at 
-                          which the figure was made.  I don't think that 
+                          saved.  If None then the dpi will be that at
+                          which the figure was made.  I don't think that
                           it can be larger than dpi of the figure.
 
             **close_plot** : [ y | n ]
@@ -1868,7 +1986,7 @@ class PlotPseudoSection(object):
     def update_plot(self):
         """
         update any parameters that where changed using the built-in draw from
-        canvas.  
+        canvas.
 
         Use this if you change an of the .fig or axes properties
 
@@ -1900,82 +2018,82 @@ class PlotPseudoSection(object):
 
 class PlotMisfitPseudoSection(object):
     """
-    plot a pseudo section misfit of the data and response if given
+     plot a pseudo section misfit of the data and response if given
 
-    .. note:: the output file from winglink does not contain errors, so to get
-              a normalized error, you need to input the error for each 
-              component as a percent for resistivity and a value for phase
-              and tipper.  If you used the data errors, unfortunately, you
-              have to input those as arrays.  
-
-
-    Arguments:
-    -------------
-        **wl_data_fn** : string
-                         full path to output data file from winglink
+     .. note:: the output file from winglink does not contain errors, so to get
+               a normalized error, you need to input the error for each
+               component as a percent for resistivity and a value for phase
+               and tipper.  If you used the data errors, unfortunately, you
+               have to input those as arrays.
 
 
-    ==================== ==================================================
-    key words            description
-    ==================== ==================================================
-    axmpte               matplotlib.axes instance for TE model phase
-    axmptm               matplotlib.axes instance for TM model phase
-    axmrte               matplotlib.axes instance for TE model app. res 
-    axmrtm               matplotlib.axes instance for TM model app. res 
-    axpte                matplotlib.axes instance for TE data phase 
-    axptm                matplotlib.axes instance for TM data phase
-    axrte                matplotlib.axes instance for TE data app. res.
-    axrtm                matplotlib.axes instance for TM data app. res.
-    cb_pad               padding between colorbar and axes
-    cb_shrink            percentage to shrink the colorbar to
-    fig                  matplotlib.figure instance
-    fig_dpi              resolution of figure in dots per inch
-    fig_num              number of figure instance
-    fig_size             size of figure in inches (width, height)
-    font_size            size of font in points
-    label_list            list to label plots
-    ml                   factor to label stations if 2 every other station
-                         is labeled on the x-axis
-    period               np.array of periods to plot
-    phase_cmap           color map name of phase
-    phase_limits_te      limits for te phase in degrees (min, max)
-    phase_limits_tm      limits for tm phase in degrees (min, max)            
-    plot_resp            [ 'y' | 'n' ] to plot response
-    plot_yn              [ 'y' | 'n' ] 'y' to plot on instantiation
+     Arguments:
+     -------------
+         **wl_data_fn** : string
+                          full path to output data file from winglink
 
-    res_cmap             color map name for resistivity
-    res_limits_te        limits for te resistivity in log scale (min, max)
-    res_limits_tm        limits for tm resistivity in log scale (min, max)
-    rp_list               list of dictionaries as made from read2Dresp
-    station_id           index to get station name (min, max)
-    station_list          station list got from rp_list
-    subplot_bottom       subplot spacing from bottom (relative coordinates) 
-    subplot_hspace       vertical spacing between subplots
-    subplot_left         subplot spacing from left  
-    subplot_right        subplot spacing from right
-    subplot_top          subplot spacing from top
-    subplot_wspace       horizontal spacing between subplots
-    ==================== ==================================================
 
-    =================== =======================================================
-    Methods             Description
-    =================== =======================================================
-    plot                plots a pseudo-section of apparent resistiviy and phase
-                        of data and model if given.  called on instantiation 
-                        if plot_yn is 'y'.
-    redraw_plot         call redraw_plot to redraw the figures, 
-                        if one of the attributes has been changed
-    save_figure         saves the matplotlib.figure instance to desired 
-                        location and format
-    =================== =======================================================
+     ==================== ==================================================
+     key words            description
+     ==================== ==================================================
+     axmpte               matplotlib.axes instance for TE model phase
+     axmptm               matplotlib.axes instance for TM model phase
+     axmrte               matplotlib.axes instance for TE model app. res
+     axmrtm               matplotlib.axes instance for TM model app. res
+     axpte                matplotlib.axes instance for TE data phase
+     axptm                matplotlib.axes instance for TM data phase
+     axrte                matplotlib.axes instance for TE data app. res.
+     axrtm                matplotlib.axes instance for TM data app. res.
+     cb_pad               padding between colorbar and axes
+     cb_shrink            percentage to shrink the colorbar to
+     fig                  matplotlib.figure instance
+     fig_dpi              resolution of figure in dots per inch
+     fig_num              number of figure instance
+     fig_size             size of figure in inches (width, height)
+     font_size            size of font in points
+     label_list            list to label plots
+     ml                   factor to label stations if 2 every other station
+                          is labeled on the x-axis
+     period               np.array of periods to plot
+     phase_cmap           color map name of phase
+     phase_limits_te      limits for te phase in degrees (min, max)
+     phase_limits_tm      limits for tm phase in degrees (min, max)
+     plot_resp            [ 'y' | 'n' ] to plot response
+     plot_yn              [ 'y' | 'n' ] 'y' to plot on instantiation
 
-   :Example: ::
+     res_cmap             color map name for resistivity
+     res_limits_te        limits for te resistivity in log scale (min, max)
+     res_limits_tm        limits for tm resistivity in log scale (min, max)
+     rp_list               list of dictionaries as made from read2Dresp
+     station_id           index to get station name (min, max)
+     station_list          station list got from rp_list
+     subplot_bottom       subplot spacing from bottom (relative coordinates)
+     subplot_hspace       vertical spacing between subplots
+     subplot_left         subplot spacing from left
+     subplot_right        subplot spacing from right
+     subplot_top          subplot spacing from top
+     subplot_wspace       horizontal spacing between subplots
+     ==================== ==================================================
 
-        >>> import mtpy.modeling.occam2d as occam2d
-        >>> ocd = occam2d.Occam2DData()
-        >>> rfile = r"/home/Occam2D/Line1/Inv1/Test_15.resp"
-        >>> ocd.data_fn = r"/home/Occam2D/Line1/Inv1/DataRW.dat"
-        >>> ps1 = ocd.plot2PseudoSection(resp_fn=rfile) 
+     =================== =======================================================
+     Methods             Description
+     =================== =======================================================
+     plot                plots a pseudo-section of apparent resistiviy and phase
+                         of data and model if given.  called on instantiation
+                         if plot_yn is 'y'.
+     redraw_plot         call redraw_plot to redraw the figures,
+                         if one of the attributes has been changed
+     save_figure         saves the matplotlib.figure instance to desired
+                         location and format
+     =================== =======================================================
+
+    :Example: ::
+
+         >>> import mtpy.modeling.occam2d as occam2d
+         >>> ocd = occam2d.Occam2DData()
+         >>> rfile = r"/home/Occam2D/Line1/Inv1/Test_15.resp"
+         >>> ocd.data_fn = r"/home/Occam2D/Line1/Inv1/DataRW.dat"
+         >>> ps1 = ocd.plot2PseudoSection(resp_fn=rfile)
 
     """
 
@@ -2239,7 +2357,8 @@ class PlotMisfitPseudoSection(object):
                     cbx[0],
                     cmap=self.phase_cmap,
                     norm=Normalize(
-                        vmin=self.phase_limits_te[0], vmax=self.phase_limits_te[1]
+                        vmin=self.phase_limits_te[0],
+                        vmax=self.phase_limits_te[1],
                     ),
                 )
             # tm phase
@@ -2249,7 +2368,8 @@ class PlotMisfitPseudoSection(object):
                     cbx[0],
                     cmap=self.phase_cmap,
                     norm=Normalize(
-                        vmin=self.phase_limits_tm[0], vmax=self.phase_limits_tm[1]
+                        vmin=self.phase_limits_tm[0],
+                        vmax=self.phase_limits_tm[1],
                     ),
                 )
                 cb.set_label(
@@ -2269,7 +2389,8 @@ class PlotMisfitPseudoSection(object):
                     ),
                 )
                 cb.set_label(
-                    "Re{Tip}", fontdict={"size": self.font_size + 1, "weight": "bold"}
+                    "Re{Tip}",
+                    fontdict={"size": self.font_size + 1, "weight": "bold"},
                 )
             # imag tipper
             elif xx == 5:
@@ -2282,7 +2403,8 @@ class PlotMisfitPseudoSection(object):
                     ),
                 )
                 cb.set_label(
-                    "Im{Tip}", fontdict={"size": self.font_size + 1, "weight": "bold"}
+                    "Im{Tip}",
+                    fontdict={"size": self.font_size + 1, "weight": "bold"},
                 )
 
             # make label for plot
@@ -2303,7 +2425,8 @@ class PlotMisfitPseudoSection(object):
                 )
             if xx > 1:
                 ax.set_xlabel(
-                    "Station", fontdict={"size": self.font_size + 2, "weight": "bold"}
+                    "Station",
+                    fontdict={"size": self.font_size + 2, "weight": "bold"},
                 )
 
         plt.show()
@@ -2345,15 +2468,15 @@ class PlotMisfitPseudoSection(object):
             **save_fn** : string
                           full path to save figure to, can be input as
                           * directory path -> the directory path to save to
-                            in which the file will be saved as 
+                            in which the file will be saved as
                             save_fn/station_name_PhaseTensor.file_format
 
-                          * full path -> file will be save to the given 
+                          * full path -> file will be save to the given
                             path.  If you use this option then the format
                             will be assumed to be provided by the path
 
             **file_format** : [ pdf | eps | jpg | png | svg ]
-                              file type of saved figure pdf,svg,eps... 
+                              file type of saved figure pdf,svg,eps...
 
             **orientation** : [ landscape | portrait ]
                               orientation in which the file will be saved
@@ -2361,8 +2484,8 @@ class PlotMisfitPseudoSection(object):
 
             **fig_dpi** : int
                           The resolution in dots-per-inch the file will be
-                          saved.  If None then the dpi will be that at 
-                          which the figure was made.  I don't think that 
+                          saved.  If None then the dpi will be that at
+                          which the figure was made.  I don't think that
                           it can be larger than dpi of the figure.
 
             **close_plot** : [ y | n ]
@@ -2394,7 +2517,9 @@ class PlotMisfitPseudoSection(object):
             )
 
         else:
-            save_fn = os.path.join(save_fn, "OccamMisfitPseudoSection." + file_format)
+            save_fn = os.path.join(
+                save_fn, "OccamMisfitPseudoSection." + file_format
+            )
             self.fig.savefig(
                 save_fn,
                 dpi=fig_dpi,
@@ -2416,7 +2541,7 @@ class PlotMisfitPseudoSection(object):
     def update_plot(self):
         """
         update any parameters that where changed using the built-in draw from
-        canvas.  
+        canvas.
 
         Use this if you change an of the .fig or axes properties
 

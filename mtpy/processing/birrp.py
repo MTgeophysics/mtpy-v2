@@ -37,7 +37,7 @@ class BIRRPParameters(object):
         self.nr2 = 0
         self.nr3 = 0
         self.tbw = 2.0
-        self.nfft = 2 ** 18
+        self.nfft = 2**18
         self.nsctmax = 14
         self.ofil = "mt"
         self.nlev = 0
@@ -155,12 +155,18 @@ class BIRRPParameters(object):
 
         # be sure the
         if self.ninp not in [1, 2, 3]:
-            print("WARNING: Number of inputs {0} not allowed.".format(self.ninp))
+            print(
+                "WARNING: Number of inputs {0} not allowed.".format(self.ninp)
+            )
             self.ninp = 2
             print("  --> setting ninp to {0}".format(self.ninp))
 
         if self._nout not in [2, 3]:
-            print("WARNING: Number of outputs {0} not allowed.".format(self._nout))
+            print(
+                "WARNING: Number of outputs {0} not allowed.".format(
+                    self._nout
+                )
+            )
             self._nout = 2
             print("  --> setting nout to {0}".format(self._nout))
 
@@ -202,7 +208,9 @@ class BIRRPParameters(object):
         if self.uin != 0:
             print("WARNING: You're playing with fire if uin is not 0.")
             self.uin = 0
-            print("  --> setting uin to 0, if you don't want that change it back")
+            print(
+                "  --> setting uin to 0, if you don't want that change it back"
+            )
 
         if self.imode not in [0, 1, 2, 3]:
             raise BIRRPParameterError(
@@ -224,8 +232,14 @@ class BIRRPParameters(object):
                 )
 
             if self.nfsect != 2:
-                print("WARNING: Will get an error from BIRRP if nfsect is not 2.")
-                print("number of frequencies per section is {0}".format(self.nfsect))
+                print(
+                    "WARNING: Will get an error from BIRRP if nfsect is not 2."
+                )
+                print(
+                    "number of frequencies per section is {0}".format(
+                        self.nfsect
+                    )
+                )
                 self.nfsect = 2
                 print("  --> setting nfsect to 2")
 
@@ -320,12 +334,16 @@ class BIRRPParameters(object):
         write a config file for birrp parameters
         """
 
-        cfg_fn = mtfh.make_unique_filename("{0}_birrp_params.cfg".format(save_fn))
+        cfg_fn = mtfh.make_unique_filename(
+            "{0}_birrp_params.cfg".format(save_fn)
+        )
 
         station = os.path.basename(save_fn)
         birrp_dict = self.to_dict()
         mtcfg.write_dict_to_configfile({station: birrp_dict}, cfg_fn)
-        print("INFO: Wrote BIRRP config file for edi file to {0}".format(cfg_fn))
+        print(
+            "INFO: Wrote BIRRP config file for edi file to {0}".format(cfg_fn)
+        )
 
 
 # ==============================================================================
@@ -456,15 +474,15 @@ class ScriptFile(BIRRPParameters):
         self._fn_dtype = np.dtype(
             [
                 ("fn", "U100"),
-                ("nread", np.int),
-                ("nskip", np.int),
+                ("nread", int),
+                ("nskip", int),
                 ("comp", "U2"),
                 ("calibration_fn", "U100"),
-                ("rr", np.bool),
-                ("rr_num", np.int),
+                ("rr", int),
+                ("rr_num", int),
                 ("start", "U19"),
                 ("stop", "U19"),
-                ("sampling_rate", np.int),
+                ("sampling_rate", int),
                 ("station", "U10"),
             ]
         )
@@ -492,13 +510,16 @@ class ScriptFile(BIRRPParameters):
         if "index" in names:
             names.remove("index")
         if not sorted(names) == sorted(self._fn_dtype.names):
-            raise ScriptFileError("fn_arr.dtype needs to be {0}".format(self._fn_dtype))
+            raise ScriptFileError(
+                "fn_arr.dtype needs to be {0}".format(self._fn_dtype)
+            )
 
         # make sure the shapes are the same
         shapes = [aa.shape[0] for aa in self.fn_arr]
         if min(shapes) != max(shapes):
             raise ScriptFileError(
-                "fn_arr does not have all the same shapes." + "{0}".format(shapes)
+                "fn_arr does not have all the same shapes."
+                + "{0}".format(shapes)
             )
 
         # make sure that rr is bool
@@ -572,7 +593,9 @@ class ScriptFile(BIRRPParameters):
             self._comp_list = ["ex", "ey", "hz", "hx", "hy"]
         else:
             raise ValueError(
-                "Number of components {0} invalid, check inputs".format(num_comp)
+                "Number of components {0} invalid, check inputs".format(
+                    num_comp
+                )
             )
 
         if self.nref == 0:
@@ -580,7 +603,10 @@ class ScriptFile(BIRRPParameters):
 
         else:
             for ii in range(int(self.nref / 2)):
-                self._comp_list += ["rrhx_{0:02}".format(ii), "rrhy_{0:02}".format(ii)]
+                self._comp_list += [
+                    "rrhx_{0:02}".format(ii),
+                    "rrhy_{0:02}".format(ii),
+                ]
 
         return self._comp_list
 
@@ -639,12 +665,16 @@ class ScriptFile(BIRRPParameters):
                 )
             ]
             s_lines += [
-                "{0:0.0f},{1:.2g},{2:0.0f}".format(self.nf1, self.nfinc, self.nfsect)
+                "{0:0.0f},{1:.2g},{2:0.0f}".format(
+                    self.nf1, self.nfinc, self.nfsect
+                )
             ]
             s_lines += ["y"]
             s_lines += ["{0:.2g}".format(self.mfft)]
             s_lines += [
-                "{0:.5g},{1:.5g},{2:.5g}".format(self.uin, self.ainlin, self.ainuin)
+                "{0:.5g},{1:.5g},{2:.5g}".format(
+                    self.uin, self.ainlin, self.ainuin
+                )
             ]
             # if remote referencing
             if int(self.nrr) == 0:
@@ -659,10 +689,14 @@ class ScriptFile(BIRRPParameters):
                         s_lines += ["{0:0.0f}".format(0)]
                         s_lines += ["{0:.3f}".format(self.c2threshe1)]
                     if self.c2threshe1 != 0.0 or self.c2threshe != 0.0:
-                        s_lines += ["{0:.6g},{1:.6g}".format(self.perlo, self.perhi)]
+                        s_lines += [
+                            "{0:.6g},{1:.6g}".format(self.perlo, self.perhi)
+                        ]
                 else:
                     if self.c2threshe != 0.0:
-                        s_lines += ["{0:.6g},{1:.6g}".format(self.perlo, self.perhi)]
+                        s_lines += [
+                            "{0:.6g},{1:.6g}".format(self.perlo, self.perhi)
+                        ]
             # if 2 stage processing
             elif int(self.nrr) == 1:
                 s_lines += ["{0:.3f}".format(self.c2threshb)]
@@ -675,7 +709,9 @@ class ScriptFile(BIRRPParameters):
                         s_lines += ["{0:0.0f}".format(0)]
                         s_lines += ["{0:.3f}".format(0)]
                 if self.c2threshb != 0.0 or self.c2threshe != 0.0:
-                    s_lines += ["{0:.6g},{1:.6g}".format(self.perlo, self.perhi)]
+                    s_lines += [
+                        "{0:.6g},{1:.6g}".format(self.perlo, self.perhi)
+                    ]
             s_lines += [self.ofil]
             s_lines += ["{0:0.0f}".format(self.nlev)]
             s_lines += ["{0:0.0f}".format(self.nprej)]
@@ -701,20 +737,30 @@ class ScriptFile(BIRRPParameters):
                     fn_index = np.where(fn_arr["comp"] == cc)[0][0]
 
                     if ff == 0:
-                        fn_lines = self.make_fn_lines_block_00(fn_arr[fn_index])
+                        fn_lines = self.make_fn_lines_block_00(
+                            fn_arr[fn_index]
+                        )
                     else:
                         fn_lines = self.make_fn_lines_block_n(fn_arr[fn_index])
                     s_lines += fn_lines
 
         # write rotation angles
-        s_lines += [" ".join(["{0:.2f}".format(theta) for theta in self.thetae])]
-        s_lines += [" ".join(["{0:.2f}".format(theta) for theta in self.thetab])]
-        s_lines += [" ".join(["{0:.2f}".format(theta) for theta in self.thetaf])]
+        s_lines += [
+            " ".join(["{0:.2f}".format(theta) for theta in self.thetae])
+        ]
+        s_lines += [
+            " ".join(["{0:.2f}".format(theta) for theta in self.thetab])
+        ]
+        s_lines += [
+            " ".join(["{0:.2f}".format(theta) for theta in self.thetaf])
+        ]
 
         if self.nref > 3:
             for kk in range(self.nref):
                 s_lines += [
-                    " ".join(["{0:.2f}".format(theta) for theta in self.thetab])
+                    " ".join(
+                        ["{0:.2f}".format(theta) for theta in self.thetab]
+                    )
                 ]
 
         with open(self.script_fn, "w") as fid:
@@ -811,7 +857,9 @@ def run(birrp_exe, script_file):
     print("INFO: Starting Birrp processing at {0}...".format(st))
 
     birrp_process = subprocess.Popen(
-        birrp_exe + "< {0}".format(local_script_fn), stdin=subprocess.PIPE, shell=True
+        birrp_exe + "< {0}".format(local_script_fn),
+        stdin=subprocess.PIPE,
+        shell=True,
     )
     birrp_process.wait()
     et = datetime.now()
@@ -921,9 +969,9 @@ class J2Edi(object):
             )
 
         # read in survey information
-        self.survey_config_dict = mtcfg.read_survey_configfile(self.survey_config_fn)[
-            self.station
-        ]
+        self.survey_config_dict = mtcfg.read_survey_configfile(
+            self.survey_config_fn
+        )[self.station]
 
     def get_birrp_config_fn(self):
         """
@@ -981,7 +1029,8 @@ class J2Edi(object):
 
         if self.birrp_dir is None or not os.path.exists(self.birrp_dir):
             raise mtex.MTpyError_inputarguments(
-                "No birrp directory input," "check path {0}".format(self.birrp_dir)
+                "No birrp directory input,"
+                "check path {0}".format(self.birrp_dir)
             )
         try:
             self.j_fn = [
@@ -1005,13 +1054,15 @@ class J2Edi(object):
             return
         self.mt_obj.latitude = self.survey_config_dict["latitude"]
         self.mt_obj.longitude = self.survey_config_dict["longitude"]
-        self.mt_obj.station_metadata.time_period.start = self.survey_config_dict["date"]
+        self.mt_obj.station_metadata.time_period.start = (
+            self.survey_config_dict["date"]
+        )
         self.mt_obj.survey_metadata.id = self.survey_config_dict["location"]
         self.mt_obj.station = self.survey_config_dict["station"]
         self.mt_obj.elevation = self.survey_config_dict["elevation"]
-        self.mt_obj.station_metadata.acquired_by.name = self.survey_config_dict[
-            "network"
-        ]
+        self.mt_obj.station_metadata.acquired_by.name = (
+            self.survey_config_dict["network"]
+        )
 
     def _fill_info(self):
         """
@@ -1036,7 +1087,9 @@ class J2Edi(object):
         self.mt_obj.FieldNotes.Magnetometer_hx.azm = float(
             self.survey_config_dict["b_xaxis_azimuth"]
         )
-        self.mt_obj.FieldNotes.Magnetometer_hx.acqchan = self.survey_config_dict["hx"]
+        self.mt_obj.FieldNotes.Magnetometer_hx.acqchan = (
+            self.survey_config_dict["hx"]
+        )
 
         # --> hy
         self.mt_obj.FieldNotes.Magnetometer_hy.id = 2
@@ -1046,7 +1099,9 @@ class J2Edi(object):
         self.mt_obj.FieldNotes.Magnetometer_hy.azm = float(
             self.survey_config_dict["b_yaxis_azimuth"]
         )
-        self.mt_obj.FieldNotes.Magnetometer_hy.acqchan = self.survey_config_dict["hy"]
+        self.mt_obj.FieldNotes.Magnetometer_hy.acqchan = (
+            self.survey_config_dict["hy"]
+        )
 
         ch_count = 2
         # --> hz
@@ -1057,9 +1112,9 @@ class J2Edi(object):
             self.mt_obj.FieldNotes.Magnetometer_hz.x = 0
             self.mt_obj.FieldNotes.Magnetometer_hz.y = 0
             self.mt_obj.FieldNotes.Magnetometer_hz.azm = 90
-            self.mt_obj.FieldNotes.Magnetometer_hz.acqchan = self.survey_config_dict[
-                "hz"
-            ]
+            self.mt_obj.FieldNotes.Magnetometer_hz.acqchan = (
+                self.survey_config_dict["hz"]
+            )
             ch_count += 1
         except ValueError:
             pass
@@ -1218,7 +1273,9 @@ class J2Edi(object):
             self.station = station
 
         if self.station is None:
-            raise mtex.MTpyError_inputarguments("Need to input the station name")
+            raise mtex.MTpyError_inputarguments(
+                "Need to input the station name"
+            )
 
         # birrp directory
         if birrp_dir is not None:

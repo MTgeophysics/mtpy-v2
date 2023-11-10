@@ -18,6 +18,7 @@ from pathlib import Path
 import numpy as np
 import xarray as xr
 from scipy import stats as stats
+from scipy import interpolate
 from loguru import logger
 
 import mtpy.modeling.mesh_tools as mtmesh
@@ -28,6 +29,7 @@ import mtpy.utils.filehandling as mtfh
 from mtpy.utils.gis_tools import project_point
 from mtpy.modeling.plots.plot_mesh import PlotMesh
 from mtpy.core.mt_location import MTLocation
+from mtpy.gis.raster_tools import array2raster
 
 from pyevtk.hl import gridToVTK
 
@@ -246,7 +248,7 @@ class StructuredGrid3D:
         self.save_path = Path().cwd()
         self.model_fn_basename = "ModEM_Model_File.rho"
 
-        self.title = "Model File written by MTpy.modeling.modem"
+        self._modem_title = "Model File written by MTpy.modeling.modem"
         self.res_scale = "loge"
 
         for key, value in kwargs.items():
@@ -258,7 +260,7 @@ class StructuredGrid3D:
                 )
 
     def __str__(self):
-        lines = ["ModEM Model Object:", "-" * 20]
+        lines = ["Structured3DMesh Model Object:", "-" * 20]
         # --> print out useful information
         try:
             lines.append(
@@ -276,6 +278,7 @@ class StructuredGrid3D:
         lines.append(f"\t\tz1_layer:          {self.z1_layer}")
         lines.append(f"\t\tz_target_depth:    {self.z_target_depth}")
         lines.append(f"\t\tn_layers:          {self.n_layers}")
+        lines.append(f"\t\tn_air_layers:      {self.n_air_layers}")
         lines.append(f"\t\tres_initial_value: {self.res_initial_value}")
         lines.append("\tDimensions: ")
         lines.append(f"\t\te-w: {self.grid_east.size}")
@@ -291,9 +294,9 @@ class StructuredGrid3D:
             )
 
             lines.append(
-                " ** Note ModEM does not accommodate mesh rotations, it assumes"
+                " ** Note rotations are assumed to have stations rotated."
             )
-            lines.append("    all coordinates are aligned to geographic N, E")
+            lines.append("    All coordinates are aligned to geographic N, E")
             lines.append(
                 "    therefore rotating the stations will have a similar effect"
             )
@@ -537,7 +540,7 @@ class StructuredGrid3D:
             )
         else:
             raise NameError(
-                'Padding method "{}" is not supported'.format(self.pad_method)
+                f'Padding method "{self.pad_method}" is not supported'
             )
 
         # make the horizontal grid
@@ -732,7 +735,7 @@ class StructuredGrid3D:
         gcz = np.mean([self.grid_z[:-1], self.grid_z[1:]], axis=0)
 
         self._logger.debug(
-            "gcz is the cells centre coordinates: %s, %s" % (len(gcz), gcz)
+            f"gcz is the cells centre coordinates: {len(gcz)}, {gcz}"
         )
 
         # assign resistivity value
@@ -743,7 +746,7 @@ class StructuredGrid3D:
                 )[0]
                 self.res_model[j, i, ii] = resistivity_value
 
-    def write_modem_file(self, **kwargs):
+    def to_modem(self, model_fn=None, **kwargs):
         """
         will write an initial file for ModEM.
 
@@ -760,23 +763,6 @@ class StructuredGrid3D:
         Key Word Arguments:
         ----------------------
 
-            **nodes_north** : np.array(nx)
-                        block dimensions (m) in the N-S direction.
-                        **Note** that the code reads the grid assuming that
-                        index=0 is the southern most point.
-
-            **nodes_east** : np.array(ny)
-                        block dimensions (m) in the E-W direction.
-                        **Note** that the code reads in the grid assuming that
-                        index=0 is the western most point.
-
-            **nodes_z** : np.array(nz)
-                        block dimensions (m) in the vertical direction.
-                        This is positive downwards.
-
-            **save_path** : string
-                          Path to where the initial file will be saved
-                          to save_path/model_fn_basename
 
             **model_fn_basename** : string
                                     basename to save file to
@@ -786,15 +772,6 @@ class StructuredGrid3D:
             **title** : string
                         Title that goes into the first line
                         *default* is Model File written by MTpy.modeling.modem
-
-            **res_model** : np.array((nx,ny,nz))
-                        Prior resistivity model.
-
-                        .. note:: again that the modeling code
-                        assumes that the first row it reads in is the southern
-                        most row and the first column it reads in is the
-                        western most column.  Similarly, the first plane it
-                        reads in is the Earth's surface.
 
             **res_starting_value** : float
                                      starting model resistivity value,
@@ -821,100 +798,80 @@ class StructuredGrid3D:
             )
             self.res_model[:, :, :] = self.res_initial_value
 
-        elif type(self.res_model) in [float, int]:
-            self.res_initial_value = self.res_model
-            self.res_model = np.zeros(
-                (
-                    self.nodes_north.size,
-                    self.nodes_east.size,
-                    self.nodes_z.size,
-                )
-            )
-            self.res_model[:, :, :] = self.res_initial_value
-
         # --> write file
+        lines = []
+
+        lines.append(f"# {self._modem_title.upper()}")
+        lines.append(
+            f"{self.nodes_north.size:>5}{self.nodes_east.size:>5}"
+            f"{self.nodes_z.size:>5}{0:>5} {self.res_scale.upper()}"
+        )
+
+        # write S --> N node block
+        lines.append(
+            "".join([f"{abs(nnode):>12.3f}" for nnode in self.nodes_north])
+        )
+
+        # write W --> E node block
+        lines.append(
+            "".join([f"{abs(enode):>12.3f}" for enode in self.nodes_east])
+        )
+
+        # write top --> bottom node block
+        lines.append(
+            "".join([f"{abs(znode):>12.3f}" for znode in self.nodes_z])
+        )
+
+        # write the resistivity in log e format
+        if self.res_scale.lower() == "loge":
+            write_res_model = np.log(self.res_model[::-1, :, :])
+        elif (
+            self.res_scale.lower() == "log"
+            or self.res_scale.lower() == "log10"
+        ):
+            write_res_model = np.log10(self.res_model[::-1, :, :])
+        elif self.res_scale.lower() == "linear":
+            write_res_model = self.res_model[::-1, :, :]
+        else:
+            raise ValueError(
+                f'resistivity scale "{self.res_scale}" is not supported.'
+            )
+
+        # write out the layers from resmodel
+        for zz in range(self.nodes_z.size):
+            lines.append("")
+            for ee in range(self.nodes_east.size):
+                line = []
+                for nn in range(self.nodes_north.size):
+                    line.append(f"{write_res_model[nn, ee, zz]:>13.5E}")
+                lines.append("".join(line))
+
+        if self.grid_center is None:
+            # compute grid center
+            center_east = -self.nodes_east.__abs__().sum() / 2
+            center_north = -self.nodes_north.__abs__().sum() / 2
+            center_z = 0
+            self.grid_center = np.array([center_north, center_east, center_z])
+
+        lines.append("")
+        lines.append(
+            f"{self.grid_center[0]:>16.3f}{self.grid_center[1]:>16.3f}{self.grid_center[2]:>16.3f}"
+        )
+
+        if self.mesh_rotation_angle is None:
+            lines.append(f"{0:>9.3f}")
+        else:
+            lines.append(f"{self.mesh_rotation_angle:>9.3f}")
+
+        if model_fn is not None:
+            self.model_fn = model_fn
+
         with open(self.model_fn, "w") as ifid:
-            ifid.write("# {0}\n".format(self.title.upper()))
-            ifid.write(
-                "{0:>5}{1:>5}{2:>5}{3:>5} {4}\n".format(
-                    self.nodes_north.size,
-                    self.nodes_east.size,
-                    self.nodes_z.size,
-                    0,
-                    self.res_scale.upper(),
-                )
-            )
+            ifid.write("\n".join(lines))
 
-            # write S --> N node block
-            for ii, nnode in enumerate(self.nodes_north):
-                ifid.write("{0:>12.3f}".format(abs(nnode)))
+        self._logger.info(f"Wrote file to: {self.model_fn}")
 
-            ifid.write("\n")
-
-            # write W --> E node block
-            for jj, enode in enumerate(self.nodes_east):
-                ifid.write("{0:>12.3f}".format(abs(enode)))
-            ifid.write("\n")
-
-            # write top --> bottom node block
-            for kk, zz in enumerate(self.nodes_z):
-                ifid.write("{0:>12.3f}".format(abs(zz)))
-            ifid.write("\n")
-
-            # write the resistivity in log e format
-            if self.res_scale.lower() == "loge":
-                write_res_model = np.log(self.res_model[::-1, :, :])
-            elif (
-                self.res_scale.lower() == "log"
-                or self.res_scale.lower() == "log10"
-            ):
-                write_res_model = np.log10(self.res_model[::-1, :, :])
-            elif self.res_scale.lower() == "linear":
-                write_res_model = self.res_model[::-1, :, :]
-            else:
-                raise ValueError(
-                    'resistivity scale "{}" is not supported.'.format(
-                        self.res_scale
-                    )
-                )
-
-            # write out the layers from resmodel
-            for zz in range(self.nodes_z.size):
-                ifid.write("\n")
-                for ee in range(self.nodes_east.size):
-                    for nn in range(self.nodes_north.size):
-                        ifid.write(
-                            "{0:>13.5E}".format(write_res_model[nn, ee, zz])
-                        )
-                    ifid.write("\n")
-
-            if self.grid_center is None:
-                # compute grid center
-                center_east = -self.nodes_east.__abs__().sum() / 2
-                center_north = -self.nodes_north.__abs__().sum() / 2
-                center_z = 0
-                self.grid_center = np.array(
-                    [center_north, center_east, center_z]
-                )
-
-            ifid.write(
-                "\n{0:>16.3f}{1:>16.3f}{2:>16.3f}\n".format(
-                    self.grid_center[0],
-                    self.grid_center[1],
-                    self.grid_center[2],
-                )
-            )
-
-            if self.mesh_rotation_angle is None:
-                ifid.write("{0:>9.3f}\n".format(0))
-            else:
-                ifid.write("{0:>9.3f}\n".format(self.mesh_rotation_angle))
-
-            # not needed ifid.close()
-
-        self._logger.info("Wrote file to: {0}".format(self.model_fn))
-
-    def read_modem_file(self, model_fn=None):
+    def from_modem(self, model_fn=None):
         """
         read an initial file and return the pertinent information including
         grid positions in coordinates relative to the center point (0,0) and
@@ -972,7 +929,7 @@ class StructuredGrid3D:
         with open(self.model_fn, "r") as ifid:
             ilines = ifid.readlines()
 
-        self.title = ilines[0].strip()
+        self._modem_title = ilines[0].replace("#", "").strip()
 
         # get size of dimensions, remembering that x is N-S, y is E-W, z is + down
         nsize = ilines[1].strip().split()
@@ -1061,8 +1018,12 @@ class StructuredGrid3D:
         self.grid_z += shift_z
 
         # get cell size
-        self.cell_size_east = stats.mode(self.nodes_east)[0][0]
-        self.cell_size_north = stats.mode(self.nodes_north)[0][0]
+        try:
+            self.cell_size_east = stats.mode(self.nodes_east)[0][0]
+            self.cell_size_north = stats.mode(self.nodes_north)[0][0]
+        except IndexError:
+            self.cell_size_east = stats.mode(self.nodes_east).mode
+            self.cell_size_north = stats.mode(self.nodes_north).mode
 
         # get number of padding cells
         half = int(self.nodes_east.size / 2)
@@ -1085,6 +1046,13 @@ class StructuredGrid3D:
         topo = self._get_topography_from_model()
         if topo is not None:
             self.surface_dict["topography"] = topo
+
+        try:
+            self.n_air_layers = np.where(self.res_model > 1e10)[-1].max()
+        except (IndexError, ValueError):
+            self.n_air_layers = 0
+
+        self.n_layers = self.nodes_z.size - self.n_air_layers
 
     def _get_topography_from_model(self):
         """
@@ -1152,7 +1120,7 @@ class StructuredGrid3D:
 
         parameter_dict = {}
         for parameter in parameter_list:
-            key = "model.{0}".format(parameter)
+            key = f"model.{parameter}"
             parameter_dict[key] = getattr(self, parameter)
 
         parameter_dict["model.size"] = self.res_model.shape
@@ -1160,9 +1128,138 @@ class StructuredGrid3D:
         return parameter_dict
 
     def to_xarray(self, **kwargs):
-        pass
+        """
+        put model in xarray format
+        """
 
-    def write_gocad_sgrid_file(
+        return xr.DataArray(
+            self.res_model,
+            coords={
+                "north": self.grid_north[0:-1] + self.center_point.north,
+                "east": self.grid_east[0:-1] + self.center_point.east,
+                "z": self.grid_z[0:-1] + self.center_point.elevation,
+            },
+            dims=["north", "east", "z"],
+            name="resistivity",
+            attrs={
+                "center_latitude": self.center_point.latitude,
+                "center_longitude": self.center_point.longitude,
+                "center_elevation": self.center_point.elevation,
+                "datum_epsg": self.center_point.datum_epsg,
+                "datum_wkt": self.center_point.datum_crs.to_wkt(),
+                "center_point_east": self.center_point.east,
+                "center_point_north": self.center_point.north,
+                "utm_epsg": self.center_point.utm_epsg,
+                "utm_wkt": self.center_point.utm_crs.to_wkt(),
+            },
+        )
+
+    def to_netcdf(self, fn, pad_east=None, pad_north=None, metadata={}):
+        """
+        create a netCDF file to read into GIS software
+
+        works about 50% of the time.
+
+        """
+        if self.center_point.utm_epsg is None:
+            raise ValueError("Must input UTM CRS or EPSG")
+
+        pad_east = self._validate_pad_east(pad_east)
+        pad_north = self._validate_pad_north(pad_north)
+
+        east, north = np.broadcast_arrays(
+            self.grid_north[pad_north : -(pad_north + 1), None]
+            + self.center_point.north,
+            self.grid_east[None, pad_east : -(pad_east + 1)]
+            + self.center_point.east,
+        )
+
+        lat, lon = project_point(
+            north.ravel(),
+            east.ravel(),
+            self.center_point.utm_epsg,
+            self.center_point.datum_epsg,
+        )
+
+        latitude = np.linspace(lat.min(), lat.max(), east.shape[0])
+        longitude = np.linspace(lon.min(), lon.max(), east.shape[1])
+        depth = (self.grid_z[:-1] + self.center_point.elevation) / 1000
+
+        # need to depth, latitude, longitude for NetCDF
+        x_res = np.swapaxes(
+            np.log10(
+                self.res_model[pad_north:-pad_north, pad_east:-pad_east, :]
+            ),
+            0,
+            1,
+        ).T
+        x = xr.DataArray(
+            x_res,
+            coords=[
+                ("depth", depth),
+                ("latitude", latitude),
+                ("longitude", longitude),
+            ],
+            dims=["depth", "latitude", "longitude"],
+        )
+
+        # =============================================================================
+        # fill in the metadata
+        x.name = "electrical_resistivity"
+        x.attrs["long_name"] = "electrical resistivity"
+        x.attrs["units"] = "Ohm-m"
+        x.attrs["standard_name"] = "resistivity"
+        x.attrs["display_name"] = "log10(resistivity)"
+
+        # metadata for coordinates
+        x.coords["latitude"].attrs["long_name"] = "Latitude; positive_north"
+        x.coords["latitude"].attrs["units"] = "degrees_north"
+        x.coords["latitude"].attrs["standard_name"] = "Latitude"
+
+        x.coords["longitude"].attrs["long_name"] = "longitude; positive_east"
+        x.coords["longitude"].attrs["units"] = "degrees_east"
+        x.coords["longitude"].attrs["standard_name"] = "longitude"
+
+        x.coords["depth"].attrs["long_name"] = "depth; positive_down"
+        x.coords["depth"].attrs["display_name"] = "depth"
+        x.coords["depth"].attrs["units"] = "km"
+        x.coords["depth"].attrs["standard_name"] = "depth"
+
+        ds = xr.Dataset(*[{"resistivity": x}])
+
+        # fill in some metadata
+
+        ds.attrs["Conventions"] = "CF-1.0"
+        ds.attrs["Metadata_Conventions"] = "Unidata Dataset Discovery v1.0"
+        ds.attrs[
+            "NCO"
+        ] = "netCDF Operators version 4.7.5 (Homepage = http://nco.sf.net, Code=http://github/nco/nco"
+
+        for key, value in metadata.items():
+            ds.attrs[key] = value
+
+        # geospatial metadata
+        ds.attrs["geospatial_lat_min"] = latitude.min()
+        ds.attrs["geospatial_lat_max"] = latitude.max()
+        ds.attrs["geospatial_lat_units"] = "degrees_north"
+        ds.attrs["geospatial_lat_resolution"] = np.diff(latitude).mean()
+
+        ds.attrs["geospatial_lon_min"] = longitude.min()
+        ds.attrs["geospatial_lon_max"] = longitude.max()
+        ds.attrs["geospatial_lon_units"] = "degrees_east"
+        ds.attrs["geospatial_lon_resolution"] = np.diff(longitude).mean()
+
+        ds.attrs["geospatial_vertical_min"] = depth.min()
+        ds.attrs["geospatial_vertical_max"] = depth.max()
+        ds.attrs["geospatial_vertical_units"] = "km"
+        ds.attrs["geospatial_vertical_positive"] = "down"
+
+        # write to netcdf
+        ds.to_netcdf(path=fn)
+
+        return ds
+
+    def to_gocad_sgrid(
         self, fn=None, origin=[0, 0, 0], clip=0, no_data_value=-99999
     ):
         """
@@ -1234,7 +1331,7 @@ class StructuredGrid3D:
         )
         sg_obj.write_sgrid_file()
 
-    def read_gocad_sgrid_file(
+    def from_gocad_sgrid(
         self,
         sgrid_header_file,
         air_resistivity=1e39,
@@ -1425,10 +1522,10 @@ class StructuredGrid3D:
                 surface_name = surface_file.name
             else:
                 ii = 1
-                surface_name = "surface%01i" % ii
+                surface_name = f"surface{int(ii):01}"
                 while surface_name in list(self.surface_dict.keys()):
                     ii += 1
-                    surface_name = "surface%01i" % ii
+                    surface_name = f"surface{int(ii):01}"
             return elev_mg, surface_name
         else:
             return elev_mg
@@ -1620,7 +1717,7 @@ class StructuredGrid3D:
                     axis=0,
                 )
 
-            self._logger.debug("self.grid_z[0:2] {}".format(self.grid_z[0:2]))
+            self._logger.debug(f"self.grid_z[0:2] {self.grid_z[0:2]}")
 
         # update the z-centre as the top air layer
         self.grid_center[2] = self.grid_z[0]
@@ -1664,54 +1761,316 @@ class StructuredGrid3D:
         inner_ns_ext = north - south
 
         if self.ew_ext < extent_ratio * inner_ew_ext:
-            self._logger.warn(
+            self._logger.warning(
                 "Provided or default ew_ext not sufficient to fit stations + padding, updating extent"
             )
             self.ew_ext = np.ceil(extent_ratio * inner_ew_ext)
 
         if self.ns_ext < extent_ratio * inner_ns_ext:
-            self._logger.warn(
+            self._logger.warning(
                 "Provided or default ns_ext not sufficient to fit stations + padding, updating extent"
             )
             self.ns_ext = np.ceil(extent_ratio * inner_ns_ext)
 
-    def _get_xyzres(self, location_type, origin, model_epsg, clip):
-        # try getting centre location info from file
-        if type(origin) == str:
+    def interpolate_to_even_grid(
+        self, cell_size, pad_north=None, pad_east=None
+    ):
+        """
+        Interpolate the model onto an even grid for plotting as a raster or
+        netCDF.
+
+        :param cell_size: DESCRIPTION
+        :type cell_size: TYPE
+        :param pad_north: DESCRIPTION, defaults to None
+        :type pad_north: TYPE, optional
+        :param pad_east: DESCRIPTION, defaults to None
+        :type pad_east: TYPE, optional
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        pad_east = self._validate_pad_east(pad_east)
+        pad_north = self._validate_pad_north(pad_north)
+
+        # need -2 because grid is + 1 of size
+        new_east = np.arange(
+            self.grid_east[pad_east],
+            self.grid_east[-pad_east - 2],
+            cell_size,
+        )
+        new_north = np.arange(
+            self.grid_north[pad_north],
+            self.grid_north[-pad_north - 2],
+            cell_size,
+        )
+
+        # needs to be -1 because the grid is n+1 as it is the edges of the
+        # the nodes.
+        model_n, model_e = np.broadcast_arrays(
+            self.grid_north[:-1, None],
+            self.grid_east[None, :-1],
+        )
+
+        new_res_arr = np.zeros(
+            (new_north.size, new_east.size, self.nodes_z.size)
+        )
+
+        for z_index in range(self.grid_z.shape[0] - 1):
+            res = self.res_model[:, :, z_index]
+            new_res_arr[:, :, z_index] = interpolate.griddata(
+                (model_n.ravel(), model_e.ravel()),
+                res.ravel(),
+                (new_north[:, None], new_east[None, :]),
+            )
+
+        return new_north, new_east, new_res_arr
+
+    def get_lower_left_corner(self, pad_east, pad_north):
+        """
+        get the lower left corner in UTM coordinates for raster.
+
+        :param pad_east: number of padding cells to skip from outside in.
+        :type pad_east: integer
+        :param pad_north: number of padding cells to skip from outside in.
+        :type pad_north: integer
+        :return: Lower left hand corner
+        :rtype: :class:`mtpy.core.MTLocation`
+
+        """
+
+        if self.center_point.utm_crs is None:
+            raise ValueError("Need to input center point and UTM CRS.")
+
+        lower_left = MTLocation()
+        lower_left.utm_crs = self.center_point.utm_crs
+        lower_left.datum_crs = self.center_point.datum_crs
+        lower_left.east = self.center_point.east + self.grid_east[pad_east]
+        lower_left.north = self.center_point.north + self.grid_east[pad_north]
+
+        return lower_left
+
+    def _get_depth_min_index(self, depth_min):
+        """
+        get index of minimum depth, if None, return None.
+
+        :param depth_min: DESCRIPTION
+        :type depth_min: TYPE
+        :raises IndexError: DESCRIPTION
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        if depth_min is not None:
             try:
-                origin = np.loadtxt(origin)
-            except:
-                print(
-                    "Please provide origin as a list, array or tuple or as a valid filename containing this info"
+                depth_min = np.where(self.grid_z >= depth_min)[0][0]
+            except IndexError:
+                raise IndexError(
+                    f"Could not locate depths deeper than {depth_min}."
                 )
-                origin = [0, 0]
+        return depth_min
+
+    def _get_depth_max_index(self, depth_max):
+        """
+        get index of minimum depth, if None, return None.
+
+        :param depth_max: DESCRIPTION
+        :type depth_max: TYPE
+        :raises IndexError: DESCRIPTION
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        if depth_max is not None:
+            try:
+                depth_max = np.where(self.grid_z <= depth_max)[0][-1]
+            except IndexError:
+                raise IndexError(
+                    f"Could not locate depths shallower than {depth_max}."
+                )
+        return depth_max
+
+    def _get_pad_slice(self, pad):
+        """
+        get padding slice
+
+        :param pad: DESCRIPTION
+        :type pad: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        if pad is not None:
+            return slice(pad, -pad)
+        else:
+            return slice(pad, pad)
+
+    def _validate_pad_east(self, pad_east):
+        """
+        pad east if None, return self.pad_east
+        """
+        if pad_east is None:
+            return self.pad_east
+        return pad_east
+
+    def _validate_pad_north(self, pad_north):
+        """
+        pad north if None, return self.pad_north
+        """
+        if pad_north is None:
+            return self.pad_north
+        return pad_north
+
+    def _clip_model(self, pad_east, pad_north):
+        """
+        clip model based on excluding the number of padding cells.
+
+        :param pad_east: DESCRIPTION
+        :type pad_east: TYPE
+        :param pad_north: DESCRIPTION
+        :type pad_north: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+    def to_raster(
+        self,
+        cell_size,
+        pad_north=None,
+        pad_east=None,
+        save_path=None,
+        depth_min=None,
+        depth_max=None,
+        rotation_angle=0,
+        verbose=True,
+    ):
+        """
+        write out each depth slice as a raster in UTM coordinates.  Expecting
+        a grid that is interoplated onto a regular grid of square cells with
+        size `cell_size`.
+
+        :param cell_size: square cell size (cell_size x cell_size) in meters.
+        :type cell_size: float
+        :param pad_north: number of padding cells to skip from outside in,
+         if None defaults to self.pad_north, defaults to None
+        :type pad_north: integer, optional
+        :param pad_east: number of padding cells to skip from outside in
+         if None defaults to self.pad_east, defaults to None
+        :type pad_east: integer, optional
+        :param save_path: Path to save files to. If None use self.save_path,
+         defaults to None
+        :type save_path: string or Path, optional
+        :param depth_min: minimum depth to make raster for in meters,
+         defaults to None which will use shallowest depth.
+        :type depth_min: float, optional
+        :param depth_max: maximum depth to make raster for in meters,
+         defaults to None which will use deepest depth.
+        :type depth_max: float, optional
+        :param rotation_angle: Angle (degrees) to rotate the raster assuming
+         clockwise positive rotation where North = 0, East = 90, defaults to 0
+        :type rotation_angle: float, optional
+        :raises ValueError: If utm_epsg is not input.
+        :return: list of file paths to rasters.
+        :rtype: TYPE
+
+        """
+
+        if self.center_point.utm_crs is None:
+            raise ValueError("Need to input center point and UTM CRS.")
+
+        if rotation_angle is not None:
+            rotation_angle = float(rotation_angle)
+        else:
+            rotation_angle = 0.0
+
+        if save_path is None:
+            save_path = self.save_path
+        else:
+            save_path = Path(save_path)
+
+        if not save_path.exists():
+            save_path.mkdir()
+
+        pad_east = self._validate_pad_east(pad_east)
+        pad_north = self._validate_pad_north(pad_north)
+
+        _, _, raster_array = self.interpolate_to_even_grid(
+            cell_size, pad_east=pad_east, pad_north=pad_north
+        )
+
+        raster_depths = self.grid_z[
+            slice(
+                self._get_depth_min_index(depth_min),
+                self._get_depth_max_index(depth_max),
+            )
+        ]
+
+        initial_index = np.where(self.grid_z == raster_depths.min())[0][0]
+
+        lower_left = self.get_lower_left_corner(pad_east, pad_north)
+
+        raster_fn_list = []
+        for ii, d in enumerate(raster_depths, initial_index):
+            raster_fn = self.save_path.joinpath(
+                f"{ii}_depth_{d:.2f}m_utm_{self.center_point.utm_epsg}.tif"
+            )
+            array2raster(
+                raster_fn,
+                np.log10(raster_array[:, :, ii]),
+                lower_left,
+                cell_size,
+                cell_size,
+                self.center_point.utm_epsg,
+                rotation_angle=rotation_angle,
+            )
+            raster_fn_list.append(raster_fn)
+            if verbose:
+                self._logger.info(f"Wrote depth index {ii} to {raster_fn}")
+
+        return raster_fn_list
+
+    def _get_xyzres(self, location_type, pad_east=None, pad_north=None):
+        """
+        Get xyz resistivity
+
+        :param location_type: 'll' or 'utm'
+        :type location_type: TYPE
+        :param origin: DESCRIPTION
+        :type origin: TYPE
+        :param model_epsg: DESCRIPTION
+        :type model_epsg: TYPE
+        :param clip: DESCRIPTION
+        :type clip: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
 
         # reshape the data and get grid centres
         x, y, z = [
             np.mean([arr[1:], arr[:-1]], axis=0)
             for arr in [
-                self.grid_east + origin[0],
-                self.grid_north + origin[1],
+                self.grid_east + self.center_point.east,
+                self.grid_north + self.center_point.north,
                 self.grid_z,
             ]
         ]
-        xsize, ysize = x.shape[0], y.shape[0]
+
+        pad_east = self._validate_pad_east(pad_east)
+        pad_north = self._validate_pad_north(pad_north)
+
         x, y, z = np.meshgrid(
-            x[clip[0] : xsize - clip[0]], y[clip[1] : ysize - clip[1]], z
+            x[slice(pad_east, -pad_east), slice(pad_north, -pad_north)], z
         )
 
         # set format for saving data
         fmt = ["%.1f", "%.1f", "%.3e"]
 
         # convert to lat/long if needed
-        if location_type == "LL":
-            if np.any(origin) == 0:
-                print(
-                    "Warning, origin coordinates provided as zero, output lat/long are likely to be incorrect"
-                )
-            # project using epsg_project as preference as it is faster, but if pyproj not installed, use gdal
-
-            xp, yp = project_point(x, y, model_epsg, 4326)
+        if location_type in ["ll"]:
+            xp, yp = project_point(x, y, self.center_point.utm_epsg, 4326)
 
             # update format to accommodate lat/lon
             fmt[:2] = ["%.6f", "%.6f"]
@@ -1719,27 +2078,25 @@ class StructuredGrid3D:
             xp, yp = x, y
 
         resvals = self.res_model[
-            clip[1] : ysize - clip[1], clip[0] : xsize - clip[0]
+            slice(pad_north, -pad_north), slice(pad_east, -pad_east)
         ]
 
         return xp, yp, z, resvals, fmt
 
-    def write_xyzres(
+    def to_xyzres(
         self,
         savefile=None,
         location_type="EN",
-        origin=[0, 0],
-        model_epsg=None,
         log_res=False,
-        model_utm_zone=None,
-        clip=[0, 0],
+        pad_east=None,
+        pad_north=None,
     ):
         """
         save a model file as a space delimited x y z res file
 
         """
         xp, yp, z, resvals, fmt = self._get_xyzres(
-            location_type, origin, model_epsg, clip
+            location_type, pad_east=pad_east, pad_north=pad_north
         )
         fmt.insert(2, "%.1f")
         xp, yp, z, resvals = (
@@ -1751,16 +2108,15 @@ class StructuredGrid3D:
 
         np.savetxt(savefile, np.vstack([xp, yp, z, resvals]).T, fmt=fmt)
 
-    def write_xyres(
+    def to_xyres(
         self,
         save_path=None,
         location_type="EN",
-        origin=[0, 0],
-        model_epsg=None,
         depth_index="all",
         outfile_basename="DepthSlice",
         log_res=False,
-        clip=[0, 0],
+        pad_east=None,
+        pad_north=None,
     ):
         """
         write files containing depth slice data (x, y, res for each depth)
@@ -1787,7 +2143,7 @@ class StructuredGrid3D:
             save_path.mkdir()
 
         xp, yp, z, resvals, fmt = self._get_xyzres(
-            location_type, origin, model_epsg, clip
+            location_type, pad_east=pad_east, pad_north=pad_north
         )
         xp = xp[:, :, 0].flatten()
         yp = yp[:, :, 0].flatten()
@@ -1802,7 +2158,7 @@ class StructuredGrid3D:
 
         for k in depthindices:
             fname = save_path.joinpath(
-                outfile_basename + "_%1im.xyz" % self.grid_z[k]
+                outfile_basename + f"_{int(self.grid_z[k]):1}m.xyz"
             )
 
             # get relevant depth slice
@@ -1815,13 +2171,11 @@ class StructuredGrid3D:
 
             np.savetxt(fname, data, fmt=fmt)
 
-    def write_vtk_file(
+    def to_vtk(
         self,
         vtk_save_path=None,
         vtk_fn_basename="ModEM_model_res",
-        shift_east=0,
-        shift_north=0,
-        shift_z=0,
+        geographic_coordinates=False,
         units="km",
         coordinate_system="nez+",
         label="resistivity",
@@ -1832,21 +2186,17 @@ class StructuredGrid3D:
         :param vtk_save_path: directory to save vtk file to, defaults to None
         :type vtk_save_path: string or Path, optional
         :param vtk_fn_basename: filename basename of vtk file, note that .vtr
-        extension is automatically added, defaults to "ModEM_stations"
+         extension is automatically added, defaults to "ModEM_stations"
         :type vtk_fn_basename: string, optional
-        :type geographic: boolean, optional
-        :param shift_east: shift in east directions in meters, defaults to 0
-        :type shift_east: float, optional
-        :param shift_north: shift in north direction in meters, defaults to 0
-        :type shift_north: float, optional
-        :param shift_z: shift in elevation + down in meters, defaults to 0
-        :type shift_z: float, optional
+        :param geographic_coordinates: [ True | False ] True for geographic
+         coordinates.
+        :type geographic_coordinates: boolean, optional
         :param units: Units of the spatial grid [ km | m | ft ], defaults to "km"
         :type units: string, optional
         :type : string
         :param coordinate_system: coordinate system for the station, either the
-        normal MT right-hand coordinate system with z+ down or the sinister
-        z- down [ nez+ | enz- ], defaults to nez+
+         normal MT right-hand coordinate system with z+ down or the sinister
+         z- down [ nez+ | enz- ], defaults to nez+
         :return: full path to VTK file
         :rtype: Path
 
@@ -1873,6 +2223,14 @@ class StructuredGrid3D:
         else:
             vtk_fn = Path(vtk_save_path).joinpath(vtk_fn_basename)
 
+        shift_north = 0
+        shift_east = 0
+        shift_z = 0
+        if geographic_coordinates:
+            shift_north = self.center_point.north
+            shift_east = self.center_point.east
+            shift_z = self.center_point.elevation
+
         # use cellData, this makes the grid properly as grid is n+1
         if coordinate_system == "nez+":
             vtk_x = (self.grid_north + shift_north) * scale
@@ -1888,14 +2246,11 @@ class StructuredGrid3D:
 
         gridToVTK(vtk_fn.as_posix(), vtk_x, vtk_y, vtk_z, cellData=cell_data)
 
-        self._logger.info("Wrote model file to {}".format(vtk_fn))
+        self._logger.info(f"Wrote model file to {vtk_fn}")
 
-    def write_geosoft_xyz_file(
+    def to_geosoft_xyz(
         self,
         save_fn,
-        c_east=0,
-        c_north=0,
-        c_z=0,
         pad_north=0,
         pad_east=0,
         pad_z=0,
@@ -1907,12 +2262,6 @@ class StructuredGrid3D:
 
         :param save_fn: full path to save file to
         :type save_fn: string or Path
-        :param c_east: center point in the east direction, defaults to 0
-        :type c_east: float, optional
-        :param c_north: center point in the north direction, defaults to 0
-        :type c_north: float, optional
-        :param c_z: center point elevation, defaults to 0
-        :type c_z: float, optional
         :param pad_north: number of cells to cut from the north-south edges, defaults to 0
         :type pad_north: int, optional
         :param pad_east: number of cells to cut from the east-west edges, defaults to 0
@@ -1935,14 +2284,18 @@ class StructuredGrid3D:
             for jj, yy in enumerate(self.grid_east[pad_east:-pad_east]):
                 for ii, xx in enumerate(self.grid_north[pad_north:-pad_north]):
                     lines.append(
-                        f"{yy + c_east:.3f} {xx + c_north:.3f} {-(zz + c_z):.3f} {self.res_model[ii, jj, kk]:.3f}"
+                        f"{yy + self.center_point.east:.3f} "
+                        f"{xx + self.center_point.north:.3f} "
+                        f"{-(zz + self.center_point.elevation):.3f} "
+                        f"{self.res_model[ii, jj, kk]:.3f}"
                     )
 
         with open(save_fn, "w") as fid:
             fid.write("\n".join(lines))
 
-    def write_out_file(
-        self, save_fn, geographic_east, geographic_north, geographic_elevation
+    def to_winglink_out(
+        self,
+        save_fn,
     ):
         """
         will write an .out file for LeapFrog.
@@ -1953,12 +2306,6 @@ class StructuredGrid3D:
 
         :param save_fn: full path to save file to
         :type save_fn: string or Path
-        :param geographic_east: geographic center in easting (meters)
-        :type geographic_east: float
-        :param geographic_north: geographic center in northing (meters)
-        :type geographic_north: float
-        :param geographic_elevation: elevation of geographic center (meters)
-        :type geographic_elevation: float
         :return: DESCRIPTION
         :rtype: TYPE
 
@@ -1987,7 +2334,7 @@ class StructuredGrid3D:
             self.res_model[:, :, :] = self.res_initial_value
 
         shift_east = (
-            geographic_east
+            self.center_point.east
             - (
                 self.nodes_east[0]
                 - self.nodes_east[1] / 2
@@ -1995,7 +2342,7 @@ class StructuredGrid3D:
             )
         ) / 1000.0
         shift_north = (
-            geographic_north
+            self.center_point.north
             + (
                 self.nodes_north[0]
                 - self.nodes_north[1] / 2
@@ -2003,7 +2350,7 @@ class StructuredGrid3D:
             )
         ) / 1000.0
 
-        shift_elevation = geographic_elevation / 1000.0
+        shift_elevation = self.center_point.elevation / 1000.0
 
         # --> write file
         with open(save_fn, "w") as ifid:
@@ -2020,18 +2367,18 @@ class StructuredGrid3D:
 
             # write S --> N node block
             for ii, nnode in enumerate(self.nodes_east):
-                ifid.write("{0:>12.3f}".format(abs(nnode)))
+                ifid.write(f"{abs(nnode):>12.3f}")
 
             ifid.write("\n")
 
             # write W --> E node block
             for jj, enode in enumerate(self.nodes_north):
-                ifid.write("{0:>12.3f}".format(abs(enode)))
+                ifid.write(f"{abs(enode):>12.3f}")
             ifid.write("\n")
 
             # write top --> bottom node block
             for kk, zz in enumerate(self.nodes_z):
-                ifid.write("{0:>12.3f}".format(abs(zz)))
+                ifid.write(f"{abs(zz):>12.3f}")
             ifid.write("\n")
 
             # write the resistivity in log e format
@@ -2043,9 +2390,7 @@ class StructuredGrid3D:
                 ifid.write(f"{count}\n")
                 for nn in range(self.nodes_north.size):
                     for ee in range(self.nodes_east.size):
-                        ifid.write(
-                            "{0:>13.5E}".format(write_res_model[nn, ee, zz])
-                        )
+                        ifid.write(f"{write_res_model[nn, ee, zz]:>13.5E}")
                     ifid.write("\n")
                 count += 1
 
@@ -2061,20 +2406,14 @@ class StructuredGrid3D:
             ifid.write(f"   {shift_elevation:.3f}       (top elevation)\n")
             ifid.write("\n")
 
-        self._logger.info("Wrote file to: {0}".format(save_fn))
+        self._logger.info(f"Wrote file to: {save_fn}")
 
-    def write_ubc_files(self, basename, c_east=0, c_north=0, c_z=0):
+    def to_ubc(self, basename):
         """
         Write a UBC .msh and .mod file
 
         :param save_fn: DESCRIPTION
         :type save_fn: TYPE
-        :param c_east: DESCRIPTION, defaults to 0
-        :type c_east: TYPE, optional
-        :param c_north: DESCRIPTION, defaults to 0
-        :type c_north: TYPE, optional
-        :param c_z: DESCRIPTION, defaults to 0
-        :type c_z: TYPE, optional
         :return: DESCRIPTION
         :rtype: TYPE
 
@@ -2107,3 +2446,360 @@ class StructuredGrid3D:
 
         with open(self.save_path.joinpath(basename + ".msh"), "w") as fid:
             fid.write("\n".join(lines))
+
+    def convert_model_to_int(self, res_list=None):
+        """
+        convert resistivity values to integers according to resistivity list
+
+        :param res_list: resistivity values in Ohm-m.
+        :type res_list: list of floats
+        :return: array of integers corresponding to the res_list
+        :rtype: np.ndarray(dtype=int)
+
+        """
+
+        res_model_int = np.ones_like(self.res_model)
+        if res_list is None:
+            return res_model_int
+        # make a dictionary of values to write to file.
+        res_dict = dict(
+            [(res, ii) for ii, res in enumerate(sorted(res_list), 1)]
+        )
+
+        for ii, res in enumerate(res_list):
+            indexes = np.where(self.res_model == res)
+            res_model_int[indexes] = res_dict[res]
+            if ii == 0:
+                indexes = np.where(self.res_model <= res)
+                res_model_int[indexes] = res_dict[res]
+            elif ii == len(res_list) - 1:
+                indexes = np.where(self.res_model >= res)
+                res_model_int[indexes] = res_dict[res]
+            else:
+                l_index = max([0, ii - 1])
+                h_index = min([len(res_list) - 1, ii + 1])
+                indexes = np.where(
+                    (self.res_model > res_list[l_index])
+                    & (self.res_model < res_list[h_index])
+                )
+                res_model_int[indexes] = res_dict[res]
+
+        return res_model_int
+
+    def to_ws3dinv_intial(self, initial_fn, res_list=None):
+        """
+        write a WS3DINV inital model file.
+        """
+
+        # check to see what resistivity in input
+        if res_list is None:
+            nr = 0
+        elif type(res_list) is not list and type(res_list) is not np.ndarray:
+            res_list = [res_list]
+            nr = len(res_list)
+        else:
+            nr = len(res_list)
+
+        # --> write file
+        lines = []
+        lines.append(f"# {'Inital Model File made in MTpy'.upper()}\n")
+        lines.append(
+            "{0} {1} {2} {3}\n".format(
+                self.nodes_north.shape[0],
+                self.nodes_east.shape[0],
+                self.nodes_z.shape[0],
+                nr,
+            )
+        )
+
+        # write S --> N node block
+        for ii, nnode in enumerate(self.nodes_north):
+            lines.append(f"{abs(nnode):>12.1f}")
+            if ii != 0 and np.remainder(ii + 1, 5) == 0:
+                lines.append("\n")
+            elif ii == self.nodes_north.shape[0] - 1:
+                lines.append("\n")
+
+        # write W --> E node block
+        for jj, enode in enumerate(self.nodes_east):
+            lines.append(f"{abs(enode):>12.1f}")
+            if jj != 0 and np.remainder(jj + 1, 5) == 0:
+                lines.append("\n")
+            elif jj == self.nodes_east.shape[0] - 1:
+                lines.append("\n")
+
+        # write top --> bottom node block
+        for kk, zz in enumerate(self.nodes_z):
+            lines.append(f"{abs(zz):>12.1f}")
+            if kk != 0 and np.remainder(kk + 1, 5) == 0:
+                lines.append("\n")
+            elif kk == self.nodes_z.shape[0] - 1:
+                lines.append("\n")
+
+        # write the resistivity list
+        if nr > 0:
+            for ff in res_list:
+                lines.append(f"{ff:.1f} ")
+            lines.append("\n")
+        else:
+            pass
+
+        if nr > 0:
+            res_model_int = self.convert_model_to_int(res_list)
+            # need to flip the array such that the 1st index written is the
+            # northern most value
+            write_res_model = res_model_int[::-1, :, :]
+            # get similar layers
+        else:
+            write_res_model = self.res_model[::-1, :, :]
+        l1 = 0
+        layers = []
+        for zz in range(self.nodes_z.shape[0] - 1):
+            if not (
+                write_res_model[:, :, zz] == write_res_model[:, :, zz + 1]
+            ).all():
+                layers.append((l1, zz))
+                l1 = zz + 1
+        # need to add on the bottom layers
+        layers.append((l1, self.nodes_z.shape[0] - 1))
+
+        # write out the layers from resmodel
+        for ll in layers:
+            lines.append(f"{ll[0] + 1} {ll[1] + 1}\n")
+            for nn in range(self.nodes_north.shape[0]):
+                for ee in range(self.nodes_east.shape[0]):
+                    if nr > 0:
+                        lines.append(f"{write_res_model[nn, ee, ll[0]]:>3.0f}")
+                    else:
+                        lines.append(f"{write_res_model[nn, ee, ll[0]]:>8.1f}")
+                lines.append("\n")
+
+        with open(initial_fn, "w") as fid:
+            fid.write("".join(lines))
+
+        self.logger.info(f"Wrote WS3DINV intial model file to: {initial_fn}")
+
+        return initial_fn
+
+    def from_ws3dinv_initial(self, initial_fn):
+        """
+        read an initial file and return the pertinent information including
+        grid positions in coordinates relative to the center point (0,0) and
+        starting model.
+
+        Arguments:
+        ----------
+
+            **initial_fn** : full path to initializing file.
+
+        Outputs:
+        --------
+
+            **nodes_north** : np.array(nx)
+                        array of nodes in S --> N direction
+
+            **nodes_east** : np.array(ny)
+                        array of nodes in the W --> E direction
+
+            **nodes_z** : np.array(nz)
+                        array of nodes in vertical direction positive downwards
+
+            **res_model** : dictionary
+                        dictionary of the starting model with keys as layers
+
+            **res_list** : list
+                        list of resistivity values in the model
+
+            **title** : string
+                         title string
+
+        """
+
+        with open(initial_fn, "r") as ifid:
+            ilines = ifid.readlines()
+
+        # get size of dimensions
+        nsize = ilines[1].strip().split()
+        n_north = int(nsize[0])
+        n_east = int(nsize[1])
+        n_z = int(nsize[2])
+
+        # initialize empy arrays to put things into
+        self.nodes_north = np.zeros(n_north)
+        self.nodes_east = np.zeros(n_east)
+        self.nodes_z = np.zeros(n_z)
+        res_model = np.zeros((n_north, n_east, n_z))
+
+        # get the grid line locations
+        line_index = 2  # line number in file
+        count_n = 0  # number of north nodes found
+        while count_n < n_north:
+            iline = ilines[line_index].strip().split()
+            for north_node in iline:
+                self.nodes_north[count_n] = float(north_node)
+                count_n += 1
+            line_index += 1
+
+        count_e = 0  # number of east nodes found
+        while count_e < n_east:
+            iline = ilines[line_index].strip().split()
+            for east_node in iline:
+                self.nodes_east[count_e] = float(east_node)
+                count_e += 1
+            line_index += 1
+
+        count_z = 0  # number of vertical nodes
+        while count_z < n_z:
+            iline = ilines[line_index].strip().split()
+            for z_node in iline:
+                self.nodes_z[count_z] = float(z_node)
+                count_z += 1
+            line_index += 1
+
+        # get the resistivity values
+        res_list = [float(rr) for rr in ilines[line_index].strip().split()]
+        line_index += 1
+
+        # get model
+        try:
+            iline = ilines[line_index].strip().split()
+
+        except IndexError:
+            res_model[:, :, :] = res_list[0]
+            return
+
+        if len(iline) == 0 or len(iline) == 1:
+            res_model[:, :, :] = res_list[0]
+            return
+        else:
+            while line_index < len(ilines):
+                iline = ilines[line_index].strip().split()
+                if len(iline) == 2:
+                    l1 = int(iline[0]) - 1
+                    l2 = int(iline[1])
+                    if l1 == l2:
+                        l2 += 1
+                    line_index += 1
+                    count_n = 0
+                elif len(iline) == 0:
+                    break
+                else:
+                    count_e = 0
+                    while count_e < n_east:
+                        # be sure the indes of res list starts at 0 not 1 as
+                        # in ws3dinv
+                        self.res_model[count_n, count_e, l1:l2] = res_list[
+                            int(iline[count_e]) - 1
+                        ]
+                        count_e += 1
+                    count_n += 1
+                    line_index += 1
+            # Need to be sure that the resistivity array matches
+            # with the grids, such that the first index is the
+            # furthest south, even though ws3dinv outputs as first
+            # index as furthest north.
+            self.res_model = res_model[::-1, :, :]
+
+        return res_list
+
+    def from_ws3dinv(self, model_fn):
+        """
+        read WS3DINV iteration model file.
+
+        :param model_fn: DESCRIPTION
+        :type model_fn: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        with open(model_fn, "r") as mfid:
+            mlines = mfid.readlines()
+
+        # get info at the beggining of file
+        info = mlines[0].strip().split()
+        iteration_number = int(info[2])
+        rms = float(info[5])
+        try:
+            lagrange = float(info[8])
+        except IndexError:
+            self.logger.warning("Did not get Lagrange Multiplier")
+
+        # get lengths of things
+        n_north, n_east, n_z, n_res = np.array(
+            mlines[1].strip().split(), dtype=int
+        )
+
+        # make empty arrays to put stuff into
+        self.nodes_north = np.zeros(n_north)
+        self.nodes_east = np.zeros(n_east)
+        self.nodes_z = np.zeros(n_z)
+        self.res_model = np.zeros((n_north, n_east, n_z))
+
+        # get the grid line locations
+        line_index = 2  # line number in file
+        count_n = 0  # number of north nodes found
+        while count_n < n_north:
+            mline = mlines[line_index].strip().split()
+            for north_node in mline:
+                self.nodes_north[count_n] = float(north_node)
+                count_n += 1
+            line_index += 1
+
+        count_e = 0  # number of east nodes found
+        while count_e < n_east:
+            mline = mlines[line_index].strip().split()
+            for east_node in mline:
+                self.nodes_east[count_e] = float(east_node)
+                count_e += 1
+            line_index += 1
+
+        count_z = 0  # number of vertical nodes
+        while count_z < n_z:
+            mline = mlines[line_index].strip().split()
+            for z_node in mline:
+                self.nodes_z[count_z] = float(z_node)
+                count_z += 1
+            line_index += 1
+
+        # --> get resistivity values
+        # need to read in the north backwards so that the first index is
+        # southern most point
+        for kk in range(n_z):
+            for jj in range(n_east):
+                for ii in range(n_north):
+                    self.res_model[(n_north - 1) - ii, jj, kk] = float(
+                        mlines[line_index].strip()
+                    )
+                    line_index += 1
+
+        return {
+            "rms": rms,
+            "lagrange_mulitplier": lagrange,
+            "info": info,
+            "iteration": iteration_number,
+        }
+
+    def estimate_skin_depth(self, apparent_resistivity, period, scale="km"):
+        """
+        Estimate skin depth from apparent resistivity and period
+
+        :param apparent_resistivity: DESCRIPTION
+        :type apparent_resistivity: TYPE
+        :param period: DESCRIPTION
+        :type period: TYPE
+        :param scale: DESCRIPTION, defaults to "km"
+        :type scale: TYPE, optional
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        if scale in ["km", "kilometers"]:
+            dscale = 1000
+        elif scale in ["m", "meters"]:
+            dscale = 1
+        elif scale in ["ft", "feet"]:
+            dscale = 3.2808399
+        else:
+            raise ValueError(f"Could not understand scale {scale}.")
+        return 503 * np.sqrt(apparent_resistivity * period) / dscale

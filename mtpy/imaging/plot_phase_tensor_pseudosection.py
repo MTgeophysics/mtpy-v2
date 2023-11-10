@@ -343,7 +343,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
         y_max = 1
         station_list = np.zeros(
             self.mt_data.n_stations,
-            dtype=[("offset", np.float), ("station", "U10")],
+            dtype=[("offset", float), ("station", "U10")],
         )
 
         for ii, tf in enumerate(self.mt_data.values()):

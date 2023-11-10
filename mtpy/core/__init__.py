@@ -3,6 +3,7 @@ from .transfer_function import Tipper
 from .transfer_function import PhaseTensor
 from .mt_location import MTLocation
 from .mt_stations import MTStations
+from .mt_dataframe import MTDataFrame
 
 __all__ = [
     "Z",
@@ -10,4 +11,5 @@ __all__ = [
     "PhaseTensor",
     "MTLocation",
     "MTStations",
+    "MTDataFrame",
 ]

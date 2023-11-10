@@ -294,14 +294,16 @@ class TFBase:
 
         if self._is_empty():
             frequency = self._validate_frequency(frequency)
+            self._dataset = self._initialize(periods=1.0 / frequency)
+
         else:
             frequency = self._validate_frequency(
                 frequency, n_frequencies=self._dataset.period.shape[0]
             )
 
-        self._dataset = self._dataset.assign_coords(
-            {"period": 1.0 / frequency}
-        )
+            self._dataset = self._dataset.assign_coords(
+                {"period": 1.0 / frequency}
+            )
 
     @property
     def period(self):

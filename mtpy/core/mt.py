@@ -24,6 +24,8 @@ from mtpy.imaging import (
     PlotPenetrationDepth1D,
 )
 from mtpy.modeling.errors import ModelErrors
+from mtpy.modeling.occam1d import Occam1DData
+from mtpy.modeling.simpeg.recipes.inversion_1d import Simpeg1D
 
 
 # =============================================================================
@@ -163,7 +165,6 @@ class MT(TF, MTLocation):
         """
         if not isinstance(z_object.frequency, type(None)):
             if self.frequency.size != z_object.frequency.shape:
-
                 self.frequency = z_object.frequency
 
             elif not (self.frequency == z_object.frequency).all():
@@ -416,7 +417,6 @@ class MT(TF, MTLocation):
 
         # check the bounds of the new frequency array
         if bounds_error:
-
             if self.period.min() > new_period.min():
                 raise ValueError(
                     f"New period minimum of {new_period.min():.5g} "
@@ -437,7 +437,6 @@ class MT(TF, MTLocation):
             new_m.Z = self.Z.interpolate(new_period, method=method, **kwargs)
             if new_m.has_impedance():
                 if np.all(np.isnan(new_m.Z.z)):
-
                     self.logger.warning(
                         f"Station {self.station}: Interpolated Z values are all NaN, "
                         "consider an alternative interpolation method. "
@@ -938,7 +937,9 @@ class MT(TF, MTLocation):
                     try:
                         t_obj.tipper_error[:, ii, jj] = 0
                     except TypeError:
-                        self.logger.debug("tipper_error is None, cannot remove")
+                        self.logger.debug(
+                            "tipper_error is None, cannot remove"
+                        )
                     try:
                         t_obj.tipper_model_error[:, ii, jj] = 0
                     except TypeError:
@@ -991,7 +992,9 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j * self._transfer_function.transfer_function.imag * noise_imag
+                1j
+                * self._transfer_function.transfer_function.imag
+                * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
@@ -1005,10 +1008,72 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j * self._transfer_function.transfer_function.imag * noise_imag
+                1j
+                * self._transfer_function.transfer_function.imag
+                * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
                 self._transfer_function.transfer_function_error + value
             )
             return new_mt_obj
+
+    def to_occam1d(self, data_filename=None, mode="det"):
+        """
+        write an Occam1DData data file
+
+        :param data_filename: path to write file, if None returns Occam1DData
+         object.
+        :type data_filename: string or Path
+        :param mode: [ 'te', 'tm', 'det', 'tez', 'tmz', 'detz'], defaults to "det"
+        :type mode: string, optional
+        :return: Occam1DData object
+        :rtype: :class:`mtpy.modeling.occam1d.Occam1DData`
+
+
+        :Example:
+
+            >>> mt_object = MT()
+            >>> mt_object.read(r"/path/to/tranfer_function/file")
+            >>> mt_object.compute_model_z_error()
+            >>> occam_data = mt_object.to_occam1d(data_filename=r"/path/to/data_file.dat")
+
+
+        """
+
+        occam_data = Occam1DData(self.to_dataframe(), mode=mode)
+        if data_filename is not None:
+            occam_data.write_data_file(data_filename)
+
+        return occam_data
+
+    def to_simpeg_1d(self, mode="det", **kwargs):
+        """
+        helper method to run a 1D inversion using Simpeg
+
+        default is smooth parameters
+
+        :To run sharp inversion:
+
+        >>> mt_object.to_simpeg_1d({"p_s": 2, "p_z": 0, "use_irls": True})
+
+        :To run sharp inversion adn compact:
+
+        >>> mt_object.to_simpeg_1d({"p_s": 0, "p_z": 0, "use_irls": True})
+
+
+        :param **kwargs: DESCRIPTION
+        :type **kwargs: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        if not self.Z._has_tf_model_error():
+            self.compute_model_z_errors()
+            self.logger.info("Using default errors for impedance")
+        simpeg_1d = Simpeg1D(self.to_dataframe(), mode=mode, **kwargs)
+        simpeg_1d.run_fixed_layer_inversion(**kwargs)
+        simpeg_1d.plot_model_fitting(fig_num=1)
+        simpeg_1d.plot_response(fig_num=2)
+
+        return simpeg_1d
