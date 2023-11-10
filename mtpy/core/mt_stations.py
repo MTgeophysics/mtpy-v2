@@ -41,7 +41,6 @@ class MTStations:
     """
 
     def __init__(self, utm_epsg, datum_epsg=None, **kwargs):
-
         self.logger = logger
 
         self.dtype = dict(
@@ -389,14 +388,14 @@ class MTStations:
 
         key = f"{key}_epsg"
         if len(df[key].unique()) > 1:
-            epsg = int(df[key].median())
+            epsg = df[key].astype(int).median()
             self.logger.warning(
                 f"Found more than one {key} number, using median EPSG number {epsg}"
             )
             return epsg
         else:
             if getattr(self, key) is None:
-                return df[key].unique()[0]
+                return int(df[key].unique()[0])
 
     def compute_relative_locations(self):
         """
@@ -469,7 +468,9 @@ class MTStations:
 
             else:
                 self.logger.debug("locating center from UTM grid")
-                center_location.east = (st_en.east.max() + st_en.east.min()) / 2
+                center_location.east = (
+                    st_en.east.max() + st_en.east.min()
+                ) / 2
                 center_location.north = (
                     st_en.north.max() + st_en.north.min()
                 ) / 2
