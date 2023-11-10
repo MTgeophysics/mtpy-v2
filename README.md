@@ -1,5 +1,7 @@
 # MTpy-v2: A Python Toolbox for working with Magnetotelluric (MT) Data
 
+[![PyPi version](https://img.shields.io/pypi/v/mtpy-v2.svg)](https://pypi.python.org/pypi/mtpy-v2)
+[![Latest conda|conda-forge version](https://img.shields.io/conda/v/conda-forge/mtpy-v2.svg)](https://anaconda.org/conda-forge/mtpy-v2)
 [![codecov](https://codecov.io/gh/MTgeophysics/mtpy-v2/graph/badge.svg?token=TQPFBFMYDQ)](https://codecov.io/gh/MTgeophysics/mtpy-v2)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Documentation Status](https://readthedocs.org/projects/mtpy-v2/badge/?version=latest)](https://mtpy-v2.readthedocs.io/en/latest/?badge=latest)
