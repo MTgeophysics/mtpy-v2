@@ -13,3 +13,9 @@ History
 	- Updating tests (still lots of work to do)
 	- Updated documentation to upload to ReadTheDocs
 
+2.0.5 (2023-11-09)
+---------------------
+
+* bug fixes
+* now install simpeg for inversions, 1D implemented so far
+
