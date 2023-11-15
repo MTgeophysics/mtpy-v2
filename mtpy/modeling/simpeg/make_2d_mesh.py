@@ -93,7 +93,7 @@ def generate_2d_mesh_structured(
             break
     hx = [(dx_min, npadx, -pfx), (dx_min, ncx), (dx_min, npadx, pfx)]
 
-    mesh = discretize.TensorMesh([hx, hz])
+    mesh = TensorMesh([hx, hz])
     mesh.origin = np.r_[
         -mesh.hx[:npadx].sum() + rx_locs[:, 0].min(), -hz_down.sum()
     ]
