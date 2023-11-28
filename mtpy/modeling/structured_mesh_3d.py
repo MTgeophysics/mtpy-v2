@@ -2171,6 +2171,24 @@ class StructuredGrid3D:
 
             np.savetxt(fname, data, fmt=fmt)
 
+    def _rotate_res_model(self):
+        """
+        Rotate `res_model` for some reason when you do rot90 the flags of
+        the numpy array get set to False and causes an error in pyevtk.  Need
+        a little trick to keep the C_CONTIGUOUS = True.
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        res_array = np.arange(self.res_model.size)
+        rotated = np.rot90(self.res_model)
+        res_array = res_array.reshape(rotated.shape)
+        res_array[:, :, :] = rotated[:, :, :]
+
+        return res_array
+
     def to_vtk(
         self,
         vtk_save_path=None,
@@ -2231,22 +2249,32 @@ class StructuredGrid3D:
             shift_east = self.center_point.east
             shift_z = self.center_point.elevation
 
-        # use cellData, this makes the grid properly as grid is n+1
-        if coordinate_system == "nez+":
-            vtk_x = (self.grid_north + shift_north) * scale
-            vtk_y = (self.grid_east + shift_east) * scale
-            vtk_z = (self.grid_z + shift_z) * scale
-            cell_data = {label: self.res_model}
-
-        elif coordinate_system == "enz-":
             vtk_y = (self.grid_north + shift_north) * scale
             vtk_x = (self.grid_east + shift_east) * scale
-            vtk_z = -1 * (self.grid_z + shift_z) * scale
-            cell_data = {label: np.rot90(self.res_model)}
+            if "+" in coordinate_system:
+                vtk_z = (self.grid_z + shift_z) * scale
+            elif "-" in coordinate_system:
+                vtk_z = -1 * (self.grid_z + shift_z) * scale
+
+            cell_data = {label: self._rotate_res_model()}
+
+        # use cellData, this makes the grid properly as grid is n+1
+        else:
+            if coordinate_system == "nez+":
+                vtk_x = (self.grid_north + shift_north) * scale
+                vtk_y = (self.grid_east + shift_east) * scale
+                vtk_z = (self.grid_z + shift_z) * scale
+                cell_data = {label: self.res_model}
+
+            elif coordinate_system == "enz-":
+                vtk_y = (self.grid_north + shift_north) * scale
+                vtk_x = (self.grid_east + shift_east) * scale
+                vtk_z = -1 * (self.grid_z + shift_z) * scale
+                cell_data = {label: self._rotate_res_model()}
 
         gridToVTK(vtk_fn.as_posix(), vtk_x, vtk_y, vtk_z, cellData=cell_data)
 
-        self._logger.info(f"Wrote model file to {vtk_fn}")
+        self._logger.info(f"Wrote VTK model file to {vtk_fn}")
 
     def to_geosoft_xyz(
         self,
