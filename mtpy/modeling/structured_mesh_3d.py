@@ -2183,7 +2183,7 @@ class StructuredGrid3D:
         """
 
         res_array = np.arange(self.res_model.size)
-        rotated = np.rot90(self.res_model)
+        rotated = np.swapaxes(self.res_model, 0, 1)
         res_array = res_array.reshape(rotated.shape)
         res_array[:, :, :] = rotated[:, :, :]
 
