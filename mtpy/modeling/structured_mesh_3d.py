@@ -572,8 +572,7 @@ class StructuredGrid3D:
         for s_north in sorted(self.station_locations.model_north):
             try:
                 node_index = np.where(
-                    abs(s_north - self.grid_north)
-                    < 0.02 * self.cell_size_north
+                    abs(s_north - self.grid_north) < 0.02 * self.cell_size_north
                 )[0][0]
                 if s_north - self.grid_north[node_index] > 0:
                     self.grid_north[node_index] -= 0.02 * self.cell_size_north
@@ -602,9 +601,7 @@ class StructuredGrid3D:
             )
 
         # compute grid center
-        center_east = np.round(
-            self.grid_east.min() - self.grid_east.mean(), -1
-        )
+        center_east = np.round(self.grid_east.min() - self.grid_east.mean(), -1)
         center_north = np.round(
             self.grid_north.min() - self.grid_north.mean(), -1
         )
@@ -826,8 +823,7 @@ class StructuredGrid3D:
         if self.res_scale.lower() == "loge":
             write_res_model = np.log(self.res_model[::-1, :, :])
         elif (
-            self.res_scale.lower() == "log"
-            or self.res_scale.lower() == "log10"
+            self.res_scale.lower() == "log" or self.res_scale.lower() == "log10"
         ):
             write_res_model = np.log10(self.res_model[::-1, :, :])
         elif self.res_scale.lower() == "linear":
@@ -945,9 +941,7 @@ class StructuredGrid3D:
         self.nodes_east = np.array(
             [float(nn) for nn in ilines[3].strip().split()]
         )
-        self.nodes_z = np.array(
-            [float(nn) for nn in ilines[4].strip().split()]
-        )
+        self.nodes_z = np.array([float(nn) for nn in ilines[4].strip().split()])
 
         self.res_model = np.zeros((n_north, n_east, n_z))
 
@@ -1679,9 +1673,7 @@ class StructuredGrid3D:
                 # adjust level to topography min
                 if max_elev is not None:
                     self.grid_z -= max_elev
-                    ztops = np.where(
-                        self.surface_dict["topography"] > max_elev
-                    )
+                    ztops = np.where(self.surface_dict["topography"] > max_elev)
                     self.surface_dict["topography"][ztops] = max_elev
                 else:
                     self.grid_z -= topo_core.max()
@@ -2182,12 +2174,9 @@ class StructuredGrid3D:
 
         """
 
-        res_array = np.arange(self.res_model.size)
         rotated = np.swapaxes(self.res_model, 0, 1)
-        res_array = res_array.reshape(rotated.shape)
-        res_array[:, :, :] = rotated[:, :, :]
 
-        return res_array
+        return rotated.copy()
 
     def to_vtk(
         self,
