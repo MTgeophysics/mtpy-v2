@@ -366,9 +366,10 @@ class MT(TF, MTLocation):
     def interpolate(
         self,
         new_period,
-        method="cubic",
+        method="slinear",
         bounds_error=True,
         f_type="period",
+        z_log_space=True,
         **kwargs,
     ):
         """
@@ -435,7 +436,7 @@ class MT(TF, MTLocation):
         new_m = self.clone_empty()
         if self.has_impedance():
             new_m.Z = self.Z.interpolate(
-                new_period, method=method, log_space=True, **kwargs
+                new_period, method=method, log_space=z_log_space, **kwargs
             )
             if new_m.has_impedance():
                 if np.all(np.isnan(new_m.Z.z)):
