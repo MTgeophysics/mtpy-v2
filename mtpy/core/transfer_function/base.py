@@ -24,6 +24,7 @@ from mtpy.utils.calculator import (
     rotate_vector_with_errors,
 )
 
+
 # ==============================================================================
 # Impedance Tensor Class
 # ==============================================================================
@@ -43,7 +44,6 @@ class TFBase:
         tf_model_error=None,
         **kwargs,
     ):
-
         self.logger = logger
         self.rotation_angle = 0.0
         self.inputs = ["x", "y"]
@@ -165,9 +165,7 @@ class TFBase:
             tf_error = np.zeros_like(
                 tf_model_error, dtype=self._tf_dtypes["tf_error"]
             )
-            periods = self._validate_frequency(
-                periods, tf_model_error.shape[0]
-            )
+            periods = self._validate_frequency(periods, tf_model_error.shape[0])
 
         else:
             periods = self._validate_frequency(periods)
@@ -249,9 +247,7 @@ class TFBase:
 
     def _has_tf_error(self):
         if not self._is_empty():
-            return not (
-                self._dataset.transfer_function_error.values == 0
-            ).all()
+            return not (self._dataset.transfer_function_error.values == 0).all()
         return False
 
     def _has_tf_model_error(self):
@@ -549,9 +545,7 @@ class TFBase:
         rotate_func = get_rotate_function(self._expected_shape)
 
         for index, angle in enumerate(degree_angle):
-
             if self._has_tf():
-
                 if self._has_tf_error():
                     (
                         rot_tf[index, :, :],
@@ -591,16 +585,22 @@ class TFBase:
         new_periods,
         inplace=False,
         method="cubic",
-        na_method="cubic",
+        na_method="pchip",
+        log_space=False,
         **kwargs,
     ):
         """
         interpolate onto a new period range
 
-        'cubic' seems to work best when using xr.interp
+        'pchip' seems to work best when using xr.interpolate_na
 
         xarray uses scipy.interpolate.interp1d when possible.  There
         maybe some issues with interpolating complex numbers.
+
+        Set log_space=True if the object being interpolated is in log space,
+        like impedance. There is an issue when the interpolated object is in
+        log space.  The interpolators work better in linear space.
+
 
         :param new_periods: DESCRIPTION
         :type new_periods: TYPE
@@ -614,12 +614,22 @@ class TFBase:
             # need to interpolate over nans first, if use dropna loose a lot
             # of data.  going to interpolate anyway. cubic seems to work best
             # for interpolate na
-            da_drop_nan = self._dataset[key].interpolate_na(
-                dim="period", method=method
-            )
-            da_dict[key] = da_drop_nan.interp(
-                period=new_periods, method=method, kwargs=kwargs
-            )
+            if log_space:
+                da_drop_nan = np.log(self._dataset[key]).interpolate_na(
+                    dim="period", method=method
+                )
+                da_dict[key] = np.exp(
+                    da_drop_nan.interp(
+                        period=new_periods, method=method, kwargs=kwargs
+                    )
+                )
+            else:
+                da_drop_nan = self._dataset[key].interpolate_na(
+                    dim="period", method=method
+                )
+                da_dict[key] = da_drop_nan.interp(
+                    period=new_periods, method=method, kwargs=kwargs
+                )
 
         ds = xr.Dataset(da_dict)
 

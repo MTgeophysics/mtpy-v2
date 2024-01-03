@@ -434,7 +434,9 @@ class MT(TF, MTLocation):
 
         new_m = self.clone_empty()
         if self.has_impedance():
-            new_m.Z = self.Z.interpolate(new_period, method=method, **kwargs)
+            new_m.Z = self.Z.interpolate(
+                new_period, method=method, log_space=True, **kwargs
+            )
             if new_m.has_impedance():
                 if np.all(np.isnan(new_m.Z.z)):
                     self.logger.warning(
@@ -937,9 +939,7 @@ class MT(TF, MTLocation):
                     try:
                         t_obj.tipper_error[:, ii, jj] = 0
                     except TypeError:
-                        self.logger.debug(
-                            "tipper_error is None, cannot remove"
-                        )
+                        self.logger.debug("tipper_error is None, cannot remove")
                     try:
                         t_obj.tipper_model_error[:, ii, jj] = 0
                     except TypeError:
@@ -992,9 +992,7 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j
-                * self._transfer_function.transfer_function.imag
-                * noise_imag
+                1j * self._transfer_function.transfer_function.imag * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
@@ -1008,9 +1006,7 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j
-                * self._transfer_function.transfer_function.imag
-                * noise_imag
+                1j * self._transfer_function.transfer_function.imag * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
