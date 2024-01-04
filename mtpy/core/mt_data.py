@@ -330,7 +330,7 @@ class MTData(OrderedDict, MTStations):
         if not isinstance(station_id, (list, tuple)):
             station_id = [station_id]
         for st_id in station_id:
-            key = self._get_station_key(station_id, survey_id)
+            key = self._get_station_key(st_id, survey_id)
             if key in self.keys():
                 del self[key]
 
