@@ -369,7 +369,7 @@ class MT(TF, MTLocation):
         method="slinear",
         bounds_error=True,
         f_type="period",
-        z_log_space=True,
+        z_log_space=False,
         **kwargs,
     ):
         """

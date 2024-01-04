@@ -57,7 +57,6 @@ class MTData(OrderedDict, MTStations):
     """
 
     def __init__(self, mt_list=None, **kwargs):
-
         if mt_list is not None:
             for mt_obj in mt_list:
                 self.add_station(mt_obj, compute_relative_location=False)
@@ -328,10 +327,12 @@ class MTData(OrderedDict, MTStations):
         :type survey_id: str
 
         """
-
-        key = self._get_station_key(station_id, survey_id)
-        if key in self.keys():
-            del self[key]
+        if not isinstance(station_id, (list, tuple)):
+            station_id = [station_id]
+        for st_id in station_id:
+            key = self._get_station_key(station_id, survey_id)
+            if key in self.keys():
+                del self[key]
 
     def _get_station_key(self, station_id, survey_id):
         """
@@ -600,7 +601,6 @@ class MTData(OrderedDict, MTStations):
         t_error_type=None,
         t_floor=None,
     ):
-
         """
         Compute mode errors based on the error type
 
