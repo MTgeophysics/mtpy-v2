@@ -387,11 +387,8 @@ class Z(TFBase):
     def resistivity_error(self):
         """resistivity error of impedance"""
         if self.z is not None and self.z_error is not None:
-            return np.apply_along_axis(
-                lambda x: np.abs(x) ** 2 / self.frequency * 0.2,
-                0,
-                self.z_error,
-            )
+            with np.errstate(divide="ignore", invalid="ignore"):
+                return 2 * self.z_error / np.abs(self.z)
 
     @property
     def phase_error(self):
@@ -406,11 +403,7 @@ class Z(TFBase):
     def resistivity_model_error(self):
         """resistivity model error of impedance"""
         if self.z is not None and self.z_model_error is not None:
-            return np.apply_along_axis(
-                lambda x: np.abs(x) ** 2 / self.frequency * 0.2,
-                0,
-                self.z_model_error,
-            )
+            return 2 * self.z_model_error / np.abs(self.z)
 
     @property
     def phase_model_error(self):
