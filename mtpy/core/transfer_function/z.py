@@ -385,19 +385,29 @@ class Z(TFBase):
 
     @property
     def resistivity_error(self):
-        """resistivity error of impedance"""
+        """
+        resistivity error of impedance
+
+        By standard error propagation, relative error in resistivity is
+        2*relative error in z amplitude.
+        """
         if self.z is not None and self.z_error is not None:
             with np.errstate(divide="ignore", invalid="ignore"):
                 return 2 * self.z_error / np.abs(self.z)
 
     @property
     def phase_error(self):
-        """phase error of impedance"""
+        """
+        phase error of impedance
+
+        Uncertainty in phase (in degrees) is computed by defining a circle around
+        the z vector in the complex plane. The uncertainty is the absolute angle
+        between the vector to (x,y) and the vector between the origin and the
+        tangent to the circle.
+        """
         if self.z is not None and self.z_error is not None:
             with np.errstate(divide="ignore", invalid="ignore"):
-                return np.degrees(
-                    np.arctan(self.resistivity_error / self.resistivity)
-                )
+                return np.degrees(np.arctan(self.z_error / np.abs(self.z)))
 
     @property
     def resistivity_model_error(self):
@@ -411,7 +421,7 @@ class Z(TFBase):
         if self.z is not None and self.z_model_error is not None:
             with np.errstate(divide="ignore", invalid="ignore"):
                 return np.degrees(
-                    np.arctan(self.resistivity_model_error / self.resistivity)
+                    np.arctan(self.z_model_error / np.abs(self.z))
                 )
 
     def _compute_z_error(self, res, res_error, phase, phase_error):
