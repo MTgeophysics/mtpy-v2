@@ -13,14 +13,16 @@ Created on Wed Oct 16 14:56:04 2013
 # ==============================================================================
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy.signal as sps
 
 import matplotlib.colors as colors
 import matplotlib.patches as patches
 import matplotlib.colorbar as mcb
-import mtpy.imaging.mtcolors as mtcl
+
+from mtpy.imaging import mtcolors
 from mtpy.imaging.mtplot_tools import PlotBaseProfile
 from mtpy.analysis.residual_phase_tensor import ResidualPhaseTensor
-import scipy.signal as sps
+
 
 # ==============================================================================
 
@@ -278,17 +280,13 @@ class PlotResidualPTPseudoSection(PlotBaseProfile):
                         self.logger.info("-" * 50)
                         self.logger.info(mt1.station)
                         self.logger.info(f"freq_index for 1:  {f_index}")
-                        self.logger.info(
-                            f"frequency looking for:  {frequency}"
-                        )
+                        self.logger.info(f"frequency looking for:  {frequency}")
                         self.logger.info(f"index in big    :  {aa}")
                         self.logger.info(f"index in 1      :  {rr}")
                         self.logger.info(
                             f"len_1 = {len(mt1.frequency)}, len_2 = {len(mt2.frequency)}"
                         )
-                        self.logger.info(
-                            f"len rpt_freq = {len(rpt.frequency)}"
-                        )
+                        self.logger.info(f"len rpt_freq = {len(rpt.frequency)}")
                 except KeyError:
                     self.logger.info(
                         f"Station {mt1.station} does not have {frequency:.5f}Hz"
@@ -355,8 +353,7 @@ class PlotResidualPTPseudoSection(PlotBaseProfile):
             color_array = rpt_array["phimax"]
 
         elif (
-            self.ellipse_colorby == "skew"
-            or self.ellipse_colorby == "skew_seg"
+            self.ellipse_colorby == "skew" or self.ellipse_colorby == "skew_seg"
         ):
             color_array = rpt_array["skew"]
 
@@ -425,7 +422,7 @@ class PlotResidualPTPseudoSection(PlotBaseProfile):
             # get ellipse color
             if self.ellipse_cmap.find("seg") > 0:
                 ellipd.set_facecolor(
-                    mtcl.get_plot_color(
+                    mtcolors.get_plot_color(
                         rpt[self.ellipse_colorby][f_index],
                         self.ellipse_colorby,
                         self.ellipse_cmap,
@@ -436,7 +433,7 @@ class PlotResidualPTPseudoSection(PlotBaseProfile):
                 )
             else:
                 ellipd.set_facecolor(
-                    mtcl.get_plot_color(
+                    mtcolors.get_plot_color(
                         rpt[self.ellipse_colorby][f_index],
                         self.ellipse_colorby,
                         self.ellipse_cmap,
@@ -465,10 +462,7 @@ class PlotResidualPTPseudoSection(PlotBaseProfile):
             self.ax2 = self.fig.add_axes(self.cb_position)
 
         # make the colorbar
-        if self.ellipse_cmap in list(mtcl.cmapdict.keys()):
-            cmap_input = mtcl.cmapdict[self.ellipse_cmap]
-        else:
-            cmap_input = mtcl.cm.get_cmap(self.ellipse_cmap)
+        cmap_input = mtcolors.cm.get_cmap(self.ellipse_cmap)
 
         if "seg" in self.ellipse_cmap:
             norms = colors.BoundaryNorm(self.ellipse_cmap_bounds, cmap_input.N)

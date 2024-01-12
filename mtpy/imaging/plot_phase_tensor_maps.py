@@ -449,7 +449,6 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
         plot_x, plot_y = self._get_location(tf)
         has_ellipse = False
         if pt_obj is not None:
-
             # --> set local variables
             phimin = np.nan_to_num(pt_obj.phimin)[0]
             phimax = np.nan_to_num(pt_obj.phimax)[0]
@@ -567,10 +566,7 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
         else:
             self.ax2 = self.fig.add_axes(self.cb_position)
         # make the colorbar
-        if self.ellipse_cmap in list(mtcolors.cmapdict.keys()):
-            cmap_input = mtcolors.cmapdict[self.ellipse_cmap]
-        else:
-            cmap_input = mtcolors.cm.get_cmap(self.ellipse_cmap)
+        cmap_input = mtcolors.cm.get_cmap(self.ellipse_cmap)
         if "seg" in self.ellipse_cmap:
             norms = colors.BoundaryNorm(self.ellipse_cmap_bounds, cmap_input.N)
             self.cb = mcb.ColorbarBase(
@@ -643,7 +639,6 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
             cmap = getattr(self, dict_key)
             cmap_input = mtcolors.cm.get_cmap(cmap)
             if "seg" in cmap and "ellipse" in key:
-
                 norms = colors.BoundaryNorm(
                     self.ellipse_cmap_bounds, cmap_input.N
                 )
@@ -655,9 +650,7 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
                     ticks=self.ellipse_cmap_bounds,
                 )
             elif "skew" in key:
-                norms = colors.BoundaryNorm(
-                    self.skew_cmap_bounds, cmap_input.N
-                )
+                norms = colors.BoundaryNorm(self.skew_cmap_bounds, cmap_input.N)
                 cb = mcb.ColorbarBase(
                     ax,
                     cmap=cmap_input,
