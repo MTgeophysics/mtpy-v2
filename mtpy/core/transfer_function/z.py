@@ -26,6 +26,7 @@ from .z_analysis import (
     calculate_depth_of_investigation,
 )
 
+
 # ==============================================================================
 # Impedance Tensor Class
 # ==============================================================================
@@ -393,7 +394,12 @@ class Z(TFBase):
         """
         if self.z is not None and self.z_error is not None:
             with np.errstate(divide="ignore", invalid="ignore"):
-                return 2 * self.z_error / np.abs(self.z)
+                return np.apply_along_axis(
+                    lambda x: x / self.frequency * 0.2,
+                    0,
+                    2 * self.z_error / np.abs(self.z),
+                )
+                # return 2 * self.z_error / np.abs(self.z)
 
     @property
     def phase_error(self):
@@ -494,9 +500,7 @@ class Z(TFBase):
         res_error = self._validate_array_input(res_error, float)
         phase_error = self._validate_array_input(phase_error, float)
         res_model_error = self._validate_array_input(res_model_error, float)
-        phase_model_error = self._validate_array_input(
-            phase_model_error, float
-        )
+        phase_model_error = self._validate_array_input(phase_model_error, float)
 
         abs_z = np.sqrt(5.0 * self.frequency * (resistivity.T)).T
         self.z = abs_z * np.exp(1j * np.radians(phase))
