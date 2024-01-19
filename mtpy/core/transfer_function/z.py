@@ -434,7 +434,7 @@ class Z(TFBase):
                     np.arctan(self.z_model_error / np.abs(self.z))
                 )
 
-    def _compute_z_error(self, res, res_error, phase, phase_error):
+    def _compute_z_error(self, res_error, phase_error):
         """
         Compute z error from apparent resistivity and phase.
 
@@ -453,8 +453,8 @@ class Z(TFBase):
         if res_error is None:
             return None
         return np.abs(
-            np.sqrt(5.0 * self.frequency * (res_error.T)).T
-            * np.exp(1j * np.radians(phase_error))
+            np.sqrt(self.frequency * (res_error.T) * 250).T
+            * np.tan(np.radians(phase_error))
         )
 
     def set_resistivity_phase(
@@ -509,11 +509,9 @@ class Z(TFBase):
         abs_z = np.sqrt(5.0 * self.frequency * (resistivity.T)).T
         self.z = abs_z * np.exp(1j * np.radians(phase))
 
-        self.z_error = self._compute_z_error(
-            resistivity, res_error, phase, phase_error
-        )
+        self.z_error = self._compute_z_error(res_error, phase_error)
         self.z_model_error = self._compute_z_error(
-            resistivity, res_model_error, phase, phase_model_error
+            res_model_error, phase_model_error
         )
 
     @property
