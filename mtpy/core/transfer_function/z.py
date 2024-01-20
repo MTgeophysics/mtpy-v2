@@ -449,9 +449,14 @@ class Z(TFBase):
         :return: impedance error as a float
         :rtype: np.ndarray
 
+
+
         """
         if res_error is None:
             return None
+
+        # not extremely positive where the 250 comes from it is roughly 5 x 50
+        # which is about 5 * (2*pi)**2
         return np.abs(
             np.sqrt(self.frequency * (res_error.T) * 250).T
             * np.tan(np.radians(phase_error))
