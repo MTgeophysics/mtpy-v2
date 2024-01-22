@@ -206,6 +206,11 @@ class TestMTSetImpedance(unittest.TestCase):
             np.all(np.isclose(new_mt.Z.phase_xy % 180, self.mt.Z.phase_xy))
         )
 
+    def test_remove_component(self):
+        new_mt = self.mt.remove_component(zxx=True, inplace=False)
+
+        self.assertTrue(np.all(np.isnan(new_mt.Z.z[:, 0, 0])))
+
 
 class TestMTComputeModelError(unittest.TestCase):
     @classmethod

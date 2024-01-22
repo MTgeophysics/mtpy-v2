@@ -867,68 +867,41 @@ class MT(TF, MTLocation):
 
         """
         c_dict = {
-            "zxx": {"index": (0, 0), "bool": zxx},
-            "zxy": {"index": (0, 1), "bool": zxy},
-            "zyx": {"index": (1, 0), "bool": zyx},
-            "zyy": {"index": (1, 1), "bool": zyy},
-            "tzx": {"index": (0, 0), "bool": tzx},
-            "tzy": {"index": (0, 1), "bool": tzy},
+            "zxx": zxx,
+            "zxy": zxy,
+            "zyx": zyx,
+            "zyy": zyy,
+            "tzx": tzx,
+            "tzy": tzy,
         }
 
-        z_obj = self.Z.copy()
-        t_obj = self.Tipper.copy()
-
-        z_change = False
-        t_change = False
-        for ckey, dd in c_dict.items():
-            if dd["bool"]:
-                ii, jj = dd["index"]
-                if "z" in ckey:
-                    z_change = True
-                    try:
-                        z_obj.z[:, ii, jj] = 0
-                    except TypeError:
-                        self.logger.debug("z is None, cannot remove")
-                    try:
-                        z_obj.z_error[:, ii, jj] = 0
-                    except TypeError:
-                        self.logger.debug("z_error is None, cannot remove")
-                    try:
-                        z_obj.z_model_error[:, ii, jj] = 0
-                    except TypeError:
-                        self.logger.debug(
-                            "z_model_error is None, cannot remove"
-                        )
-
-                elif "t" in ckey:
-                    t_change = True
-                    try:
-                        t_obj.tipper[:, ii, jj] = 0
-                    except TypeError:
-                        self.logger.debug("tipper is None, cannot remove")
-                    try:
-                        t_obj.tipper_error[:, ii, jj] = 0
-                    except TypeError:
-                        self.logger.debug("tipper_error is None, cannot remove")
-                    try:
-                        t_obj.tipper_model_error[:, ii, jj] = 0
-                    except TypeError:
-                        self.logger.debug(
-                            "tipper_model_error is None, cannot remove"
-                        )
-
+        # set to nan
         if inplace:
-            if z_change:
-                self.Z = z_obj
-            if t_change:
-                self.Tipper = t_obj
+            for ckey, cbool in c_dict.items():
+                if cbool:
+                    self._transfer_function.transfer_function.loc[
+                        getattr(self, f"index_{ckey}")
+                    ] = (np.nan + 1j * np.nan)
+                    self._transfer_function.transfer_function_error.loc[
+                        getattr(self, f"index_{ckey}")
+                    ] = 0
+                    self._transfer_function.transfer_function_model_error.loc[
+                        getattr(self, f"index_{ckey}")
+                    ] = 0
         else:
-            return_obj = self.copy()
-            if z_change:
-                return_obj.Z = z_obj
-            if t_change:
-                return_obj.Tipper = t_obj
-            return return_obj
+            mt_obj = self.copy()
+            for ckey, cbool in c_dict.items():
+                if cbool:
+                    mt_obj._transfer_function.transfer_function.loc[
+                        getattr(self, f"index_{ckey}")
+                    ] = (np.nan + 1j * np.nan)
+                    mt_obj._transfer_function.transfer_function_error.loc[
+                        getattr(self, f"index_{ckey}")
+                    ] = 0
+                    mt_obj._transfer_function.transfer_function_model_error.loc[
+                        getattr(self, f"index_{ckey}")
+                    ] = 0
+            return mt_obj
 
     def add_white_noise(self, value, inplace=True):
         """

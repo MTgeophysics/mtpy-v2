@@ -10,6 +10,7 @@ Created on Tue May 14 18:05:59 2013
 from matplotlib import pyplot as plt
 from matplotlib import colors
 from matplotlib import cm
+from matplotlib import colormaps
 
 import numpy as np
 
@@ -298,7 +299,7 @@ MT_CMAP_DICT = {
 def register_cmaps(cmap_dict):
     for key, value in cmap_dict.items():
         if key not in plt.colormaps.keys():
-            plt.register_cmap(key, value)
+            colormaps.register(value, name=key)
 
 
 def get_color(cvar, cmap):
