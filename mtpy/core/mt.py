@@ -34,6 +34,13 @@ class MT(TF, MTLocation):
     Basic MT container to hold all information necessary for a MT station
     including the following parameters.
 
+    Impedance and Tipper element nomenclature is E/H therefore the first
+    letter represents the output channels and the second letter represents
+    the input channels.
+
+    For exampe for an input of Hx and an output of Ey the impedance tensor
+    element is Zyx.
+
 
     """
 
@@ -794,71 +801,33 @@ class MT(TF, MTLocation):
         :return: new mt_dict with components removed
         :rtype: dictionary
 
-        >>> d = Data()
-        >>> d.read_data_file(r"example/data.dat")
-        >>> d.data, d.mt_dict = d.flip_phase("mt01", comp=["zx", "tx"])
-
         """
+
         c_dict = {
-            "zxx": {"index": (0, 0), "bool": zxx},
-            "zxy": {"index": (0, 1), "bool": zxy},
-            "zyx": {"index": (1, 0), "bool": zyx},
-            "zyy": {"index": (1, 1), "bool": zyy},
-            "tzx": {"index": (0, 0), "bool": tzx},
-            "tzy": {"index": (0, 1), "bool": tzy},
+            "zxx": zxx,
+            "zxy": zxy,
+            "zyx": zyx,
+            "zyy": zyy,
+            "tzx": tzx,
+            "tzy": tzy,
         }
 
-        z_obj = self.Z.copy()
-        t_obj = self.Tipper.copy()
-
-        z_change = False
-        t_change = False
-        for ckey, dd in c_dict.items():
-            if dd["bool"]:
-                ii, jj = dd["index"]
-                if "z" in ckey:
-                    z_change = True
-                    try:
-                        z_obj.z[:, ii, jj] *= -1
-                    except TypeError:
-                        self.logger.debug("z is None, cannot flip")
-                    try:
-                        z_obj.z_error[:, ii, jj] *= -1
-                    except TypeError:
-                        self.logger.debug("z_error is None, cannot flip")
-                    try:
-                        z_obj.z_model_error[:, ii, jj] *= -1
-                    except TypeError:
-                        self.logger.debug("z_model_error is None, cannot flip")
-
-                elif "t" in ckey:
-                    t_change = True
-                    try:
-                        t_obj.tipper[:, ii, jj] *= -1
-                    except TypeError:
-                        self.logger.debug("tipper is None, cannot flip")
-                    try:
-                        t_obj.tipper_error[:, ii, jj] *= -1
-                    except TypeError:
-                        self.logger.debug("tipper_error is None, cannot flip")
-                    try:
-                        t_obj.tipper_model_error[:, ii, jj] *= -1
-                    except TypeError:
-                        self.logger.debug(
-                            "tipper_model_error is None, cannot flip"
-                        )
+        # Only need to flip the transfer function elements cause the error
+        # is agnostic to sign.
         if inplace:
-            if z_change:
-                self.Z = z_obj
-            if t_change:
-                self.Tipper = t_obj
+            for ckey, cbool in c_dict.items():
+                if cbool:
+                    self._transfer_function.transfer_function.loc[
+                        getattr(self, f"index_{ckey}")
+                    ] *= -1
         else:
-            return_obj = self.copy()
-            if z_change:
-                return_obj.Z = z_obj
-            if t_change:
-                return_obj.Tipper = t_obj
-            return return_obj
+            mt_obj = self.copy()
+            for ckey, cbool in c_dict.items():
+                if cbool:
+                    mt_obj._transfer_function.transfer_function.loc[
+                        getattr(self, f"index_{ckey}")
+                    ] *= -1
+            return mt_obj
 
     def remove_component(
         self,

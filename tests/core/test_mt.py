@@ -64,20 +64,15 @@ class TestMTSetImpedance(unittest.TestCase):
         self.z_err = np.array([[0.1, 0.05], [0.05, 0.1]]).reshape((1, 2, 2))
 
         self.res = np.array([[[4.0e-03, 4.0e01], [4.0e01, 4.0e-03]]])
-        self.res_err = np.array([[[0.002, 0.0005], [0.0005, 0.002]]])
+        self.res_err = np.array(
+            [[[0.00565685, 0.28284271], [0.28284271, 0.00565685]]]
+        )
         self.phase = np.array([[[-45.0, 45.0], [-135.0, 135.0]]])
         self.phase_err = np.array(
-            [
-                [
-                    [2.65650512e01, 7.16197244e-04],
-                    [7.16197244e-04, 2.65650512e01],
-                ]
-            ]
+            [[[35.26438968, 0.20257033], [0.20257033, 35.26438968]]]
         )
 
-        self.pt = np.array(
-            [[[1.00020002, -0.020002], [-0.020002, 1.00020002]]]
-        )
+        self.pt = np.array([[[1.00020002, -0.020002], [-0.020002, 1.00020002]]])
         self.pt_error = np.array(
             [[[0.01040308, 0.02020604], [0.02020604, 0.01040308]]]
         )
@@ -204,6 +199,13 @@ class TestMTSetImpedance(unittest.TestCase):
     def test_interpolate_fail_bad_periods(self):
         self.assertRaises(ValueError, self.mt.interpolate, [0.1, 2])
 
+    def test_phase_flip(self):
+        new_mt = self.mt.flip_phase(zxy=True, inplace=False)
+
+        self.assertTrue(
+            np.all(np.isclose(new_mt.Z.phase_xy % 180, self.mt.Z.phase_xy))
+        )
+
 
 class TestMTComputeModelError(unittest.TestCase):
     @classmethod
@@ -252,7 +254,6 @@ class TestSetTipper(unittest.TestCase):
 class TestMT2DataFrame(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-
         self.m1 = MT(TF_EDI_CGG)
         self.m1.read()
 
