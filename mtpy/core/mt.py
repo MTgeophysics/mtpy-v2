@@ -749,23 +749,30 @@ class MT(TF, MTLocation):
             p_min = 0
             p_max = len(self.period) - 1
 
-        z_model_error = self.impedance_model_error.copy().data
-        t_model_error = self.tipper_model_error.copy().data
-        for cc in comp:
-            try:
-                ii, jj = c_dict[cc]
-            except KeyError:
-                msg = f"Component {cc} is not a valid component, skipping"
-                self.logger.warning(msg)
-                continue
-            if "z" in cc:
+        if self.has_impedance():
+            z_model_error = self.impedance_model_error.copy().data
+            for cc in [c for c in comp if c.startswith("z")]:
+                try:
+                    ii, jj = c_dict[cc]
+                except KeyError:
+                    msg = f"Component {cc} is not a valid component, skipping"
+                    self.logger.warning(msg)
+                    continue
                 z_model_error[p_min:p_max, ii, jj] *= z_value
+            self.impedance_model_error = z_model_error
 
-            elif "t" in cc:
-                t_model_error[p_min:p_max, ii, jj] += t_value
+        if self.has_tipper():
+            t_model_error = self.tipper_model_error.copy().data
+            for cc in [c for c in comp if c.startswith("t")]:
+                try:
+                    ii, jj = c_dict[cc]
+                except KeyError:
+                    msg = f"Component {cc} is not a valid component, skipping"
+                    self.logger.warning(msg)
+                    continue
+                    t_model_error[p_min:p_max, ii, jj] += t_value
 
-        self.impedance_model_error = z_model_error
-        self.tipper_model_error = t_model_error
+            self.tipper_model_error = t_model_error
 
     def flip_phase(
         self,
