@@ -470,7 +470,7 @@ class MTData(OrderedDict, MTStations):
 
         for station in df.station.unique():
             sdf = df.loc[df.station == station]
-            mt_object = MT()
+            mt_object = MT(period=sdf.period.unique())
             mt_object.from_dataframe(sdf)
             self.add_station(mt_object, compute_relative_location=False)
 
@@ -530,7 +530,9 @@ class MTData(OrderedDict, MTStations):
                 )
 
             else:
-                mt_data.add_station(new_mt_obj, compute_relative_location=False)
+                mt_data.add_station(
+                    new_mt_obj, compute_relative_location=False
+                )
 
         if not inplace:
             return mt_data
@@ -554,7 +556,9 @@ class MTData(OrderedDict, MTStations):
             if not inplace:
                 rot_mt_obj = mt_obj.copy()
                 rot_mt_obj.rotation_angle = rotation_angle
-                mt_data.add_station(rot_mt_obj, compute_relative_location=False)
+                mt_data.add_station(
+                    rot_mt_obj, compute_relative_location=False
+                )
             else:
                 mt_obj.rotation_angle = rotation_angle
 
@@ -652,8 +656,12 @@ class MTData(OrderedDict, MTStations):
             self.t_model_error.floor = t_floor
 
         for mt_obj in self.values():
-            mt_obj.compute_model_z_errors(**self.z_model_error.error_parameters)
-            mt_obj.compute_model_t_errors(**self.t_model_error.error_parameters)
+            mt_obj.compute_model_z_errors(
+                **self.z_model_error.error_parameters
+            )
+            mt_obj.compute_model_t_errors(
+                **self.t_model_error.error_parameters
+            )
 
     def get_nearby_stations(self, station_key, radius, radius_units="m"):
         """

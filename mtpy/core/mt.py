@@ -45,7 +45,7 @@ class MT(TF, MTLocation):
     """
 
     def __init__(self, fn=None, **kwargs):
-        TF.__init__(self)
+        TF.__init__(self, **kwargs)
         MTLocation.__init__(self, survey_metadata=self._survey_metadata)
 
         # MTLocation.__init__(self)
@@ -59,8 +59,8 @@ class MT(TF, MTLocation):
 
         self.save_dir = Path.cwd()
 
-        for key, value in kwargs.items():
-            setattr(self, key, value)
+        # for key, value in kwargs.items():
+        #     setattr(self, key, value)
 
     def clone_empty(self):
         """
@@ -171,7 +171,7 @@ class MT(TF, MTLocation):
         for strike angle
         """
         if not isinstance(z_object.frequency, type(None)):
-            if self.frequency.size != z_object.frequency.shape:
+            if self.frequency.size != z_object.frequency.size:
                 self.frequency = z_object.frequency
 
             elif not (self.frequency == z_object.frequency).all():
@@ -592,6 +592,10 @@ class MT(TF, MTLocation):
 
         self.tf_id = self.station
 
+        # self._transfer_function = self._initialize_transfer_function(
+        #     mt_df.period
+        # )
+
         self.Z = mt_df.to_z_object()
         self.Tipper = mt_df.to_t_object()
 
@@ -942,7 +946,9 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j * self._transfer_function.transfer_function.imag * noise_imag
+                1j
+                * self._transfer_function.transfer_function.imag
+                * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
@@ -956,7 +962,9 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j * self._transfer_function.transfer_function.imag * noise_imag
+                1j
+                * self._transfer_function.transfer_function.imag
+                * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (

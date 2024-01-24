@@ -178,7 +178,6 @@ class MTDataFrame:
 
         for col in self._dtype_list:
             if col[0] not in df.columns:
-
                 df[col[0]] = np.zeros(df.shape[0], dtype=col[1])
 
         # resort to the desired column order
@@ -188,7 +187,6 @@ class MTDataFrame:
         return df
 
     def _get_initial_df(self, n_entries=0):
-
         return pd.DataFrame(
             np.empty(n_entries, dtype=np.dtype(self._dtype_list))
         )
@@ -493,6 +491,21 @@ class MTDataFrame:
                 self.dataframe.station == self.station,
                 "profile_offset",
             ] = value
+
+    def _get_empty_impedance_array(self, dtype=complex):
+        return np.zeros((self.period.size, 2, 2), dtype=complex)
+
+    @property
+    def impedance(self):
+        """Impedance elements"""
+        z = self._get_empty_impedance_array()
+
+        for key in ["zxx", "zxy", "zyx", "zyy"]:
+            index = self._get_index(key)
+            z[:, index["ii"], index["jj"]] = self.dataframe.loc[
+                self.dataframe.station == self.station, key
+            ]
+        return z
 
     def from_z_object(self, z_object):
         """
