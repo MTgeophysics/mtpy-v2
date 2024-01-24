@@ -165,7 +165,9 @@ class TFBase:
             tf_error = np.zeros_like(
                 tf_model_error, dtype=self._tf_dtypes["tf_error"]
             )
-            periods = self._validate_frequency(periods, tf_model_error.shape[0])
+            periods = self._validate_frequency(
+                periods, tf_model_error.shape[0]
+            )
 
         else:
             periods = self._validate_frequency(periods)
@@ -247,7 +249,9 @@ class TFBase:
 
     def _has_tf_error(self):
         if not self._is_empty():
-            return not (self._dataset.transfer_function_error.values == 0).all()
+            return not (
+                self._dataset.transfer_function_error.values == 0
+            ).all()
         return False
 
     def _has_tf_model_error(self):
@@ -629,6 +633,7 @@ class TFBase:
 
         .. seealso:: `xarray.DataArray.interpolate_na` and
          `xarray.DataArray.interp`
+
 
         """
 

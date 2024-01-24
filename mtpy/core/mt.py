@@ -357,7 +357,7 @@ class MT(TF, MTLocation):
             self.Z = self.Z.remove_ss(
                 reduce_res_factor_x=ss_x,
                 reduce_res_factor_y=ss_y,
-                inplace=inplace,
+                inplace=False,
             )
 
         else:
