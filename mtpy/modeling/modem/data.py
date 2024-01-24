@@ -1122,6 +1122,8 @@ class Data:
                 [f"{col}_real", f"{col}_imag"], axis=1, inplace=True
             )
 
+        combined_df["elevation"] = -1 * combined_df["model_elevation"]
+
         return MTDataFrame(combined_df)
 
     def fix_data_file(self, fn=None, n=3):

@@ -24,6 +24,7 @@ from mtpy.utils.calculator import (
     rotate_vector_with_errors,
 )
 
+
 # ==============================================================================
 # Impedance Tensor Class
 # ==============================================================================
@@ -43,7 +44,6 @@ class TFBase:
         tf_model_error=None,
         **kwargs,
     ):
-
         self.logger = logger
         self.rotation_angle = 0.0
         self.inputs = ["x", "y"]
@@ -549,9 +549,7 @@ class TFBase:
         rotate_func = get_rotate_function(self._expected_shape)
 
         for index, angle in enumerate(degree_angle):
-
             if self._has_tf():
-
                 if self._has_tf_error():
                     (
                         rot_tf[index, :, :],
@@ -590,36 +588,77 @@ class TFBase:
         self,
         new_periods,
         inplace=False,
-        method="cubic",
-        na_method="cubic",
+        method="slinear",
+        na_method="pchip",
+        log_space=False,
         **kwargs,
     ):
         """
-        interpolate onto a new period range
+        interpolate onto a new period range.  The way this works is that NaNs
+        are first interpolated using method `na_method` along the original
+        period map. This allows us to use xarray tools for interpolation. If we
+        drop NaNs using xarray it drops each column or row that has a single
+        NaN and removes way too much data. Therefore interpolating NaNs first
+        keeps most of the data.  Then a 1D interpolation is done for the
+        `new_periods` using method `method`.
 
-        'cubic' seems to work best when using xr.interp
+        'pchip' seems to work best when using xr.interpolate_na
 
-        xarray uses scipy.interpolate.interp1d when possible.  There
-        maybe some issues with interpolating complex numbers.
+        Set log_space=True if the object being interpolated is in log space,
+        like impedance. It seems that functions that are naturally in log-space
+        cause issues with the interpolators so taking the log of the function
+        seems to produce better results.
 
-        :param new_periods: DESCRIPTION
-        :type new_periods: TYPE
-        :return: DESCRIPTION
-        :rtype: TYPE
+
+        :param new_periods: new periods to interpolate on to
+        :type new_periods: np.ndarray, list
+        :param inplace: Interpolate inplace, defaults to False
+        :type inplace: bool, optional
+        :param method: method for 1D linear interpolation options are
+         ["linear", "nearest", "zero", "slinear", "quadratic", "cubic"],
+         defaults to "slinear"
+        :type method: string, optional
+        :param na_method: method to interpolate NaNs along original periods
+         options are {"linear", "nearest", "zero", "slinear", "quadratic",
+         "cubic", "polynomial", "barycentric", "krogh", "pchip", "spline",
+         "akima"}, defaults to "pchip"
+        :type na_method: string, optional
+        :param log_space: Set to true if function is naturally logarithmic,
+         defaults to False
+        :type log_space: bool, optional
+        :param **kwargs: keyword args passed to interpolation methods
+        :type **kwargs: dict
+        :return: interpolated object
+        :rtype: :class:`mtpy.core.transfer_fuction.base.TFBase`
+
+        .. seealso:: `xarray.DataArray.interpolate_na` and
+         `xarray.DataArray.interp`
+
 
         """
 
         da_dict = {}
         for key in self._dataset.data_vars:
             # need to interpolate over nans first, if use dropna loose a lot
-            # of data.  going to interpolate anyway. cubic seems to work best
-            # for interpolate na
-            da_drop_nan = self._dataset[key].interpolate_na(
-                dim="period", method=method
-            )
-            da_dict[key] = da_drop_nan.interp(
-                period=new_periods, method=method, kwargs=kwargs
-            )
+            # of data.  going to interpolate anyway. pchip seems to work best
+            # for interpolate na.  If this doesn't work think about
+            # interpolating component by component.
+            if log_space:
+                da_drop_nan = np.log(self._dataset[key]).interpolate_na(
+                    dim="period", method=na_method
+                )
+                da_dict[key] = np.exp(
+                    da_drop_nan.interp(
+                        period=new_periods, method=method, kwargs=kwargs
+                    )
+                )
+            else:
+                da_drop_nan = self._dataset[key].interpolate_na(
+                    dim="period", method=na_method
+                )
+                da_dict[key] = da_drop_nan.interp(
+                    period=new_periods, method=method, kwargs=kwargs
+                )
 
         ds = xr.Dataset(da_dict)
 

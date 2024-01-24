@@ -86,12 +86,11 @@ def plot_errorbar(ax, x_array, y_array, y_error=None, x_error=None, **kwargs):
     """
     # this is to make sure error bars plot in full and not just a dashed line
     if x_error is not None:
-        x_err = x_error
+        x_err = abs(x_error)
     else:
         x_err = None
     if y_error is not None:
-
-        y_err = y_error
+        y_err = abs(y_error)
     else:
         y_err = None
     plt_settings = {

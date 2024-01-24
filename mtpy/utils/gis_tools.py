@@ -259,7 +259,9 @@ def validate_input_values(values, location_type=None):
     :rtype: numpy.ndarray(dtype=float)
 
     """
-    if isinstance(values, (int, float)):
+    if isinstance(
+        values, (int, float, np.float_, np.float16, np.float32, np.float64)
+    ):
         values = np.array([values], dtype=float)
     elif isinstance(values, (list, tuple)):
         values = np.array(values, dtype=float)

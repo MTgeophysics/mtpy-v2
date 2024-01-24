@@ -64,15 +64,19 @@ class TestZInitialize(unittest.TestCase):
 
 
 class TestZSetResPhase(unittest.TestCase):
+    """
+    set the error to 1%
+    """
+
     @classmethod
     def setUpClass(self):
         self.z = Z()
         self.resistivity = np.array([[[5.0, 100.0], [100.0, 5.0]]])
         self.phase = np.array([[[90.0, 45.0], [-135.0, -90.0]]])
-        self.resistivity_error = np.array([[1, 5], [5, 1]])
-        self.phase_error = np.array([[0.5, 1], [1, 0.5]])
-        self.resistivity_model_error = np.array([[2, 10], [10, 2]])
-        self.phase_model_error = np.array([[0.5, 1], [1, 0.5]])
+        self.resistivity_error = np.array([[0.1, 2], [2, 0.1]])
+        self.phase_error = np.array([[0.573, 0.573], [0.573, 0.573]])
+        self.resistivity_model_error = np.array([[0.1, 2], [2, 0.1]])
+        self.phase_model_error = np.array([[0.573, 0.573], [0.573, 0.573]])
         self.z.set_resistivity_phase(
             self.resistivity,
             self.phase,
@@ -103,23 +107,25 @@ class TestZSetResPhase(unittest.TestCase):
 
     def test_resistivity_error(self):
         self.assertTrue(
-            np.isclose(self.resistivity_error, self.z.resistivity_error).all()
+            np.isclose(
+                self.resistivity_error, self.z.resistivity_error, atol=0.001
+            ).all()
         )
 
     def test_phase_error(self):
         self.assertTrue(
             np.isclose(
                 self.z.phase_error,
-                np.array(
-                    [[[11.30993247, 2.86240523], [2.86240523, 11.30993247]]]
-                ),
+                self.phase_error,
             ).all()
         )
 
     def test_resistivity_model_error(self):
         self.assertTrue(
             np.isclose(
-                self.resistivity_model_error, self.z.resistivity_model_error
+                self.resistivity_model_error,
+                self.z.resistivity_model_error,
+                atol=0.001,
             ).all()
         )
 
@@ -127,9 +133,7 @@ class TestZSetResPhase(unittest.TestCase):
         self.assertTrue(
             np.isclose(
                 self.z.phase_model_error,
-                np.array(
-                    [[[21.80140949, 5.71059314], [5.71059314, 21.80140949]]]
-                ),
+                self.phase_model_error,
             ).all()
         )
 

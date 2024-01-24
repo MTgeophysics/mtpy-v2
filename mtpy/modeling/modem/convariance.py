@@ -94,7 +94,7 @@ class Covariance(object):
         cov_fn=None,
         save_path=None,
         fn_basename=None,
-        model_fn=None,
+        res_model=None,
         sea_water=0.3,
         air=1e12,
     ):  #
@@ -102,22 +102,15 @@ class Covariance(object):
         write a covariance file
         """
 
-        if model_fn is not None:
-            mod_obj = Model()
-            mod_obj.read_model_file(model_fn)
-
-            # update save_path from model path if not provided separately
-            if save_path is None:
-                save_path = mod_obj.save_path
-
-            self.grid_dimensions = mod_obj.res_model.shape
+        if res_model is not None:
+            self.grid_dimensions = res_model.shape
             if self.mask_arr is None:
-                self.mask_arr = np.ones_like(mod_obj.res_model)
-            self.mask_arr[np.where(mod_obj.res_model >= air * 0.9)] = 0
+                self.mask_arr = np.ones_like(res_model)
+            self.mask_arr[np.where(res_model >= air * 0.9)] = 0
             self.mask_arr[
                 np.where(
-                    (mod_obj.res_model <= sea_water * 1.1)
-                    & (mod_obj.res_model >= sea_water * 0.9)
+                    (res_model <= sea_water * 1.1)
+                    & (res_model >= sea_water * 0.9)
                 )
             ] = 9
 
@@ -272,7 +265,6 @@ class Covariance(object):
                     count += 1
 
     def get_parameters(self):
-
         parameter_list = [
             "smoothing_north",
             "smoothing_east",

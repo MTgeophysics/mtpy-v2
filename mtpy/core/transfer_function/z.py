@@ -26,6 +26,7 @@ from .z_analysis import (
     calculate_depth_of_investigation,
 )
 
+
 # ==============================================================================
 # Impedance Tensor Class
 # ==============================================================================
@@ -385,32 +386,44 @@ class Z(TFBase):
 
     @property
     def resistivity_error(self):
-        """resistivity error of impedance"""
+        """
+        resistivity error of impedance
+
+        By standard error propagation, relative error in resistivity is
+        2*relative error in z amplitude.
+        """
         if self.z is not None and self.z_error is not None:
-            return np.apply_along_axis(
-                lambda x: np.abs(x) ** 2 / self.frequency * 0.2,
-                0,
-                self.z_error,
-            )
+            with np.errstate(divide="ignore", invalid="ignore"):
+                return np.apply_along_axis(
+                    lambda x: x / self.frequency * 0.2,
+                    0,
+                    2 * self.z_error * np.abs(self.z),
+                )
 
     @property
     def phase_error(self):
-        """phase error of impedance"""
+        """
+        phase error of impedance
+
+        Uncertainty in phase (in degrees) is computed by defining a circle around
+        the z vector in the complex plane. The uncertainty is the absolute angle
+        between the vector to (x,y) and the vector between the origin and the
+        tangent to the circle.
+        """
         if self.z is not None and self.z_error is not None:
             with np.errstate(divide="ignore", invalid="ignore"):
-                return np.degrees(
-                    np.arctan(self.resistivity_error / self.resistivity)
-                )
+                return np.degrees(np.arctan(self.z_error / np.abs(self.z)))
 
     @property
     def resistivity_model_error(self):
         """resistivity model error of impedance"""
         if self.z is not None and self.z_model_error is not None:
-            return np.apply_along_axis(
-                lambda x: np.abs(x) ** 2 / self.frequency * 0.2,
-                0,
-                self.z_model_error,
-            )
+            with np.errstate(divide="ignore", invalid="ignore"):
+                return np.apply_along_axis(
+                    lambda x: x / self.frequency * 0.2,
+                    0,
+                    2 * self.z_model_error * np.abs(self.z),
+                )
 
     @property
     def phase_model_error(self):
@@ -418,10 +431,10 @@ class Z(TFBase):
         if self.z is not None and self.z_model_error is not None:
             with np.errstate(divide="ignore", invalid="ignore"):
                 return np.degrees(
-                    np.arctan(self.resistivity_model_error / self.resistivity)
+                    np.arctan(self.z_model_error / np.abs(self.z))
                 )
 
-    def _compute_z_error(self, res, res_error, phase, phase_error):
+    def _compute_z_error(self, res_error, phase_error):
         """
         Compute z error from apparent resistivity and phase.
 
@@ -436,12 +449,17 @@ class Z(TFBase):
         :return: impedance error as a float
         :rtype: np.ndarray
 
+
+
         """
         if res_error is None:
             return None
+
+        # not extremely positive where the 250 comes from it is roughly 5 x 50
+        # which is about 5 * (2*pi)**2
         return np.abs(
-            np.sqrt(5.0 * self.frequency * (res_error.T)).T
-            * np.exp(1j * np.radians(phase_error))
+            np.sqrt(self.frequency * (res_error.T) * 250).T
+            * np.tan(np.radians(phase_error))
         )
 
     def set_resistivity_phase(
@@ -491,18 +509,14 @@ class Z(TFBase):
         res_error = self._validate_array_input(res_error, float)
         phase_error = self._validate_array_input(phase_error, float)
         res_model_error = self._validate_array_input(res_model_error, float)
-        phase_model_error = self._validate_array_input(
-            phase_model_error, float
-        )
+        phase_model_error = self._validate_array_input(phase_model_error, float)
 
         abs_z = np.sqrt(5.0 * self.frequency * (resistivity.T)).T
         self.z = abs_z * np.exp(1j * np.radians(phase))
 
-        self.z_error = self._compute_z_error(
-            resistivity, res_error, phase, phase_error
-        )
+        self.z_error = self._compute_z_error(res_error, phase_error)
         self.z_model_error = self._compute_z_error(
-            resistivity, res_model_error, phase, phase_model_error
+            res_model_error, phase_model_error
         )
 
     @property

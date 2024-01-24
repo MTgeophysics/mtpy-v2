@@ -572,8 +572,7 @@ class StructuredGrid3D:
         for s_north in sorted(self.station_locations.model_north):
             try:
                 node_index = np.where(
-                    abs(s_north - self.grid_north)
-                    < 0.02 * self.cell_size_north
+                    abs(s_north - self.grid_north) < 0.02 * self.cell_size_north
                 )[0][0]
                 if s_north - self.grid_north[node_index] > 0:
                     self.grid_north[node_index] -= 0.02 * self.cell_size_north
@@ -602,9 +601,7 @@ class StructuredGrid3D:
             )
 
         # compute grid center
-        center_east = np.round(
-            self.grid_east.min() - self.grid_east.mean(), -1
-        )
+        center_east = np.round(self.grid_east.min() - self.grid_east.mean(), -1)
         center_north = np.round(
             self.grid_north.min() - self.grid_north.mean(), -1
         )
@@ -826,8 +823,7 @@ class StructuredGrid3D:
         if self.res_scale.lower() == "loge":
             write_res_model = np.log(self.res_model[::-1, :, :])
         elif (
-            self.res_scale.lower() == "log"
-            or self.res_scale.lower() == "log10"
+            self.res_scale.lower() == "log" or self.res_scale.lower() == "log10"
         ):
             write_res_model = np.log10(self.res_model[::-1, :, :])
         elif self.res_scale.lower() == "linear":
@@ -945,9 +941,7 @@ class StructuredGrid3D:
         self.nodes_east = np.array(
             [float(nn) for nn in ilines[3].strip().split()]
         )
-        self.nodes_z = np.array(
-            [float(nn) for nn in ilines[4].strip().split()]
-        )
+        self.nodes_z = np.array([float(nn) for nn in ilines[4].strip().split()])
 
         self.res_model = np.zeros((n_north, n_east, n_z))
 
@@ -1679,9 +1673,7 @@ class StructuredGrid3D:
                 # adjust level to topography min
                 if max_elev is not None:
                     self.grid_z -= max_elev
-                    ztops = np.where(
-                        self.surface_dict["topography"] > max_elev
-                    )
+                    ztops = np.where(self.surface_dict["topography"] > max_elev)
                     self.surface_dict["topography"][ztops] = max_elev
                 else:
                     self.grid_z -= topo_core.max()
@@ -2171,6 +2163,21 @@ class StructuredGrid3D:
 
             np.savetxt(fname, data, fmt=fmt)
 
+    def _rotate_res_model(self):
+        """
+        Rotate `res_model` for some reason when you do rot90 the flags of
+        the numpy array get set to False and causes an error in pyevtk.  Need
+        a little trick to keep the C_CONTIGUOUS = True.
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        rotated = np.swapaxes(self.res_model, 0, 1)
+
+        return rotated.copy()
+
     def to_vtk(
         self,
         vtk_save_path=None,
@@ -2231,22 +2238,32 @@ class StructuredGrid3D:
             shift_east = self.center_point.east
             shift_z = self.center_point.elevation
 
-        # use cellData, this makes the grid properly as grid is n+1
-        if coordinate_system == "nez+":
-            vtk_x = (self.grid_north + shift_north) * scale
-            vtk_y = (self.grid_east + shift_east) * scale
-            vtk_z = (self.grid_z + shift_z) * scale
-            cell_data = {label: self.res_model}
-
-        elif coordinate_system == "enz-":
             vtk_y = (self.grid_north + shift_north) * scale
             vtk_x = (self.grid_east + shift_east) * scale
-            vtk_z = -1 * (self.grid_z + shift_z) * scale
-            cell_data = {label: np.rot90(self.res_model)}
+            if "+" in coordinate_system:
+                vtk_z = (self.grid_z + shift_z) * scale
+            elif "-" in coordinate_system:
+                vtk_z = -1 * (self.grid_z + shift_z) * scale
+
+            cell_data = {label: self._rotate_res_model()}
+
+        # use cellData, this makes the grid properly as grid is n+1
+        else:
+            if coordinate_system == "nez+":
+                vtk_x = (self.grid_north + shift_north) * scale
+                vtk_y = (self.grid_east + shift_east) * scale
+                vtk_z = (self.grid_z + shift_z) * scale
+                cell_data = {label: self.res_model}
+
+            elif coordinate_system == "enz-":
+                vtk_y = (self.grid_north + shift_north) * scale
+                vtk_x = (self.grid_east + shift_east) * scale
+                vtk_z = -1 * (self.grid_z + shift_z) * scale
+                cell_data = {label: self._rotate_res_model()}
 
         gridToVTK(vtk_fn.as_posix(), vtk_x, vtk_y, vtk_z, cellData=cell_data)
 
-        self._logger.info(f"Wrote model file to {vtk_fn}")
+        self._logger.info(f"Wrote VTK model file to {vtk_fn}")
 
     def to_geosoft_xyz(
         self,

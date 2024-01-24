@@ -22,7 +22,7 @@ import matplotlib.patches as patches
 import matplotlib.colorbar as mcb
 
 import mtpy.utils.gis_tools as gis_tools
-import mtpy.imaging.mtcolors as mtcl
+from mtpy.imaging import mtcolors
 from mtpy.imaging.mtplot_tools import PlotBase
 from mtpy.analysis.residual_phase_tensor import ResidualPhaseTensor
 
@@ -106,7 +106,6 @@ class PlotResidualPTMaps(PlotBase):
         frequencies=np.logspace(-3, 3, 40),
         **kwargs,
     ):
-
         super().__init__(**kwargs)
 
         self.map_epsg = 4326
@@ -522,7 +521,7 @@ class PlotResidualPTMaps(PlotBase):
             # get ellipse color
             if self.ellipse_cmap.find("seg") > 0:
                 ellipd.set_facecolor(
-                    mtcl.get_plot_color(
+                    mtcolors.get_plot_color(
                         rpt[self.ellipse_colorby][f_index],
                         self.ellipse_colorby,
                         self.ellipse_cmap,
@@ -533,7 +532,7 @@ class PlotResidualPTMaps(PlotBase):
                 )
             else:
                 ellipd.set_facecolor(
-                    mtcl.get_plot_color(
+                    mtcolors.get_plot_color(
                         rpt[self.ellipse_colorby][f_index],
                         self.ellipse_colorby,
                         self.ellipse_cmap,

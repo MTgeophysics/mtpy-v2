@@ -34,11 +34,37 @@ class MT(TF, MTLocation):
     Basic MT container to hold all information necessary for a MT station
     including the following parameters.
 
+    Impedance and Tipper element nomenclature is E/H therefore the first
+    letter represents the output channels and the second letter represents
+    the input channels.
+
+    For exampe for an input of Hx and an output of Ey the impedance tensor
+    element is Zyx.
+
 
     """
 
     def __init__(self, fn=None, **kwargs):
-        TF.__init__(self)
+        tf_kwargs = {}
+        for key in [
+            "period",
+            "frequency",
+            "impedance",
+            "impedance_error",
+            "impedance_model_error",
+            "tipper",
+            "tipper_error",
+            "tipper_model_error",
+            "transfer_function",
+            "transfer_function_error",
+            "transfer_function_model_error",
+        ]:
+            try:
+                tf_kwargs[key] = kwargs.pop(key)
+            except KeyError:
+                pass
+
+        TF.__init__(self, **tf_kwargs)
         MTLocation.__init__(self, survey_metadata=self._survey_metadata)
 
         # MTLocation.__init__(self)
@@ -164,7 +190,7 @@ class MT(TF, MTLocation):
         for strike angle
         """
         if not isinstance(z_object.frequency, type(None)):
-            if self.frequency.size != z_object.frequency.shape:
+            if self.frequency.size != z_object.frequency.size:
                 self.frequency = z_object.frequency
 
             elif not (self.frequency == z_object.frequency).all():
@@ -350,7 +376,7 @@ class MT(TF, MTLocation):
             self.Z = self.Z.remove_ss(
                 reduce_res_factor_x=ss_x,
                 reduce_res_factor_y=ss_y,
-                inplace=inplace,
+                inplace=False,
             )
 
         else:
@@ -366,9 +392,10 @@ class MT(TF, MTLocation):
     def interpolate(
         self,
         new_period,
-        method="cubic",
+        method="slinear",
         bounds_error=True,
         f_type="period",
+        z_log_space=False,
         **kwargs,
     ):
         """
@@ -434,7 +461,9 @@ class MT(TF, MTLocation):
 
         new_m = self.clone_empty()
         if self.has_impedance():
-            new_m.Z = self.Z.interpolate(new_period, method=method, **kwargs)
+            new_m.Z = self.Z.interpolate(
+                new_period, method=method, log_space=z_log_space, **kwargs
+            )
             if new_m.has_impedance():
                 if np.all(np.isnan(new_m.Z.z)):
                     self.logger.warning(
@@ -581,6 +610,10 @@ class MT(TF, MTLocation):
                 continue
 
         self.tf_id = self.station
+
+        # self._transfer_function = self._initialize_transfer_function(
+        #     mt_df.period
+        # )
 
         self.Z = mt_df.to_z_object()
         self.Tipper = mt_df.to_t_object()
@@ -739,23 +772,30 @@ class MT(TF, MTLocation):
             p_min = 0
             p_max = len(self.period) - 1
 
-        z_model_error = self.impedance_model_error.copy().data
-        t_model_error = self.tipper_model_error.copy().data
-        for cc in comp:
-            try:
-                ii, jj = c_dict[cc]
-            except KeyError:
-                msg = f"Component {cc} is not a valid component, skipping"
-                self.logger.warning(msg)
-                continue
-            if "z" in cc:
+        if self.has_impedance():
+            z_model_error = self.impedance_model_error.copy().data
+            for cc in [c for c in comp if c.startswith("z")]:
+                try:
+                    ii, jj = c_dict[cc]
+                except KeyError:
+                    msg = f"Component {cc} is not a valid component, skipping"
+                    self.logger.warning(msg)
+                    continue
                 z_model_error[p_min:p_max, ii, jj] *= z_value
+            self.impedance_model_error = z_model_error
 
-            elif "t" in cc:
-                t_model_error[p_min:p_max, ii, jj] += t_value
+        if self.has_tipper():
+            t_model_error = self.tipper_model_error.copy().data
+            for cc in [c for c in comp if c.startswith("t")]:
+                try:
+                    ii, jj = c_dict[cc]
+                except KeyError:
+                    msg = f"Component {cc} is not a valid component, skipping"
+                    self.logger.warning(msg)
+                    continue
+                    t_model_error[p_min:p_max, ii, jj] += t_value
 
-        self.impedance_model_error = z_model_error
-        self.tipper_model_error = t_model_error
+            self.tipper_model_error = t_model_error
 
     def flip_phase(
         self,
@@ -791,71 +831,33 @@ class MT(TF, MTLocation):
         :return: new mt_dict with components removed
         :rtype: dictionary
 
-        >>> d = Data()
-        >>> d.read_data_file(r"example/data.dat")
-        >>> d.data, d.mt_dict = d.flip_phase("mt01", comp=["zx", "tx"])
-
         """
+
         c_dict = {
-            "zxx": {"index": (0, 0), "bool": zxx},
-            "zxy": {"index": (0, 1), "bool": zxy},
-            "zyx": {"index": (1, 0), "bool": zyx},
-            "zyy": {"index": (1, 1), "bool": zyy},
-            "tzx": {"index": (0, 0), "bool": tzx},
-            "tzy": {"index": (0, 1), "bool": tzy},
+            "zxx": zxx,
+            "zxy": zxy,
+            "zyx": zyx,
+            "zyy": zyy,
+            "tzx": tzx,
+            "tzy": tzy,
         }
 
-        z_obj = self.Z.copy()
-        t_obj = self.Tipper.copy()
-
-        z_change = False
-        t_change = False
-        for ckey, dd in c_dict.items():
-            if dd["bool"]:
-                ii, jj = dd["index"]
-                if "z" in ckey:
-                    z_change = True
-                    try:
-                        z_obj.z[:, ii, jj] *= -1
-                    except TypeError:
-                        self.logger.debug("z is None, cannot flip")
-                    try:
-                        z_obj.z_error[:, ii, jj] *= -1
-                    except TypeError:
-                        self.logger.debug("z_error is None, cannot flip")
-                    try:
-                        z_obj.z_model_error[:, ii, jj] *= -1
-                    except TypeError:
-                        self.logger.debug("z_model_error is None, cannot flip")
-
-                elif "t" in ckey:
-                    t_change = True
-                    try:
-                        t_obj.tipper[:, ii, jj] *= -1
-                    except TypeError:
-                        self.logger.debug("tipper is None, cannot flip")
-                    try:
-                        t_obj.tipper_error[:, ii, jj] *= -1
-                    except TypeError:
-                        self.logger.debug("tipper_error is None, cannot flip")
-                    try:
-                        t_obj.tipper_model_error[:, ii, jj] *= -1
-                    except TypeError:
-                        self.logger.debug(
-                            "tipper_model_error is None, cannot flip"
-                        )
+        # Only need to flip the transfer function elements cause the error
+        # is agnostic to sign.
         if inplace:
-            if z_change:
-                self.Z = z_obj
-            if t_change:
-                self.Tipper = t_obj
+            for ckey, cbool in c_dict.items():
+                if cbool:
+                    self._transfer_function.transfer_function.loc[
+                        getattr(self, f"index_{ckey}")
+                    ] *= -1
         else:
-            return_obj = self.copy()
-            if z_change:
-                return_obj.Z = z_obj
-            if t_change:
-                return_obj.Tipper = t_obj
-            return return_obj
+            mt_obj = self.copy()
+            for ckey, cbool in c_dict.items():
+                if cbool:
+                    mt_obj._transfer_function.transfer_function.loc[
+                        getattr(self, f"index_{ckey}")
+                    ] *= -1
+            return mt_obj
 
     def remove_component(
         self,
@@ -895,70 +897,41 @@ class MT(TF, MTLocation):
 
         """
         c_dict = {
-            "zxx": {"index": (0, 0), "bool": zxx},
-            "zxy": {"index": (0, 1), "bool": zxy},
-            "zyx": {"index": (1, 0), "bool": zyx},
-            "zyy": {"index": (1, 1), "bool": zyy},
-            "tzx": {"index": (0, 0), "bool": tzx},
-            "tzy": {"index": (0, 1), "bool": tzy},
+            "zxx": zxx,
+            "zxy": zxy,
+            "zyx": zyx,
+            "zyy": zyy,
+            "tzx": tzx,
+            "tzy": tzy,
         }
 
-        z_obj = self.Z.copy()
-        t_obj = self.Tipper.copy()
-
-        z_change = False
-        t_change = False
-        for ckey, dd in c_dict.items():
-            if dd["bool"]:
-                ii, jj = dd["index"]
-                if "z" in ckey:
-                    z_change = True
-                    try:
-                        z_obj.z[:, ii, jj] = 0
-                    except TypeError:
-                        self.logger.debug("z is None, cannot remove")
-                    try:
-                        z_obj.z_error[:, ii, jj] = 0
-                    except TypeError:
-                        self.logger.debug("z_error is None, cannot remove")
-                    try:
-                        z_obj.z_model_error[:, ii, jj] = 0
-                    except TypeError:
-                        self.logger.debug(
-                            "z_model_error is None, cannot remove"
-                        )
-
-                elif "t" in ckey:
-                    t_change = True
-                    try:
-                        t_obj.tipper[:, ii, jj] = 0
-                    except TypeError:
-                        self.logger.debug("tipper is None, cannot remove")
-                    try:
-                        t_obj.tipper_error[:, ii, jj] = 0
-                    except TypeError:
-                        self.logger.debug(
-                            "tipper_error is None, cannot remove"
-                        )
-                    try:
-                        t_obj.tipper_model_error[:, ii, jj] = 0
-                    except TypeError:
-                        self.logger.debug(
-                            "tipper_model_error is None, cannot remove"
-                        )
-
+        # set to nan
         if inplace:
-            if z_change:
-                self.Z = z_obj
-            if t_change:
-                self.Tipper = t_obj
+            for ckey, cbool in c_dict.items():
+                if cbool:
+                    self._transfer_function.transfer_function.loc[
+                        getattr(self, f"index_{ckey}")
+                    ] = (np.nan + 1j * np.nan)
+                    self._transfer_function.transfer_function_error.loc[
+                        getattr(self, f"index_{ckey}")
+                    ] = 0
+                    self._transfer_function.transfer_function_model_error.loc[
+                        getattr(self, f"index_{ckey}")
+                    ] = 0
         else:
-            return_obj = self.copy()
-            if z_change:
-                return_obj.Z = z_obj
-            if t_change:
-                return_obj.Tipper = t_obj
-            return return_obj
+            mt_obj = self.copy()
+            for ckey, cbool in c_dict.items():
+                if cbool:
+                    mt_obj._transfer_function.transfer_function.loc[
+                        getattr(self, f"index_{ckey}")
+                    ] = (np.nan + 1j * np.nan)
+                    mt_obj._transfer_function.transfer_function_error.loc[
+                        getattr(self, f"index_{ckey}")
+                    ] = 0
+                    mt_obj._transfer_function.transfer_function_model_error.loc[
+                        getattr(self, f"index_{ckey}")
+                    ] = 0
+            return mt_obj
 
     def add_white_noise(self, value, inplace=True):
         """
