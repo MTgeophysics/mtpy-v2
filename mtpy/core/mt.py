@@ -45,7 +45,26 @@ class MT(TF, MTLocation):
     """
 
     def __init__(self, fn=None, **kwargs):
-        TF.__init__(self, **kwargs)
+        tf_kwargs = {}
+        for key in [
+            "period",
+            "frequency",
+            "impedance",
+            "impedance_error",
+            "impedance_model_error",
+            "tipper",
+            "tipper_error",
+            "tipper_model_error",
+            "transfer_function",
+            "transfer_function_error",
+            "transfer_function_model_error",
+        ]:
+            try:
+                tf_kwargs[key] = kwargs.pop(key)
+            except KeyError:
+                pass
+
+        TF.__init__(self, **tf_kwargs)
         MTLocation.__init__(self, survey_metadata=self._survey_metadata)
 
         # MTLocation.__init__(self)
@@ -59,8 +78,8 @@ class MT(TF, MTLocation):
 
         self.save_dir = Path.cwd()
 
-        # for key, value in kwargs.items():
-        #     setattr(self, key, value)
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
     def clone_empty(self):
         """
