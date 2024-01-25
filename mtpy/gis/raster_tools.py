@@ -73,3 +73,6 @@ def array2raster(
         transform=transform,
     ) as dataset:
         dataset.write(array, 1)
+
+
+# def dem_to_ply(geotiff_file, save_path=None):
