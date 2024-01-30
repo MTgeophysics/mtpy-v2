@@ -23,6 +23,7 @@ from mtpy.core.mt_dataframe import MTDataFrame
 from mtpy.core.mt_location import MTLocation
 from mtpy.modeling.errors import ModelErrors
 
+
 # =============================================================================
 class Data:
     """
@@ -201,7 +202,6 @@ class Data:
     """
 
     def __init__(self, dataframe=None, center_point=None, **kwargs):
-
         self.logger = logger
 
         self.dataframe = dataframe
@@ -668,9 +668,11 @@ class Data:
 
         ## check for zeros in model error
         for comp in ["zxx", "zxy", "zyx", "zyy", "tzx", "tzy"]:
-            find_zeros = np.where(self.dataframe[f"{comp}_model_error"] == 0)[
-                0
-            ]
+            find_zeros = np.where(self.dataframe[f"{comp}_model_error"] == 0)[0]
+            find_zeros_data = np.where(self.dataframe[f"{comp}"] == 0)[0]
+
+            if find_zeros.shape == find_zeros_data.shape:
+                continue
             if find_zeros.shape[0] > 0:
                 if comp in ["zxx", "zxy", "zyx", "zyy"]:
                     error_percent = self.z_model_error.error_value
@@ -702,7 +704,6 @@ class Data:
                 < tol
             )[0]
             if find_small.shape[0] > 0:
-
                 if comp.startswith("z"):
                     error_percent = self.z_model_error.error_value
                 elif comp.startswith("t"):
@@ -861,8 +862,7 @@ class Data:
                         self.wave_sign_tipper = hline[hline.find("(") + 1]
 
                 elif (
-                    len(hline[1:].strip().split()) >= 2
-                    and hline.count(".") > 0
+                    len(hline[1:].strip().split()) >= 2 and hline.count(".") > 0
                 ):
                     value_list = [
                         float(value) for value in hline[1:].strip().split()
@@ -937,7 +937,6 @@ class Data:
                         if key in ["model_epsg"]:
                             setattr(self.center_point, "utm_epsg", value)
                         elif "error" in key:
-
                             setattr(
                                 obj,
                                 item_dict[key],
@@ -1145,9 +1144,7 @@ class Data:
             lines = fid.readlines()
 
         def fix_line(line_list):
-            return (
-                " ".join("".join(line_list).replace("\n", "").split()) + "\n"
-            )
+            return " ".join("".join(line_list).replace("\n", "").split()) + "\n"
 
         h1 = fix_line(lines[0:n])
         h2 = fix_line(lines[n : 2 * n])
