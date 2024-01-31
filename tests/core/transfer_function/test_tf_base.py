@@ -441,6 +441,11 @@ class TestTFInterpolationFillNans(unittest.TestCase):
             self.period
         )
 
+        self.new_period = np.logspace(-4, 4, 24)
+        self.tf_interpolated_different_period = self.tf_base.interpolate(
+            self.new_period
+        )
+
     def test_find_nans_index(self):
         true_index = self.tf_base._find_nans_index(
             self.tf_base._dataset.transfer_function
@@ -471,12 +476,71 @@ class TestTFInterpolationFillNans(unittest.TestCase):
             ),
         )
 
-    # def test_same_periods(self):
-    #     new_tf = self.tf_base.interpolate(self.period)
-    #     self.assertTupleEqual(
-    #         np.where(np.nan_to_num(self.tf) == 0),
-    #         np.where(np.nan_to_num(new_tf._dataset.transfer_function) == 0),
-    #     )
+    def test_same_tf(self):
+        self.assertEqual(
+            True,
+            np.all(
+                np.isclose(
+                    np.nan_to_num(self.tf_base._dataset.transfer_function),
+                    np.nan_to_num(
+                        self.tf_interpolated_same_period._dataset.transfer_function
+                    ),
+                ),
+            ),
+        )
+
+    def test_same_tf_error(self):
+        self.assertEqual(
+            True,
+            np.all(
+                np.isclose(
+                    np.nan_to_num(
+                        self.tf_base._dataset.transfer_function_error
+                    ),
+                    np.nan_to_num(
+                        self.tf_interpolated_same_period._dataset.transfer_function_error
+                    ),
+                ),
+            ),
+        )
+
+    def test_same_tf_model_error(self):
+        self.assertEqual(
+            True,
+            np.all(
+                np.isclose(
+                    np.nan_to_num(
+                        self.tf_base._dataset.transfer_function_model_error
+                    ),
+                    np.nan_to_num(
+                        self.tf_interpolated_same_period._dataset.transfer_function_model_error
+                    ),
+                ),
+            ),
+        )
+
+    def test_different_period_index(self):
+        true_index = self.tf_base._find_nans_index(
+            self.tf_base._dataset.transfer_function
+        )
+
+        new_index = self.tf_interpolated_different_period._find_nans_index(
+            self.tf_interpolated_different_period._dataset.transfer_function
+        )
+
+        for true_entry, new_entry in zip(true_index, new_index):
+            with self.subTest(
+                f"period_min: in = {true_entry['input']} out = {true_entry['output']}"
+            ):
+                self.assertTrue(
+                    true_entry["period_min"] <= new_entry["period_min"]
+                )
+            with self.subTest(
+                f"period_max: in = {true_entry['input']} out = {true_entry['output']}"
+            ):
+                self.assertTrue(
+                    true_entry["period_max"] >= new_entry["period_max"]
+                )
 
 
 # =============================================================================
