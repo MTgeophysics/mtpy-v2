@@ -458,12 +458,25 @@ class TestTFInterpolationFillNans(unittest.TestCase):
             with self.subTest(entry_count):
                 self.assertDictEqual(true_entry, new_entry)
 
-    def test_same_periods(self):
-        new_tf = self.tf_base.interpolate(self.period)
-        self.assertTupleEqual(
-            np.where(np.nan_to_num(self.tf) == 0),
-            np.where(np.nan_to_num(new_tf._dataset.transfer_function) == 0),
+    def test_backfill_nans(self):
+        new_tf = self.tf_base.interpolate(self.period, extrapolate=True)
+        new_tf_nans = self.tf_base._backfill_nans(
+            self.tf_base._dataset.transfer_function,
+            new_tf._dataset.transfer_function,
         )
+        self.assertEqual(
+            True,
+            np.all(
+                np.isclose(np.nan_to_num(self.tf), np.nan_to_num(new_tf_nans))
+            ),
+        )
+
+    # def test_same_periods(self):
+    #     new_tf = self.tf_base.interpolate(self.period)
+    #     self.assertTupleEqual(
+    #         np.where(np.nan_to_num(self.tf) == 0),
+    #         np.where(np.nan_to_num(new_tf._dataset.transfer_function) == 0),
+    #     )
 
 
 # =============================================================================
