@@ -797,6 +797,28 @@ class MT(TF, MTLocation):
 
             self.tipper_model_error = t_model_error
 
+    def find_flipped_phase(self):
+        """
+        identify if the off-diagonal components are flipped from traditional
+        quadrants.  xy should be in the 1st quadarant (0-90 deg) and yx
+        should be in the 3rd quadrant (-180 to -90 deg)
+
+        :return: a dictionary of components with a bool for flipped or not
+         if flipped return value is True
+        :rtype: dict
+
+        """
+
+        flip_dict = {"zxy": False, "zyx": False}
+
+        if self.Z.phase_xy.mean() < 0:
+            flip_dict["zxy"] = True
+
+        if self.Z.phase_yx.mean() > -90:
+            flip_dict["zyx"] = True
+
+        return flip_dict
+
     def flip_phase(
         self,
         zxx=False,

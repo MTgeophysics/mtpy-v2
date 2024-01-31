@@ -591,6 +591,7 @@ class TFBase:
         method="slinear",
         na_method="pchip",
         log_space=False,
+        extrapolate=False,
         **kwargs,
     ):
         """
@@ -626,6 +627,9 @@ class TFBase:
         :param log_space: Set to true if function is naturally logarithmic,
          defaults to False
         :type log_space: bool, optional
+        :param extrapolate: extrapolate past original period range, default is
+         False. If set to True be careful cause the values are not great.
+        :type extrapolate: bool
         :param **kwargs: keyword args passed to interpolation methods
         :type **kwargs: dict
         :return: interpolated object
@@ -660,6 +664,14 @@ class TFBase:
                     period=new_periods, method=method, kwargs=kwargs
                 )
 
+            # need to abide by the original data that has nans at the
+            # beginning and end of the data.  interpolate_na will remove these
+            # and gives terrible values, so fill these back in with nans
+            if not extrapolate:
+                da_dict[key] = self._backfill_nans(
+                    self._dataset[key], da_dict[key]
+                )
+
         ds = xr.Dataset(da_dict)
 
         if inplace:
@@ -668,6 +680,95 @@ class TFBase:
             tb = self.copy()
             tb._dataset = ds
             return tb
+
+    @staticmethod
+    def _find_nans_index(data_array):
+        """
+        find nans at beginning and end of xarray.  When you interpolate a
+        xarray.DataArray we interpolate nans, which removes the original nans
+        at the beginning and end of the array.  We need to find these
+        indicies and period min and max so we can put them back in.
+
+        :param data_array: DESCRIPTION
+        :type data_array: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        index_list = []
+        for ch_in in data_array.input.data:
+            for ch_out in data_array.output.data:
+                index = np.where(
+                    np.nan_to_num(
+                        data_array.loc[{"input": ch_in, "output": ch_out}]
+                    )
+                    == 0
+                )[0]
+                if len(index) > 0:
+                    entry = {
+                        "input": ch_in,
+                        "output": ch_out,
+                        "beginning": [],
+                        "end": [],
+                        "period_min": float(data_array.period.min()),
+                        "period_max": float(data_array.period.max()),
+                    }
+                    if index[0] == 0:
+                        entry["beginning"] = []
+                        ii = 0
+                        diff = 1
+                        while diff == 1 and ii < len(index) - 1:
+                            diff = index[ii + 1] - index[ii]
+                            entry["beginning"].append(ii)
+                            ii += 1
+                        entry["period_min"] = float(
+                            data_array.period[entry["beginning"][-1] + 1]
+                        )
+
+                    if index[-1] == (data_array.shape[0] - 1):
+                        entry["end"] = [-1]
+                        ii = -2
+                        diff = 1
+                        while diff == 1 and abs(ii) < len(index):
+                            diff = abs(index[ii - 1] - index[ii])
+                            entry["end"].append(ii)
+                            ii -= 1
+                        entry["period_max"] = float(
+                            data_array.period[entry["end"][-1] - 1]
+                        )
+                    index_list.append(entry)
+
+        return index_list
+
+    def _backfill_nans(self, original, interpolated):
+        """
+        back fill with nans for extrapolated values
+
+        :param original: original data array
+        :type original: xarray.DataArray
+        :param interpolated: Interpolated data array
+        :type interpolated: xr.DataArray
+        :return: nan's filled in from beginning and end of original data
+        :rtype: xarray.DataArray
+
+        """
+
+        original_index = self._find_nans_index(original)
+        for entry in original_index:
+            beginning = np.where(interpolated.period < entry["period_min"])
+            end = np.where(interpolated.period > entry["period_max"])
+            nan_index = np.append(beginning[0], end[0])
+            if "complex" in interpolated.dtype.name:
+                interpolated.loc[
+                    {"input": entry["input"], "output": entry["output"]}
+                ][nan_index] = (np.nan + 1j * np.nan)
+            else:
+                interpolated.loc[
+                    {"input": entry["input"], "output": entry["output"]}
+                ][nan_index] = np.nan
+
+        return interpolated
 
     def to_xarray(self):
         """

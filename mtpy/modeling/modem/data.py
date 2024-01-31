@@ -668,7 +668,9 @@ class Data:
 
         ## check for zeros in model error
         for comp in ["zxx", "zxy", "zyx", "zyy", "tzx", "tzy"]:
-            find_zeros = np.where(self.dataframe[f"{comp}_model_error"] == 0)[0]
+            find_zeros = np.where(self.dataframe[f"{comp}_model_error"] == 0)[
+                0
+            ]
             find_zeros_data = np.where(self.dataframe[f"{comp}"] == 0)[0]
 
             if find_zeros.shape == find_zeros_data.shape:
@@ -720,6 +722,49 @@ class Data:
                     abs(self.dataframe[f"{comp}"].iloc[list(find_small)])
                     * error_percent
                 )
+
+    def _check_for_too_big_values(self, tol=1e10):
+        """
+        Check for too small of errors relative to the error floor
+        """
+
+        for comp in ["zxx", "zxy", "zyx", "zyy", "tzx", "tzy"]:
+            find_big = np.where(np.abs(self.dataframe[comp]) > tol)[0]
+            if find_big.shape[0] > 0:
+                self.logger.warning(
+                    f"Found values in {comp} larger than {tol} "
+                    f"{len(find_big)} times. Setting to nan"
+                )
+                self.dataframe.loc[find_big.tolist(), comp] = (
+                    np.nan + 1j * np.nan
+                )
+                self.dataframe.loc[
+                    find_big.tolist(), f"{comp}_model_error"
+                ] = np.nan
+
+    def _check_for_too_small_values(self, tol=1e-10):
+        """
+        Check for too small of errors relative to the error floor
+        """
+
+        for comp in ["zxx", "zxy", "zyx", "zyy", "tzx", "tzy"]:
+            find_small = np.where(np.abs(self.dataframe[comp]) < tol)[0]
+            find_zeros_data = np.where(
+                np.nan_to_num(self.dataframe[f"{comp}"]) == 0
+            )[0]
+            if find_small.shape == find_zeros_data.shape:
+                continue
+            if find_small.shape[0] > 0:
+                self.logger.warning(
+                    f"Found values in {comp} smaller than {tol} "
+                    f"{len(find_small)} times. Setting to nan"
+                )
+                self.dataframe.loc[find_small.tolist(), comp] = (
+                    np.nan + 1j * np.nan
+                )
+                self.dataframe.loc[
+                    find_small.tolist(), f"{comp}_model_error"
+                ] = np.nan
 
     def write_data_file(
         self,
@@ -773,6 +818,8 @@ class Data:
 
         self._check_for_errors_of_zero()
         self._check_for_too_small_errors()
+        self._check_for_too_big_values()
+        self._check_for_too_small_values()
 
         for inv_mode in self.inv_mode_dict[self.inv_mode]:
             if "impedance" in inv_mode.lower():
@@ -862,7 +909,8 @@ class Data:
                         self.wave_sign_tipper = hline[hline.find("(") + 1]
 
                 elif (
-                    len(hline[1:].strip().split()) >= 2 and hline.count(".") > 0
+                    len(hline[1:].strip().split()) >= 2
+                    and hline.count(".") > 0
                 ):
                     value_list = [
                         float(value) for value in hline[1:].strip().split()
@@ -1144,7 +1192,9 @@ class Data:
             lines = fid.readlines()
 
         def fix_line(line_list):
-            return " ".join("".join(line_list).replace("\n", "").split()) + "\n"
+            return (
+                " ".join("".join(line_list).replace("\n", "").split()) + "\n"
+            )
 
         h1 = fix_line(lines[0:n])
         h2 = fix_line(lines[n : 2 * n])
