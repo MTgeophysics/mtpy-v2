@@ -177,7 +177,6 @@ class MTData(OrderedDict, MTStations):
         for key in self._copy_attrs:
             value = getattr(self, key)
             setattr(result, key, deepcopy(value, memo))
-            print(key, value)
 
         for mt_obj in self.values():
             result.add_station(mt_obj.copy(), compute_relative_location=False)
