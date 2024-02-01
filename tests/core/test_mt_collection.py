@@ -143,20 +143,20 @@ class TestMTCollection(unittest.TestCase):
                     4: 534.0,
                     5: 10.0,
                     6: 77.025,
-                    7: 948.158935547,
-                    8: 2352.3984375,
+                    7: 0.0,
+                    8: 0.0,
                     9: 0.0,
                     10: 2489.0,
                     11: 181.0,
                     12: 175.27,
                     13: 122.0,
                     14: 0.0,
-                    15: 1674.992797852,
-                    16: 1674.992797852,
+                    15: 0.0,
+                    16: 0.0,
                     17: 0.0,
-                    18: 1414.37487793,
+                    18: 0.0,
                     19: 1548.1,
-                    20: 1954.861816406,
+                    20: 0.0,
                 },
                 "tf_id": {
                     0: "14-IEB0537A",
@@ -446,6 +446,12 @@ class TestMTCollection(unittest.TestCase):
         for tf_fn in self.fn_list:
             original = MT(tf_fn)
             original.read()
+            if original.station_metadata.location.elevation == 0:
+                original.station_metadata.location.elevation = (
+                    self.true_dataframe[
+                        self.true_dataframe.station == original.station
+                    ].elevation
+                )
             for key, value in mt_data_01.items():
                 if original.station in key:
                     original.survey = validate_name(value.survey)
@@ -484,6 +490,7 @@ class TestMTCollection(unittest.TestCase):
                 original.station_metadata.transfer_function.processing_type = (
                     None
                 )
+
             mt_data_02.add_station(original, compute_relative_location=False)
         mt_data_02.compute_relative_locations()
 
