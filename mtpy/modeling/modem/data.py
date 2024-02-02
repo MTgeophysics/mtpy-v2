@@ -23,6 +23,7 @@ from mtpy.core.mt_dataframe import MTDataFrame
 from mtpy.core.mt_location import MTLocation
 from mtpy.modeling.errors import ModelErrors
 
+
 # =============================================================================
 class Data:
     """
@@ -201,7 +202,6 @@ class Data:
     """
 
     def __init__(self, dataframe=None, center_point=None, **kwargs):
-
         self.logger = logger
 
         self.dataframe = dataframe
@@ -671,6 +671,10 @@ class Data:
             find_zeros = np.where(self.dataframe[f"{comp}_model_error"] == 0)[
                 0
             ]
+            find_zeros_data = np.where(self.dataframe[f"{comp}"] == 0)[0]
+
+            if find_zeros.shape == find_zeros_data.shape:
+                continue
             if find_zeros.shape[0] > 0:
                 if comp in ["zxx", "zxy", "zyx", "zyy"]:
                     error_percent = self.z_model_error.error_value
@@ -702,7 +706,6 @@ class Data:
                 < tol
             )[0]
             if find_small.shape[0] > 0:
-
                 if comp.startswith("z"):
                     error_percent = self.z_model_error.error_value
                 elif comp.startswith("t"):
@@ -719,6 +722,49 @@ class Data:
                     abs(self.dataframe[f"{comp}"].iloc[list(find_small)])
                     * error_percent
                 )
+
+    def _check_for_too_big_values(self, tol=1e10):
+        """
+        Check for too small of errors relative to the error floor
+        """
+
+        for comp in ["zxx", "zxy", "zyx", "zyy", "tzx", "tzy"]:
+            find_big = np.where(np.abs(self.dataframe[comp]) > tol)[0]
+            if find_big.shape[0] > 0:
+                self.logger.warning(
+                    f"Found values in {comp} larger than {tol} "
+                    f"{len(find_big)} times. Setting to nan"
+                )
+                self.dataframe.loc[find_big.tolist(), comp] = (
+                    np.nan + 1j * np.nan
+                )
+                self.dataframe.loc[
+                    find_big.tolist(), f"{comp}_model_error"
+                ] = np.nan
+
+    def _check_for_too_small_values(self, tol=1e-10):
+        """
+        Check for too small of errors relative to the error floor
+        """
+
+        for comp in ["zxx", "zxy", "zyx", "zyy", "tzx", "tzy"]:
+            find_small = np.where(np.abs(self.dataframe[comp]) < tol)[0]
+            find_zeros_data = np.where(
+                np.nan_to_num(self.dataframe[f"{comp}"]) == 0
+            )[0]
+            if find_small.shape == find_zeros_data.shape:
+                continue
+            if find_small.shape[0] > 0:
+                self.logger.warning(
+                    f"Found values in {comp} smaller than {tol} "
+                    f"{len(find_small)} times. Setting to nan"
+                )
+                self.dataframe.loc[find_small.tolist(), comp] = (
+                    np.nan + 1j * np.nan
+                )
+                self.dataframe.loc[
+                    find_small.tolist(), f"{comp}_model_error"
+                ] = np.nan
 
     def write_data_file(
         self,
@@ -772,6 +818,8 @@ class Data:
 
         self._check_for_errors_of_zero()
         self._check_for_too_small_errors()
+        self._check_for_too_big_values()
+        self._check_for_too_small_values()
 
         for inv_mode in self.inv_mode_dict[self.inv_mode]:
             if "impedance" in inv_mode.lower():
@@ -937,7 +985,6 @@ class Data:
                         if key in ["model_epsg"]:
                             setattr(self.center_point, "utm_epsg", value)
                         elif "error" in key:
-
                             setattr(
                                 obj,
                                 item_dict[key],

@@ -172,6 +172,7 @@ class MTData(OrderedDict, MTStations):
         """
         cls = self.__class__
         result = cls.__new__(cls)
+        result.__init__()
         memo[id(self)] = result
         for key in self._copy_attrs:
             value = getattr(self, key)
