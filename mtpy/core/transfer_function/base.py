@@ -218,7 +218,12 @@ class TFBase:
                 tf.name: tf,
                 tf_err.name: tf_err,
                 tf_model_err.name: tf_model_err,
-            }
+            },
+            coords={
+                "period": periods,
+                "output": self.outputs,
+                "input": self.inputs,
+            },
         )
 
     def _is_empty(self):
@@ -722,9 +727,10 @@ class TFBase:
                             diff = index[ii + 1] - index[ii]
                             entry["beginning"].append(ii)
                             ii += 1
-                        entry["period_min"] = float(
-                            data_array.period[entry["beginning"][-1] + 1]
-                        )
+                        if len(entry["beginning"]) > 0:
+                            entry["period_min"] = float(
+                                data_array.period[entry["beginning"][-1] + 1]
+                            )
 
                     if index[-1] == (data_array.shape[0] - 1):
                         entry["end"] = [-1]
