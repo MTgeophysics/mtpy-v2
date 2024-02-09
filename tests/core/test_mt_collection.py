@@ -404,9 +404,7 @@ class TestMTCollection(unittest.TestCase):
             original.survey_metadata.hdf5_reference = (
                 h5_tf.survey_metadata.hdf5_reference
             )
-            original.survey_metadata.mth5_type = (
-                h5_tf.survey_metadata.mth5_type
-            )
+            original.survey_metadata.mth5_type = h5_tf.survey_metadata.mth5_type
             original.station_metadata.acquired_by.author = (
                 h5_tf.station_metadata.acquired_by.author
             )
@@ -483,10 +481,9 @@ class TestMTCollection(unittest.TestCase):
                 original.station_metadata.comments = None
             if original.station_metadata.acquired_by.author in [""]:
                 original.station_metadata.acquired_by.author = None
-            if (
-                original.station_metadata.transfer_function.processing_type
-                in [""]
-            ):
+            if original.station_metadata.transfer_function.processing_type in [
+                ""
+            ]:
                 original.station_metadata.transfer_function.processing_type = (
                     None
                 )
@@ -506,6 +503,75 @@ class TestMTCollection(unittest.TestCase):
             "unknown_survey_009.SAGE_2005_out"
         ].station_metadata.runs
         self.assertEqual(mt_data_01, mt_data_02)
+
+    @classmethod
+    def tearDownClass(self):
+        self.mc.mth5_collection.close_mth5()
+        self.mc.mth5_filename.unlink()
+
+
+class TestMTCollectionFromMTData01(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.fn_list = [
+            value
+            for key, value in mt_metadata.__dict__.items()
+            if key.startswith("TF")
+        ]
+
+        self.mt_data_obj = MTData()
+        self.mt_data_obj.add_station(self.fn_list, survey="test")
+
+        self.mc = MTCollection()
+        self.mc.open_collection("test_collection")
+        self.mc.from_mt_data(self.mt_data_obj)
+
+    def test_survey(self):
+        with self.subTest("one survey name"):
+            self.assertEqual(len(self.mc.dataframe.survey.unique()), 1)
+        with self.subTest("survey name"):
+            self.assertEqual(self.mc.dataframe.survey.unique()[0], "test")
+
+    def test_dataframe_len(self):
+        self.assertEqual(len(self.fn_list), len(self.mc.dataframe))
+
+    @classmethod
+    def tearDownClass(self):
+        self.mc.mth5_collection.close_mth5()
+        self.mc.mth5_filename.unlink()
+
+
+class TestMTCollectionFromMTData02(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.fn_list = [
+            value
+            for key, value in mt_metadata.__dict__.items()
+            if key.startswith("TF")
+        ]
+
+        self.mt_data_obj = MTData()
+        self.mt_data_obj.add_station(self.fn_list)
+
+        self.mc = MTCollection()
+        self.mc.open_collection("test_collection")
+        self.mc.from_mt_data(
+            self.mt_data_obj, new_survey="test", tf_id_extra="new"
+        )
+
+    def test_survey(self):
+        with self.subTest("one survey name"):
+            self.assertEqual(len(self.mc.dataframe.survey.unique()), 1)
+        with self.subTest("survey name"):
+            self.assertEqual(self.mc.dataframe.survey.unique()[0], "test")
+
+    def test_dataframe_len(self):
+        self.assertEqual(len(self.fn_list), len(self.mc.dataframe))
+
+    def test_tf_id(self):
+        for tf_id in self.mc.dataframe.tf_id:
+            with self.subTest(tf_id):
+                self.assertIn("new", tf_id)
 
     @classmethod
     def tearDownClass(self):
