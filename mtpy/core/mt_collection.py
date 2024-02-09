@@ -379,7 +379,7 @@ class MTCollection:
         self.mth5_collection.add_transfer_function(mt_object)
         self.logger.debug("added %s " % mt_object.station)
 
-    def to_mt_data(self, bounding_box=None):
+    def to_mt_data(self, bounding_box=None, **kwargs):
         """
         Get a list of transfer functions
 
@@ -395,7 +395,7 @@ class MTCollection:
         if bounding_box is not None:
             self.apply_bbox(*bounding_box)
 
-        mt_data = MTData()
+        mt_data = MTData(**kwargs)
 
         for row in self.dataframe.itertuples():
             tf = self.get_tf(row.tf_id, survey=row.survey)

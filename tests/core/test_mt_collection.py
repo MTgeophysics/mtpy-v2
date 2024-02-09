@@ -438,9 +438,9 @@ class TestMTCollection(unittest.TestCase):
                 self.assertTrue((original.dataset == h5_tf.dataset).all())
 
     def test_to_mt_data(self):
-        mt_data_01 = self.mc.to_mt_data()
+        mt_data_01 = self.mc.to_mt_data(utm_crs=32610)
 
-        mt_data_02 = MTData()
+        mt_data_02 = MTData(utm_crs=32610)
         for tf_fn in self.fn_list:
             original = MT(tf_fn)
             original.read()
@@ -502,7 +502,11 @@ class TestMTCollection(unittest.TestCase):
         ].station_metadata.runs = mt_data_01[
             "unknown_survey_009.SAGE_2005_out"
         ].station_metadata.runs
-        self.assertEqual(mt_data_01, mt_data_02)
+
+        with self.subTest("mt_data equal"):
+            self.assertEqual(mt_data_01, mt_data_02)
+        with self.subTest("utm_crs equal"):
+            self.assertEqual(mt_data_01.utm_crs, mt_data_02.utm_crs)
 
     @classmethod
     def tearDownClass(self):
