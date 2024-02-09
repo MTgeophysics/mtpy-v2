@@ -62,7 +62,6 @@ class MTCollection:
     """
 
     def __init__(self, working_directory=None):
-
         self._cwd = Path().cwd()
         self.mth5_basename = "mt_collection"
         self.working_directory = working_directory
@@ -238,7 +237,7 @@ class MTCollection:
         """
         self.mth5_collection.close_mth5()
 
-    def add_tf(self, transfer_function):
+    def add_tf(self, transfer_function, new_survey=None, tf_id_extra=None):
         """
         transfer_function could be a transfer function object, a file name,
         a list of either.
@@ -249,15 +248,28 @@ class MTCollection:
         :rtype: TYPE
 
         """
-        if not isinstance(
-            transfer_function, (list, tuple, np.ndarray, MTData)
-        ):
+        if isinstance(transfer_function, MTData):
+            self.from_mt_data(
+                transfer_function,
+                new_survey=new_survey,
+                tf_id_extra=tf_id_extra,
+            )
+            return
+        elif not isinstance(transfer_function, (list, tuple, np.ndarray)):
             transfer_function = [transfer_function]
         for item in transfer_function:
             if isinstance(item, MT):
-                self._from_mt_object(item)
+                self._from_mt_object(
+                    item,
+                    new_survey=new_survey,
+                    tf_id_extra=tf_id_extra,
+                )
             elif isinstance(item, (str, Path)):
-                self._from_file(item)
+                self._from_file(
+                    item,
+                    new_survey=new_survey,
+                    tf_id_extra=tf_id_extra,
+                )
             else:
                 raise TypeError(f"Not sure want to do with {type(item)}.")
         self.mth5_collection.tf_summary.summarize()
@@ -310,7 +322,7 @@ class MTCollection:
 
         return mt_object
 
-    def _from_file(self, filename):
+    def _from_file(self, filename, new_survey=None, tf_id_extra=None):
         """
         Add transfer functions for a list of file names
 
@@ -330,9 +342,11 @@ class MTCollection:
         mt_object = MT(filename)
         mt_object.read()
 
-        self._from_mt_object(mt_object)
+        self._from_mt_object(
+            mt_object, new_survey=new_survey, tf_id_extra=tf_id_extra
+        )
 
-    def _from_mt_object(self, mt_object):
+    def _from_mt_object(self, mt_object, new_survey=None, tf_id_extra=None):
         """
 
         :param mt_object: DESCRIPTION
@@ -341,7 +355,10 @@ class MTCollection:
         :rtype: TYPE
 
         """
-
+        if new_survey is not None:
+            mt_object.survey = new_survey
+        if tf_id_extra is not None:
+            mt_object.tf_id = f"{mt_object.tf_id}_{tf_id_extra}"
         if mt_object.survey_metadata.id in [None, ""]:
             mt_object.survey_metadata.id = "unknown_survey"
         self.mth5_collection.add_transfer_function(mt_object)
@@ -397,13 +414,10 @@ class MTCollection:
 
         """
         if self.mth5_collection.h5_is_write():
-            if new_survey is not None or tf_id_extra is not None:
-                for mt_obj in mt_data:
-                    if new_survey is not None:
-                        mt_obj.survey = new_survey
-                    if tf_id_extra is not None:
-                        mt_obj.tf_id = f"{mt_obj.tf_id}_{tf_id_extra}"
-            self.add_tf(mt_data)
+            for mt_obj in mt_data.values():
+                self.add_tf(
+                    mt_obj, new_survey=new_survey, tf_id_extra=tf_id_extra
+                )
 
         else:
             raise IOError("MTH5 is not writeable, use 'open_mth5()'")
@@ -592,11 +606,7 @@ class MTCollection:
                         ]
                     )
                     avg_t = np.array(
-                        [
-                            m.tipper.data
-                            for m in m_list_interp
-                            if m.has_tipper()
-                        ]
+                        [m.tipper.data for m in m_list_interp if m.has_tipper()]
                     )
                     avg_t_err = np.array(
                         [
@@ -642,14 +652,11 @@ class MTCollection:
                     self.add_tf(mt_avg)
 
                     try:
-
                         if new_file:
                             edi_obj = mt_avg.write(
                                 save_dir=self.working_directory
                             )
-                            self.logger.info(
-                                f"wrote average file {edi_obj.fn}"
-                            )
+                            self.logger.info(f"wrote average file {edi_obj.fn}")
                         new_fn_list.append(edi_obj.fn)
                         count += 1
                     except Exception as error:
@@ -793,9 +800,7 @@ class MTCollection:
             return PlotResidualPTMaps(mt_data_01, mt_data_02, **kwargs)
 
         if plot_type in ["pseudosection", "ps"]:
-            return PlotResidualPTPseudoSection(
-                mt_data_01, mt_data_02, **kwargs
-            )
+            return PlotResidualPTPseudoSection(mt_data_01, mt_data_02, **kwargs)
 
     def plot_penetration_depth_1d(self, tf_id, survey=None, **kwargs):
         """

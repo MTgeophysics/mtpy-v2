@@ -572,7 +572,8 @@ class StructuredGrid3D:
         for s_north in sorted(self.station_locations.model_north):
             try:
                 node_index = np.where(
-                    abs(s_north - self.grid_north) < 0.02 * self.cell_size_north
+                    abs(s_north - self.grid_north)
+                    < 0.02 * self.cell_size_north
                 )[0][0]
                 if s_north - self.grid_north[node_index] > 0:
                     self.grid_north[node_index] -= 0.02 * self.cell_size_north
@@ -601,7 +602,9 @@ class StructuredGrid3D:
             )
 
         # compute grid center
-        center_east = np.round(self.grid_east.min() - self.grid_east.mean(), -1)
+        center_east = np.round(
+            self.grid_east.min() - self.grid_east.mean(), -1
+        )
         center_north = np.round(
             self.grid_north.min() - self.grid_north.mean(), -1
         )
@@ -823,7 +826,8 @@ class StructuredGrid3D:
         if self.res_scale.lower() == "loge":
             write_res_model = np.log(self.res_model[::-1, :, :])
         elif (
-            self.res_scale.lower() == "log" or self.res_scale.lower() == "log10"
+            self.res_scale.lower() == "log"
+            or self.res_scale.lower() == "log10"
         ):
             write_res_model = np.log10(self.res_model[::-1, :, :])
         elif self.res_scale.lower() == "linear":
@@ -941,7 +945,9 @@ class StructuredGrid3D:
         self.nodes_east = np.array(
             [float(nn) for nn in ilines[3].strip().split()]
         )
-        self.nodes_z = np.array([float(nn) for nn in ilines[4].strip().split()])
+        self.nodes_z = np.array(
+            [float(nn) for nn in ilines[4].strip().split()]
+        )
 
         self.res_model = np.zeros((n_north, n_east, n_z))
 
@@ -1673,7 +1679,9 @@ class StructuredGrid3D:
                 # adjust level to topography min
                 if max_elev is not None:
                     self.grid_z -= max_elev
-                    ztops = np.where(self.surface_dict["topography"] > max_elev)
+                    ztops = np.where(
+                        self.surface_dict["topography"] > max_elev
+                    )
                     self.surface_dict["topography"][ztops] = max_elev
                 else:
                     self.grid_z -= topo_core.max()
@@ -1818,7 +1826,9 @@ class StructuredGrid3D:
 
         return new_north, new_east, new_res_arr
 
-    def get_lower_left_corner(self, pad_east, pad_north):
+    def get_lower_left_corner(
+        self, pad_east, pad_north, shift_east=0, shift_north=0
+    ):
         """
         get the lower left corner in UTM coordinates for raster.
 
@@ -1837,8 +1847,12 @@ class StructuredGrid3D:
         lower_left = MTLocation()
         lower_left.utm_crs = self.center_point.utm_crs
         lower_left.datum_crs = self.center_point.datum_crs
-        lower_left.east = self.center_point.east + self.grid_east[pad_east]
-        lower_left.north = self.center_point.north + self.grid_east[pad_north]
+        lower_left.east = (
+            self.center_point.east + self.grid_east[pad_east] + shift_east
+        )
+        lower_left.north = (
+            self.center_point.north + self.grid_east[pad_north] + shift_north
+        )
 
         return lower_left
 
@@ -1936,6 +1950,9 @@ class StructuredGrid3D:
         depth_min=None,
         depth_max=None,
         rotation_angle=0,
+        shift_north=0,
+        shift_east=0,
+        log10=True,
         verbose=True,
     ):
         """
@@ -1964,6 +1981,10 @@ class StructuredGrid3D:
          clockwise positive rotation where North = 0, East = 90, defaults to 0
         :type rotation_angle: float, optional
         :raises ValueError: If utm_epsg is not input.
+        :param shift_north: shift north in meters
+        :type shift_north: float
+        :param shift_east: shift east in meters
+        :type shift_east: float
         :return: list of file paths to rasters.
         :rtype: TYPE
 
@@ -1992,6 +2013,9 @@ class StructuredGrid3D:
             cell_size, pad_east=pad_east, pad_north=pad_north
         )
 
+        if log10:
+            raster_array = np.lo10(raster_array)
+
         raster_depths = self.grid_z[
             slice(
                 self._get_depth_min_index(depth_min),
@@ -2001,25 +2025,30 @@ class StructuredGrid3D:
 
         initial_index = np.where(self.grid_z == raster_depths.min())[0][0]
 
-        lower_left = self.get_lower_left_corner(pad_east, pad_north)
+        lower_left = self.get_lower_left_corner(
+            pad_east, pad_north, shift_east=shift_east, shift_north=shift_north
+        )
 
         raster_fn_list = []
         for ii, d in enumerate(raster_depths, initial_index):
-            raster_fn = self.save_path.joinpath(
-                f"{ii}_depth_{d:.2f}m_utm_{self.center_point.utm_epsg}.tif"
-            )
-            array2raster(
-                raster_fn,
-                np.log10(raster_array[:, :, ii]),
-                lower_left,
-                cell_size,
-                cell_size,
-                self.center_point.utm_epsg,
-                rotation_angle=rotation_angle,
-            )
-            raster_fn_list.append(raster_fn)
-            if verbose:
-                self._logger.info(f"Wrote depth index {ii} to {raster_fn}")
+            try:
+                raster_fn = self.save_path.joinpath(
+                    f"{ii}_depth_{d:.2f}m_utm_{self.center_point.utm_epsg}.tif"
+                )
+                array2raster(
+                    raster_fn,
+                    raster_array[:, :, ii],
+                    lower_left,
+                    cell_size,
+                    cell_size,
+                    self.center_point.utm_epsg,
+                    rotation_angle=rotation_angle,
+                )
+                raster_fn_list.append(raster_fn)
+                if verbose:
+                    self._logger.info(f"Wrote depth index {ii} to {raster_fn}")
+            except IndexError:
+                break
 
         return raster_fn_list
 

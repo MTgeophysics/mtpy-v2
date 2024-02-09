@@ -833,6 +833,12 @@ class MTData(OrderedDict, MTStations):
         plt.show()
 
     def to_modem_data(self, data_filename=None, **kwargs):
+        self.logger.warning(
+            "'to_modem_data' will be deprecated in future versions, use 'to_modem'"
+        )
+        self.to_modem(data_filename=data_filename, **kwargs)
+
+    def to_modem(self, data_filename=None, **kwargs):
         """
         Create a modem data file
 
@@ -869,6 +875,26 @@ class MTData(OrderedDict, MTStations):
         return modem_data
 
     def from_modem_data(self, data_filename, file_type="data", **kwargs):
+        """
+
+        :param data_filename: DESCRIPTION
+        :type data_filename: TYPE
+        :param file_type: DESCRIPTION, defaults to "data"
+        :type file_type: TYPE, optional
+        :param **kwargs: DESCRIPTION
+        :type **kwargs: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        self.logger.warning(
+            "'from_modem_data' will be deprecated in future versions, use 'from_modem'"
+        )
+
+        self.from_modem(data_filename, file_type=file_type, **kwargs)
+
+    def from_modem(self, data_filename, file_type="data", **kwargs):
         """
         read in a modem data file
 
@@ -908,6 +934,13 @@ class MTData(OrderedDict, MTStations):
         )
 
     def from_occam2d_data(self, data_filename, file_type="data", **kwargs):
+        self.logger.warning(
+            "'from_occam2d_data' will be deprecated in future versions, use 'from_occam2d'"
+        )
+
+        self.from_occam2d(data_filename, file_type="data", **kwargs)
+
+    def from_occam2d(self, data_filename, file_type="data", **kwargs):
         """
         read in occam data from a 2D data file *.dat
 
@@ -938,6 +971,13 @@ class MTData(OrderedDict, MTStations):
         self.from_dataframe(occam2d_data.dataframe)
 
     def to_occam2d_data(self, data_filename=None, **kwargs):
+        self.logger.warning(
+            "'to_occam2d_data' will be deprecated in future versions, use 'to_occam2d'"
+        )
+
+        self.to_occam2d(data_filename=data_filename, **kwargs)
+
+    def to_occam2d(self, data_filename=None, **kwargs):
         """
         write an Occam2D data file
 
