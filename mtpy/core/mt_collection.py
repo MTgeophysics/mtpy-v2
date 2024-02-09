@@ -237,7 +237,7 @@ class MTCollection:
         """
         self.mth5_collection.close_mth5()
 
-    def add_tf(self, transfer_function):
+    def add_tf(self, transfer_function, new_survey=None, tf_id_extra=None):
         """
         transfer_function could be a transfer function object, a file name,
         a list of either.
@@ -249,15 +249,27 @@ class MTCollection:
 
         """
         if isinstance(transfer_function, MTData):
-            self.from_mt_data(transfer_function)
+            self.from_mt_data(
+                transfer_function,
+                new_survey=new_survey,
+                tf_id_extra=tf_id_extra,
+            )
             return
         elif not isinstance(transfer_function, (list, tuple, np.ndarray)):
             transfer_function = [transfer_function]
         for item in transfer_function:
             if isinstance(item, MT):
-                self._from_mt_object(item)
+                self._from_mt_object(
+                    item,
+                    new_survey=new_survey,
+                    tf_id_extra=tf_id_extra,
+                )
             elif isinstance(item, (str, Path)):
-                self._from_file(item)
+                self._from_file(
+                    item,
+                    new_survey=new_survey,
+                    tf_id_extra=tf_id_extra,
+                )
             else:
                 raise TypeError(f"Not sure want to do with {type(item)}.")
         self.mth5_collection.tf_summary.summarize()
@@ -310,7 +322,7 @@ class MTCollection:
 
         return mt_object
 
-    def _from_file(self, filename):
+    def _from_file(self, filename, new_survey=None, tf_id_extra=None):
         """
         Add transfer functions for a list of file names
 
@@ -330,9 +342,11 @@ class MTCollection:
         mt_object = MT(filename)
         mt_object.read()
 
-        self._from_mt_object(mt_object)
+        self._from_mt_object(
+            mt_object, new_survey=new_survey, tf_id_extra=tf_id_extra
+        )
 
-    def _from_mt_object(self, mt_object):
+    def _from_mt_object(self, mt_object, new_survey=None, tf_id_extra=None):
         """
 
         :param mt_object: DESCRIPTION
@@ -341,7 +355,10 @@ class MTCollection:
         :rtype: TYPE
 
         """
-
+        if new_survey is not None:
+            mt_object.survey = new_survey
+        if tf_id_extra is not None:
+            mt_object.tf_id = f"{mt_object.tf_id}_{tf_id_extra}"
         if mt_object.survey_metadata.id in [None, ""]:
             mt_object.survey_metadata.id = "unknown_survey"
         self.mth5_collection.add_transfer_function(mt_object)
@@ -398,11 +415,9 @@ class MTCollection:
         """
         if self.mth5_collection.h5_is_write():
             for mt_obj in mt_data.values():
-                if new_survey is not None:
-                    mt_obj.survey = new_survey
-                if tf_id_extra is not None:
-                    mt_obj.tf_id = f"{mt_obj.tf_id}_{tf_id_extra}"
-                self.add_tf(mt_obj)
+                self.add_tf(
+                    mt_obj, new_survey=new_survey, tf_id_extra=tf_id_extra
+                )
 
         else:
             raise IOError("MTH5 is not writeable, use 'open_mth5()'")
