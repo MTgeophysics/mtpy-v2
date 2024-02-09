@@ -241,9 +241,14 @@ class MTCollection:
         """
         transfer_function could be a transfer function object, a file name,
         a list of either.
-        g
-        :param transfer_function: DESCRIPTION
-        :type transfer_function: TYPE
+
+        :param transfer_function: transfer function object
+        :type transfer_function: list, tuple, array, MTData, MT
+        :param new_survey: new survey name, defaults to None
+        :type new_survey: str, optional
+        :param tf_id_extra: additional text onto existing 'tf_id',
+         defaults to None
+        :type tf_id_extra: string, optional
         :return: DESCRIPTION
         :rtype: TYPE
 
@@ -328,6 +333,11 @@ class MTCollection:
 
         :param file_list: DESCRIPTION
         :type file_list: TYPE
+        :param new_survey: new survey name, defaults to None
+        :type new_survey: str, optional
+        :param tf_id_extra: additional text onto existing 'tf_id',
+         defaults to None
+        :type tf_id_extra: string, optional
         :return: DESCRIPTION
         :rtype: TYPE
 
@@ -351,6 +361,11 @@ class MTCollection:
 
         :param mt_object: DESCRIPTION
         :type mt_object: TYPE
+        :param new_survey: new survey name, defaults to None
+        :type new_survey: str, optional
+        :param tf_id_extra: additional text onto existing 'tf_id',
+         defaults to None
+        :type tf_id_extra: string, optional
         :return: DESCRIPTION
         :rtype: TYPE
 
