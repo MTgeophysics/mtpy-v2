@@ -227,7 +227,8 @@ class MTData(OrderedDict, MTStations):
         """
         At this point not implemented, mainly here for inheritance of MTStations
         """
-        self.logger.warning("mt_list cannot be set.")
+        if len(self.values()) != 0:
+            self.logger.warning("mt_list cannot be set.")
         pass
 
     @property
@@ -263,6 +264,7 @@ class MTData(OrderedDict, MTStations):
         survey=None,
         compute_relative_location=True,
         interpolate_periods=None,
+        compute_model_error=False,
     ):
         """
         Add a MT object
@@ -295,6 +297,18 @@ class MTData(OrderedDict, MTStations):
                     interpolate_periods = np.array(interpolate_periods)
 
                 m = m.interpolate(interpolate_periods, bounds_error=False)
+
+            if compute_model_error:
+                m.compute_model_z_errors(
+                    error_value=self.z_model_error.error_value,
+                    error_type=self.z_model_error.error_type,
+                    floor=self.z_model_error.floor,
+                )
+                m.compute_model_t_errors(
+                    error_value=self.t_model_error.error_value,
+                    error_type=self.t_model_error.error_type,
+                    floor=self.t_model_error.floor,
+                )
 
             self.__setitem__(f"{validate_name(m.survey)}.{m.station}", m)
 
@@ -532,9 +546,7 @@ class MTData(OrderedDict, MTStations):
                 )
 
             else:
-                mt_data.add_station(
-                    new_mt_obj, compute_relative_location=False
-                )
+                mt_data.add_station(new_mt_obj, compute_relative_location=False)
 
         if not inplace:
             return mt_data
@@ -558,9 +570,7 @@ class MTData(OrderedDict, MTStations):
             if not inplace:
                 rot_mt_obj = mt_obj.copy()
                 rot_mt_obj.rotation_angle = rotation_angle
-                mt_data.add_station(
-                    rot_mt_obj, compute_relative_location=False
-                )
+                mt_data.add_station(rot_mt_obj, compute_relative_location=False)
             else:
                 mt_obj.rotation_angle = rotation_angle
 
@@ -658,12 +668,8 @@ class MTData(OrderedDict, MTStations):
             self.t_model_error.floor = t_floor
 
         for mt_obj in self.values():
-            mt_obj.compute_model_z_errors(
-                **self.z_model_error.error_parameters
-            )
-            mt_obj.compute_model_t_errors(
-                **self.t_model_error.error_parameters
-            )
+            mt_obj.compute_model_z_errors(**self.z_model_error.error_parameters)
+            mt_obj.compute_model_t_errors(**self.t_model_error.error_parameters)
 
     def get_nearby_stations(self, station_key, radius, radius_units="m"):
         """
