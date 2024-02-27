@@ -110,6 +110,7 @@ class MT(TF, MTLocation):
                 continue
 
             setattr(result, k, deepcopy(v, memo))
+        result.logger = self.logger
         return result
 
     def copy(self):
@@ -987,9 +988,7 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j
-                * self._transfer_function.transfer_function.imag
-                * noise_imag
+                1j * self._transfer_function.transfer_function.imag * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
@@ -1003,9 +1002,7 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j
-                * self._transfer_function.transfer_function.imag
-                * noise_imag
+                1j * self._transfer_function.transfer_function.imag * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
