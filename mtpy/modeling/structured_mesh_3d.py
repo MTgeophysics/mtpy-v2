@@ -2623,7 +2623,7 @@ class StructuredGrid3D:
         with open(initial_fn, "w") as fid:
             fid.write("".join(lines))
 
-        self.logger.info(f"Wrote WS3DINV intial model file to: {initial_fn}")
+        self._logger.info(f"Wrote WS3DINV intial model file to: {initial_fn}")
 
         return initial_fn
 
@@ -2769,7 +2769,8 @@ class StructuredGrid3D:
         try:
             lagrange = float(info[8])
         except IndexError:
-            self.logger.warning("Did not get Lagrange Multiplier")
+            self._logger.warning("Did not get Lagrange Multiplier")
+            lagrange = 1.
 
         # get lengths of things
         n_north, n_east, n_z, n_res = np.array(
@@ -2777,9 +2778,9 @@ class StructuredGrid3D:
         )
 
         # make empty arrays to put stuff into
-        self.nodes_north = np.zeros(n_north)
-        self.nodes_east = np.zeros(n_east)
-        self.nodes_z = np.zeros(n_z)
+        self._nodes_north = np.zeros(n_north)
+        self._nodes_east = np.zeros(n_east)
+        self.grid_z = np.zeros(n_z + 1)
         self.res_model = np.zeros((n_north, n_east, n_z))
 
         # get the grid line locations
@@ -2788,25 +2789,30 @@ class StructuredGrid3D:
         while count_n < n_north:
             mline = mlines[line_index].strip().split()
             for north_node in mline:
-                self.nodes_north[count_n] = float(north_node)
+                self._nodes_north[count_n] = float(north_node)
                 count_n += 1
             line_index += 1
+        self.grid_north = np.insert(np.cumsum(self.nodes_north),0,0)
 
         count_e = 0  # number of east nodes found
         while count_e < n_east:
             mline = mlines[line_index].strip().split()
             for east_node in mline:
-                self.nodes_east[count_e] = float(east_node)
+                self._nodes_east[count_e] = float(east_node)
                 count_e += 1
             line_index += 1
+        self.grid_east = np.insert(np.cumsum(self.nodes_east),0,0)
 
         count_z = 0  # number of vertical nodes
+        zdep = 0
         while count_z < n_z:
             mline = mlines[line_index].strip().split()
             for z_node in mline:
-                self.nodes_z[count_z] = float(z_node)
+                self.grid_z[count_z] = zdep
                 count_z += 1
+                zdep += float(z_node)
             line_index += 1
+        self.grid_z[count_z] = zdep
 
         # --> get resistivity values
         # need to read in the north backwards so that the first index is
