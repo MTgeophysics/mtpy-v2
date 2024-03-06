@@ -14,6 +14,7 @@ from copy import deepcopy
 from pyproj import CRS
 import numpy as np
 from loguru import logger
+import json
 
 from mtpy.utils.gis_tools import project_point
 
@@ -30,7 +31,6 @@ class MTLocation:
     """
 
     def __init__(self, survey_metadata=None, **kwargs):
-
         self.logger = logger
         if survey_metadata is None:
             self._survey_metadata = self._initiate_metadata()
@@ -256,11 +256,7 @@ class MTLocation:
         new_crs = CRS.from_user_input(value)
         if value != self._utm_crs:
             # reproject easting, northing to new zone
-            if (
-                self._utm_crs is not None
-                and self.east != 0
-                and self.north != 0
-            ):
+            if self._utm_crs is not None and self.east != 0 and self.north != 0:
                 self._east, self._north = project_point(
                     self.east, self.north, self._utm_crs, new_crs
                 )
@@ -483,3 +479,52 @@ class MTLocation:
             self.logger.warning(
                 "Could not get elevation data, not setting elevation"
             )
+
+    def to_json(self, filename):
+        """
+        write out information to a json file
+
+        :param filename: DESCRIPTION
+        :type filename: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        js_dict = {
+            "latitude": self.latitude,
+            "longitude": self.longitude,
+            "elevation": self.elevation,
+            "north": self.north,
+            "east": self.east,
+            "model_east": self.model_east,
+            "model_north": self.model_north,
+            "model_elevation": self.model_elevation,
+            "datum_crs": self.datum_crs.to_json_dict(),
+            "utm_crs": self.utm_crs.to_json_dict(),
+        }
+        with open(filename, "w") as fid:
+            json.dump(js_dict, fid)
+
+    def from_json(self, filename):
+        """
+        read in json formatted location
+
+        :param filename: DESCRIPTION
+        :type filename: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        with open(filename, "r") as fid:
+            js_dict = json.load(fid)
+
+        for key, value in js_dict.items():
+            if key in ["datum_crs", "utm_crs"]:
+                if isinstance(value, dict):
+                    setattr(self, key, CRS.from_json_dict(value))
+                else:
+                    setattr(self, key, CRS.from_user_input(value))
+            else:
+                setattr(self, key, value)
