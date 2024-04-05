@@ -881,7 +881,7 @@ class MTData(OrderedDict, MTStations):
 
         return modem_data
 
-    def from_modem_data(self, data_filename, file_type="data", **kwargs):
+    def from_modem_data(self, data_filename, survey="data", **kwargs):
         """
 
         :param data_filename: DESCRIPTION
@@ -899,9 +899,9 @@ class MTData(OrderedDict, MTStations):
             "'from_modem_data' will be deprecated in future versions, use 'from_modem'"
         )
 
-        self.from_modem(data_filename, file_type=file_type, **kwargs)
+        self.from_modem(data_filename, survey=survey, **kwargs)
 
-    def from_modem(self, data_filename, file_type="data", **kwargs):
+    def from_modem(self, data_filename, survey="data", **kwargs):
         """
         read in a modem data file
 
@@ -915,10 +915,9 @@ class MTData(OrderedDict, MTStations):
         """
         modem_data = Data(**kwargs)
         mdf = modem_data.read_data_file(data_filename)
-        if file_type in ["data"]:
-            mdf.dataframe["survey"] = "data"
-        elif file_type in ["response", "model"]:
-            mdf.dataframe["survey"] = "model"
+        # set the survey to something useful
+        mdf.dataframe["survey"] = survey
+
         self.from_dataframe(mdf.dataframe)
         self.z_model_error = ModelErrors(
             mode="impedance", **modem_data.z_model_error.error_parameters
