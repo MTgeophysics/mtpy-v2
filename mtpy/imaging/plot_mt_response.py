@@ -405,7 +405,8 @@ class PlotMTResponse(PlotBase):
                 self.axt.set_xlim(
                     np.log10(self.x_limits[0]), np.log10(self.x_limits[1])
                 )
-
+                if self.tipper_limits is not None:
+                    self.axt.set_ylim(self.tipper_limits)
                 self.axt.yaxis.set_major_locator(MultipleLocator(0.2))
                 self.axt.yaxis.set_minor_locator(MultipleLocator(0.1))
                 self.axt.set_xlabel("Period (s)", fontdict=self.font_dict)
