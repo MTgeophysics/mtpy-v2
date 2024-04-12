@@ -572,8 +572,7 @@ class StructuredGrid3D:
         for s_north in sorted(self.station_locations.model_north):
             try:
                 node_index = np.where(
-                    abs(s_north - self.grid_north)
-                    < 0.02 * self.cell_size_north
+                    abs(s_north - self.grid_north) < 0.02 * self.cell_size_north
                 )[0][0]
                 if s_north - self.grid_north[node_index] > 0:
                     self.grid_north[node_index] -= 0.02 * self.cell_size_north
@@ -585,7 +584,7 @@ class StructuredGrid3D:
         if self.z_mesh_method == "custom":
             if self.grid_z is None:
                 self.z_mesh_method = "default"
-                self._logger.warn(
+                self._logger.warning(
                     "No grid_z provided, creating new z mesh using default method"
                 )
 
@@ -602,9 +601,7 @@ class StructuredGrid3D:
             )
 
         # compute grid center
-        center_east = np.round(
-            self.grid_east.min() - self.grid_east.mean(), -1
-        )
+        center_east = np.round(self.grid_east.min() - self.grid_east.mean(), -1)
         center_north = np.round(
             self.grid_north.min() - self.grid_north.mean(), -1
         )
@@ -692,7 +689,7 @@ class StructuredGrid3D:
             layer_thickness = layer_thickness[-1]
 
             if n_add_layers != len(add_layers):
-                self._logger.warn(
+                self._logger.warning(
                     "Updating number of layers to reflect the length of the layer thickness array"
                 )
             n_add_layers = len(add_layers)
@@ -826,8 +823,7 @@ class StructuredGrid3D:
         if self.res_scale.lower() == "loge":
             write_res_model = np.log(self.res_model[::-1, :, :])
         elif (
-            self.res_scale.lower() == "log"
-            or self.res_scale.lower() == "log10"
+            self.res_scale.lower() == "log" or self.res_scale.lower() == "log10"
         ):
             write_res_model = np.log10(self.res_model[::-1, :, :])
         elif self.res_scale.lower() == "linear":
@@ -945,9 +941,7 @@ class StructuredGrid3D:
         self.nodes_east = np.array(
             [float(nn) for nn in ilines[3].strip().split()]
         )
-        self.nodes_z = np.array(
-            [float(nn) for nn in ilines[4].strip().split()]
-        )
+        self.nodes_z = np.array([float(nn) for nn in ilines[4].strip().split()])
 
         self.res_model = np.zeros((n_north, n_east, n_z))
 
@@ -1631,10 +1625,10 @@ class StructuredGrid3D:
             )
 
         if self.n_air_layers is None or self.n_air_layers == 0:
-            self._logger.warn(
+            self._logger.warning(
                 "No air layers specified, so will not add air/topography !!!"
             )
-            self._logger.warn(
+            self._logger.warning(
                 "Only bathymetry will be added below according to the topofile: sea-water low resistivity!!!"
             )
 
@@ -1679,9 +1673,7 @@ class StructuredGrid3D:
                 # adjust level to topography min
                 if max_elev is not None:
                     self.grid_z -= max_elev
-                    ztops = np.where(
-                        self.surface_dict["topography"] > max_elev
-                    )
+                    ztops = np.where(self.surface_dict["topography"] > max_elev)
                     self.surface_dict["topography"][ztops] = max_elev
                 else:
                     self.grid_z -= topo_core.max()
@@ -2770,7 +2762,7 @@ class StructuredGrid3D:
             lagrange = float(info[8])
         except IndexError:
             self._logger.warning("Did not get Lagrange Multiplier")
-            lagrange = 1.
+            lagrange = 1.0
 
         # get lengths of things
         n_north, n_east, n_z, n_res = np.array(
@@ -2792,7 +2784,7 @@ class StructuredGrid3D:
                 self._nodes_north[count_n] = float(north_node)
                 count_n += 1
             line_index += 1
-        self.grid_north = np.insert(np.cumsum(self.nodes_north),0,0)
+        self.grid_north = np.insert(np.cumsum(self.nodes_north), 0, 0)
 
         count_e = 0  # number of east nodes found
         while count_e < n_east:
@@ -2801,7 +2793,7 @@ class StructuredGrid3D:
                 self._nodes_east[count_e] = float(east_node)
                 count_e += 1
             line_index += 1
-        self.grid_east = np.insert(np.cumsum(self.nodes_east),0,0)
+        self.grid_east = np.insert(np.cumsum(self.nodes_east), 0, 0)
 
         count_z = 0  # number of vertical nodes
         zdep = 0

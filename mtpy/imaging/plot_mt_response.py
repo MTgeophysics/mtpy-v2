@@ -149,7 +149,6 @@ class PlotMTResponse(PlotBase):
         only a single value is allowed
         """
         if not theta_r == 0:
-
             self.Z.rotate(theta_r)
             self.Tipper.rotate(theta_r)
             self.pt.rotate(theta_r)
@@ -249,7 +248,6 @@ class PlotMTResponse(PlotBase):
         return label_coords
 
     def _plot_resistivity(self, axr, period, z_obj, mode="od"):
-
         if mode == "od":
             comps = ["xy", "yx"]
             props = [
@@ -262,8 +260,6 @@ class PlotMTResponse(PlotBase):
                 self.xy_error_bar_properties,
                 self.yx_error_bar_properties,
             ]
-        res_limits = self.set_resistivity_limits(z_obj.resistivity, mode=mode)
-        x_limits = self.set_period_limits(period)
 
         eb_list = []
         label_list = []
@@ -282,8 +278,8 @@ class PlotMTResponse(PlotBase):
 
         axr.set_yscale("log", nonpositive="clip")
         axr.set_xscale("log", nonpositive="clip")
-        axr.set_xlim(x_limits)
-        axr.set_ylim(res_limits)
+        axr.set_xlim(self.x_limits)
+        axr.set_ylim(self.res_limits)
         axr.grid(
             True, alpha=0.25, which="both", color=(0.25, 0.25, 0.25), lw=0.25
         )
@@ -318,8 +314,8 @@ class PlotMTResponse(PlotBase):
                 self.xy_error_bar_properties,
                 self.yx_error_bar_properties,
             ]
-        phase_limits = self.set_phase_limits(z_obj.phase, mode=mode)
 
+        phase_limits = self.set_phase_limits(z_obj.phase, mode=mode)
         for comp, prop in zip(comps, props):
             if comp == "yx":
                 plot_phase(
@@ -385,9 +381,12 @@ class PlotMTResponse(PlotBase):
             borderpad=0.02,
         )
 
-        self.axr.set_ylim(
-            self.set_resistivity_limits(self.Z.resistivity, mode="det")
-        )
+        if self.res_limits is None:
+            self.axr.set_ylim(
+                self.set_resistivity_limits(self.Z.resistivity, mode="det")
+            )
+        else:
+            self.axr.set_ylim(self.res_limits)
 
     def _plot_tipper(self):
         if self.Tipper is not None:
@@ -406,7 +405,8 @@ class PlotMTResponse(PlotBase):
                 self.axt.set_xlim(
                     np.log10(self.x_limits[0]), np.log10(self.x_limits[1])
                 )
-
+                if self.tipper_limits is not None:
+                    self.axt.set_ylim(self.tipper_limits)
                 self.axt.yaxis.set_major_locator(MultipleLocator(0.2))
                 self.axt.yaxis.set_minor_locator(MultipleLocator(0.1))
                 self.axt.set_xlabel("Period (s)", fontdict=self.font_dict)
@@ -420,11 +420,13 @@ class PlotMTResponse(PlotBase):
     def _plot_pt(self):
         # ----plot phase tensor ellipse---------------------------------------
         if self.plot_pt:
-
             color_array = self.get_pt_color_array(self.pt)
 
             # -------------plot ellipses-----------------------------------
-            self.cbax, self.cbpt, = plot_pt_lateral(
+            (
+                self.cbax,
+                self.cbpt,
+            ) = plot_pt_lateral(
                 self.axpt,
                 self.pt,
                 color_array,
