@@ -17,6 +17,7 @@ from . import MTEllipse, MTArrows
 
 import mtpy.imaging.mtcolors as mtcl
 
+
 # =============================================================================
 # ==============================================================================
 # Plot settings
@@ -273,8 +274,8 @@ class PlotSettings(MTArrows, MTEllipse):
                     ph_min = round(ph_min / 5) * 5
                 ph_max = max(
                     [
-                        np.nanmax(phase[:, 0, 1]),
-                        np.nanmax(phase[:, 1, 0] + 180),
+                        np.nanmax(phase[nz_xy, 0, 1]),
+                        np.nanmax(phase[nz_yx, 1, 0] + 180),
                     ]
                 )
                 if ph_max < 91:
@@ -373,7 +374,6 @@ class PlotSettings(MTArrows, MTEllipse):
         return {"size": self.font_size + 2, "weight": self.font_weight}
 
     def make_pt_cb(self, ax):
-
         cmap = mtcl.cmapdict[self.ellipse_cmap]
         if "seg" in self.ellipse_cmap:
             # normalize the colors
