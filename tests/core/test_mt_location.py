@@ -9,6 +9,7 @@ Created on Mon Oct  3 16:17:37 2022
 # Imports
 # =============================================================================
 import unittest
+from pathlib import Path
 
 from mtpy.core.mt_location import MTLocation
 
@@ -97,6 +98,23 @@ class TestMTLocation(unittest.TestCase):
 
         with self.subTest("utm zone"):
             self.assertEqual(self.loc.utm_zone, self.utm_zone)
+
+    def test_to_from_json(self):
+        fn = Path().cwd().joinpath("test.json")
+
+        loc_og = MTLocation(
+            latitude=self.true_lat,
+            longitude=self.true_lon,
+            utm_epsg=self.utm_epsg,
+        )
+        loc_og.to_json(fn)
+
+        loc_new = MTLocation()
+        loc_new.from_json(fn)
+
+        self.assertEqual(loc_og, loc_new)
+
+        fn.unlink()
 
 
 class TestMTLocationModelLocation(unittest.TestCase):
