@@ -14,10 +14,16 @@ Revision History:
 
     brenainn.moushall@ga.gov.au 27-03-2020 17:33:23 AEDT:
         Fix outfile/directory issue (see commit messages)
+        
+update to v2 jpeacock 2024-04-15
 """
+# =============================================================================
+# Imports
+# =============================================================================
 import glob
 import os
 import sys
+from pathlib import Path
 
 import click
 import geopandas as gpd
@@ -37,49 +43,42 @@ mpl.rcParams["lines.linewidth"] = 2
 mpl.rcParams["figure.figsize"] = [10, 6]
 
 
-class ShapefilesCreator(EdiCollection):
-    """Extend the EdiCollection parent class,
-    create phase tensor and tipper shapefiles for a list of edifiles
-
-    :param edifile_list: [path2edi,...]
-    :param outdir: path2output dir, where the shp file will be written.
-    :param orig_crs = {'init': 'epsg:4283'}  # GDA94
+# =============================================================================
+class ShapefilesCreator:
     """
 
-    def __init__(self, edifile_list, outdir, epsg_code=4326):
+    Create shape files from an MT geoDataFrame
+
+    :param outdir: path2output dir, where the shp file will be written.
+    :param output_crs: CRS of output files
+    """
+
+    def __init__(self, geodataframe, save_dir=None, output_crs=None):
         """
         loop through a list of edi files, create required shapefiles
         :param edifile_list: [path2edi,...]
         :param outdir: path2output dir, where the shp file will be written.
         :param epsg_code: epsg code of the EDI data CRS.
         """
-        self.orig_crs = {"init": "epsg:{}".format(epsg_code)}
 
-        # ensure that outdir is specified, and be created if not there.
-        if outdir is None:
-            raise Exception("Error: OutputDir is not specified!!!")
-        elif not os.path.exists(outdir):
-            os.mkdir(outdir)
+        self.gdf = geodataframe
+        self.save_dir = save_dir
+        self.output_crs = output_crs
 
-        self.outdir = outdir
+    @property
+    def save_dir(self):
+        return self._save_dir
 
-        # call the super constructor
-        super(ShapefilesCreator, self).__init__(
-            edilist=edifile_list, outdir=outdir
-        )
-        # python-3 syntax: super().__init__(edilist=edifile_list, outdir=outdir)
+    @save_dir.setter
+    def save_dir(self, value):
+        if value is not None:
+            self._save_dir = Path(value)
+            if not self._save_dir.exists():
+                self._save_dir.mkdir()
+        else:
+            self._save_dir = Path().cwd()
 
-        self.stations_distances = self.get_stations_distances_stats()
-
-        # These attributes below are defined in the parent class.
-        # self.all_periods = self._get_all_periods()
-        # self.ptol = 0.05  # this param controls how near-equal freqs/periods are grouped together:
-        # 10% may result more double countings of freq/periods than 5%.
-        # eg: E:\Data\MT_Datasets\WenPingJiang_EDI 18528 rows vs 14654 rows
-
-    def _export_shapefiles(
-        self, gpdf, element_type, epsg_code, period, export_fig
-    ):
+    def _export_shapefiles(self, gpdf, element_type, period, export_fig):
         """
         Convenience function for saving shapefiles.
 
@@ -101,9 +100,7 @@ class ShapefilesCreator(EdiCollection):
         str
             Path to the shapefile.
         """
-        filename = "{}_EPSG_{}_Period_{}.shp".format(
-            element_type, epsg_code, period
-        )
+        filename = f"{element_type}_EPSG_{self.output_crs}_Period_{period}.shp"
         directory = os.path.join(self.outdir, "Period_{}".format(period))
         if not os.path.exists(directory):
             os.mkdir(directory)
@@ -157,9 +154,7 @@ class ShapefilesCreator(EdiCollection):
 
         mt_locations = [Point(xy) for xy in zip(pdf["lon"], pdf["lat"])]
 
-        geopdf = gpd.GeoDataFrame(
-            pdf, crs=self.orig_crs, geometry=mt_locations
-        )
+        geopdf = gpd.GeoDataFrame(pdf, crs=self.orig_crs, geometry=mt_locations)
 
         # points to trace out the polygon-ellipse
         theta = np.arange(0, 2 * np.pi, np.pi / 30.0)
@@ -460,13 +455,13 @@ def plot_phase_tensor_ellipses_and_tippers(edi_dir, out_dir, iperiod=0):
         allper[iperiod], export_fig=False
     )[0]
 
-    gpd_retip = myobj.create_tipper_real_shp(
-        allper[iperiod], export_fig=False
-    )[0]
+    gpd_retip = myobj.create_tipper_real_shp(allper[iperiod], export_fig=False)[
+        0
+    ]
 
-    gpd_imtip = myobj.create_tipper_imag_shp(
-        allper[iperiod], export_fig=False
-    )[0]
+    gpd_imtip = myobj.create_tipper_imag_shp(allper[iperiod], export_fig=False)[
+        0
+    ]
 
     # composing two layers in a map
     f, ax = plt.subplots(1, figsize=(20, 12))
@@ -722,7 +717,6 @@ def export_geopdf_to_image(
         my_colormap = colormap
 
     if int(target_epsg_code) == 4326 or int(target_epsg_code) == 4283:
-
         myax = p.plot(
             figsize=[10, 10], linewidth=2.0, column=colorby, cmap=my_colormap
         )  # , marker='o', markersize=10)
@@ -885,7 +879,6 @@ def process_csv_folder(csv_folder, bbox_dict, target_epsg_code=4283):
 # ==================================================================
 #############################################################################
 if __name__ == "__main__OLD_V0":
-
     edidir = sys.argv[1]
 
     edifiles = glob.glob(os.path.join(edidir, "*.edi"))
@@ -927,7 +920,6 @@ if __name__ == "__main__OLD_V0":
     for my_epsgcode in [
         3112,
     ]:  # [4326, 4283, 3112, 32755]:   # 32754, 28355]:
-
         bbox_dict = edisobj.get_bounding_box(epsgcode=my_epsgcode)
         print(bbox_dict)
         process_csv_folder(path2out, bbox_dict, target_epsg_code=my_epsgcode)
@@ -936,7 +928,6 @@ if __name__ == "__main__OLD_V0":
 # Example codes to use the ShapeFilesCreator class - new version
 
 if __name__ == "__main__d":
-
     edidir = sys.argv[1]
 
     edifiles = glob.glob(os.path.join(edidir, "*.edi"))
@@ -1096,7 +1087,6 @@ def generate_shape_files(input, output, code):
 
 
 if __name__ == "__main__":
-
     print("Please see examples/scripts/create_pt_shapefiles.py")
 
 # generate_shape_files()  # click CLI interface
