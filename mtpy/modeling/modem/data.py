@@ -318,10 +318,10 @@ class Data:
             lines += [f"\t\tElevation:  {self.center_point.elevation:.1f} m"]
 
             lines += [
-                f"\tImpedance data:     {self.dataframe.zxy.mean() != 0.0}"
+                f"\tImpedance data:     {self.dataframe.z_xy.mean() != 0.0}"
             ]
             lines += [
-                f"\tTipper data:        {self.dataframe.tzx.mean() != 0.0}"
+                f"\tTipper data:        {self.dataframe.t_zx.mean() != 0.0}"
             ]
             lines += [
                 f"\tInversion Mode:   {', '.join(self.inv_mode_dict[self.inv_mode])}"
@@ -410,10 +410,10 @@ class Data:
             if "impedance" in mode.lower():
                 return (
                     self.dataframe.loc[
-                        (self.dataframe.zxx != 0)
-                        | (self.dataframe.zxy != 0)
-                        | (self.dataframe.zyx != 0)
-                        | (self.dataframe.zyy != 0),
+                        (self.dataframe.z_xx != 0)
+                        | (self.dataframe.z_xy != 0)
+                        | (self.dataframe.z_yx != 0)
+                        | (self.dataframe.z_yy != 0),
                         "station",
                     ]
                     .unique()
@@ -422,7 +422,8 @@ class Data:
             elif "vertical" in mode.lower():
                 return (
                     self.dataframe.loc[
-                        (self.dataframe.tzx != 0) | (self.dataframe.tzy != 0),
+                        (self.dataframe.t_zx != 0)
+                        | (self.dataframe.t_zy != 0),
                         "station",
                     ]
                     .unique()
@@ -431,10 +432,10 @@ class Data:
             elif "phase_tensor" in mode.lower():
                 return (
                     self.dataframe.loc[
-                        (self.dataframe.ptxx != 0)
-                        | (self.dataframe.ptxy != 0)
-                        | (self.dataframe.ptyx != 0)
-                        | (self.dataframe.ptyy != 0),
+                        (self.dataframe.pt_xx != 0)
+                        | (self.dataframe.pt_xy != 0)
+                        | (self.dataframe.pt_yx != 0)
+                        | (self.dataframe.pt_yy != 0),
                         "station",
                     ]
                     .unique()
