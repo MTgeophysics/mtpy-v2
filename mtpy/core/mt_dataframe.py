@@ -151,6 +151,22 @@ class MTDataFrame:
             "t": "tipper",
         }
 
+        self._station_location_attrs = [
+            "survey",
+            "latitude",
+            "longitude",
+            "latitude",
+            "elevation",
+            "datum_epsg",
+            "east",
+            "north",
+            "utm_epsg",
+            "model_east",
+            "model_north",
+            "model_elevation",
+            "profile_offset",
+        ]
+
         if data is not None:
             self.dataframe = self._validate_data(data)
 
@@ -179,6 +195,14 @@ class MTDataFrame:
     @property
     def _column_names(self):
         return [col[0] for col in self._dtype_list]
+
+    @property
+    def _pt_attrs(self):
+        return [col for col in self._column_names if col.startswith("pt")]
+
+    @property
+    def _tipper_attrs(self):
+        return [col for col in self._column_names if col.startswith("t_")]
 
     def __eq__(self, other):
         other = self._validata_data(other)
@@ -759,22 +783,22 @@ class MTDataFrame:
     def station_locations(self):
         return (
             self.dataframe.groupby("station")
-            .first()[
-                [
-                    "survey",
-                    "latitude",
-                    "longitude",
-                    "latitude",
-                    "elevation",
-                    "datum_epsg",
-                    "east",
-                    "north",
-                    "utm_epsg",
-                    "model_east",
-                    "model_north",
-                    "model_elevation",
-                    "profile_offset",
-                ]
-            ]
+            .first()[self._station_location_attrs]
             .reset_index()
         )
+
+    @property
+    def phase_tensor(self):
+        """phase tensor information"""
+
+        return self.dataframe[
+            self._station_location_attrs + self._pt_attrs
+        ].reset_index()
+
+    @property
+    def tipper(self):
+        """phase tensor information"""
+
+        return self.dataframe[
+            self._station_location_attrs + self._tipper_attrs
+        ].reset_index()

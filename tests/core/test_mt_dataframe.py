@@ -9,6 +9,7 @@ Created on Mon Oct  3 10:59:50 2022
 # Imports
 # =============================================================================
 import unittest
+import numpy as np
 
 from mtpy.core.mt_dataframe import MTDataFrame
 from mtpy import MT
@@ -21,7 +22,6 @@ from mt_metadata import TF_EDI_CGG
 class TestMTDataFrame(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-
         self.m1 = MT(TF_EDI_CGG)
         self.m1.read()
         self.m1.utm_epsg = 32752
@@ -31,6 +31,23 @@ class TestMTDataFrame(unittest.TestCase):
 
         self.sdf = self.m1.to_dataframe()
         self.sdf.working_station = "TEST01"
+
+    def test_column_names(self):
+        self.assertListEqual(
+            self.sdf._column_names, [col[0] for col in self.sdf._dtype_list]
+        )
+
+    def test_pt_attrs(self):
+        self.assertListEqual(
+            self.sdf._pt_attrs,
+            [col for col in self.sdf._column_names if col.startswith("pt")],
+        )
+
+    def test_tipper_attrs(self):
+        self.assertListEqual(
+            self.sdf._tipper_attrs,
+            [col for col in self.sdf._column_names if col.startswith("t_")],
+        )
 
     def test_station(self):
         self.assertEqual(self.sdf.station, "TEST01")
@@ -84,6 +101,58 @@ class TestMTDataFrame(unittest.TestCase):
         new_df.from_t_object(self.m1.Tipper)
         new_t = new_df.to_t_object()
         self.assertTrue(self.m1.Tipper == new_t)
+
+    def test_pt_df(self):
+        pt_df = self.sdf.phase_tensor
+
+        comp_dict = {
+            "pt_xx": (0, 0),
+            "pt_xy": (0, 1),
+            "pt_yx": (1, 0),
+            "pt_yy": (1, 1),
+        }
+
+        for comp, index in comp_dict.items():
+            with self.subTest(comp):
+                self.assertTrue(
+                    np.all(pt_df[comp] == self.m1.pt.pt[:, index[0], index[1]])
+                )
+        for comp in [
+            "azimuth",
+            "skew",
+            "phimin",
+            "phimax",
+            "det",
+            "ellipticity",
+        ]:
+            with self.subTest(comp):
+                self.assertTrue(
+                    np.all(pt_df[f"pt_{comp}"] == getattr(self.m1.pt, comp))
+                )
+
+    def test_tip_df(self):
+        tip_df = self.sdf.tipper
+
+        comp_dict = {
+            "t_zx": (0, 0),
+            "t_zy": (0, 1),
+        }
+
+        for comp, index in comp_dict.items():
+            with self.subTest(comp):
+                self.assertTrue(
+                    np.all(
+                        tip_df[comp]
+                        == self.m1.Tipper.tipper[:, index[0], index[1]]
+                    )
+                )
+        for comp in ["angle_real", "angle_imag", "mag_real", "mag_imag"]:
+            with self.subTest(comp):
+                self.assertTrue(
+                    np.all(
+                        tip_df[f"t_{comp}"] == getattr(self.m1.Tipper, comp)
+                    )
+                )
 
 
 class TestMTDataFrameValidation(unittest.TestCase):
