@@ -61,9 +61,17 @@ class MTDataFrame:
             ("t_zy_error", float),
             ("t_zy_model_error", float),
             ("t_mag_real", float),
+            ("t_mag_real_error", float),
+            ("t_mag_real_model_error", float),
             ("t_mag_imag", float),
+            ("t_mag_imag_error", float),
+            ("t_mag_imag_model_error", float),
             ("t_angle_real", float),
+            ("t_angle_real_error", float),
+            ("t_angle_real_model_error", float),
             ("t_angle_imag", float),
+            ("t_angle_imag_error", float),
+            ("t_angle_imag_model_error", float),
             ("res_xx", float),
             ("res_xx_error", float),
             ("res_xx_model_error", float),
@@ -92,7 +100,7 @@ class MTDataFrame:
             ("pt_xx_error", float),
             ("pt_xx_model_error", float),
             ("pt_xy", float),
-            ("ptxy_error", float),
+            ("pt_xy_error", float),
             ("pt_xy_model_error", float),
             ("pt_yx", float),
             ("pt_yx_error", float),
@@ -101,11 +109,23 @@ class MTDataFrame:
             ("pt_yy_error", float),
             ("pt_yy_model_error", float),
             ("pt_phimin", float),
+            ("pt_phimin_error", float),
+            ("pt_phimin_model_error", float),
             ("pt_phimax", float),
+            ("pt_phimax_error", float),
+            ("pt_phimax_model_error", float),
             ("pt_azimuth", float),
-            ("pt_beta", float),
+            ("pt_azimuth_error", float),
+            ("pt_azimuth_model_error", float),
+            ("pt_skew", float),
+            ("pt_skew_error", float),
+            ("pt_skew_model_error", float),
             ("pt_ellipticity", float),
+            ("pt_ellipticity_error", float),
+            ("pt_ellipticity_model_error", float),
             ("pt_det", float),
+            ("pt_det_error", float),
+            ("pt_det_model_error", float),
             ("rms_zxx", float),
             ("rms_zxy", float),
             ("rms_zyx", float),
@@ -113,6 +133,23 @@ class MTDataFrame:
             ("rms_tzx", float),
             ("rms_tzy", float),
         ]
+
+        self._index_dict = {
+            "xx": {"ii": 0, "jj": 0},
+            "xy": {"ii": 0, "jj": 1},
+            "yx": {"ii": 1, "jj": 0},
+            "yy": {"ii": 1, "jj": 1},
+            "zx": {"ii": 0, "jj": 0},
+            "zy": {"ii": 0, "jj": 1},
+        }
+
+        self._key_dict = {
+            "z": "z",
+            "res": "resistivity",
+            "phase": "phase",
+            "pt": "phase_tensor",
+            "t": "t",
+        }
 
         if data is not None:
             self.dataframe = self._validate_data(data)
@@ -236,31 +273,25 @@ class MTDataFrame:
         if self._has_data():
             return self.period.size
 
-    @property
-    def _index_dict(self):
-        return {
-            "xx": {"ii": 0, "jj": 0},
-            "xy": {"ii": 0, "jj": 1},
-            "yx": {"ii": 1, "jj": 0},
-            "yy": {"ii": 1, "jj": 1},
-            "zx": {"ii": 0, "jj": 0},
-            "zy": {"ii": 0, "jj": 1},
-        }
+    def _get_index(self, comp):
+        """
+        get component index values
 
-    def _get_index(self, key):
+        :param comp: | xx | xy | yx | yy | zx | zy |
+        :type comp: string
+        :return: index values for input and output channels
+        :rtype: dict
+
+        """
+        if comp in self._index_dict.keys():
+            return self._index_dict[comp]
+
+    def _get_key_index(self, key):
         """ """
 
-        if key.startswith("z") or key.startswith("t"):
-            return self._index_dict[key[1:3]]
-
-        elif key.startswith("res"):
-            return self._index_dict[key[4:6]]
-        elif key.startswith("phase"):
-            return self._index_dict[key[6:8]]
-        elif key.startswith("pt"):
-            return self._index_dict[key[2:4]]
-        else:
-            return None
+        if key.count("_") > 0:
+            comp = key.split("_")[1]
+            return self._get_index(comp)
 
     @property
     def period(self):
@@ -529,94 +560,43 @@ class MTDataFrame:
 
         """
 
-        for key in self.dataframe.dtypes.keys():
-            if key in ["period"]:
-                self.dataframe.loc[
-                    self.dataframe.station == self.station, "period"
-                ] = z_object.period
+        self.dataframe.loc[
+            self.dataframe.station == self.station, "period"
+        ] = z_object.period
 
-            index = self._get_index(key)
-            if index is None:
-                continue
+        for error in ["", "_error", "_model_error"]:
+            if getattr(z_object, f"_has_tf{error}")():
+                for key in ["z", "res", "phase", "pt"]:
+                    obj_key = self._key_dict[key]
+                    for comp in ["xx", "xy", "yx", "yy"]:
+                        index = self._get_index(comp)
+                        if key in ["pt"]:
+                            data_array = getattr(
+                                z_object.phase_tensor, f"{key}{error}"
+                            )
+                        else:
+                            data_array = getattr(z_object, f"{obj_key}{error}")
+                        self.dataframe.loc[
+                            self.dataframe.station == self.station,
+                            f"{key}_{comp}{error}",
+                        ] = data_array[:, index["ii"], index["jj"]]
 
-            if key in ["z_xx", "z_xy", "z_yx", "z_yy"]:
-                if z_object._has_tf():
-                    self.dataframe.loc[
-                        self.dataframe.station == self.station, key
-                    ] = z_object.z[:, index["ii"], index["jj"]]
-            elif key in [
-                "z_xx_error",
-                "z_xy_error",
-                "z_yx_error",
-                "z_yy_error",
-            ]:
-                if z_object._has_tf_error():
-                    self.dataframe.loc[
-                        self.dataframe.station == self.station, key
-                    ] = z_object.z_error[:, index["ii"], index["jj"]]
-            elif key in [
-                "z_xx_model_error",
-                "z_xy_model_error",
-                "z_yx_model_error",
-                "z_yy_model_error",
-            ]:
-                if z_object._has_tf_model_error():
-                    self.dataframe.loc[
-                        self.dataframe.station == self.station, key
-                    ] = z_object.z_model_error[:, index["ii"], index["jj"]]
-            elif key in ["res_xx", "res_xy", "res_yx", "res_yy"]:
-                if z_object._has_tf():
-                    self.dataframe.loc[
-                        self.dataframe.station == self.station, key
-                    ] = z_object.resistivity[:, index["ii"], index["jj"]]
-            elif key in [
-                "res_xx_error",
-                "res_xy_error",
-                "res_yx_error",
-                "res_yy_error",
-            ]:
-                if z_object._has_tf_error():
-                    self.dataframe.loc[
-                        self.dataframe.station == self.station, key
-                    ] = z_object.resistivity_error[:, index["ii"], index["jj"]]
-            elif key in [
-                "res_xx_model_error",
-                "res_xy_model_error",
-                "res_yx_model_error",
-                "res_yy_model_error",
-            ]:
-                if z_object._has_tf_model_error():
-                    self.dataframe.loc[
-                        :, key
-                    ] = z_object.resistivity_model_error[
-                        :, index["ii"], index["jj"]
-                    ]
-
-            elif key in ["phase_xx", "phase_xy", "phase_yx", "phase_yy"]:
-                if z_object._has_tf():
-                    self.dataframe.loc[
-                        self.dataframe.station == self.station, key
-                    ] = z_object.phase[:, index["ii"], index["jj"]]
-            elif key in [
-                "phase_xx_error",
-                "phase_xy_error",
-                "phase_yx_error",
-                "phase_yy_error",
-            ]:
-                if z_object._has_tf_error():
-                    self.dataframe.loc[
-                        self.dataframe.station == self.station, key
-                    ] = z_object.phase_error[:, index["ii"], index["jj"]]
-            elif key in [
-                "phase_xx_model_error",
-                "phase_xy_model_error",
-                "phase_yx_model_error",
-                "phase_yy_model_error",
-            ]:
-                if z_object._has_tf_model_error():
-                    self.dataframe.loc[
-                        self.dataframe.station == self.station, key
-                    ] = z_object.phase_model_error[:, index["ii"], index["jj"]]
+                    if key in ["pt"]:
+                        for pt_attr in [
+                            "phimin",
+                            "phimax",
+                            "azimuth",
+                            "skew",
+                            "ellipticity",
+                            "det",
+                        ]:
+                            data_array = getattr(
+                                z_object.phase_tensor, f"{pt_attr}{error}"
+                            )
+                            self.dataframe.loc[
+                                self.dataframe.station == self.station,
+                                f"pt_{pt_attr}{error}",
+                            ] = data_array[:]
 
     def from_t_object(self, t_object):
         """
