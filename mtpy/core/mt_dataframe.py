@@ -659,91 +659,55 @@ class MTDataFrame:
         phase_err = np.zeros((nf, 2, 2), dtype=float)
         phase_model_err = np.zeros((nf, 2, 2), dtype=float)
 
-        for key in self.dataframe.columns:
-            index = self._get_index(key)
-            if index is None:
-                continue
+        for comp in ["xx", "xy", "yx", "yy"]:
+            index = self._get_index(comp)
 
-            if key in ["z_xx", "z_xy", "z_yx", "z_yy"]:
-                z[:, index["ii"], index["jj"]] = self.dataframe.loc[
-                    self.dataframe.station == self.station, key
-                ]
-            elif key in [
-                "z_xx_error",
-                "z_xy_error",
-                "z_yx_error",
-                "z_yy_error",
-            ]:
-                z_err[:, index["ii"], index["jj"]] = self.dataframe.loc[
-                    self.dataframe.station == self.station, key
-                ]
-            elif key in [
-                "z_xx_model_error",
-                "z_xy_model_error",
-                "z_yx_model_error",
-                "z_yy_model_error",
-            ]:
-                z_model_err[:, index["ii"], index["jj"]] = self.dataframe.loc[
-                    self.dataframe.station == self.station, key
-                ]
+            z[:, index["ii"], index["jj"]] = self.dataframe.loc[
+                self.dataframe.station == self.station, f"z_{comp}"
+            ]
+            z_err[:, index["ii"], index["jj"]] = self.dataframe.loc[
+                self.dataframe.station == self.station, f"z_{comp}_error"
+            ]
 
-            ### resistivity
-            elif key in ["res_xx", "res_xy", "res_yx", "res_yy"]:
-                res[:, index["ii"], index["jj"]] = self.dataframe.loc[
-                    self.dataframe.station == self.station, key
-                ]
-            elif key in [
-                "res_xx_error",
-                "res_xy_error",
-                "res_yx_error",
-                "res_yy_error",
-            ]:
-                res_err[:, index["ii"], index["jj"]] = self.dataframe.loc[
-                    self.dataframe.station == self.station, key
-                ]
-            elif key in [
-                "res_xx_model_error",
-                "res_xy_model_error",
-                "res_yx_model_error",
-                "res_yy_model_error",
-            ]:
-                res_model_err[
-                    :, index["ii"], index["jj"]
-                ] = self.dataframe.loc[
-                    self.dataframe.station == self.station, key
-                ]
-
-            ### Phase
-            elif key in ["phase_xx", "phase_xy", "phase_yx", "phase_yy"]:
-                phase[:, index["ii"], index["jj"]] = self.dataframe.loc[
-                    self.dataframe.station == self.station, key
-                ]
-            elif key in [
-                "phase_xx_error",
-                "phase_xy_error",
-                "phase_yx_error",
-                "phase_yy_error",
-            ]:
-                phase_err[:, index["ii"], index["jj"]] = self.dataframe.loc[
-                    self.dataframe.station == self.station, key
-                ]
-            elif key in [
-                "phase_xx_model_error",
-                "phase_xy_model_error",
-                "phase_yx_model_error",
-                "phase_yy_model_error",
-            ]:
-                phase_model_err[
-                    :, index["ii"], index["jj"]
-                ] = self.dataframe.loc[
-                    self.dataframe.station == self.station, key
-                ]
+            z_model_err[:, index["ii"], index["jj"]] = self.dataframe.loc[
+                self.dataframe.station == self.station, f"z_{comp}_model_error"
+            ]
 
         z_object = Z(z, z_err, self.frequency, z_model_err)
 
         if (z == 0).all():
-            # only load in resistivity and phase if impedance is 0, otherwise
-            # its recreated from z.
+            for comp in ["xx", "xy", "yx", "yy"]:
+                index = self._get_index(comp)
+                ### resistivity
+                res[:, index["ii"], index["jj"]] = self.dataframe.loc[
+                    self.dataframe.station == self.station, f"res_{comp}"
+                ]
+                res_err[:, index["ii"], index["jj"]] = self.dataframe.loc[
+                    self.dataframe.station == self.station, f"res_{comp}_error"
+                ]
+                res_model_err[
+                    :, index["ii"], index["jj"]
+                ] = self.dataframe.loc[
+                    self.dataframe.station == self.station,
+                    f"res_{comp}_model_error",
+                ]
+
+                ### Phase
+                phase[:, index["ii"], index["jj"]] = self.dataframe.loc[
+                    self.dataframe.station == self.station, f"phase_{comp}"
+                ]
+                phase_err[:, index["ii"], index["jj"]] = self.dataframe.loc[
+                    self.dataframe.station == self.station,
+                    f"phase_{comp}_error",
+                ]
+
+                phase_model_err[
+                    :, index["ii"], index["jj"]
+                ] = self.dataframe.loc[
+                    self.dataframe.station == self.station,
+                    f"phase_{comp}_model_error",
+                ]
+
             if not (res == 0).all():
                 if not (phase == 0).all():
                     z_object.set_resistivity_phase(
