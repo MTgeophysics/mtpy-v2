@@ -148,7 +148,7 @@ class MTDataFrame:
             "res": "resistivity",
             "phase": "phase",
             "pt": "phase_tensor",
-            "t": "t",
+            "t": "tipper",
         }
 
         if data is not None:
@@ -611,32 +611,31 @@ class MTDataFrame:
         :rtype: TYPE
 
         """
-        for key in self.dataframe.dtypes.keys():
-            if key in ["period"]:
-                self.dataframe.loc[
-                    self.dataframe.station == self.station, "period"
-                ] = t_object.period
+        self.dataframe.loc[
+            self.dataframe.station == self.station, "period"
+        ] = t_object.period
 
-            index = self._get_index(key)
-            if index is None:
-                continue
-            if key in ["t_zx", "t_zy"]:
-                if t_object._has_tf():
+        for error in ["", "_error", "_model_error"]:
+            if getattr(t_object, f"_has_tf{error}")():
+                obj_key = self._key_dict["t"]
+                for comp in ["zx", "zy"]:
+                    index = self._get_index(comp)
+                    data_array = getattr(t_object, f"{obj_key}{error}")
                     self.dataframe.loc[
-                        self.dataframe.station == self.station, key
-                    ] = t_object.tipper[:, index["ii"], index["jj"]]
-            elif key in ["t_zx_error", "t_zy_error"]:
-                if t_object._has_tf_error():
-                    self.dataframe.loc[
-                        self.dataframe.station == self.station, key
-                    ] = t_object.tipper_error[:, index["ii"], index["jj"]]
-            elif key in ["t_zx_model_error", "t_zy_model_error"]:
-                if t_object._has_tf_model_error():
-                    self.dataframe.loc[
-                        self.dataframe.station == self.station, key
-                    ] = t_object.tipper_model_error[
-                        :, index["ii"], index["jj"]
-                    ]
+                        self.dataframe.station == self.station, f"t_{comp}"
+                    ] = data_array[:, index["ii"], index["jj"]]
+                if error in [""]:
+                    for t_attr in [
+                        "mag_real",
+                        "mag_imag",
+                        "angle_real",
+                        "angle_imag",
+                    ]:
+                        data_array = getattr(t_object, t_attr)
+                        self.dataframe.loc[
+                            self.dataframe.station == self.station,
+                            f"t_{t_attr}",
+                        ] = data_array
 
     def to_z_object(self):
         """
