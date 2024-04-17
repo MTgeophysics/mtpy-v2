@@ -42,24 +42,28 @@ class MTDataFrame:
             ("model_elevation", float),
             ("profile_offset", float),
             ("period", float),
-            ("zxx", complex),
-            ("zxx_error", float),
-            ("zxx_model_error", float),
-            ("zxy", complex),
-            ("zxy_error", float),
-            ("zxy_model_error", float),
-            ("zyx", complex),
-            ("zyx_error", float),
-            ("zyx_model_error", float),
-            ("zyy", complex),
-            ("zyy_error", float),
-            ("zyy_model_error", float),
-            ("tzx", complex),
-            ("tzx_error", float),
-            ("tzx_model_error", float),
-            ("tzy", complex),
-            ("tzy_error", float),
-            ("tzy_model_error", float),
+            ("z_xx", complex),
+            ("z_xx_error", float),
+            ("z_xx_model_error", float),
+            ("z_xy", complex),
+            ("z_xy_error", float),
+            ("z_xy_model_error", float),
+            ("z_yx", complex),
+            ("z_yx_error", float),
+            ("z_yx_model_error", float),
+            ("z_yy", complex),
+            ("z_yy_error", float),
+            ("z_yy_model_error", float),
+            ("t_zx", complex),
+            ("t_zx_error", float),
+            ("t_zx_model_error", float),
+            ("t_zy", complex),
+            ("t_zy_error", float),
+            ("t_zy_model_error", float),
+            ("t_mag_real", float),
+            ("t_mag_imag", float),
+            ("t_angle_real", float),
+            ("t_angle_imag", float),
             ("res_xx", float),
             ("res_xx_error", float),
             ("res_xx_model_error", float),
@@ -84,18 +88,18 @@ class MTDataFrame:
             ("phase_yy", float),
             ("phase_yy_error", float),
             ("phase_yy_model_error", float),
-            ("ptxx", float),
-            ("ptxx_error", float),
-            ("ptxx_model_error", float),
-            ("ptxy", float),
+            ("pt_xx", float),
+            ("pt_xx_error", float),
+            ("pt_xx_model_error", float),
+            ("pt_xy", float),
             ("ptxy_error", float),
-            ("ptxy_model_error", float),
-            ("ptyx", float),
-            ("ptyx_error", float),
-            ("ptyx_model_error", float),
-            ("ptyy", float),
-            ("ptyy_error", float),
-            ("ptyy_model_error", float),
+            ("pt_xy_model_error", float),
+            ("pt_yx", float),
+            ("pt_yx_error", float),
+            ("pt_yx_model_error", float),
+            ("pt_yy", float),
+            ("pt_yy_error", float),
+            ("pt_yy_model_error", float),
             ("pt_phimin", float),
             ("pt_phimax", float),
             ("pt_azimuth", float),
@@ -535,21 +539,26 @@ class MTDataFrame:
             if index is None:
                 continue
 
-            if key in ["zxx", "zxy", "zyx", "zyy"]:
+            if key in ["z_xx", "z_xy", "z_yx", "z_yy"]:
                 if z_object._has_tf():
                     self.dataframe.loc[
                         self.dataframe.station == self.station, key
                     ] = z_object.z[:, index["ii"], index["jj"]]
-            elif key in ["zxx_error", "zxy_error", "zyx_error", "zyy_error"]:
+            elif key in [
+                "z_xx_error",
+                "z_xy_error",
+                "z_yx_error",
+                "z_yy_error",
+            ]:
                 if z_object._has_tf_error():
                     self.dataframe.loc[
                         self.dataframe.station == self.station, key
                     ] = z_object.z_error[:, index["ii"], index["jj"]]
             elif key in [
-                "zxx_model_error",
-                "zxy_model_error",
-                "zyx_model_error",
-                "zyy_model_error",
+                "z_xx_model_error",
+                "z_xy_model_error",
+                "z_yx_model_error",
+                "z_yy_model_error",
             ]:
                 if z_object._has_tf_model_error():
                     self.dataframe.loc[
@@ -631,17 +640,17 @@ class MTDataFrame:
             index = self._get_index(key)
             if index is None:
                 continue
-            if key in ["tzx", "tzy"]:
+            if key in ["t_zx", "t_zy"]:
                 if t_object._has_tf():
                     self.dataframe.loc[
                         self.dataframe.station == self.station, key
                     ] = t_object.tipper[:, index["ii"], index["jj"]]
-            elif key in ["tzx_error", "tzy_error"]:
+            elif key in ["t_zx_error", "t_zy_error"]:
                 if t_object._has_tf_error():
                     self.dataframe.loc[
                         self.dataframe.station == self.station, key
                     ] = t_object.tipper_error[:, index["ii"], index["jj"]]
-            elif key in ["tzx_model_error", "tzy_model_error"]:
+            elif key in ["t_zx_model_error", "t_zy_model_error"]:
                 if t_object._has_tf_model_error():
                     self.dataframe.loc[
                         self.dataframe.station == self.station, key
@@ -675,19 +684,24 @@ class MTDataFrame:
             if index is None:
                 continue
 
-            if key in ["zxx", "zxy", "zyx", "zyy"]:
+            if key in ["z_xx", "z_xy", "z_yx", "z_yy"]:
                 z[:, index["ii"], index["jj"]] = self.dataframe.loc[
                     self.dataframe.station == self.station, key
                 ]
-            elif key in ["zxx_error", "zxy_error", "zyx_error", "zyy_error"]:
+            elif key in [
+                "z_xx_error",
+                "z_xy_error",
+                "z_yx_error",
+                "z_yy_error",
+            ]:
                 z_err[:, index["ii"], index["jj"]] = self.dataframe.loc[
                     self.dataframe.station == self.station, key
                 ]
             elif key in [
-                "zxx_model_error",
-                "zxy_model_error",
-                "zyx_model_error",
-                "zyy_model_error",
+                "z_xx_model_error",
+                "z_xy_model_error",
+                "z_yx_model_error",
+                "z_yy_model_error",
             ]:
                 z_model_err[:, index["ii"], index["jj"]] = self.dataframe.loc[
                     self.dataframe.station == self.station, key
@@ -787,15 +801,15 @@ class MTDataFrame:
             if index is None:
                 continue
 
-            if key in ["tzx", "tzy"]:
+            if key in ["t_zx", "t_zy"]:
                 t[:, index["ii"], index["jj"]] = self.dataframe.loc[
                     self.dataframe.station == self.station, key
                 ]
-            elif key in ["tzx_error", "tzy_error"]:
+            elif key in ["t_zx_error", "t_zy_error"]:
                 t_err[:, index["ii"], index["jj"]] = self.dataframe.loc[
                     self.dataframe.station == self.station, key
                 ]
-            elif key in ["tzx_model_error", "tzy_model_error"]:
+            elif key in ["t_zx_model_error", "t_zy_model_error"]:
                 t_model_err[:, index["ii"], index["jj"]] = self.dataframe.loc[
                     self.dataframe.station == self.station, key
                 ]
