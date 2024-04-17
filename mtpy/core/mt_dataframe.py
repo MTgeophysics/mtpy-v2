@@ -622,7 +622,8 @@ class MTDataFrame:
                     index = self._get_index(comp)
                     data_array = getattr(t_object, f"{obj_key}{error}")
                     self.dataframe.loc[
-                        self.dataframe.station == self.station, f"t_{comp}"
+                        self.dataframe.station == self.station,
+                        f"t_{comp}{error}",
                     ] = data_array[:, index["ii"], index["jj"]]
                 if error in [""]:
                     for t_attr in [
@@ -771,27 +772,22 @@ class MTDataFrame:
         """
 
         nf = self.period.size
+
         t = np.zeros((nf, 1, 2), dtype=complex)
         t_err = np.zeros((nf, 1, 2), dtype=float)
         t_model_err = np.zeros((nf, 1, 2), dtype=float)
 
-        for key in self.dataframe.columns:
-            index = self._get_index(key)
-            if index is None:
-                continue
-
-            if key in ["t_zx", "t_zy"]:
-                t[:, index["ii"], index["jj"]] = self.dataframe.loc[
-                    self.dataframe.station == self.station, key
-                ]
-            elif key in ["t_zx_error", "t_zy_error"]:
-                t_err[:, index["ii"], index["jj"]] = self.dataframe.loc[
-                    self.dataframe.station == self.station, key
-                ]
-            elif key in ["t_zx_model_error", "t_zy_model_error"]:
-                t_model_err[:, index["ii"], index["jj"]] = self.dataframe.loc[
-                    self.dataframe.station == self.station, key
-                ]
+        for comp in ["zx", "zy"]:
+            index = self._get_index(comp)
+            t[:, index["ii"], index["jj"]] = self.dataframe.loc[
+                self.dataframe.station == self.station, f"t_{comp}"
+            ]
+            t_err[:, index["ii"], index["jj"]] = self.dataframe.loc[
+                self.dataframe.station == self.station, f"t_{comp}_error"
+            ]
+            t_model_err[:, index["ii"], index["jj"]] = self.dataframe.loc[
+                self.dataframe.station == self.station, f"t_{comp}_model_error"
+            ]
 
         return Tipper(t, t_err, self.frequency, t_model_err)
 
