@@ -490,13 +490,34 @@ class MTData(OrderedDict, MTStations):
             mt_object.from_dataframe(sdf)
             self.add_station(mt_object, compute_relative_location=False)
 
-    def to_geo_df(self, model_locations=False):
+    def to_geo_df(self, model_locations=False, data_type="station_locations"):
         """
         Make a geopandas dataframe for easier GIS manipulation
 
+        :param model_locations: if True returns points in model coordinates,
+         defaults to False
+        :type model_locations: bool, optional
+        :param data_type: type of data in GeoDataFrame
+         [ 'station_locations' | 'phase_tensor' | 'tipper' | 'shapefiles' (both pt and tipper) ],
+         defaults to "station_locations"
+        :type data_type: string, optional
+        :return: Geopandas dataframe with requested data in requested coordinates
+        :rtype: geopandas.GeoDataFrame
+
         """
 
-        df = self.station_locations
+        if data_type in ["station_locations", "stations"]:
+            df = self.station_locations
+        elif data_type in ["phase_tensor", "pt"]:
+            df = self.to_dataframe().phase_tensor
+        elif data_type in ["tipper", "t"]:
+            df = self.to_dataframe().tipper
+        elif data_type in ["both", "shapefiles"]:
+            df = self.to_dataframe().for_shapefiles
+        else:
+            raise ValueError(
+                f"Option for 'data_type' {data_type} is unsupported."
+            )
         if model_locations:
             gdf = gpd.GeoDataFrame(
                 df,

@@ -802,3 +802,11 @@ class MTDataFrame:
         return self.dataframe[
             self._station_location_attrs + self._tipper_attrs
         ].reset_index()
+
+    @property
+    def for_shapefiles(self):
+        """for shape files includes phase tensor and tipper"""
+
+        return self.dataframe[
+            self._station_location_attrs + self._pt_attrs + self._tipper_attrs
+        ].reset_index()
