@@ -572,6 +572,50 @@ class MTDataFrame:
             ]
         return z
 
+    def _get_data_array(self, obj, attr):
+        """
+        Get data array from object given the attribute
+
+        :param obj: DESCRIPTION
+        :type obj: TYPE
+        :param attr: DESCRIPTION
+        :type attr: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        try:
+            return getattr(obj, attr)
+        except TypeError:
+            return None
+
+    def _fill_data(self, data_array, column, index):
+        """
+        fill data frame column with data array spliced by index
+
+        :param data_array: DESCRIPTION
+        :type data_array: TYPE
+        :param attr: DESCRIPTION
+        :type attr: TYPE
+        :param index: DESCRIPTION
+        :type index: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        if data_array is not None:
+            if index is None:
+                self.dataframe.loc[
+                    self.dataframe.station == self.station,
+                    column,
+                ] = data_array[:]
+            else:
+                self.dataframe.loc[
+                    self.dataframe.station == self.station,
+                    column,
+                ] = data_array[:, index["ii"], index["jj"]]
+
     def from_z_object(self, z_object):
         """
         Fill impedance
@@ -588,39 +632,48 @@ class MTDataFrame:
             self.dataframe.station == self.station, "period"
         ] = z_object.period
 
+        # should make a copy of the phase tensor otherwise it gets calculated
+        # multiple times and becomes a time sink.
+        pt_object = z_object.phase_tensor.copy()
+
         for error in ["", "_error", "_model_error"]:
             if getattr(z_object, f"_has_tf{error}")():
-                for key in ["z", "res", "phase", "pt"]:
+                for key in ["z", "res", "phase"]:
                     obj_key = self._key_dict[key]
+                    data_array = getattr(z_object, f"{obj_key}{error}").copy()
                     for comp in ["xx", "xy", "yx", "yy"]:
                         index = self._get_index(comp)
-                        if key in ["pt"]:
-                            data_array = getattr(
-                                z_object.phase_tensor, f"{key}{error}"
-                            )
-                        else:
-                            data_array = getattr(z_object, f"{obj_key}{error}")
-                        self.dataframe.loc[
-                            self.dataframe.station == self.station,
-                            f"{key}_{comp}{error}",
-                        ] = data_array[:, index["ii"], index["jj"]]
+                        # if key in ["pt"]:
+                        #     data_array = self._get_data_array(
+                        #         obj, f"{key}{error}"
+                        #     )
+                        # else:
+                        #     data_array = self._get_data_array(
+                        #         z_object, f"{obj_key}{error}"
+                        #     )
 
-                    if key in ["pt"]:
-                        for pt_attr in [
-                            "phimin",
-                            "phimax",
-                            "azimuth",
-                            "skew",
-                            "ellipticity",
-                            "det",
-                        ]:
-                            data_array = getattr(
-                                z_object.phase_tensor, f"{pt_attr}{error}"
-                            )
-                            self.dataframe.loc[
-                                self.dataframe.station == self.station,
-                                f"pt_{pt_attr}{error}",
-                            ] = data_array[:]
+                        self._fill_data(
+                            data_array, f"{key}_{comp}{error}", index
+                        )
+
+                ## phase tensor
+                data_array = getattr(pt_object, f"pt{error}")
+                for comp in ["xx", "xy", "yx", "yy"]:
+                    index = self._get_index(comp)
+                    self._fill_data(data_array, f"pt_{comp}{error}", index)
+                # PT attributes
+                for pt_attr in [
+                    "phimin",
+                    "phimax",
+                    "azimuth",
+                    "skew",
+                    "ellipticity",
+                    "det",
+                ]:
+                    data_array = self._get_data_array(
+                        pt_object, f"{pt_attr}{error}"
+                    )
+                    self._fill_data(data_array, f"pt_{pt_attr}{error}", None)
 
     def from_t_object(self, t_object):
         """
@@ -644,11 +697,11 @@ class MTDataFrame:
                 obj_key = self._key_dict["t"]
                 for comp in ["zx", "zy"]:
                     index = self._get_index(comp)
-                    data_array = getattr(t_object, f"{obj_key}{error}")
-                    self.dataframe.loc[
-                        self.dataframe.station == self.station,
-                        f"t_{comp}{error}",
-                    ] = data_array[:, index["ii"], index["jj"]]
+                    data_array = self._get_data_array(
+                        t_object, f"{obj_key}{error}"
+                    )
+                    self._fill_data(data_array, f"t_{comp}{error}", index)
+
                 if error in [""]:
                     for t_attr in [
                         "mag_real",
@@ -656,11 +709,8 @@ class MTDataFrame:
                         "angle_real",
                         "angle_imag",
                     ]:
-                        data_array = getattr(t_object, t_attr)
-                        self.dataframe.loc[
-                            self.dataframe.station == self.station,
-                            f"t_{t_attr}",
-                        ] = data_array
+                        data_array = self._get_data_array(t_object, t_attr)
+                        self._fill_data(data_array, f"t_{t_attr}", None)
 
     def to_z_object(self):
         """
