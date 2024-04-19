@@ -27,6 +27,7 @@ from pathlib import Path
 
 import click
 import geopandas as gpd
+from pyproj import CRS
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -34,9 +35,6 @@ import pandas as pd
 from loguru import logger
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from shapely.geometry import Point, Polygon, LineString, LinearRing
-
-from mtpy.core.edi_collection import EdiCollection
-from mtpy.utils.edi_folders import recursive_glob
 
 mpl.rcParams["lines.linewidth"] = 2
 # mpl.rcParams['lines.color'] = 'r'
@@ -53,7 +51,7 @@ class ShapefilesCreator:
     :param output_crs: CRS of output files
     """
 
-    def __init__(self, geodataframe, save_dir=None, output_crs=None):
+    def __init__(self, geodataframe, output_crs, save_dir=None, ):
         """
         loop through a list of edi files, create required shapefiles
         :param edifile_list: [path2edi,...]
@@ -77,6 +75,14 @@ class ShapefilesCreator:
                 self._save_dir.mkdir()
         else:
             self._save_dir = Path().cwd()
+            
+    @property
+    def output_crs(self):
+        return self._output_crs
+    
+    @output_crs.setter
+    def output_crs(self, value):
+        self._output_crs = CRS.from_user_input(value)
 
     def _export_shapefiles(self, gpdf, element_type, period, export_fig):
         """
@@ -101,17 +107,14 @@ class ShapefilesCreator:
             Path to the shapefile.
         """
         filename = f"{element_type}_EPSG_{self.output_crs}_Period_{period}.shp"
-        directory = os.path.join(self.outdir, "Period_{}".format(period))
-        if not os.path.exists(directory):
-            os.mkdir(directory)
-        outpath = os.path.join(directory, filename)
-        gpdf.to_file(outpath, driver="ESRI Shapefile")
-        self.logger.info("Saved shapefile to %s", outpath)
+        out_path = self.save_dir.joinpath(filename)
+        gpdf.to_file(out_path, driver="ESRI Shapefile")
+        self.logger.info("Saved shapefile to %s", out_path)
 
         if export_fig is True:
             # this bbox ensures that the whole MT-stations area is covered independent of periods
             bbox_dict = self.get_bounding_box(epsgcode=epsg_code)
-            path2jpg = outpath.replace(".shp", ".jpg")
+            path2jpg = out_path.replace(".shp", ".jpg")
             export_geopdf_to_image(
                 gpdf,
                 bbox_dict,
@@ -119,24 +122,17 @@ class ShapefilesCreator:
                 colorby="phi_max",
                 colormap="nipy_spectral_r",
             )
-            self.logger.info("Saved image to %s", outpath)
+            self.logger.info("Saved image to %s", out_path)
 
-        return outpath
+        return out_path
 
     def create_phase_tensor_shp(
-        self, period, ellipsize=None, target_epsg_code=4283, export_fig=False
+        self, period, ellipsize, export_fig=False
     ):
         """
         create phase tensor ellipses shape file correspond to a MT period
         :return: (geopdf_obj, path_to_shapefile)
         """
-        if ellipsize is None:  # automatically decide suitable ellipse size.
-            ellipsize = (
-                self.stations_distances.get("Q1PERCENT") / 2
-            )  # a half or a third of the min_distance?
-            self.logger.debug(
-                "Automatically Selected Max-Ellispse Size = %s", ellipsize
-            )
 
         pt = self.get_phase_tensor_tippers(period)
 
