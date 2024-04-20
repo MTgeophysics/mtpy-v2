@@ -883,7 +883,7 @@ class MTDataFrame:
             self._station_location_attrs + self._pt_attrs + self._tipper_attrs
         ].reset_index()
 
-    def get_station_distance_series(self, utm=False):
+    def get_station_distances(self, utm=False):
         """
         Get distance information between stations
 

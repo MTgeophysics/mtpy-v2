@@ -73,7 +73,7 @@ class ShapefilesCreator:
         self.ellipse_size = 2
         self.ellipse_resolution = 180
         self.arrow_size = 2
-        self.in_utm = False
+        self.utm = False
 
     @property
     def mt_dataframe(self):
@@ -113,6 +113,38 @@ class ShapefilesCreator:
             self._output_crs = None
         else:
             self._output_crs = CRS.from_user_input(value)
+
+    @property
+    def x_key(self):
+        if self.utm:
+            return "east"
+        else:
+            return "longitude"
+
+    @property
+    def y_key(self):
+        if self.utm:
+            return "north"
+        else:
+            return "latitude"
+
+    def estimate_ellipse_size(self, quantile=0.03):
+        """
+        estimate ellipse size from station distances
+        """
+
+        return self.mt_dataframe.get_station_distances(utm=self.utm).quantile(
+            quantile
+        )
+
+    def estimate_arow_size(self, quantile=0.03):
+        """
+        arrow size from station distances
+        """
+
+        return self.mt_dataframe.get_station_distances(utm=self.utm).quantile(
+            quantile
+        )
 
     def _export_shapefiles(self, gpdf, element_type, period):
         """
@@ -181,19 +213,15 @@ class ShapefilesCreator:
         scaling = self.ellipse_size / geopdf["pt_phimax"]
         width = geopdf["pt_phimax"] * scaling
         height = geopdf["pt_phimin"] * scaling
-        if self.in_utm:
-            x0 = geopdf["east"]
-            y0 = geopdf["north"]
-        else:
-            x0 = geopdf["longitude"]
-            y0 = geopdf["latitude"]
+        x0 = geopdf[self.x_key]
+        y0 = geopdf[self.y_key]
 
         # Find invalid ellipses
         bad_min = np.where(
-            np.logical_or(geopdf["phi_min"] == 0, geopdf["phi_min"] > 100)
+            np.logical_or(geopdf["pt_phimin"] == 0, geopdf["pt_phimin"] > 100)
         )[0]
         bad_max = np.where(
-            np.logical_or(geopdf["phi_max"] == 0, geopdf["phi_max"] > 100)
+            np.logical_or(geopdf["pt_phimax"] == 0, geopdf["pt_phimax"] > 100)
         )[0]
         dot = 0.0000001 * self.ellipse_size
         height[bad_min] = dot
@@ -229,9 +257,7 @@ class ShapefilesCreator:
 
         return shp_fn
 
-    def create_tipper_real_shp(
-        self, period, line_length=None, target_epsg_code=4283, export_fig=False
-    ):
+    def _create_tipper_real_shp(self, period):
         """
         create real tipper lines shapefile from a csv file
         The shapefile consists of lines without arrow.
@@ -239,68 +265,38 @@ class ShapefilesCreator:
         line_length is how long will be the line, auto-calculatable
         """
 
-        if line_length is None:  # auto-calculate the tipper arrow length
-            line_length = self.stations_distances.get("Q1PERCENT")
-            self.logger.info(
-                "Automatically Selected Max Tipper Length  = %s", line_length
-            )
+        tdf = self.mt_dataframe.tipper
 
-        pt = self.get_phase_tensor_tippers(period)
-        self.logger.debug("phase tensor values =: %s", pt)
-
-        if len(pt) < 1:
-            self.logger.warn(
-                "No phase tensor for the period %s for any MT station", period
+        if len(tdf) < 1:
+            self.logger.warning(
+                f"No phase tensor for the period {period} for any MT station"
             )
             return None
 
-        pdf = pd.DataFrame(pt)
-
-        tip_mag_re_maxval = pdf["tip_mag_re"].max()
-
-        if tip_mag_re_maxval > 0.00000001:
-            line_length_normalized = line_length / tip_mag_re_maxval
-        else:
-            line_length_normalized = line_length
-
-        self.logger.debug(pdf["period"])
-
-        pdf["tip_re"] = pdf.apply(
+        tdf["tip_re"] = tdf.apply(
             lambda x: LineString(
                 [
-                    (float(x.lon), float(x.lat)),
+                    (float(x[self.x_key]), float(x[self.y_key])),
                     (
-                        float(x.lon)
-                        + line_length_normalized
-                        * x.tip_mag_re
-                        * np.cos(-np.deg2rad(x.tip_ang_re)),
-                        float(x.lat)
-                        + line_length_normalized
-                        * x.tip_mag_re
-                        * np.sin(-np.deg2rad(x.tip_ang_re)),
+                        float(x[self.x_key])
+                        + self.arrow_size
+                        * x["t_mag_real"]
+                        * np.cos(-np.deg2rad(x["t_angle_real"])),
+                        float(x[self.y_key])
+                        + self.arrow_size
+                        * x["t_mag_real"]
+                        * np.sin(-np.deg2rad(x["t_angle_real"])),
                     ),
                 ]
             ),
             axis=1,
         )
 
-        geopdf = gpd.GeoDataFrame(pdf, crs=self.orig_crs, geometry="tip_re")
+        geopdf = gpd.GeoDataFrame(tdf, crs=self.orig_crs, geometry="tip_re")
 
-        if target_epsg_code is None:
-            self.logger.info("Geopandas Datframe CRS: %s", geopdf.crs)
-            # {'init': 'epsg:4283', 'no_defs': True}
-            # raise Exception("Must provide a target_epsg_code")
-            target_epsg_code = geopdf.crs["init"][5:]
-        else:
-            geopdf.to_crs(epsg=target_epsg_code, inplace=True)
-            # world = world.to_crs({'init': 'epsg:3395'})
-            # world.to_crs(epsg=3395) would also work
+        shp_fn = self._export_shapefiles(geopdf, "Tipper_Real", period)
 
-        path2shp = self._export_shapefiles(
-            geopdf, "Tipper_Real", target_epsg_code, period, export_fig
-        )
-
-        return (geopdf, path2shp)
+        return shp_fn
 
     def create_tipper_imag_shp(
         self, period, line_length=None, target_epsg_code=4283, export_fig=False
