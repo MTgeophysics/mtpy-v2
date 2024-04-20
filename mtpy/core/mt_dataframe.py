@@ -10,6 +10,7 @@ Created on Sun Oct  2 13:20:28 2022
 # =============================================================================
 import numpy as np
 import pandas as pd
+from scipy.spatial.distance import pdist
 
 from . import Z, Tipper
 
@@ -153,9 +154,9 @@ class MTDataFrame:
 
         self._station_location_attrs = [
             "survey",
+            "station",
             "latitude",
             "longitude",
-            "latitude",
             "elevation",
             "datum_epsg",
             "east",
@@ -342,6 +343,29 @@ class MTDataFrame:
 
         if self._has_data():
             return 1.0 / self.period
+
+    def get_period(self, period, tol=None):
+        """
+        get periods with a percentage based on tol if given.
+
+        :param period: exact period value to search for
+        :type period: float
+        :param tol: tolerance to search around given period, defaults to None
+        :type tol: float, optional
+        :return: dataframe with periods
+        :rtype: TYPE
+
+        """
+        if tol is not None:
+            return MTDataFrame(
+                self.dataframe[
+                    (self.dataframe.period > period * (1 - tol))
+                    & self.dataframe.period
+                    < period * (1 + tol)
+                ]
+            )
+        else:
+            return MTDataFrame(self.dataframe[self.dataframe.period == period])
 
     @property
     def survey(self):
@@ -759,9 +783,7 @@ class MTDataFrame:
                 res_err[:, index["ii"], index["jj"]] = self.dataframe.loc[
                     self.dataframe.station == self.station, f"res_{comp}_error"
                 ]
-                res_model_err[
-                    :, index["ii"], index["jj"]
-                ] = self.dataframe.loc[
+                res_model_err[:, index["ii"], index["jj"]] = self.dataframe.loc[
                     self.dataframe.station == self.station,
                     f"res_{comp}_model_error",
                 ]
@@ -833,7 +855,7 @@ class MTDataFrame:
     def station_locations(self):
         return (
             self.dataframe.groupby("station")
-            .first()[self._station_location_attrs]
+            .nth(0)[self._station_location_attrs]
             .reset_index()
         )
 
@@ -860,3 +882,23 @@ class MTDataFrame:
         return self.dataframe[
             self._station_location_attrs + self._pt_attrs + self._tipper_attrs
         ].reset_index()
+
+    def get_station_distance_series(self, utm=False):
+        """
+        Get distance information between stations
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        if utm:
+            x_key = "east"
+            y_key = "north"
+        else:
+            x_key = "longitude"
+            y_key = "latitude"
+        sdf = self.station_locations
+        distances = pdist(sdf[[x_key, y_key]].values, metric="euclidean")
+        distances = distances[np.nonzero(distances)]
+
+        return pd.Series(distances)
