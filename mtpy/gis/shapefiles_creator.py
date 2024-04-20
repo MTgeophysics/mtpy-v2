@@ -28,7 +28,7 @@ import geopandas as gpd
 from pyproj import CRS
 
 from loguru import logger
-from shapely.geometry import Point, Polygon, LineString, LinearRing
+from shapely.geometry import Polygon, LineString, LinearRing
 
 from mtpy.core import MTDataFrame
 
@@ -298,7 +298,7 @@ class ShapefilesCreator:
 
         return shp_fn
 
-    def create_tipper_imag_shp(
+    def _create_tipper_imag_shp(
         self, period, line_length=None, target_epsg_code=4283, export_fig=False
     ):
         """
@@ -309,68 +309,68 @@ class ShapefilesCreator:
         :return:(geopdf_obj, path_to_shapefile)
         """
 
-        if line_length is None:  # auto-calculate the tipper arrow length
-            line_length = self.stations_distances.get("Q1PERCENT")
-            self.logger.info(
-                "Automatically Selected Max-Tipper Length =: %s", line_length
-            )
+        tdf = self.mt_dataframe.tipper
 
-        pt = self.get_phase_tensor_tippers(period)
-        self.logger.debug("phase tensor values =: %s", pt)
-
-        if len(pt) < 1:
-            self.logger.warn(
-                "No phase tensor for the period %s for any MT station", period
+        if len(tdf) < 1:
+            self.logger.warning(
+                f"No phase tensor for the period {period} for any MT station"
             )
             return None
 
-        pdf = pd.DataFrame(pt)
-
-        tip_mag_im_maxval = pdf["tip_mag_im"].max()
-
-        if tip_mag_im_maxval > 0.00000001:
-            line_length_normalized = line_length / tip_mag_im_maxval
-        else:
-            line_length_normalized = line_length
-
-        self.logger.debug(pdf["period"])
-
-        pdf["tip_im"] = pdf.apply(
+        tdf["tip_im"] = tdf.apply(
             lambda x: LineString(
                 [
-                    (float(x.lon), float(x.lat)),
+                    (float(x[self.x_key]), float(x[self.y_key])),
                     (
-                        float(x.lon)
-                        + line_length_normalized
-                        * x.tip_mag_im
-                        * np.cos(-np.deg2rad(x.tip_ang_im)),
-                        float(x.lat)
-                        + line_length_normalized
-                        * x.tip_mag_im
-                        * np.sin(-np.deg2rad(x.tip_ang_im)),
+                        float(x[self.x_key])
+                        + self.arrow_size
+                        * x["t_mag_imag"]
+                        * np.cos(-np.deg2rad(x["t_angle_imag"])),
+                        float(x[self.y_key])
+                        + self.arrow_size
+                        * x["t_mag_imag"]
+                        * np.sin(-np.deg2rad(x["t_angle_imag"])),
                     ),
                 ]
             ),
             axis=1,
         )
 
-        geopdf = gpd.GeoDataFrame(pdf, crs=self.orig_crs, geometry="tip_im")
+        geopdf = gpd.GeoDataFrame(tdf, crs=self.orig_crs, geometry="tip_im")
 
-        if target_epsg_code is None:
-            self.logger.info(
-                "Keep the Default/Original Geopandas Dataframe CRS: %s",
-                geopdf.crs,
-            )
-            # {'init': 'epsg:4283', 'no_defs': True}
-            # raise Exception("Must provide a target_epsg_code")
-            target_epsg_code = geopdf.crs["init"][5:]
-        else:
-            geopdf.to_crs(epsg=target_epsg_code, inplace=True)
-            # world = world.to_crs({'init': 'epsg:3395'})
-            # world.to_crs(epsg=3395) would also work
+        shp_fn = self._export_shapefiles(geopdf, "Tipper_Imag", period)
 
-        path2shp = self._export_shapefiles(
-            geopdf, "Tipper_Imag", target_epsg_code, period, export_fig
-        )
+        return shp_fn
 
-        return (geopdf, path2shp)
+    def make_shp_files(self, pt=True, tipper=True, periods=None):
+        """
+        If you want all stations on the same period map need to interpolate
+        before converting to an MTDataFrame
+
+        md.interpolate(new_periods)
+
+        :param pt: DESCRIPTION, defaults to True
+        :type pt: TYPE, optional
+        :param tipper: DESCRIPTION, defaults to True
+        :type tipper: TYPE, optional
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        if periods is None:
+            periods = self.mt_dataframe.period
+
+        shp_files = {"pt": [], "tipper_real": [], "tipper_imag": []}
+        for period in periods:
+            if pt:
+                shp_files["pt"].append(self._create_phase_tensor_shp(period))
+            if tipper:
+                shp_files["tipper_real"].append(
+                    self._create_tipper_real_shp(period)
+                )
+                shp_files["tipper_imag"].append(
+                    self._create_tipper_imag_shp(period)
+                )
+
+        return shp_files
