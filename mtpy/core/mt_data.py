@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 
 from .mt import MT
 from .mt_stations import MTStations
+from mtpy.core import MTDataFrame
 
 from mtpy.modeling.errors import ModelErrors
 from mtpy.modeling.modem import Data
@@ -473,14 +474,25 @@ class MTData(OrderedDict, MTStations):
         df.reset_index(drop=True, inplace=True)
         return df
 
+    def to_mt_dataframe(self, utm_crs=None):
+        """
+        create an MTDataFrame
+
+        :param utm_crs: DESCRIPTION, defaults to None
+        :type utm_crs: TYPE, optional
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        return MTDataFrame(self.to_dataframe(utm_crs=utm_crs))
+
     def from_dataframe(self, df):
         """
         Create an dictionary of MT objects from a dataframe
 
         :param df: dataframe of mt data
         :type df: `pandas.DataFrame`
-        :return: DESCRIPTION
-        :rtype: TYPE
 
         """
 
@@ -489,6 +501,16 @@ class MTData(OrderedDict, MTStations):
             mt_object = MT(period=sdf.period.unique())
             mt_object.from_dataframe(sdf)
             self.add_station(mt_object, compute_relative_location=False)
+
+    def from_mt_dataframe(self, mt_df):
+        """
+        Create an dictionary of MT objects from a dataframe
+
+        :param df: dataframe of mt data
+        :type df: `MTDataFrame`
+        """
+
+        self.from_dataframe(mt_df.dataframe)
 
     def to_geo_df(self, model_locations=False, data_type="station_locations"):
         """
@@ -509,11 +531,11 @@ class MTData(OrderedDict, MTStations):
         if data_type in ["station_locations", "stations"]:
             df = self.station_locations
         elif data_type in ["phase_tensor", "pt"]:
-            df = self.to_dataframe().phase_tensor
+            df = self.to_mt_dataframe().phase_tensor
         elif data_type in ["tipper", "t"]:
-            df = self.to_dataframe().tipper
+            df = self.to_mt_dataframe().tipper
         elif data_type in ["both", "shapefiles"]:
-            df = self.to_dataframe().for_shapefiles
+            df = self.to_mt_dataframe().for_shapefiles
         else:
             raise ValueError(
                 f"Option for 'data_type' {data_type} is unsupported."
@@ -567,9 +589,7 @@ class MTData(OrderedDict, MTStations):
                 )
 
             else:
-                mt_data.add_station(
-                    new_mt_obj, compute_relative_location=False
-                )
+                mt_data.add_station(new_mt_obj, compute_relative_location=False)
 
         if not inplace:
             return mt_data
@@ -593,9 +613,7 @@ class MTData(OrderedDict, MTStations):
             if not inplace:
                 rot_mt_obj = mt_obj.copy()
                 rot_mt_obj.rotation_angle = rotation_angle
-                mt_data.add_station(
-                    rot_mt_obj, compute_relative_location=False
-                )
+                mt_data.add_station(rot_mt_obj, compute_relative_location=False)
             else:
                 mt_obj.rotation_angle = rotation_angle
 
@@ -693,12 +711,8 @@ class MTData(OrderedDict, MTStations):
             self.t_model_error.floor = t_floor
 
         for mt_obj in self.values():
-            mt_obj.compute_model_z_errors(
-                **self.z_model_error.error_parameters
-            )
-            mt_obj.compute_model_t_errors(
-                **self.t_model_error.error_parameters
-            )
+            mt_obj.compute_model_z_errors(**self.z_model_error.error_parameters)
+            mt_obj.compute_model_t_errors(**self.t_model_error.error_parameters)
 
     def get_nearby_stations(self, station_key, radius, radius_units="m"):
         """

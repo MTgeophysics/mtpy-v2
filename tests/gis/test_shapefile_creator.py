@@ -27,7 +27,7 @@ class TestShapefileCreator(unittest.TestCase):
         self.md.add_station(FWD_CONDUCTIVE_CUBE_GRID_LIST, survey="test")
         self.md.utm_epsg = 32754
 
-        self.mt_df = self.md.to_dataframe()
+        self.mt_df = self.md.to_mt_dataframe()
 
         self.sc = ShapefileCreator(self.mt_df, self.md.utm_epsg)
 
