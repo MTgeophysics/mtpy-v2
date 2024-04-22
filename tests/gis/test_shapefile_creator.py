@@ -34,6 +34,12 @@ class TestShapefileCreator(unittest.TestCase):
     def test_mt_dataframe(self):
         self.assertEqual(self.mt_df, self.sc.mt_dataframe)
 
+    def test_x_key(self):
+        self.assertEqual(self.sc.x_key, "longitude")
+
+    def test_y_key(self):
+        self.assertEqual(self.sc.y_key, "latitude")
+
 
 # =============================================================================
 #
