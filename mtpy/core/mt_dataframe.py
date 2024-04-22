@@ -206,7 +206,7 @@ class MTDataFrame:
         return [col for col in self._column_names if col.startswith("t_")]
 
     def __eq__(self, other):
-        other = self._validata_data(other)
+        other = self._validate_data(other)
         return self.dataframe == other
 
     @property

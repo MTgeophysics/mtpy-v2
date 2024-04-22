@@ -115,6 +115,10 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
         # --> set local variables
 
         pt_obj = tf.pt
+        has_tipper = False
+        if tf.Tipper is not None:
+            t_obj = tf.Tipper
+            has_tipper = True
 
         color_array = self.get_pt_color_array(pt_obj)
         for index, ff in enumerate(pt_obj.frequency):
@@ -162,10 +166,8 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
 
             self.ax.add_artist(ellipd)
 
-            if tf.Tipper is not None:
-                t_obj = tf.Tipper
+            if has_tipper:
                 if "r" in self.plot_tipper:
-
                     if t_obj.mag_real[index] <= self.arrow_threshold:
                         if self.y_scale == "period":
                             txr = (
