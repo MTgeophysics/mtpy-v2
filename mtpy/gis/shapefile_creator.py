@@ -35,13 +35,10 @@ from mtpy.core import MTDataFrame
 # =============================================================================
 
 
-class ShapefilesCreator:
+class ShapefileCreator:
     """
+    Create phase tensor and tipper shape files using geopandas and shapely tools
 
-    Create shape files from an MT geoDataFrame
-
-    :param outdir: path2output dir, where the shp file will be written.
-    :param output_crs: CRS of output files
     """
 
     def __init__(
@@ -298,9 +295,7 @@ class ShapefilesCreator:
 
         return shp_fn
 
-    def _create_tipper_imag_shp(
-        self, period, line_length=None, target_epsg_code=4283, export_fig=False
-    ):
+    def _create_tipper_imag_shp(self, period):
         """
         create imagery tipper lines shapefile from a csv file
         The shapefile consists of lines without arrow.
