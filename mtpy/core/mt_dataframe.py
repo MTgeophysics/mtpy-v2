@@ -207,7 +207,7 @@ class MTDataFrame:
 
     def __eq__(self, other):
         other = self._validate_data(other)
-        return self.dataframe == other
+        return (self.dataframe == other).all()
 
     @property
     def nonzero_items(self):

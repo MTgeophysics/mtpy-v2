@@ -236,16 +236,16 @@ class TFBase:
             return True
 
         if (
-            self._has_tf == False
-            and self._has_tf_error == False
-            and self._has_tf_model_error == False
+            self._has_tf() == False
+            and self._has_tf_error() == False
+            and self._has_tf_model_error() == False
         ):
             if not self._has_frequency():
                 return True
             else:
                 return False
 
-        return True
+        return False
 
     def _has_tf(self):
         return not (self._dataset.transfer_function.values == 0).all()
