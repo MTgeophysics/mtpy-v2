@@ -26,6 +26,7 @@ from mtpy.core import MTDataFrame
 from mtpy.modeling.errors import ModelErrors
 from mtpy.modeling.modem import Data
 from mtpy.modeling.occam2d import Occam2DData
+from mtpy.gis.shapefile_creator import ShapefileCreator
 from mtpy.imaging import (
     PlotStations,
     PlotMultipleResponses,
@@ -589,7 +590,9 @@ class MTData(OrderedDict, MTStations):
                 )
 
             else:
-                mt_data.add_station(new_mt_obj, compute_relative_location=False)
+                mt_data.add_station(
+                    new_mt_obj, compute_relative_location=False
+                )
 
         if not inplace:
             return mt_data
@@ -613,7 +616,9 @@ class MTData(OrderedDict, MTStations):
             if not inplace:
                 rot_mt_obj = mt_obj.copy()
                 rot_mt_obj.rotation_angle = rotation_angle
-                mt_data.add_station(rot_mt_obj, compute_relative_location=False)
+                mt_data.add_station(
+                    rot_mt_obj, compute_relative_location=False
+                )
             else:
                 mt_obj.rotation_angle = rotation_angle
 
@@ -711,8 +716,12 @@ class MTData(OrderedDict, MTStations):
             self.t_model_error.floor = t_floor
 
         for mt_obj in self.values():
-            mt_obj.compute_model_z_errors(**self.z_model_error.error_parameters)
-            mt_obj.compute_model_t_errors(**self.t_model_error.error_parameters)
+            mt_obj.compute_model_z_errors(
+                **self.z_model_error.error_parameters
+            )
+            mt_obj.compute_model_t_errors(
+                **self.t_model_error.error_parameters
+            )
 
     def get_nearby_stations(self, station_key, radius, radius_units="m"):
         """
@@ -1304,3 +1313,45 @@ class MTData(OrderedDict, MTStations):
         survey_data_02 = self.get_survey(survey_02)
 
         return PlotResidualPTMaps(survey_data_01, survey_data_02, **kwargs)
+
+    def to_shp(
+        self,
+        save_dir,
+        output_crs=None,
+        pt=True,
+        tipper=True,
+        periods=None,
+        period_tol=None,
+        ellipse_size=None,
+        arrow_size=None,
+    ):
+        """
+        Write phase tensor and tipper shape files
+        :param save_dir: DESCRIPTION
+        :type save_dir: TYPE
+        :param output_crs: DESCRIPTION, defaults to None
+        :type output_crs: TYPE, optional
+        :param pt: DESCRIPTION, defaults to True
+        :type pt: TYPE, optional
+        :param tipper: DESCRIPTION, defaults to True
+        :type tipper: TYPE, optional
+        :param periods: DESCRIPTION, defaults to None
+        :type periods: TYPE, optional
+        :param period_tol: DESCRIPTION, defaults to None
+        :type period_tol: TYPE, optional
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        sc = ShapefileCreator(
+            self.to_mt_dataframe(), output_crs, save_dir=save_dir
+        )
+        if ellipse_size is None and pt == True:
+            sc.ellipse_size = sc.estimate_ellipse_size()
+        if arrow_size is None and tipper == True:
+            sc.arrow_soze = sc.estimate_arrow_size()
+
+        return sc.make_shp_files(
+            pt=pt, tipper=tipper, periods=periods, period_tol=period_tol
+        )

@@ -71,6 +71,82 @@ class ShapefileCreator:
         self.arrow_size = 2
         self.utm = False
 
+        self._tipper_columns = [
+            "index",
+            "survey",
+            "station",
+            "latitude",
+            "longitude",
+            "elevation",
+            "datum_epsg",
+            "east",
+            "north",
+            "utm_epsg",
+            "model_east",
+            "model_north",
+            "model_elevation",
+            "profile_offset",
+            "t_mag_real",
+            "t_mag_real_error",
+            "t_mag_real_model_error",
+            "t_mag_imag",
+            "t_mag_imag_error",
+            "t_mag_imag_model_error",
+            "t_angle_real",
+            "t_angle_real_error",
+            "t_angle_real_model_error",
+            "t_angle_imag",
+            "t_angle_imag_error",
+            "t_angle_imag_model_error",
+        ]
+
+        self._pt_columns = [
+            "survey",
+            "station",
+            "latitude",
+            "longitude",
+            "elevation",
+            "datum_epsg",
+            "east",
+            "north",
+            "utm_epsg",
+            "model_east",
+            "model_north",
+            "model_elevation",
+            "profile_offset",
+            "pt_xx",
+            "pt_xx_error",
+            "pt_xx_model_error",
+            "pt_xy",
+            "pt_xy_error",
+            "pt_xy_model_error",
+            "pt_yx",
+            "pt_yx_error",
+            "pt_yx_model_error",
+            "pt_yy",
+            "pt_yy_error",
+            "pt_yy_model_error",
+            "pt_phimin",
+            "pt_phimin_error",
+            "pt_phimin_model_error",
+            "pt_phimax",
+            "pt_phimax_error",
+            "pt_phimax_model_error",
+            "pt_azimuth",
+            "pt_azimuth_error",
+            "pt_azimuth_model_error",
+            "pt_skew",
+            "pt_skew_error",
+            "pt_skew_model_error",
+            "pt_ellipticity",
+            "pt_ellipticity_error",
+            "pt_ellipticity_model_error",
+            "pt_det",
+            "pt_det_error",
+            "pt_det_model_error",
+            "geometry",
+        ]
+
     @property
     def mt_dataframe(self):
         """MTDataFrame object"""
@@ -265,7 +341,9 @@ class ShapefileCreator:
 
             ellipse_list.append(polyg)
 
-        geopdf = gpd.GeoDataFrame(geopdf, crs=crs, geometry=ellipse_list)
+        geopdf = gpd.GeoDataFrame(
+            geopdf[self._pt_columns], crs=crs, geometry=ellipse_list
+        )
 
         shp_fn = self._export_shapefiles(geopdf, "Phase_Tensor", period)
 
@@ -306,7 +384,10 @@ class ShapefileCreator:
             axis=1,
         )
 
-        geopdf = gpd.GeoDataFrame(tdf, crs=crs, geometry="tip_re")
+        del tdf["geometry"]
+        geopdf = tdf[self._tipper_columns + ["tip_re"]].set_geometry("tip_re")
+        geopdf = geopdf.set_crs(crs)
+        # geopdf = gpd.GeoDataFrame(tdf, crs=crs, geometry=tdf["tip_re"])
 
         shp_fn = self._export_shapefiles(geopdf, "Tipper_Real", period)
 
@@ -347,14 +428,18 @@ class ShapefileCreator:
             ),
             axis=1,
         )
-
-        geopdf = gpd.GeoDataFrame(tdf, crs=crs, geometry="tip_im")
+        del tdf["geometry"]
+        geopdf = tdf[self._tipper_columns + ["tip_im"]].set_geometry("tip_im")
+        geopdf = geopdf.set_crs(crs)
+        # geopdf = gpd.GeoDataFrame(tdf, crs=crs, geometry=tdf["tip_im"])
 
         shp_fn = self._export_shapefiles(geopdf, "Tipper_Imag", period)
 
         return shp_fn
 
-    def make_shp_files(self, pt=True, tipper=True, periods=None):
+    def make_shp_files(
+        self, pt=True, tipper=True, periods=None, period_tol=None
+    ):
         """
         If you want all stations on the same period map need to interpolate
         before converting to an MTDataFrame
@@ -379,10 +464,10 @@ class ShapefileCreator:
                 shp_files["pt"].append(self._create_phase_tensor_shp(period))
             if tipper:
                 shp_files["tipper_real"].append(
-                    self._create_tipper_real_shp(period)
+                    self._create_tipper_real_shp(period, tol=period_tol)
                 )
                 shp_files["tipper_imag"].append(
-                    self._create_tipper_imag_shp(period)
+                    self._create_tipper_imag_shp(period, tol=period_tol)
                 )
 
         return shp_files

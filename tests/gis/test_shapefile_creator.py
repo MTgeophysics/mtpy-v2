@@ -12,10 +12,9 @@ import unittest
 from pathlib import Path
 
 from mtpy import MTData
-from mtpy.core import MTDataFrame
 from mtpy.gis.shapefile_creator import ShapefileCreator
 
-from mtpy_data.mtpy_data import FWD_CONDUCTIVE_CUBE_GRID_LIST
+from mtpy_data import FWD_CONDUCTIVE_CUBE_GRID_LIST
 
 # =============================================================================
 
@@ -45,7 +44,7 @@ class TestShapefileCreator(unittest.TestCase):
         self.assertEqual(self.sc.y_key, "latitude")
 
     def test_estimate_ellipse_size(self):
-        self.assertAlmostEqual(0.00692118, self.sc.estimate_ellipse_size())
+        self.assertAlmostEqual(0.00526422, self.sc.estimate_ellipse_size())
 
     def test_estimate_arrow_size(self):
         self.assertAlmostEqual(0.00692118, self.sc.estimate_arrow_size())
@@ -59,6 +58,32 @@ class TestShapefileCreator(unittest.TestCase):
                 f"Phase_Tensor_EPSG_{self.md.utm_epsg}_Period_1s.shp"
             ),
         )
+
+    def test_create_tip_real_shp(self):
+        self.sc.arrow_size = self.sc.estimate_arrow_size()
+        shp_fn = self.sc._create_tipper_real_shp(1)
+        self.assertEqual(
+            shp_fn,
+            self.save_dir.joinpath(
+                f"Tipper_Real_EPSG_{self.md.utm_epsg}_Period_1s.shp"
+            ),
+        )
+
+    def test_create_tip_imag_shp(self):
+        self.sc.arrow_size = self.sc.estimate_arrow_size()
+        shp_fn = self.sc._create_tipper_imag_shp(1)
+        self.assertEqual(
+            shp_fn,
+            self.save_dir.joinpath(
+                f"Tipper_Imag_EPSG_{self.md.utm_epsg}_Period_1s.shp"
+            ),
+        )
+
+    @classmethod
+    def tearDownClass(self):
+        for fn in self.save_dir.glob("*"):
+            fn.unlink()
+        self.save_dir.rmdir()
 
 
 # =============================================================================
