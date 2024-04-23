@@ -40,6 +40,12 @@ class TestShapefileCreator(unittest.TestCase):
     def test_y_key(self):
         self.assertEqual(self.sc.y_key, "latitude")
 
+    def test_estimate_ellipse_size(self):
+        self.assertAlmostEqual(0.00692118, self.sc.estimate_ellipse_size())
+
+    def test_estimate_arrow_size(self):
+        self.assertAlmostEqual(0.00692118, self.sc.estimate_arrow_size())
+
 
 # =============================================================================
 #

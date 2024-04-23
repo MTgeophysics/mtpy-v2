@@ -115,10 +115,25 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
         # --> set local variables
 
         pt_obj = tf.pt
+        has_pt = True
+        if pt_obj._has_tf():
+            # this might make if faster
+            phimax = pt_obj.phimax
+            phimin = pt_obj.phimin
+            azimuth = pt_obj.azimuth
+        else:
+            has_pt = False
+
         has_tipper = False
         if tf.Tipper is not None:
             t_obj = tf.Tipper
             has_tipper = True
+
+            t_mag_re = t_obj.mag_real
+            t_mag_im = t_obj.mag_imag
+
+            t_ang_re = t_obj.angle_real
+            t_ang_im = t_obj.angle_imag
 
         color_array = self.get_pt_color_array(pt_obj)
         for index, ff in enumerate(pt_obj.frequency):
@@ -128,78 +143,79 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
                 plot_y = np.log10(ff) * self.y_stretch
 
             # --> get ellipse properties
-            # if the ellipse size is not physically correct make it a dot
-            if (
-                pt_obj.phimax[index] == 0
-                or pt_obj.phimax[index] > 100
-                or pt_obj.phimin[index] == 0
-                or pt_obj.phimin[index] > 100
-            ):
-                continue
-            else:
-                scaling = self.ellipse_size / pt_obj.phimax.max()
-                eheight = pt_obj.phimin[index] * scaling
-                ewidth = pt_obj.phimax[index] * scaling
-                azimuth = 90 - pt_obj.azimuth[index]
-                if self.y_scale == "period":
-                    azimuth = 90 + pt_obj.azimuth[index]
-            # make an ellipse
-            ellipd = patches.Ellipse(
-                (plot_x, plot_y),
-                width=ewidth,
-                height=eheight,
-                angle=azimuth,
-                lw=self.lw,
-            )
-
-            # get ellipse color
-            ellipd.set_facecolor(
-                get_plot_color(
-                    color_array[index],
-                    self.ellipse_colorby,
-                    self.ellipse_cmap,
-                    self.ellipse_range[0],
-                    self.ellipse_range[1],
-                    bounds=self.ellipse_cmap_bounds,
+            if has_pt:
+                # if the ellipse size is not physically correct make it a dot
+                if (
+                    phimax[index] == 0
+                    or phimax[index] > 100
+                    or phimin[index] == 0
+                    or phimin[index] > 100
+                ):
+                    continue
+                else:
+                    scaling = self.ellipse_size / phimax.max()
+                    eheight = phimin[index] * scaling
+                    ewidth = phimax[index] * scaling
+                    azm = 90 - azimuth[index]
+                    if self.y_scale == "period":
+                        azm = 90 + azimuth[index]
+                # make an ellipse
+                ellipd = patches.Ellipse(
+                    (plot_x, plot_y),
+                    width=ewidth,
+                    height=eheight,
+                    angle=azm,
+                    lw=self.lw,
                 )
-            )
 
-            self.ax.add_artist(ellipd)
+                # get ellipse color
+                ellipd.set_facecolor(
+                    get_plot_color(
+                        color_array[index],
+                        self.ellipse_colorby,
+                        self.ellipse_cmap,
+                        self.ellipse_range[0],
+                        self.ellipse_range[1],
+                        bounds=self.ellipse_cmap_bounds,
+                    )
+                )
+
+                self.ax.add_artist(ellipd)
 
             if has_tipper:
                 if "r" in self.plot_tipper:
                     if t_obj.mag_real[index] <= self.arrow_threshold:
                         if self.y_scale == "period":
                             txr = (
-                                t_obj.mag_real[index]
+                                t_mag_re[index]
                                 * self.arrow_size
                                 * np.sin(
-                                    np.deg2rad(-t_obj.angle_real[index] + 180)
+                                    np.deg2rad(-t_ang_re[index] + 180)
                                     + self.arrow_direction * np.pi
                                 )
                             )
                             tyr = (
-                                t_obj.mag_real[index]
+                                t_mag_re[index]
                                 * self.arrow_size
                                 * np.cos(
-                                    np.deg2rad(-t_obj.angle_real[index] + 180)
+                                    np.deg2rad(-t_ang_re[index] + 180)
                                     + self.arrow_direction * np.pi
                                 )
                             )
                         else:
                             txr = (
-                                t_obj.mag_real[index]
+                                t_mag_re[index]
                                 * self.arrow_size
                                 * np.sin(
-                                    np.deg2rad(t_obj.angle_real[index])
+                                    np.deg2rad(t_ang_re[index])
                                     + self.arrow_direction * np.pi
                                 )
                             )
                             tyr = (
-                                t_obj.mag_real[index]
+                                t_mag_re[index]
                                 * self.arrow_size
                                 * np.cos(
-                                    np.deg2rad(t_obj.angle_real[index])
+                                    np.deg2rad(t_ang_re[index])
                                     + self.arrow_direction * np.pi
                                 )
                             )
@@ -220,38 +236,38 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
                         pass
                 # plot imaginary tipper
                 if "i" in self.plot_tipper:
-                    if t_obj.mag_imag[index] <= self.arrow_threshold:
+                    if t_mag_im[index] <= self.arrow_threshold:
                         if self.y_scale == "period":
                             txi = (
-                                t_obj.mag_imag[index]
+                                t_mag_im[index]
                                 * self.arrow_size
                                 * np.sin(
-                                    np.deg2rad(-t_obj.angle_imag[index] + 180)
+                                    np.deg2rad(-t_ang_im[index] + 180)
                                     + self.arrow_direction * np.pi
                                 )
                             )
                             tyi = (
-                                t_obj.mag_imag[index]
+                                t_mag_im[index]
                                 * self.arrow_size
                                 * np.cos(
-                                    np.deg2rad(-t_obj.angle_imag[index] + 180)
+                                    np.deg2rad(-t_ang_im[index] + 180)
                                     + self.arrow_direction * np.pi
                                 )
                             )
                         else:
                             txi = (
-                                t_obj.mag_imag[index]
+                                t_mag_im[index]
                                 * self.arrow_size
                                 * np.sin(
-                                    np.deg2rad(t_obj.angle_imag[index])
+                                    np.deg2rad(t_ang_im[index])
                                     + self.arrow_direction * np.pi
                                 )
                             )
                             tyi = (
-                                t_obj.mag_imag[index]
+                                t_mag_im[index]
                                 * self.arrow_size
                                 * np.cos(
-                                    np.deg2rad(t_obj.angle_imag[index])
+                                    np.deg2rad(t_ang_im[index])
                                     + self.arrow_direction * np.pi
                                 )
                             )
@@ -353,10 +369,10 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
             station_list[ii]["station"] = station
             station_list[ii]["offset"] = offset
 
-            if np.log10(tf.Z.frequency.min()) < y_min:
-                y_min = np.log10(tf.Z.frequency.min()) * self.y_stretch
-            if np.log10(tf.Z.frequency.max()) > y_max:
-                y_max = np.log10(tf.Z.frequency.max()) * self.y_stretch
+            if np.log10(tf.frequency.min()) < y_min:
+                y_min = np.log10(tf.frequency.min()) * self.y_stretch
+            if np.log10(tf.frequency.max()) > y_max:
+                y_max = np.log10(tf.frequency.max()) * self.y_stretch
 
         y_min = np.floor(y_min / self.y_stretch) * self.y_stretch
         y_max = np.ceil(y_max / self.y_stretch) * self.y_stretch
