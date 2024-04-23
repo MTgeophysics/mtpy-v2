@@ -29,7 +29,9 @@ class TestShapefileCreator(unittest.TestCase):
 
         self.mt_df = self.md.to_mt_dataframe()
 
-        self.sc = ShapefileCreator(self.mt_df, self.md.utm_epsg)
+        self.sc = ShapefileCreator(
+            self.mt_df, self.md.utm_epsg, save_dir=Path().cwd()
+        )
 
     def test_mt_dataframe(self):
         self.assertEqual(self.mt_df, self.sc.mt_dataframe)
@@ -45,6 +47,16 @@ class TestShapefileCreator(unittest.TestCase):
 
     def test_estimate_arrow_size(self):
         self.assertAlmostEqual(0.00692118, self.sc.estimate_arrow_size())
+
+    def test_create_pt_shp(self):
+        shp_fn = self.sc._create_phase_tensor_shp(1)
+        self.assertEqual(
+            shp_fn,
+            Path()
+            .cwd()
+            .joinpath(f"Phase_Tensor_EPSG_{self.md.utm_epsg}_Period_1s.shp"),
+        )
+        shp_fn.unlink()
 
 
 # =============================================================================

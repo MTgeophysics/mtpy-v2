@@ -23,7 +23,6 @@ update to v2 jpeacock 2024-04-15
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import geopandas as gpd
 from pyproj import CRS
 
@@ -134,7 +133,7 @@ class ShapefileCreator:
             quantile
         )
 
-    def estimate_arow_size(self, quantile=0.03):
+    def estimate_arrow_size(self, quantile=0.03):
         """
         arrow size from station distances
         """
@@ -169,7 +168,7 @@ class ShapefileCreator:
         if self.output_crs is not None:
             gpdf.to_crs(crs=self.output_crs, inplace=True)
 
-        filename = f"{element_type}_EPSG_{self.output_crs}_Period_{period}.shp"
+        filename = f"{element_type}_EPSG_{self.output_crs.to_epsg()}_Period_{period}s.shp"
         out_path = self.save_dir.joinpath(filename)
 
         gpdf.to_file(out_path, driver="ESRI Shapefile")
@@ -177,15 +176,27 @@ class ShapefileCreator:
 
         return out_path
 
-    def _create_phase_tensor_shp(self, period, tol=None):
+    def _get_period_geodf(self, period, comp, tol=None):
         """
-        create phase tensor ellipses shape file correspond to a MT period
-        :return: (geopdf_obj, path_to_shapefile)
+        get a period geodf for given component
+
+        :param df: DESCRIPTION
+        :type df: TYPE
+        :param period: DESCRIPTION
+        :type period: TYPE
+        :param comp: DESCRIPTION
+        :type comp: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
         """
 
         # get period
         period_df = self.mt_dataframe.get_period(period, tol=tol)
-        pt_df = period_df.phase_tensor
+        if comp in ["pt", "phase_tensor"]:
+            pt_df = period_df.phase_tensor
+        elif comp in ["t", "tip", "tipper"]:
+            pt_df = period_df.tipper
 
         self.logger.debug("phase tensor values =: %s", len(pt_df))
 
@@ -195,14 +206,22 @@ class ShapefileCreator:
             )
             return None
 
-        if self.in_utm:
+        if self.utm:
             points = gpd.points_from_xy(pt_df.east, pt_df.north)
-            crs = CRS().from_epsg(pt_df.utm_epsg)
+            crs = CRS.from_epsg(pt_df.utm_epsg.iloc[0])
         else:
             points = gpd.points_from_xy(pt_df.longitude, pt_df.latitude)
-            crs = CRS().from_epsg(pt_df.datum_epsg)
+            crs = CRS.from_epsg(pt_df.datum_epsg.iloc[0])
 
-        geopdf = gpd.GeoDataFrame(pt_df.dataframe, crs=crs, geometry=points)
+        return crs, gpd.GeoDataFrame(pt_df, crs=crs, geometry=points)
+
+    def _create_phase_tensor_shp(self, period, tol=None):
+        """
+        create phase tensor ellipses shape file correspond to a MT period
+        :return: (geopdf_obj, path_to_shapefile)
+        """
+
+        crs, geopdf = self._get_period_geodf(period, "pt", tol=tol)
 
         # points to trace out the polygon-ellipse
         theta = np.linspace(0, 2 * np.pi, self.ellipse_resolution)
@@ -246,15 +265,13 @@ class ShapefileCreator:
 
             ellipse_list.append(polyg)
 
-        geopdf = gpd.GeoDataFrame(
-            geopdf, crs=self.orig_crs, geometry=ellipse_list
-        )
+        geopdf = gpd.GeoDataFrame(geopdf, crs=crs, geometry=ellipse_list)
 
         shp_fn = self._export_shapefiles(geopdf, "Phase_Tensor", period)
 
         return shp_fn
 
-    def _create_tipper_real_shp(self, period):
+    def _create_tipper_real_shp(self, period, tol=None):
         """
         create real tipper lines shapefile from a csv file
         The shapefile consists of lines without arrow.
@@ -262,7 +279,7 @@ class ShapefileCreator:
         line_length is how long will be the line, auto-calculatable
         """
 
-        tdf = self.mt_dataframe.tipper
+        crs, tdf = self._get_period_geodf(period, "tip", tol=tol)
 
         if len(tdf) < 1:
             self.logger.warning(
@@ -289,13 +306,13 @@ class ShapefileCreator:
             axis=1,
         )
 
-        geopdf = gpd.GeoDataFrame(tdf, crs=self.orig_crs, geometry="tip_re")
+        geopdf = gpd.GeoDataFrame(tdf, crs=crs, geometry="tip_re")
 
         shp_fn = self._export_shapefiles(geopdf, "Tipper_Real", period)
 
         return shp_fn
 
-    def _create_tipper_imag_shp(self, period):
+    def _create_tipper_imag_shp(self, period, tol=None):
         """
         create imagery tipper lines shapefile from a csv file
         The shapefile consists of lines without arrow.
@@ -304,7 +321,7 @@ class ShapefileCreator:
         :return:(geopdf_obj, path_to_shapefile)
         """
 
-        tdf = self.mt_dataframe.tipper
+        crs, tdf = self._get_period_geodf(period, "tip", tol=tol)
 
         if len(tdf) < 1:
             self.logger.warning(
@@ -331,7 +348,7 @@ class ShapefileCreator:
             axis=1,
         )
 
-        geopdf = gpd.GeoDataFrame(tdf, crs=self.orig_crs, geometry="tip_im")
+        geopdf = gpd.GeoDataFrame(tdf, crs=crs, geometry="tip_im")
 
         shp_fn = self._export_shapefiles(geopdf, "Tipper_Imag", period)
 
