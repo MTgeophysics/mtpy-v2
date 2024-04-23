@@ -124,7 +124,7 @@ class ShapefileCreator:
         else:
             return "latitude"
 
-    def estimate_ellipse_size(self, quantile=0.03):
+    def estimate_ellipse_size(self, quantile=0.015):
         """
         estimate ellipse size from station distances
         """

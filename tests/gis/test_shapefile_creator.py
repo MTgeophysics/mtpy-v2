@@ -29,8 +29,10 @@ class TestShapefileCreator(unittest.TestCase):
 
         self.mt_df = self.md.to_mt_dataframe()
 
+        self.save_dir = Path().cwd().joinpath("shp_test")
+
         self.sc = ShapefileCreator(
-            self.mt_df, self.md.utm_epsg, save_dir=Path().cwd()
+            self.mt_df, self.md.utm_epsg, save_dir=self.save_dir
         )
 
     def test_mt_dataframe(self):
@@ -49,14 +51,14 @@ class TestShapefileCreator(unittest.TestCase):
         self.assertAlmostEqual(0.00692118, self.sc.estimate_arrow_size())
 
     def test_create_pt_shp(self):
+        self.sc.ellipse_size = self.sc.estimate_ellipse_size()
         shp_fn = self.sc._create_phase_tensor_shp(1)
         self.assertEqual(
             shp_fn,
-            Path()
-            .cwd()
-            .joinpath(f"Phase_Tensor_EPSG_{self.md.utm_epsg}_Period_1s.shp"),
+            self.save_dir.joinpath(
+                f"Phase_Tensor_EPSG_{self.md.utm_epsg}_Period_1s.shp"
+            ),
         )
-        shp_fn.unlink()
 
 
 # =============================================================================
