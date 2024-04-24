@@ -18,7 +18,12 @@ from mtpy_data import FWD_CONDUCTIVE_CUBE_GRID_LIST
 
 # =============================================================================
 
+has_data = True
+if len(FWD_CONDUCTIVE_CUBE_GRID_LIST) == 0:
+    has_data = False
 
+
+@unittest.skipIf(has_data == False, "mtpy_data is not installed properly.")
 class TestShapefileCreator(unittest.TestCase):
     @classmethod
     def setUpClass(self):
