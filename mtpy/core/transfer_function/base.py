@@ -165,9 +165,7 @@ class TFBase:
             tf_error = np.zeros_like(
                 tf_model_error, dtype=self._tf_dtypes["tf_error"]
             )
-            periods = self._validate_frequency(
-                periods, tf_model_error.shape[0]
-            )
+            periods = self._validate_frequency(periods, tf_model_error.shape[0])
 
         else:
             periods = self._validate_frequency(periods)
@@ -238,33 +236,27 @@ class TFBase:
             return True
 
         if (
-            (self._dataset.transfer_function.values == 0).all()
-            and (self._dataset.transfer_function_error.values == 0).all()
-            and (self._dataset.transfer_function_model_error.values == 0).all()
+            self._has_tf() == False
+            and self._has_tf_error() == False
+            and self._has_tf_model_error() == False
         ):
             if not self._has_frequency():
                 return True
-            return False
+            else:
+                return False
+
         return False
 
     def _has_tf(self):
-        if not self._is_empty():
-            return not (self._dataset.transfer_function.values == 0).all()
-        return False
+        return not (self._dataset.transfer_function.values == 0).all()
 
     def _has_tf_error(self):
-        if not self._is_empty():
-            return not (
-                self._dataset.transfer_function_error.values == 0
-            ).all()
-        return False
+        return not (self._dataset.transfer_function_error.values == 0).all()
 
     def _has_tf_model_error(self):
-        if not self._is_empty():
-            return not (
-                self._dataset.transfer_function_model_error.values == 0
-            ).all()
-        return False
+        return not (
+            self._dataset.transfer_function_model_error.values == 0
+        ).all()
 
     def _has_frequency(self):
         if (self._dataset.coords["period"].values == np.array([1])).all():

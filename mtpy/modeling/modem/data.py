@@ -245,11 +245,13 @@ class Data:
             "5": ["Full_Vertical_Components"],
             "6": ["Full_Interstation_TF"],
             "7": ["Off_Diagonal_Rho_Phase"],
+            "8": ["Phase_Tensor"],
         }
         self.inv_comp_dict = {
-            "Full_Impedance": ["zxx", "zxy", "zyx", "zyy"],
-            "Off_Diagonal_Impedance": ["zxy", "zyx"],
-            "Full_Vertical_Components": ["tzx", "tzy"],
+            "Full_Impedance": ["z_xx", "z_xy", "z_yx", "z_yy"],
+            "Off_Diagonal_Impedance": ["z_xy", "z_yx"],
+            "Full_Vertical_Components": ["t_zx", "t_zy"],
+            "Phase_Tensor": ["pt_xx", "pt_xy", "pt_yx", "pt_yy"],
         }
 
         self.header_string = " ".join(
@@ -318,10 +320,10 @@ class Data:
             lines += [f"\t\tElevation:  {self.center_point.elevation:.1f} m"]
 
             lines += [
-                f"\tImpedance data:     {self.dataframe.zxy.mean() != 0.0}"
+                f"\tImpedance data:     {self.dataframe.z_xy.mean() != 0.0}"
             ]
             lines += [
-                f"\tTipper data:        {self.dataframe.tzx.mean() != 0.0}"
+                f"\tTipper data:        {self.dataframe.t_zx.mean() != 0.0}"
             ]
             lines += [
                 f"\tInversion Mode:   {', '.join(self.inv_mode_dict[self.inv_mode])}"
@@ -410,10 +412,10 @@ class Data:
             if "impedance" in mode.lower():
                 return (
                     self.dataframe.loc[
-                        (self.dataframe.zxx != 0)
-                        | (self.dataframe.zxy != 0)
-                        | (self.dataframe.zyx != 0)
-                        | (self.dataframe.zyy != 0),
+                        (self.dataframe.z_xx != 0)
+                        | (self.dataframe.z_xy != 0)
+                        | (self.dataframe.z_yx != 0)
+                        | (self.dataframe.z_yy != 0),
                         "station",
                     ]
                     .unique()
@@ -422,7 +424,8 @@ class Data:
             elif "vertical" in mode.lower():
                 return (
                     self.dataframe.loc[
-                        (self.dataframe.tzx != 0) | (self.dataframe.tzy != 0),
+                        (self.dataframe.t_zx != 0)
+                        | (self.dataframe.t_zy != 0),
                         "station",
                     ]
                     .unique()
@@ -431,10 +434,10 @@ class Data:
             elif "phase_tensor" in mode.lower():
                 return (
                     self.dataframe.loc[
-                        (self.dataframe.ptxx != 0)
-                        | (self.dataframe.ptxy != 0)
-                        | (self.dataframe.ptyx != 0)
-                        | (self.dataframe.ptyy != 0),
+                        (self.dataframe.pt_xx != 0)
+                        | (self.dataframe.pt_xy != 0)
+                        | (self.dataframe.pt_yx != 0)
+                        | (self.dataframe.pt_yy != 0),
                         "station",
                     ]
                     .unique()
@@ -566,6 +569,11 @@ class Data:
         :rtype: TYPE
 
         """
+        # need zxx instead of z_xx
+        inv_comp = comp.replace("_", "", 1)
+        if inv_comp[1].lower() == "z":
+            inv_comp = inv_comp.replace("z", "")
+        com = f"{inv_comp.upper():>8}"
 
         value = np.nan_to_num(getattr(row, comp))
         err = getattr(row, f"{comp}_model_error")
@@ -587,9 +595,7 @@ class Data:
                     ele = f"{row.model_elevation:> 12.3f}"
                 else:
                     ele = f"{0:> 12.3f}"
-                if comp[1].lower() == "z":
-                    comp = comp.replace("z", "")
-                com = f"{comp:>4}".upper()
+
                 if self.z_units.lower() == "ohm":
                     rea = f"{value.real / 796.:> 14.6e}"
                     ima = f"{value.imag / 796.:> 14.6e}"
@@ -613,9 +619,7 @@ class Data:
                     ele = f"{row.model_elevation:> 10.3f}"
                 else:
                     ele = f"{0:> 10.3f}"
-                if comp[1].lower() == "z":
-                    comp = comp.replace("z", "")
-                com = f"{comp:>4}".upper()
+
                 if self.z_units.lower() == "ohm":
                     rea = f"{value.real / 796.:> 17.6e}"
                     ima = f"{value.imag / 796.:> 17.6e}"
@@ -667,7 +671,7 @@ class Data:
         """
 
         ## check for zeros in model error
-        for comp in ["zxx", "zxy", "zyx", "zyy", "tzx", "tzy"]:
+        for comp in ["z_xx", "z_xy", "z_yx", "z_yy", "t_zx", "t_zy"]:
             find_zeros = np.where(self.dataframe[f"{comp}_model_error"] == 0)[
                 0
             ]
@@ -676,7 +680,7 @@ class Data:
             if find_zeros.shape == find_zeros_data.shape:
                 continue
             if find_zeros.shape[0] > 0:
-                if comp in ["zxx", "zxy", "zyx", "zyy"]:
+                if comp in ["z_xx", "z_xy", "z_yx", "z_yy"]:
                     error_percent = self.z_model_error.error_value
                 elif "t" in comp:
                     error_percent = self.t_model_error.error_value
@@ -699,7 +703,7 @@ class Data:
         Check for too small of errors relative to the error floor
         """
 
-        for comp in ["zxx", "zxy", "zyx", "zyy", "tzx", "tzy"]:
+        for comp in ["z_xx", "z_xy", "z_yx", "z_yy", "t_zx", "t_zy"]:
             find_small = np.where(
                 self.dataframe[f"{comp}_model_error"]
                 / abs(self.dataframe[comp])
@@ -728,7 +732,7 @@ class Data:
         Check for too small of errors relative to the error floor
         """
 
-        for comp in ["zxx", "zxy", "zyx", "zyy", "tzx", "tzy"]:
+        for comp in ["z_xx", "z_xy", "z_yx", "z_yy", "t_zx", "t_zy"]:
             find_big = np.where(np.abs(self.dataframe[comp]) > tol)[0]
             if find_big.shape[0] > 0:
                 self.logger.warning(
@@ -747,7 +751,7 @@ class Data:
         Check for too small of errors relative to the error floor
         """
 
-        for comp in ["zxx", "zxy", "zyx", "zyy", "tzx", "tzy"]:
+        for comp in ["z_xx", "z_xy", "z_yx", "z_yy", "t_zx", "t_zy"]:
             find_small = np.where(np.abs(self.dataframe[comp]) < tol)[0]
             find_zeros_data = np.where(
                 np.nan_to_num(self.dataframe[f"{comp}"]) == 0
@@ -1075,6 +1079,7 @@ class Data:
         comp = line_dict.pop("comp").lower()
         if comp.startswith("t"):
             comp = comp.replace("t", "tz")
+
         line_dict[f"{comp}_real"] = line_dict.pop("real")
         line_dict[f"{comp}_imag"] = line_dict.pop("imag")
         line_dict[f"{comp}_model_error"] = line_dict.pop("error")
@@ -1082,6 +1087,16 @@ class Data:
             line_dict[f"{comp}_model_error"] = np.nan
 
         return line_dict
+
+    def _change_comp(self, comp):
+        """change to z_, t_, pt_"""
+        if comp.startswith("z"):
+            comp = comp.replace("z", "z_")
+        elif comp.startswith("t"):
+            comp = comp.replace("t", "t_")
+        elif comp.startswith("pt"):
+            comp = comp.replace("pt", "pt_")
+        return comp
 
     def read_data_file(self, data_fn):
         """
@@ -1171,7 +1186,26 @@ class Data:
 
         combined_df["elevation"] = -1 * combined_df["model_elevation"]
 
+        combined_df = self._rename_columns(combined_df)
+
         return MTDataFrame(combined_df)
+
+    def _rename_columns(self, df):
+        """need to rename columns to z_, t_, pt_"""
+
+        col_dict = {}
+        for col in df.columns:
+            if col.startswith("z"):
+                col_dict[col] = col.replace("z", "z_")
+            elif col.startswith("t"):
+                col_dict[col] = col.replace("t", "t_")
+            elif col.startswith("pt"):
+                col_dict[col] = col.replace("pt", "pt_")
+            else:
+                continue
+
+        df = df.rename(columns=col_dict)
+        return df
 
     def fix_data_file(self, fn=None, n=3):
         """

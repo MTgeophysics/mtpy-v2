@@ -756,8 +756,8 @@ class MT(TF, MTLocation):
             "zxy": (0, 1),
             "zyx": (1, 0),
             "zyy": (1, 1),
-            "tx": (0, 0),
-            "ty": (0, 1),
+            "tzx": (0, 0),
+            "tzy": (0, 1),
         }
 
         if isinstance(comp, str):
