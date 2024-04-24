@@ -590,9 +590,7 @@ class MTData(OrderedDict, MTStations):
                 )
 
             else:
-                mt_data.add_station(
-                    new_mt_obj, compute_relative_location=False
-                )
+                mt_data.add_station(new_mt_obj, compute_relative_location=False)
 
         if not inplace:
             return mt_data
@@ -616,9 +614,7 @@ class MTData(OrderedDict, MTStations):
             if not inplace:
                 rot_mt_obj = mt_obj.copy()
                 rot_mt_obj.rotation_angle = rotation_angle
-                mt_data.add_station(
-                    rot_mt_obj, compute_relative_location=False
-                )
+                mt_data.add_station(rot_mt_obj, compute_relative_location=False)
             else:
                 mt_obj.rotation_angle = rotation_angle
 
@@ -716,12 +712,8 @@ class MTData(OrderedDict, MTStations):
             self.t_model_error.floor = t_floor
 
         for mt_obj in self.values():
-            mt_obj.compute_model_z_errors(
-                **self.z_model_error.error_parameters
-            )
-            mt_obj.compute_model_t_errors(
-                **self.t_model_error.error_parameters
-            )
+            mt_obj.compute_model_z_errors(**self.z_model_error.error_parameters)
+            mt_obj.compute_model_t_errors(**self.t_model_error.error_parameters)
 
     def get_nearby_stations(self, station_key, radius, radius_units="m"):
         """
@@ -1318,6 +1310,7 @@ class MTData(OrderedDict, MTStations):
         self,
         save_dir,
         output_crs=None,
+        utm=False,
         pt=True,
         tipper=True,
         periods=None,
@@ -1326,27 +1319,50 @@ class MTData(OrderedDict, MTStations):
         arrow_size=None,
     ):
         """
-        Write phase tensor and tipper shape files
-        :param save_dir: DESCRIPTION
-        :type save_dir: TYPE
-        :param output_crs: DESCRIPTION, defaults to None
-        :type output_crs: TYPE, optional
-        :param pt: DESCRIPTION, defaults to True
-        :type pt: TYPE, optional
-        :param tipper: DESCRIPTION, defaults to True
-        :type tipper: TYPE, optional
-        :param periods: DESCRIPTION, defaults to None
-        :type periods: TYPE, optional
-        :param period_tol: DESCRIPTION, defaults to None
-        :type period_tol: TYPE, optional
-        :return: DESCRIPTION
-        :rtype: TYPE
+        Write phase tensor and tipper shape files.
+
+        .. note:: If you have a mixed data set such that the periods do not
+         match up, you should first interpolate onto a common period map and
+         then make shape files.  Otherwise you will have a bunch of shapefiles
+         with only a few shapes.
+
+        :param save_dir: Folder to save shape files to
+        :type save_dir: string or Path
+        :param output_crs: CRS the output shape files will be in,
+         defaults to None which will use either datum or utm from the data
+         depending of if utm is True or False
+        :type output_crs: string, CRS, optional
+        :param pt: Make phase tensor shape files, defaults to True
+        :type pt: bool, optional
+        :param tipper: Make tipper shape files, defaults to True
+        :type tipper: bool, optional
+        :param periods: Periods to plot, defaults to None which will use all
+         periods within the data
+        :type periods: np.ndarray, optional
+        :param period_tol: Tolerance to search around periods, defaults to None
+        :type period_tol: float, optional
+        :return: dictionary of file paths
+        :rtype: dictionary
+
+        :Interpolate first:
+
+            >>> import numpy as np
+            >>> from pathlib import Path
+            >>> from mtpy import MTData
+            >>> from mtpy_data import FWD_NE_CONDUCTOR_GRID_LIST
+            >>> md = MTData()
+            >>> md.add_statoin(FWD_NE_CONDUCTOR_GRID_LIST)
+            >>> new_periods = np.array([.01, .1, 1, 10, 100])
+            >>> # output in WGS84 to your current working directory
+            >>> shp_file_dict = md.to_shp(Path().cwd(), output_crs=4326)
+
 
         """
 
         sc = ShapefileCreator(
             self.to_mt_dataframe(), output_crs, save_dir=save_dir
         )
+        sc.utm = utm
         if ellipse_size is None and pt == True:
             sc.ellipse_size = sc.estimate_ellipse_size()
         if arrow_size is None and tipper == True:
