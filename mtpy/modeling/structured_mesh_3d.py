@@ -1843,7 +1843,7 @@ class StructuredGrid3D:
             self.center_point.east + self.grid_east[pad_east] + shift_east
         )
         lower_left.north = (
-            self.center_point.north + self.grid_east[pad_north] + shift_north
+            self.center_point.north + self.grid_north[pad_north] + shift_north
         )
 
         return lower_left
@@ -1977,6 +1977,7 @@ class StructuredGrid3D:
         :type shift_north: float
         :param shift_east: shift east in meters
         :type shift_east: float
+        :param dict conductance_dict: Dictionary of conductance layers to
         :return: list of file paths to rasters.
         :rtype: TYPE
 
@@ -2039,6 +2040,131 @@ class StructuredGrid3D:
                 raster_fn_list.append(raster_fn)
                 if verbose:
                     self._logger.info(f"Wrote depth index {ii} to {raster_fn}")
+            except IndexError:
+                break
+
+        return raster_fn_list
+
+    def to_conductance_raster(
+        self,
+        cell_size,
+        conductance_dict,
+        pad_north=None,
+        pad_east=None,
+        save_path=None,
+        rotation_angle=0,
+        shift_north=0,
+        shift_east=0,
+        log10=True,
+        verbose=True,
+    ):
+        """
+        write out a raster in UTM coordinates for conductance sections.
+        Expecting a grid that is interoplated onto a regular grid of square
+        cells with size `cell_size`.
+
+        `conductance_dict = {"layer_name": (min_depth, max_depth)}
+
+        if "layer_name" is "surface" then topography is included
+
+        :param cell_size: square cell size (cell_size x cell_size) in meters.
+        :type cell_size: float
+        :param conductance_dict: DESCRIPTION
+        :type conductance_dict: TYPE
+        :param pad_north: number of padding cells to skip from outside in,
+         if None defaults to self.pad_north, defaults to None
+        :type pad_north: integer, optional
+        :param pad_east: number of padding cells to skip from outside in
+         if None defaults to self.pad_east, defaults to None
+        :type pad_east: integer, optional
+        :param save_path: Path to save files to. If None use self.save_path,
+         defaults to None
+        :type save_path: string or Path, optional
+        :param depth_min: minimum depth to make raster for in meters,
+         defaults to None which will use shallowest depth.
+        :type depth_min: float, optional
+        :param depth_max: maximum depth to make raster for in meters,
+         defaults to None which will use deepest depth.
+        :type depth_max: float, optional
+        :param rotation_angle: Angle (degrees) to rotate the raster assuming
+         clockwise positive rotation where North = 0, East = 90, defaults to 0
+        :type rotation_angle: float, optional
+        :raises ValueError: If utm_epsg is not input.
+        :param shift_north: shift north in meters
+        :type shift_north: float
+        :param shift_east: shift east in meters
+        :type shift_east: float
+        :param dict conductance_dict: Dictionary of conductance layers to
+        :param log10: DESCRIPTION, defaults to True
+        :type log10: TYPE, optional
+        :param verbose: DESCRIPTION, defaults to True
+        :type verbose: TYPE, optional
+        :return: list of file paths to rasters.
+        :rtype: TYPE
+
+        """
+
+        if self.center_point.utm_crs is None:
+            raise ValueError("Need to input center point and UTM CRS.")
+
+        if rotation_angle is not None:
+            rotation_angle = float(rotation_angle)
+        else:
+            rotation_angle = 0.0
+
+        if save_path is None:
+            save_path = self.save_path
+        else:
+            save_path = Path(save_path)
+
+        if not save_path.exists():
+            save_path.mkdir()
+
+        pad_east = self._validate_pad_east(pad_east)
+        pad_north = self._validate_pad_north(pad_north)
+
+        _, _, raster_array = self.interpolate_to_even_grid(
+            cell_size, pad_east=pad_east, pad_north=pad_north
+        )
+
+        if log10:
+            raster_array = np.log10(raster_array)
+
+        raster_array[np.where(raster_array > 1e10)] = np.nan
+
+        lower_left = self.get_lower_left_corner(
+            pad_east, pad_north, shift_east=shift_east, shift_north=shift_north
+        )
+
+        raster_fn_list = []
+        for ii, key in enumerate(conductance_dict.keys()):
+            z = np.array(conductance_dict[key])
+            if key in ["surface"]:
+                index_min = 0
+            else:
+                index_min = np.where(self.grid_z <= z.min())[0][-1]
+            index_max = np.where(self.grid_z >= z.max())[0][0]
+
+            conductance = (1.0 / raster_array[:, :, index_min:index_max]) * abs(
+                self.grid_z[index_min:index_max]
+            )
+            conductance = np.log10(np.nansum(conductance, axis=2))
+            try:
+                raster_fn = self.save_path.joinpath(
+                    f"{key}_depth_utm_{self.center_point.utm_epsg}.tif"
+                )
+                array2raster(
+                    raster_fn,
+                    conductance,
+                    lower_left,
+                    cell_size,
+                    cell_size,
+                    self.center_point.utm_epsg,
+                    rotation_angle=rotation_angle,
+                )
+                raster_fn_list.append(raster_fn)
+                if verbose:
+                    self._logger.info(f"Wrote conductance {key} to {raster_fn}")
             except IndexError:
                 break
 
