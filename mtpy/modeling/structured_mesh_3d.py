@@ -2006,7 +2006,7 @@ class StructuredGrid3D:
         )
 
         if log10:
-            raster_array = np.lo10(raster_array)
+            raster_array = np.log10(raster_array)
 
         raster_depths = self.grid_z[
             slice(
@@ -2257,14 +2257,17 @@ class StructuredGrid3D:
         if geographic_coordinates:
             shift_north = self.center_point.north
             shift_east = self.center_point.east
-            shift_z = self.center_point.elevation
+            if self.grid_z[0] == self.center_point.elevation:
+                shift_z = 0
+            else:
+                shift_z = self.center_point.elevation
 
             vtk_y = (self.grid_north + shift_north) * scale
             vtk_x = (self.grid_east + shift_east) * scale
             if "+" in coordinate_system:
                 vtk_z = (self.grid_z + shift_z) * scale
             elif "-" in coordinate_system:
-                vtk_z = -1 * (self.grid_z + shift_z) * scale
+                vtk_z = -1 * (self.grid_z - shift_z) * scale
 
             cell_data = {label: self._rotate_res_model()}
 
@@ -2279,7 +2282,7 @@ class StructuredGrid3D:
             elif coordinate_system == "enz-":
                 vtk_y = (self.grid_north + shift_north) * scale
                 vtk_x = (self.grid_east + shift_east) * scale
-                vtk_z = -1 * (self.grid_z + shift_z) * scale
+                vtk_z = -1 * (self.grid_z - shift_z) * scale
                 cell_data = {label: self._rotate_res_model()}
 
         gridToVTK(vtk_fn.as_posix(), vtk_x, vtk_y, vtk_z, cellData=cell_data)

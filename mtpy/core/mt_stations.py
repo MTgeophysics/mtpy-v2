@@ -471,9 +471,7 @@ class MTStations:
 
             else:
                 self.logger.debug("locating center from UTM grid")
-                center_location.east = (
-                    st_en.east.max() + st_en.east.min()
-                ) / 2
+                center_location.east = (st_en.east.max() + st_en.east.min()) / 2
                 center_location.north = (
                     st_en.north.max() + st_en.north.min()
                 ) / 2
@@ -770,12 +768,12 @@ class MTStations:
                 vtk_y = (sdf.north + shift_north) * scale
                 vtk_x = (sdf.east + shift_east) * scale
                 vtk_z = -1 * (sdf.elevation + shift_elev) * scale
-                extra = -1 * (sdf.elevation + shift_elev)
+                extra = -1 * (sdf.elevation + shift_elev) * scale
             elif coordinate_system == "enz-":
                 vtk_y = (sdf.north + shift_north) * scale
                 vtk_x = (sdf.east + shift_east) * scale
                 vtk_z = (sdf.elevation + shift_elev) * scale
-                extra = sdf.elevation + shift_elev
+                extra = (sdf.elevation + shift_elev) * scale
 
         # write file
         pointsToVTK(
