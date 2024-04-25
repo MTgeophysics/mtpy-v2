@@ -691,7 +691,10 @@ class MTStations:
         coordinate_system="nez+",
     ):
         """
+        Write a VTK file for plotting in 3D like Paraview
 
+        :param vtk_fn: full path to VKT file to be written
+        :type vtk_fn: string or Path
         :param vtk_save_path: directory to save vtk file to, defaults to None
         :type vtk_save_path: string or Path, optional
         :param vtk_fn_basename: filename basename of vtk file, note that .vtr
@@ -716,16 +719,16 @@ class MTStations:
         :rtype: Path
 
         Write VTK file
-        >>> md.write_vtk_station_file(vtk_fn_basename="modem_stations")
+        >>> md.to_vtk(vtk_fn="modem_stations")
 
         Write VTK file in geographic coordinates
-        >>> md.write_vtk_station_file(vtk_fn_basename="modem_stations",
-        >>> ...                       geographic=True)
+        >>> md.to_vtk(vtk_fn="modem_stations",
+                      geographic=True)
 
         Write VTK file in geographic coordinates with z+ up
-        >>> md.write_vtk_station_file(vtk_fn_basename="modem_stations",
-        >>> ...                       geographic=True,
-        >>> ...                       coordinate_system='enz-')
+        >>> md.to_vtk(vtk_fn="modem_stations",
+                      geographic=True,
+                      coordinate_system='enz-')
 
         """
 

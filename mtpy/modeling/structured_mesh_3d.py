@@ -2201,9 +2201,10 @@ class StructuredGrid3D:
 
     def to_vtk(
         self,
+        vtk_fn=None,
         vtk_save_path=None,
         vtk_fn_basename="ModEM_model_res",
-        geographic_coordinates=False,
+        geographic=False,
         units="km",
         coordinate_system="nez+",
         label="resistivity",
@@ -2211,6 +2212,8 @@ class StructuredGrid3D:
         """
         Write a VTK file to plot in 3D rendering programs like Paraview
 
+        :param vtk_fn: full path to VKT file to be written
+        :type vtk_fn: string or Path
         :param vtk_save_path: directory to save vtk file to, defaults to None
         :type vtk_save_path: string or Path, optional
         :param vtk_fn_basename: filename basename of vtk file, note that .vtr
@@ -2229,11 +2232,10 @@ class StructuredGrid3D:
         :rtype: Path
 
         Write VTK file
-        >>> model.write_vtk_file(vtk_fn_basename="modem_model")
+        >>> model.to_vtk(vtk_fn="modem_model")
 
         Write VTK file in geographic coordinates with z+ up
-        >>> model.write_vtk_station_file(vtk_fn_basename="modem_model",
-        >>> ...                          coordinate_system='enz-')
+        >>> model.to_vtk(vtk_fn="modem_model", coordinate_system='enz-')
         """
 
         if isinstance(units, str):
@@ -2246,15 +2248,20 @@ class StructuredGrid3D:
         elif isinstance(units, (int, float)):
             scale = units
 
-        if vtk_save_path is None:
-            vtk_fn = self.save_path.joinpath(vtk_fn_basename)
+        if vtk_fn is None:
+            if vtk_save_path is None:
+                raise ValueError("Need to input vtk_save_path")
+            vtk_fn = Path(vtk_save_path, vtk_fn_basename)
         else:
-            vtk_fn = Path(vtk_save_path).joinpath(vtk_fn_basename)
+            vtk_fn = Path(vtk_fn)
+
+        if vtk_fn.suffix != "":
+            vtk_fn = vtk_fn.parent.joinpath(vtk_fn.stem)
 
         shift_north = 0
         shift_east = 0
         shift_z = 0
-        if geographic_coordinates:
+        if geographic:
             shift_north = self.center_point.north
             shift_east = self.center_point.east
             if self.grid_z[0] == self.center_point.elevation:
