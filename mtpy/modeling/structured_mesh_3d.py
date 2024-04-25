@@ -2127,9 +2127,6 @@ class StructuredGrid3D:
             cell_size, pad_east=pad_east, pad_north=pad_north
         )
 
-        if log10:
-            raster_array = np.log10(raster_array)
-
         raster_array[np.where(raster_array > 1e10)] = np.nan
 
         lower_left = self.get_lower_left_corner(
@@ -2151,7 +2148,9 @@ class StructuredGrid3D:
             conductance = np.log10(np.nansum(conductance, axis=2))
             try:
                 raster_fn = self.save_path.joinpath(
-                    f"{key}_depth_utm_{self.center_point.utm_epsg}.tif"
+                    f"conductance_{z.min()}m_to_{z.max()}m_depth_utm_{self.center_point.utm_epsg}.tif".replace(
+                        "-", "m"
+                    )
                 )
                 array2raster(
                     raster_fn,
