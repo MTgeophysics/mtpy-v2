@@ -7,6 +7,7 @@ ModEM
 
 # revised by JP 2017
 # revised by AK 2017 to bring across functionality from ak branch
+# revised by OA 2024 to update docs
 
 """
 # =============================================================================
@@ -21,10 +22,28 @@ from mtpy.utils import exceptions as mtex
 
 class ControlFwd:
     """
-    read and write control file for
+    Reads and writes control files for ModEM to control how the forward solver 
+    starts and how it is run.
 
-    This file controls how the inversion starts and how it is run
-
+    ==================== ======================================================
+    Attributes           Description
+    ==================== ======================================================
+    num_qmr_iter         Number of QMR iterations per divergence correction. 
+                         int, *default* is 40 
+    max_num_div_calls    Maximum number of divergence correction calls. int, 
+                         *default* is 20
+    max_num_div_iters    Maximum number of divergence correction iterations. 
+                         int, *default* is 100
+    misfit_tol_fwd       Misfit tolerance for EM forward solver. float, 
+                         *default* is 1e-07
+    misfit_tol_adj       Misfit tolerance for EM adjoint solver. float, 
+                         *default* is 1e-07
+    misfit_tol_div       Misfit tolerance for divergence correction. float, 
+                         *default*  is 1e-05
+    save_path            Path at which to save the control file. PosixPath, 
+                         *default* is current working directory.
+    fn_basename          Name of the control file. str, *default* is 
+                         'control.fwd',
     """
 
     def __init__(self, **kwargs):
