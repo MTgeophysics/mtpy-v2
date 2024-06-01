@@ -83,9 +83,12 @@ class PlotMTResponse(PlotBase):
         self.rotation_angle = 0
         super().__init__(**kwargs)
 
+        if self.Z is None:
+            self.plot_z = False
+
         if self.Tipper is not None:
             self.plot_tipper = "yri"
-        if self.pt is not None:
+        if self.pt is not None and self.plot_z:
             self.plot_pt = True
         # set arrow properties
         self.arrow_size = 1
@@ -131,12 +134,14 @@ class PlotMTResponse(PlotBase):
         """
         plot period
         """
-        if self.Z is not None:
-            return 1.0 / self.Z.frequency
-        elif self.Tipper is not None:
-            return 1.0 / self.Tipper.frequency
+        if not (self.Z.period == np.array([1])).all():
+            return self.Z.period
+        elif not (self.Tipper.period == np.array([1])).all():
+            return self.Tipper.period
+        elif not (self.pt.period == np.array([1])).all():
+            return self.pt.period
         else:
-            return None
+            raise ValueError("No transfer function data to plot. Check data.")
 
     # ---need to rotate data on setting rotz
     @property
@@ -157,97 +162,172 @@ class PlotMTResponse(PlotBase):
         else:
             self._rotation_angle = theta_r
 
+    def _has_z(self):
+        if self.plot_z:
+            if self.Z is None or self.Z.z is None or (self.Z.z == 0 + 0j).all():
+                self.logger.info(f"No Z data for station {self.station}")
+                return False
+        return self.plot_z
+
     def _has_tipper(self):
         if self.plot_tipper.find("y") >= 0:
-            if self.Tipper is None or (self.Tipper.tipper == 0 + 0j).all():
-                self._logger.info(f"No Tipper data for station {self.station}")
-                self.plot_tipper = "n"
+            if (
+                self.Tipper is None
+                or self.Tipper.tipper is None
+                or (self.Tipper.tipper == 0 + 0j).all()
+            ):
+                self.logger.info(f"No Tipper data for station {self.station}")
+                return "n"
+        return self.plot_tipper
 
     def _has_pt(self):
         if self.plot_pt:
             # if np.all(self.Z.z == 0 + 0j) or self.Z is None:
-            if self.pt is None:  # no phase tensor object provided
-                self._logger.info(f"No PT data for station {self.station}")
-                self.plot_pt = False
+            if (
+                self.pt is None or self.pt.pt is None
+            ):  # no phase tensor object provided
+                self.logger.info(f"No PT data for station {self.station}")
+                return False
+        return self.plot_pt
 
-    def _setup_subplots(self):
-        # create a dictionary for the number of subplots needed
-        pdict = {"res": 0, "phase": 1}
+    def _get_n_rows(self):
+        """
+        get the number of rows to be plots
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        n_rows = 0
+        if self.plot_z:
+            n_rows += 1
+            if "y" in self.plot_tipper or self.plot_pt:
+                n_rows = 2
+        else:
+            if "y" in self.plot_tipper:
+                n_rows = 1
+
+        return n_rows
+
+    def _get_index_dict(self):
+        """
+        get an index dictionary for the various components
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        pdict = {}
+        index = 0
+        if self.plot_z:
+            pdict["res"] = 0
+            pdict["phase"] = 1
+            index = 0
         # start the index at 2 because resistivity and phase is permanent for
         # now
-        index = 0
-        nrows = 1
+
         if self.plot_tipper.find("y") >= 0:
             pdict["tip"] = index
             index += 1
-            nrows = 2
         if self.plot_pt:
             pdict["pt"] = index
-            nrows = 2
             index += 1
-        if nrows == 1:
+        return index, pdict
+
+    def _setup_subplots(self):
+        # create a dictionary for the number of subplots needed
+        nrows = self._get_n_rows()
+        index, pdict = self._get_index_dict()
+
+        if self.plot_z and nrows == 1:
             hr = [1]
-        elif nrows == 2:
+        elif "y" in self.plot_tipper and nrows == 1:
+            hr = [1]
+        elif nrows > 1:
             hr = [2, 1]
         gs_master = gridspec.GridSpec(nrows, 1, hspace=0.15, height_ratios=hr)
-        gs_rp = gridspec.GridSpecFromSubplotSpec(
-            2,
-            2,
-            subplot_spec=gs_master[0],
-            height_ratios=[2, 1.5],
-            hspace=0.05,
-            wspace=0.15,
-        )
-        if nrows == 2:
-            gs_aux = gridspec.GridSpecFromSubplotSpec(
-                index, 1, subplot_spec=gs_master[1], hspace=0.075
+
+        if self.plot_z:
+            gs_rp = gridspec.GridSpecFromSubplotSpec(
+                2,
+                2,
+                subplot_spec=gs_master[0],
+                height_ratios=[2, 1.5],
+                hspace=0.05,
+                wspace=0.15,
             )
-        # --> make figure for xy,yx components
-        if self.plot_num == 1 or self.plot_num == 3:
+
+            # --> make figure for xy,yx components
+            if self.plot_num == 1 or self.plot_num == 3:
+                # set label coordinates
+                label_coords = (-0.095, 0.5)
+
+                # --> create the axes instances
+                # apparent resistivity axis
+                self.axr = self.fig.add_subplot(gs_rp[0, :])
+
+                # phase axis that shares period axis with resistivity
+                self.axp = self.fig.add_subplot(gs_rp[1, :], sharex=self.axr)
+            # --> make figure for all 4 components
+            elif self.plot_num == 2:
+                # set label coordinates
+                label_coords = (-0.14, 0.5)
+
+                # --> create the axes instances
+                # apparent resistivity axis
+                self.axr = self.fig.add_subplot(gs_rp[0, 0])
+                self.axr2 = self.fig.add_subplot(gs_rp[0, 1], sharex=self.axr)
+                self.axr2.yaxis.set_label_coords(
+                    label_coords[0], label_coords[1]
+                )
+
+                # phase axis that shares period axis with resistivity
+                self.axp = self.fig.add_subplot(gs_rp[1, 0], sharex=self.axr)
+                self.axp2 = self.fig.add_subplot(gs_rp[1, 1], sharex=self.axr)
+                self.axp2.yaxis.set_label_coords(
+                    label_coords[0], label_coords[1]
+                )
             # set label coordinates
-            label_coords = (-0.095, 0.5)
+            self.axr.yaxis.set_label_coords(label_coords[0], label_coords[1])
+            self.axp.yaxis.set_label_coords(label_coords[0], label_coords[1])
 
-            # --> create the axes instances
-            # apparent resistivity axis
-            self.axr = self.fig.add_subplot(gs_rp[0, :])
+            if nrows == 2:
+                gs_aux = gridspec.GridSpecFromSubplotSpec(
+                    index, 1, subplot_spec=gs_master[1], hspace=0.075
+                )
 
-            # phase axis that shares period axis with resistivity
-            self.axp = self.fig.add_subplot(gs_rp[1, :], sharex=self.axr)
-        # --> make figure for all 4 components
-        elif self.plot_num == 2:
-            # set label coordinates
-            label_coords = (-0.14, 0.5)
+            # --> plot tipper
+            if self.plot_tipper.find("y") >= 0:
+                self.axt = self.fig.add_subplot(
+                    gs_aux[pdict["tip"], :],
+                )
+                self.axt.yaxis.set_label_coords(
+                    label_coords[0], label_coords[1]
+                )
+            # --> plot phase tensors
+            if self.plot_pt:
+                # can't share axis because not on the same scale
+                # Removed aspect = "equal" for now, it flows better, if you want
+                # a detailed analysis look at plot pt
+                self.axpt = self.fig.add_subplot(gs_aux[pdict["pt"], :])
+                self.axpt.yaxis.set_label_coords(
+                    label_coords[0], label_coords[1]
+                )
 
-            # --> create the axes instances
-            # apparent resistivity axis
-            self.axr = self.fig.add_subplot(gs_rp[0, 0])
-            self.axr2 = self.fig.add_subplot(gs_rp[0, 1], sharex=self.axr)
-            self.axr2.yaxis.set_label_coords(label_coords[0], label_coords[1])
+        else:
+            if "y" in self.plot_tipper:
+                label_coords = (-0.095, 0.5)
+                self.axt = self.fig.add_subplot(gs_master[pdict["tip"], :])
+                self.axt.yaxis.set_label_coords(
+                    label_coords[0], label_coords[1]
+                )
+            else:
+                raise ValueError("No transfer functions to plot. Check data.")
 
-            # phase axis that shares period axis with resistivity
-            self.axp = self.fig.add_subplot(gs_rp[1, 0], sharex=self.axr)
-            self.axp2 = self.fig.add_subplot(gs_rp[1, 1], sharex=self.axr)
-            self.axp2.yaxis.set_label_coords(label_coords[0], label_coords[1])
-        # set label coordinates
-        self.axr.yaxis.set_label_coords(label_coords[0], label_coords[1])
-        self.axp.yaxis.set_label_coords(label_coords[0], label_coords[1])
-
-        # --> plot tipper
-        if self.plot_tipper.find("y") >= 0:
-            self.axt = self.fig.add_subplot(
-                gs_aux[pdict["tip"], :],
-            )
-            self.axt.yaxis.set_label_coords(label_coords[0], label_coords[1])
-        # --> plot phase tensors
-        if self.plot_pt:
-            # can't share axis because not on the same scale
-            # Removed aspect = "equal" for now, it flows better, if you want
-            # a detailed analysis look at plot pt
-            self.axpt = self.fig.add_subplot(gs_aux[pdict["pt"], :])
-            self.axpt.yaxis.set_label_coords(label_coords[0], label_coords[1])
         return label_coords
 
     def _plot_resistivity(self, axr, period, z_obj, mode="od"):
+        if not self.plot_z:
+            return
         if mode == "od":
             comps = ["xy", "yx"]
             props = [
@@ -302,6 +382,9 @@ class PlotMTResponse(PlotBase):
         return eb_list, label_list
 
     def _plot_phase(self, axp, period, z_obj, mode="od", index=0):
+        if not self.plot_z:
+            return
+
         if mode == "od":
             comps = ["xy", "yx"]
             props = [
@@ -352,6 +435,8 @@ class PlotMTResponse(PlotBase):
         )
 
     def _plot_determinant(self):
+        if not self.plot_z:
+            return
         # res_det
         self.ebdetr = plot_resistivity(
             self.axr,
@@ -389,7 +474,7 @@ class PlotMTResponse(PlotBase):
             self.axr.set_ylim(self.res_limits)
 
     def _plot_tipper(self):
-        if self.Tipper is not None:
+        if "y" in self.plot_tipper:
             self.axt, _, _ = plot_tipper_lateral(
                 self.axt,
                 self.Tipper,
@@ -480,36 +565,41 @@ class PlotMTResponse(PlotBase):
         phase for a single station.
 
         """
-
-        self._has_tipper()
-        self._has_pt()
-
-        # set x-axis limits from short period to long period
-        if self.x_limits is None:
-            self.x_limits = self.set_period_limits(self.period)
-        if self.res_limits is None:
-            self.res_limits = self.set_resistivity_limits(self.Z.resistivity)
+        self.plot_z = self._has_z()
+        self.plot_tipper = self._has_tipper()
+        self.plot_pt = self._has_pt()
 
         self._initiate_figure()
 
         self._setup_subplots()
 
-        eb_list, labels = self._plot_resistivity(
-            self.axr, self.period, self.Z, mode="od"
-        )
-        self.ebxyr = eb_list[0]
-        self.ebyxr = eb_list[1]
-        self._plot_phase(self.axp, self.period, self.Z, mode="od")
+        # set x-axis limits from short period to long period
+        if self.x_limits is None:
+            self.x_limits = self.set_period_limits(self.period)
+
+        if self.plot_z:
+            if self.res_limits is None:
+                self.res_limits = self.set_resistivity_limits(
+                    self.Z.resistivity
+                )
+
+            eb_list, labels = self._plot_resistivity(
+                self.axr, self.period, self.Z, mode="od"
+            )
+            self.ebxyr = eb_list[0]
+            self.ebyxr = eb_list[1]
+            self._plot_phase(self.axp, self.period, self.Z, mode="od")
+
+            # ===Plot the xx, yy components if desired==========================
+            if self.plot_num == 2:
+                self._plot_resistivity(self.axr2, self.period, self.Z, mode="d")
+                self._plot_phase(self.axp2, self.period, self.Z, mode="d")
+            # ===Plot the Determinant if desired================================
+            if self.plot_num == 3:
+                self._plot_determinant()
         self._plot_tipper()
         self._plot_pt()
 
-        # ===Plot the xx, yy components if desired==============================
-        if self.plot_num == 2:
-            self._plot_resistivity(self.axr2, self.period, self.Z, mode="d")
-            self._plot_phase(self.axp2, self.period, self.Z, mode="d")
-        # ===Plot the Determinant if desired==================================
-        if self.plot_num == 3:
-            self._plot_determinant()
         # make plot_title and show
         if self.plot_title is None:
             self.plot_title = self.station

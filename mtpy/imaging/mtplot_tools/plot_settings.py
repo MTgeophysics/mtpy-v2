@@ -91,6 +91,7 @@ class PlotSettings(MTArrows, MTEllipse):
 
         # Show Plot
         self.show_plot = True
+        self.plot_z = True
         self.plot_tipper = "n"
         self.plot_pt = False
         self.plot_strike = False
