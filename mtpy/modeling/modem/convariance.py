@@ -28,8 +28,24 @@ from pyevtk.hl import gridToVTK
 
 class Covariance(object):
     """
-    read and write covariance files
-
+    Class that deals with model covariance and smoothing, writing covariance
+    (.cov) files for use in ModEM.
+    
+    ==================== ======================================================
+    Attributes           Description
+    ==================== ======================================================
+    grid_dimensions      Grid dimensions excluding air layers (Nx, Ny, NzEarth)
+    smoothing_east       Smoothing in east direction. float, *default* is 0.3
+    smoothing_north      Smoothing in north direction. float, *default* is 0.3
+    smoothing_z          Smoothing in vertical direction. float, *default* is 
+                         0.3
+    smoothing_num        Number of smoothing iterations. int, *default* is 1
+    exception_list       List of exceptions. list, *default* is empty
+    mask_arr             Mask array. numpy.ndarray, *default* is None
+    save_path            Path at which to save the covariance file. PosixPath, 
+                         *default* is current working directory
+    fn_basename          Name of the covariance file. *default* is 
+                         'covariance.cov'
     """
 
     def __init__(self, grid_dimensions=None, **kwargs):
@@ -96,10 +112,28 @@ class Covariance(object):
         fn_basename=None,
         res_model=None,
         sea_water=0.3,
-        air=1e12,
-    ):  #
+        air=1.0e12,
+    ):  
         """
-        write a covariance file
+        Writes a ModEM covariance (.cov) file.
+
+        :param cov_fn: Name for the covariance file. *default* is None
+        :type cov_fn: str | Path, optional
+        :param save_path: location at which to save the covariance file. 
+            *default* is None
+        :type save_path: str | Path, optional
+        :param fn_basename: _description_, *default* is None
+        :type fn_basename: _type_, optional
+        :param res_model: Resistivity model the covariance should be generated 
+            from, *default* is None
+        :type res_model: _type_, optional
+        :param sea_water: Electrical resistivity of sea water cells in 
+            Ohm-meters within the model domain, *default* is 0.3
+        :type sea_water: float, optional
+        :param air: Electrical resistivity of air cells in Ohm-meters within 
+            the model domain, *default* is 1.0e12
+        :type air: float, optional
+        :raises CovarianceError: Error related to the covariance class.
         """
 
         if res_model is not None:
@@ -203,7 +237,11 @@ class Covariance(object):
 
     def read_cov_file(self, cov_fn):
         """
-        read a covariance file
+        Reads a ModEM covariance (.cov) file.
+
+        :param cov_fn: Filename of the target ModEM covariance (.cov) file.
+        :type cov_fn: str
+        :raises CovarianceError: Error related to the covariance class.
         """
         self.cov_fn = cov_fn
         if not self.cov_fn:
