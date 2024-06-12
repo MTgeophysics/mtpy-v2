@@ -825,6 +825,8 @@ class Data:
         self._check_for_too_big_values()
         self._check_for_too_small_values()
 
+        z_lines = []
+        t_lines = []
         for inv_mode in self.inv_mode_dict[self.inv_mode]:
             if "impedance" in inv_mode.lower():
                 z_lines = self._write_header(inv_mode)
