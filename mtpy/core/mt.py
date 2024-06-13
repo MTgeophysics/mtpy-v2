@@ -305,6 +305,7 @@ class MT(TF, MTLocation):
             "std": 0.2,
             "fit": 0.05,
         },
+        round_qf=False,
     ):
         """
         Estimate tranfer function quality factor 0-5, 5 being the best
@@ -332,7 +333,7 @@ class MT(TF, MTLocation):
         else:
             tf_stats = EMTFStats(None, self.Tipper)
 
-        return tf_stats.estimate_quality_factor(weights)
+        return tf_stats.estimate_quality_factor(weights, round_qf=round_qf)
 
     def remove_distortion(
         self, n_frequencies=None, comp="det", only_2d=False, inplace=False

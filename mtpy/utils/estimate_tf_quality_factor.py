@@ -508,7 +508,7 @@ class EMTFStats:
                 )
             )
 
-        qf_df = qf_df.round()
+        # qf_df = qf_df.round()
         return qf_df
 
     def estimate_quality_factor(
@@ -520,15 +520,23 @@ class EMTFStats:
             "std": 0.2,
             "fit": 0.05,
         },
+        round_qf=False,
     ):
         """
         Convenience function doing all the steps to estimate quality factor
         """
 
         qualities_df = self.estimate_data_quality(self.compute_statistics())
-        return self.summarize_data_quality(
-            quality_df=qualities_df, weights=weights
-        )
+        if round_qf:
+            return round(
+                self.summarize_data_quality(
+                    quality_df=qualities_df, weights=weights
+                )
+            )
+        else:
+            return self.summarize_data_quality(
+                quality_df=qualities_df, weights=weights
+            )
 
 
 # =============================================================================
