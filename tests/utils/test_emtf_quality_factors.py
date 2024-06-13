@@ -82,7 +82,7 @@ class TestTFQualityFactory(unittest.TestCase):
             m1.read(tf_dict["fn"])
             qf = m1.estimate_tf_quality()
             with self.subTest(tf_dict["fn"].name):
-                self.assertTrue(np.isclose(tf_dict["qf"], qf))
+                self.assertAlmostEqual(tf_dict["qf"], qf)
 
 
 # =============================================================================
