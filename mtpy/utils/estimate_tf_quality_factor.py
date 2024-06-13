@@ -13,6 +13,7 @@ Estimate Transfer Function Quality
 # =============================================================================
 import os
 import glob
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -301,7 +302,7 @@ class EMTFStats:
                     except (ValueError, np.linalg.LinAlgError) as error:
                         stat_array[0][f"res_{comp}_fit"] = np.NaN
                         stat_array[0][f"phase_{comp}_fit"] = np.NaN
-                        logger.error(f"Z{comp}: {error}")
+                        logger.warning(f"Z{comp}: {error}")
                     ### taking median of the error is more robust
                     stat_array[0][f"res_{comp}_std"] = np.median(res_error)
                     stat_array[0][f"phase_{comp}_std"] = np.median(phase_error)
@@ -323,69 +324,77 @@ class EMTFStats:
                     )
 
                     ### compute tipper
-                    if ii == 0 and self.t_object is not None:
-                        tcomp = self.t_dict[(0, jj)]
-                        t_index = np.nonzero(
-                            self.t_object.amplitude[:, 0, jj]
-                        )[0]
-                        bad_points_t = self.locate_bad_tipper_points(
-                            self.t_object.amplitude[:, 0, jj]
-                        )
-                        stat_array[0][f"bad_points_tipper_{tcomp}"] = max(
-                            [1, len(bad_points_t)]
-                        )
-                        t_index = np.delete(
-                            t_index, np.isin(t_index, bad_points_t)
-                        )
-                        if t_index.size == 0:
-                            continue
-                        else:
-                            tip_f = self.t_object.frequency[t_index]
-                            if len(tip_f) < 2:
-                                logger.warning(
-                                    f"Could not compute stats for T{comp}"
-                                )
-                                break
-                            tmag = self.t_object.amplitude[t_index, 0, jj]
-                            if self.t_object.amplitude_error is not None:
-                                tmag_error = self.t_object.amplitude_error[
-                                    t_index, 0, jj
-                                ]
-                            else:
-                                tmag_error = np.zeros_like(tmag)
 
-                            if flip:
-                                tmag = tmag[::-1]
-                                tmag_error = tmag_error[::-1]
-                                tip_f = tip_f[::-1]
-
-                            tip_t = np.r_[
-                                (tip_f[0],) * (k + 1),
-                                [min(1, tip_f.mean())],
-                                (tip_f[-1],) * (k + 1),
+        if self.t_object is not None:
+            for ii in range(1):
+                for jj in range(2):
+                    flip = False
+                    tcomp = self.t_dict[(0, jj)]
+                    t_index = np.nonzero(self.t_object.amplitude[:, 0, jj])[0]
+                    bad_points_t = self.locate_bad_tipper_points(
+                        self.t_object.amplitude[:, 0, jj]
+                    )
+                    stat_array[0][f"bad_points_tipper_{tcomp}"] = max(
+                        [1, len(bad_points_t)]
+                    )
+                    t_index = np.delete(
+                        t_index, np.isin(t_index, bad_points_t)
+                    )
+                    if t_index.size == 0:
+                        continue
+                    else:
+                        tip_f = self.t_object.frequency[t_index]
+                        if len(tip_f) < 2:
+                            logger.warning(
+                                f"Could not compute stats for T{comp}"
+                            )
+                            break
+                        tmag = self.t_object.amplitude[t_index, 0, jj]
+                        if self.t_object.amplitude_error is not None:
+                            tmag_error = self.t_object.amplitude_error[
+                                t_index, 0, jj
                             ]
-                            try:
-                                ls_tmag = interpolate.make_lsq_spline(
-                                    tip_f, tmag, tip_t, k
-                                )
-                                stat_array[0][f"tipper_{tcomp}_fit"] = np.std(
-                                    tmag - ls_tmag(tip_f)
-                                )
-                            except (
-                                ValueError,
-                                np.linalg.LinAlgError,
-                            ) as error:
-                                stat_array[0][f"tipper_{tcomp}_fit"] = np.NaN
-                                logger.error(f"T{tcomp}: {error}")
-                            stat_array[0][
-                                f"tipper_{tcomp}_std"
-                            ] = tmag_error.mean()
-                            stat_array[0][
-                                f"tipper_{tcomp}_corr"
-                            ] = np.corrcoef(tmag[0:-1], tmag[1:])[0, 1]
-                            stat_array[0][f"tipper_{tcomp}_diff"] = np.std(
-                                np.diff(tmag)
-                            ) / abs(np.mean(np.diff(tmag)))
+                        else:
+                            tmag_error = np.zeros_like(tmag)
+
+                        if flip:
+                            flip = True
+                            tmag = tmag[::-1]
+                            tmag_error = tmag_error[::-1]
+                            tip_f = tip_f[::-1]
+
+                        k = 7  # order of the fit
+                        # knots, has to be at least to the bounds of f
+                        if len(tip_f) < k:
+                            k = len(tip_f) - 1
+
+                        tip_t = np.r_[
+                            (tip_f[0],) * (k + 1),
+                            [min(1, tip_f.mean())],
+                            (tip_f[-1],) * (k + 1),
+                        ]
+                        try:
+                            ls_tmag = interpolate.make_lsq_spline(
+                                tip_f, tmag, tip_t, k
+                            )
+                            stat_array[0][f"tipper_{tcomp}_fit"] = np.std(
+                                tmag - ls_tmag(tip_f)
+                            )
+                        except (
+                            ValueError,
+                            np.linalg.LinAlgError,
+                        ) as error:
+                            stat_array[0][f"tipper_{tcomp}_fit"] = np.NaN
+                            logger.warning(f"T{tcomp}: {error}")
+                        stat_array[0][
+                            f"tipper_{tcomp}_std"
+                        ] = tmag_error.mean()
+                        stat_array[0][f"tipper_{tcomp}_corr"] = np.corrcoef(
+                            tmag[0:-1], tmag[1:]
+                        )[0, 1]
+                        stat_array[0][f"tipper_{tcomp}_diff"] = np.std(
+                            np.diff(tmag)
+                        ) / abs(np.mean(np.diff(tmag)))
 
         ### write file
         df = pd.DataFrame(stat_array)
@@ -467,33 +476,37 @@ class EMTFStats:
 
         ### compute median value
         ### need to weight things differently
-        bad_df = quality_df[
-            [col for col in quality_df.columns if "bad" in col]
-        ]
-        diff_df = quality_df[
-            [col for col in quality_df.columns if "diff" in col]
-        ]
-        fit_df = quality_df[
-            [col for col in quality_df.columns if "fit" in col]
-        ]
-        corr_df = quality_df[
-            [col for col in quality_df.columns if "corr" in col]
-        ]
-        std_df = quality_df[
-            [col for col in quality_df.columns if "std" in col]
-        ]
-
-        qf_df = np.nansum(
-            np.array(
-                [
-                    weights["bad"] * np.nanmedian(bad_df, axis=1),
-                    weights["corr"] * np.nanmedian(corr_df, axis=1),
-                    weights["diff"] * np.nanmedian(diff_df, axis=1),
-                    weights["std"] * np.nanmedian(std_df, axis=1),
-                    weights["fit"] * np.nanmedian(fit_df, axis=1),
-                ]
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore", r"All-NaN (slice|axis) encountered"
             )
-        )
+            bad_df = quality_df[
+                [col for col in quality_df.columns if "bad" in col]
+            ]
+            diff_df = quality_df[
+                [col for col in quality_df.columns if "diff" in col]
+            ]
+            fit_df = quality_df[
+                [col for col in quality_df.columns if "fit" in col]
+            ]
+            corr_df = quality_df[
+                [col for col in quality_df.columns if "corr" in col]
+            ]
+            std_df = quality_df[
+                [col for col in quality_df.columns if "std" in col]
+            ]
+
+            qf_df = np.nansum(
+                np.array(
+                    [
+                        weights["bad"] * np.nanmedian(bad_df, axis=1),
+                        weights["corr"] * np.nanmedian(corr_df, axis=1),
+                        weights["diff"] * np.nanmedian(diff_df, axis=1),
+                        weights["std"] * np.nanmedian(std_df, axis=1),
+                        weights["fit"] * np.nanmedian(fit_df, axis=1),
+                    ]
+                )
+            )
 
         qf_df = qf_df.round()
         return qf_df

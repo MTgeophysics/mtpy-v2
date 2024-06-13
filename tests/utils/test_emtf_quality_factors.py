@@ -57,14 +57,14 @@ from mt_metadata import (
 #             {"fn": TF_POOR_XML, "qf": 3.0},
 #             {"fn": TF_XML, "qf": 4.0},
 #             {"fn": TF_XML_COMPLETE_REMOTE_INFO, "qf": 4.0},
-#             {"fn": TF_XML_MULTIPLE_ATTACHMENTS, "qf": },
-#             {"fn": TF_XML_NO_SITE_LAYOUT, "qf": },
-#             {"fn": TF_XML_WITH_DERIVED_QUANTITIES, "qf": },
-#             {"fn": TF_ZMM, "qf": },
-#             {"fn": TF_ZSS_TIPPER, "qf": },
+#             {"fn": TF_XML_MULTIPLE_ATTACHMENTS, "qf": 3.0},
+#             {"fn": TF_XML_NO_SITE_LAYOUT, "qf": 4.0},
+#             {"fn": TF_XML_WITH_DERIVED_QUANTITIES, "qf": 4.0},
+#             {"fn": TF_ZMM, "qf": 4.0},
+#             {"fn": TF_ZSS_TIPPER, "qf": 4.0},
 #         ]
 
 
 m1 = MT()
-m1.read(TF_XML_MULTIPLE_ATTACHMENTS)
+m1.read(TF_ZSS_TIPPER)
 m1.estimate_tf_quality()
