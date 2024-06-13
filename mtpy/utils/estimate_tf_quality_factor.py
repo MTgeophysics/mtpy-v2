@@ -13,16 +13,18 @@ Estimate Transfer Function Quality
 # =============================================================================
 import os
 import glob
+
 import numpy as np
 import pandas as pd
 from scipy import interpolate
-from mtpy.core import mt
+
+from loguru import logger
 
 
 # =============================================================================
 #
 # =============================================================================
-class EMTFStats(object):
+class EMTFStats:
     """
     Class to estimate data quality of EM transfer functions
 
@@ -42,8 +44,9 @@ class EMTFStats(object):
         >>> s_df = q.summarize_data_quality(q_df)
     """
 
-    def __init__(self, tf_dir=None, *args, **kwargs):
-        self.tf_dir = tf_dir
+    def __init__(self, z_object, t_object, **kwargs):
+        self.z_object = z_object
+        self.t_object = t_object
         self.stat_limits = {
             "std": {
                 5: (0, 0.5),
@@ -116,7 +119,7 @@ class EMTFStats(object):
         """
         try to locate bad points to remove
         """
-        return self._locate_bad_points(tipper, 0, factor=np.cos(np.pi / 4))
+        return self._locate_bad_points(res, 0, factor=np.cos(np.pi / 4))
 
     def locate_bad_phase_points(self, phase, test=5):
         """
@@ -146,12 +149,11 @@ class EMTFStats(object):
 
         ### estimate levearge points, or outliers
         ### estimate the median
-        med = np.median(array)
+        med = np.nanmedian(array)
         ### locate the point closest to the median
-        tol = np.abs(array - np.median(array)).min()
+        tol = np.abs(np.nanmin(array - np.nanmedian(array)))
         m_index = np.where(
-            (abs(tipper - med) >= tol * 0.95)
-            & (abs(tipper - med) <= tol * 1.05)
+            (abs(array - med) >= tol * 0.95) & (abs(array - med) <= tol * 1.05)
         )[0][0]
         r_index = m_index + 1
 
@@ -159,7 +161,7 @@ class EMTFStats(object):
         # go to the right
         # if factor is given
         if factor is None:
-            while r_index < tipper.shape[0]:
+            while r_index < array.shape[0]:
                 if abs(array[r_index] - array[r_index - 1]) > test:
                     bad_points.append(r_index)
                 r_index += 1
@@ -189,9 +191,9 @@ class EMTFStats(object):
                     bad_points.append(l_index)
                 l_index -= 1
 
-        return np.array(bad_points)
+        return np.array(sorted(bad_points))
 
-    def compute_statistics(self, tf_dir=None):
+    def compute_statistics(self):
         """
         Compute statistics of the transfer functions in a given directory.
 
@@ -212,20 +214,11 @@ class EMTFStats(object):
         .. note:: Writes a file to the tf_dir named tf_quality_statistics.csv
         """
 
-        if tf_dir is not None:
-            self.tf_dir = tf_dir
-
-        edi_list = glob.glob(f"{self.tf_dir}\\*.edi")
-
         stat_array = np.zeros(
-            len(edi_list),
-            dtype=[(key, np.float) for key in sorted(self.types)],
+            1,
+            dtype=[(key, float) for key in sorted(self.types)],
         )
-        station_list = []
-        for kk, edi in enumerate(edi_list):
-            mt_obj = mt.MT(edi)
-            station_list.append(mt_obj.station)
-
+        if self.z_object is not None:
             for ii in range(2):
                 for jj in range(2):
                     flip = False
@@ -233,46 +226,60 @@ class EMTFStats(object):
 
                     ### locate bad points
                     bad_points_res = self.locate_bad_res_points(
-                        mt_obj.Z.resistivity[:, ii, jj]
+                        self.z_object.resistivity[:, ii, jj]
                     )
-                    stat_array[kk][f"bad_points_res_{comp}"] = max(
+                    stat_array[0][f"bad_points_res_{comp}"] = max(
                         [1, len(bad_points_res)]
                     )
                     bad_points_phase = self.locate_bad_phase_points(
-                        mt_obj.Z.phase[:, ii, jj]
+                        self.z_object.phase[:, ii, jj]
                     )
-                    stat_array[kk][f"bad_points_phase_{comp}"] = max(
+                    stat_array[0][f"bad_points_phase_{comp}"] = max(
                         [1, len(bad_points_res)]
+                    )
+                    bad_points = np.unique(
+                        np.append(bad_points_res, bad_points_phase)
                     )
                     ### need to get the data points that are within the reasonable range
                     ### and not 0
-                    nz_index = np.nonzero(mt_obj.Z.resistivity[:, ii, jj])
-                    nz_index = np.delete(nz_index, bad_points_res)
-                    nz_index = np.delete(nz_index, bad_points_phase)
+                    nz_index = np.nonzero(
+                        self.z_object.resistivity[:, ii, jj]
+                    )[0]
+                    nz_mask = np.isin(nz_index, bad_points)
+                    nz_index = np.delete(nz_index, nz_mask)
 
-                    f = mt_obj.Z.freq[nz_index]
-                    res = mt_obj.Z.resistivity[nz_index, ii, jj]
-                    res_err = mt_obj.Z.resistivity_err[nz_index, ii, jj]
-                    phase = mt_obj.Z.phase[nz_index, ii, jj]
-                    phase_err = mt_obj.Z.phase_err[nz_index, ii, jj]
-
+                    f = self.z_object.frequency[nz_index]
                     if len(f) < 2:
-                        print(mt_obj.station, comp, nz_index)
-                        continue
+                        logger.warning(f"Could not compute stats for Z{comp}")
+                        break
+                    res = self.z_object.resistivity[nz_index, ii, jj]
+                    if self.z_object.resistivity_error is not None:
+                        res_error = self.z_object.resistivity_error[
+                            nz_index, ii, jj
+                        ]
+                    else:
+                        res_error = np.zeros_like(res)
+                    phase = self.z_object.phase[nz_index, ii, jj]
+                    if self.z_object.phase_error is not None:
+                        phase_error = self.z_object.phase_error[
+                            nz_index, ii, jj
+                        ]
+                    else:
+                        phase_error = np.zeros_like(phase)
 
-                    # need to sort the array to be ordered with assending
-                    # frequency.  Check to see if f is ascending, if not flip
                     if f[0] > f[1]:
                         flip = True
                         f = f[::-1]
                         res = res[::-1]
-                        res_err = res_err[::-1]
+                        res_error = res_error[::-1]
                         phase = phase[::-1]
-                        phase_err = phase_err[::-1]
+                        phase_error = phase_error[::-1]
 
-                    ### make parameter for least squares fit
                     k = 7  # order of the fit
                     # knots, has to be at least to the bounds of f
+                    if len(f) < k:
+                        k = len(f) - 1
+
                     t = np.r_[
                         (f[0],) * (k + 1),
                         [min(1, f.mean())],
@@ -285,65 +292,73 @@ class EMTFStats(object):
                         ls_phase = interpolate.make_lsq_spline(f, phase, t, k)
 
                         ### compute a standard deviation between the ls fit and data
-                        stat_array[kk][f"res_{comp}_fit"] = (
+                        stat_array[0][f"res_{comp}_fit"] = (
                             res - ls_res(f)
                         ).std()
-                        stat_array[kk][f"phase_{comp}_fit"] = (
+                        stat_array[0][f"phase_{comp}_fit"] = (
                             phase - ls_phase(f)
                         ).std()
                     except (ValueError, np.linalg.LinAlgError) as error:
-                        stat_array[kk][f"res_{comp}_fit"] = np.NaN
-                        stat_array[kk][f"phase_{comp}_fit"] = np.NaN
-                        print(
-                            f"{mt_obj.station} {comp} {error}"
-                        )
+                        stat_array[0][f"res_{comp}_fit"] = np.NaN
+                        stat_array[0][f"phase_{comp}_fit"] = np.NaN
+                        logger.error(f"Z{comp}: {error}")
                     ### taking median of the error is more robust
-                    stat_array[kk][f"res_{comp}_std"] = np.median(
-                        res_err
-                    )
-                    stat_array[kk][f"phase_{comp}_std"] = np.median(
-                        phase_err
-                    )
+                    stat_array[0][f"res_{comp}_std"] = np.median(res_error)
+                    stat_array[0][f"phase_{comp}_std"] = np.median(phase_error)
 
                     ### estimate smoothness
-                    stat_array[kk][f"res_{comp}_corr"] = np.corrcoef(
+                    stat_array[0][f"res_{comp}_corr"] = np.corrcoef(
                         res[0:-1], res[1:]
                     )[0, 1]
-                    stat_array[kk][
-                        f"phase_{comp}_corr"
-                    ] = np.corrcoef(phase[0:-1], phase[1:])[0, 1]
+                    stat_array[0][f"phase_{comp}_corr"] = np.corrcoef(
+                        phase[0:-1], phase[1:]
+                    )[0, 1]
 
                     ### estimate smoothness with difference
-                    stat_array[kk][f"res_{comp}_diff"] = np.abs(
+                    stat_array[0][f"res_{comp}_diff"] = np.abs(
                         np.median(np.diff(res))
                     )
-                    stat_array[kk][f"phase_{comp}_diff"] = np.abs(
+                    stat_array[0][f"phase_{comp}_diff"] = np.abs(
                         np.median(np.diff(phase))
                     )
 
                     ### compute tipper
-                    if ii == 0:
+                    if ii == 0 and self.t_object is not None:
                         tcomp = self.t_dict[(0, jj)]
-                        t_index = np.nonzero(mt_obj.Tipper.amplitude[:, 0, jj])
+                        t_index = np.nonzero(
+                            self.t_object.amplitude[:, 0, jj]
+                        )[0]
                         bad_points_t = self.locate_bad_tipper_points(
-                            mt_obj.Tipper.amplitude[:, 0, jj]
+                            self.t_object.amplitude[:, 0, jj]
                         )
-                        stat_array[kk][
-                            f"bad_points_tipper_{tcomp}"
-                        ] = max([1, len(bad_points_t)])
-                        t_index = np.delete(t_index, bad_points_t)
+                        stat_array[0][f"bad_points_tipper_{tcomp}"] = max(
+                            [1, len(bad_points_t)]
+                        )
+                        t_index = np.delete(
+                            t_index, np.isin(t_index, bad_points_t)
+                        )
                         if t_index.size == 0:
                             continue
                         else:
-                            tmag = mt_obj.Tipper.amplitude[t_index, 0, jj]
-                            tmag_err = mt_obj.Tipper.amplitude_err[
-                                t_index, 0, jj
-                            ]
-                            tip_f = mt_obj.Tipper.freq[t_index]
+                            tip_f = self.t_object.frequency[t_index]
+                            if len(tip_f) < 2:
+                                logger.warning(
+                                    f"Could not compute stats for T{comp}"
+                                )
+                                break
+                            tmag = self.t_object.amplitude[t_index, 0, jj]
+                            if self.t_object.amplitude_error is not None:
+                                tmag_error = self.t_object.amplitude_error[
+                                    t_index, 0, jj
+                                ]
+                            else:
+                                tmag_error = np.zeros_like(tmag)
+
                             if flip:
                                 tmag = tmag[::-1]
-                                tmag_err = tmag_err[::-1]
+                                tmag_error = tmag_error[::-1]
                                 tip_f = tip_f[::-1]
+
                             tip_t = np.r_[
                                 (tip_f[0],) * (k + 1),
                                 [min(1, tip_f.mean())],
@@ -353,43 +368,32 @@ class EMTFStats(object):
                                 ls_tmag = interpolate.make_lsq_spline(
                                     tip_f, tmag, tip_t, k
                                 )
-                                stat_array[kk][
-                                    f"tipper_{tcomp}_fit"
-                                ] = np.std(tmag - ls_tmag(tip_f))
+                                stat_array[0][f"tipper_{tcomp}_fit"] = np.std(
+                                    tmag - ls_tmag(tip_f)
+                                )
                             except (
                                 ValueError,
                                 np.linalg.LinAlgError,
                             ) as error:
-                                stat_array[kk][
-                                    f"tipper_{tcomp}_fit"
-                                ] = np.NaN
-                                print(
-                                    f"{mt_obj.station} {tcomp} {error}"
-                                )
-                            stat_array[kk][
+                                stat_array[0][f"tipper_{tcomp}_fit"] = np.NaN
+                                logger.error(f"T{tcomp}: {error}")
+                            stat_array[0][
                                 f"tipper_{tcomp}_std"
-                            ] = tmag_err.mean()
-                            stat_array[kk][
+                            ] = tmag_error.mean()
+                            stat_array[0][
                                 f"tipper_{tcomp}_corr"
                             ] = np.corrcoef(tmag[0:-1], tmag[1:])[0, 1]
-                            stat_array[kk][
-                                f"tipper_{tcomp}_diff"
-                            ] = np.std(np.diff(tmag)) / abs(
-                                np.mean(np.diff(tmag))
-                            )
+                            stat_array[0][f"tipper_{tcomp}_diff"] = np.std(
+                                np.diff(tmag)
+                            ) / abs(np.mean(np.diff(tmag)))
 
         ### write file
-        df = pd.DataFrame(stat_array, index=station_list)
+        df = pd.DataFrame(stat_array)
         df = df.replace(0, np.NAN)
-        df.to_csv(
-            os.path.join(self.tf_dir, "tf_quality_statistics.csv"),
-            index=True,
-            na_rep="NaN",
-        )
 
         return df
 
-    def estimate_data_quality(self, stat_df=None, stat_fn=None):
+    def estimate_data_quality(self, stat_df):
         """
         Convert the statistical estimates into the rating between 0-5 given
         a certain criteria.
@@ -407,13 +411,6 @@ class EMTFStats(object):
 
         .. note:: Writes a file to the tf_dir named tf_quality_estimate.csv
         """
-        if stat_df is not None:
-            stat_df = stat_df
-
-        if stat_fn is not None:
-            stat_df = pd.read_csv(stat_fn, index_col=0)
-            self.tf_dir = os.path.dirname(stat_fn)
-
         if stat_df is None:
             raise ValueError("No DataFrame to analyze")
 
@@ -421,7 +418,7 @@ class EMTFStats(object):
         qual_df = pd.DataFrame(
             np.zeros(
                 stat_df.shape[0],
-                dtype=[(key, np.float) for key in sorted(self.types)],
+                dtype=[(key, float) for key in sorted(self.types)],
             ),
             index=stat_df.index,
         )
@@ -438,17 +435,11 @@ class EMTFStats(object):
                             & (stat_df[column] <= cvalues[1])
                         ] = ckey
 
-        ### write out file
-        qual_df.to_csv(
-            os.path.join(self.tf_dir, "tf_quality_estimate.csv"), na_rep="NaN"
-        )
-
         return qual_df
 
     def summarize_data_quality(
         self,
-        quality_df=None,
-        quality_fn=None,
+        quality_df,
         weights={
             "bad": 0.35,
             "corr": 0.2,
@@ -471,13 +462,6 @@ class EMTFStats(object):
 
         .. note:: Writes a file to the tf_dir named tf_quality.csv
         """
-        if quality_df is not None:
-            quality_df = quality_df
-
-        if quality_fn is not None:
-            quality_df = pd.read_csv(quality_fn, index_col=0)
-            self.tf_dir = os.path.dirname(quality_fn)
-
         if quality_df is None:
             raise ValueError("No DataFrame to analyze")
 
@@ -499,21 +483,23 @@ class EMTFStats(object):
             [col for col in quality_df.columns if "std" in col]
         ]
 
-        qf_df = (
-            weights["bad"] * bad_df.median(axis=1)
-            + weights["corr"] * corr_df.median(axis=1)
-            + weights["diff"] * diff_df.median(axis=1)
-            + weights["std"] * std_df.median(axis=1)
-            + weights["fit"] * fit_df.median(axis=1)
+        qf_df = np.nansum(
+            np.array(
+                [
+                    weights["bad"] * np.nanmedian(bad_df, axis=1),
+                    weights["corr"] * np.nanmedian(corr_df, axis=1),
+                    weights["diff"] * np.nanmedian(diff_df, axis=1),
+                    weights["std"] * np.nanmedian(std_df, axis=1),
+                    weights["fit"] * np.nanmedian(fit_df, axis=1),
+                ]
+            )
         )
 
         qf_df = qf_df.round()
-        qf_df.to_csv(os.path.join(self.tf_dir, "tf_quality.csv"), header=False)
         return qf_df
 
-    def estimate_quality_factors(
+    def estimate_quality_factor(
         self,
-        tf_dir=None,
         weights={
             "bad": 0.35,
             "corr": 0.2,
@@ -526,19 +512,10 @@ class EMTFStats(object):
         Convenience function doing all the steps to estimate quality factor
         """
 
-        if tf_dir is not None:
-            self.tf_dir = tf_dir
-        assert (
-            os.path.isdir(self.tf_dir) is True
-        ), f"{self.tf_dir} is not a directory"
-
-        statistics_df = self.compute_statistics()
-        qualities_df = self.estimate_data_quality(stat_df=statistics_df)
-        qf_df = self.summarize_data_quality(
+        qualities_df = self.estimate_data_quality(self.compute_statistics())
+        return self.summarize_data_quality(
             quality_df=qualities_df, weights=weights
         )
-
-        return qf_df
 
 
 # =============================================================================
