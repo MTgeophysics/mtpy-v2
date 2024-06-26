@@ -2835,7 +2835,9 @@ class StructuredGrid3D:
                 self._nodes_z[count_z] = float(z_node)
                 count_z += 1
             line_index += 1
+
         self.grid_z = np.insert(np.cumsum(self._nodes_z), 0, 0)
+
 
         # get the resistivity values, if type > 1
         if res_format >= 1:
