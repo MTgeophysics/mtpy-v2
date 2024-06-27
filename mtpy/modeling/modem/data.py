@@ -424,8 +424,7 @@ class Data:
             elif "vertical" in mode.lower():
                 return (
                     self.dataframe.loc[
-                        (self.dataframe.t_zx != 0)
-                        | (self.dataframe.t_zy != 0),
+                        (self.dataframe.t_zx != 0) | (self.dataframe.t_zy != 0),
                         "station",
                     ]
                     .unique()
@@ -672,9 +671,7 @@ class Data:
 
         ## check for zeros in model error
         for comp in ["z_xx", "z_xy", "z_yx", "z_yy", "t_zx", "t_zy"]:
-            find_zeros = np.where(self.dataframe[f"{comp}_model_error"] == 0)[
-                0
-            ]
+            find_zeros = np.where(self.dataframe[f"{comp}_model_error"] == 0)[0]
             find_zeros_data = np.where(self.dataframe[f"{comp}"] == 0)[0]
 
             if find_zeros.shape == find_zeros_data.shape:
@@ -825,6 +822,9 @@ class Data:
         self._check_for_too_big_values()
         self._check_for_too_small_values()
 
+        z_lines = []
+        t_lines = []
+
         for inv_mode in self.inv_mode_dict[self.inv_mode]:
             if "impedance" in inv_mode.lower():
                 z_lines = self._write_header(inv_mode)
@@ -913,8 +913,7 @@ class Data:
                         self.wave_sign_tipper = hline[hline.find("(") + 1]
 
                 elif (
-                    len(hline[1:].strip().split()) >= 2
-                    and hline.count(".") > 0
+                    len(hline[1:].strip().split()) >= 2 and hline.count(".") > 0
                 ):
                     value_list = [
                         float(value) for value in hline[1:].strip().split()
@@ -1226,9 +1225,7 @@ class Data:
             lines = fid.readlines()
 
         def fix_line(line_list):
-            return (
-                " ".join("".join(line_list).replace("\n", "").split()) + "\n"
-            )
+            return " ".join("".join(line_list).replace("\n", "").split()) + "\n"
 
         h1 = fix_line(lines[0:n])
         h2 = fix_line(lines[n : 2 * n])
