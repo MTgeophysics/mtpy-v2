@@ -1843,7 +1843,7 @@ class StructuredGrid3D:
             self.center_point.east + self.grid_east[pad_east] + shift_east
         )
         lower_left.north = (
-            self.center_point.north + self.grid_east[pad_north] + shift_north
+            self.center_point.north + self.grid_north[pad_north] + shift_north
         )
 
         return lower_left
@@ -1977,6 +1977,7 @@ class StructuredGrid3D:
         :type shift_north: float
         :param shift_east: shift east in meters
         :type shift_east: float
+        :param dict conductance_dict: Dictionary of conductance layers to
         :return: list of file paths to rasters.
         :rtype: TYPE
 
@@ -2006,7 +2007,7 @@ class StructuredGrid3D:
         )
 
         if log10:
-            raster_array = np.lo10(raster_array)
+            raster_array = np.log10(raster_array)
 
         raster_depths = self.grid_z[
             slice(
@@ -2039,6 +2040,130 @@ class StructuredGrid3D:
                 raster_fn_list.append(raster_fn)
                 if verbose:
                     self._logger.info(f"Wrote depth index {ii} to {raster_fn}")
+            except IndexError:
+                break
+
+        return raster_fn_list
+
+    def to_conductance_raster(
+        self,
+        cell_size,
+        conductance_dict,
+        pad_north=None,
+        pad_east=None,
+        save_path=None,
+        rotation_angle=0,
+        shift_north=0,
+        shift_east=0,
+        log10=True,
+        verbose=True,
+    ):
+        """
+        write out a raster in UTM coordinates for conductance sections.
+        Expecting a grid that is interoplated onto a regular grid of square
+        cells with size `cell_size`.
+
+        `conductance_dict = {"layer_name": (min_depth, max_depth)}
+
+        if "layer_name" is "surface" then topography is included
+
+        :param cell_size: square cell size (cell_size x cell_size) in meters.
+        :type cell_size: float
+        :param conductance_dict: DESCRIPTION
+        :type conductance_dict: TYPE
+        :param pad_north: number of padding cells to skip from outside in,
+         if None defaults to self.pad_north, defaults to None
+        :type pad_north: integer, optional
+        :param pad_east: number of padding cells to skip from outside in
+         if None defaults to self.pad_east, defaults to None
+        :type pad_east: integer, optional
+        :param save_path: Path to save files to. If None use self.save_path,
+         defaults to None
+        :type save_path: string or Path, optional
+        :param depth_min: minimum depth to make raster for in meters,
+         defaults to None which will use shallowest depth.
+        :type depth_min: float, optional
+        :param depth_max: maximum depth to make raster for in meters,
+         defaults to None which will use deepest depth.
+        :type depth_max: float, optional
+        :param rotation_angle: Angle (degrees) to rotate the raster assuming
+         clockwise positive rotation where North = 0, East = 90, defaults to 0
+        :type rotation_angle: float, optional
+        :raises ValueError: If utm_epsg is not input.
+        :param shift_north: shift north in meters
+        :type shift_north: float
+        :param shift_east: shift east in meters
+        :type shift_east: float
+        :param dict conductance_dict: Dictionary of conductance layers to
+        :param log10: DESCRIPTION, defaults to True
+        :type log10: TYPE, optional
+        :param verbose: DESCRIPTION, defaults to True
+        :type verbose: TYPE, optional
+        :return: list of file paths to rasters.
+        :rtype: TYPE
+
+        """
+
+        if self.center_point.utm_crs is None:
+            raise ValueError("Need to input center point and UTM CRS.")
+
+        if rotation_angle is not None:
+            rotation_angle = float(rotation_angle)
+        else:
+            rotation_angle = 0.0
+
+        if save_path is None:
+            save_path = self.save_path
+        else:
+            save_path = Path(save_path)
+
+        if not save_path.exists():
+            save_path.mkdir()
+
+        pad_east = self._validate_pad_east(pad_east)
+        pad_north = self._validate_pad_north(pad_north)
+
+        _, _, raster_array = self.interpolate_to_even_grid(
+            cell_size, pad_east=pad_east, pad_north=pad_north
+        )
+
+        raster_array[np.where(raster_array > 1e10)] = np.nan
+
+        lower_left = self.get_lower_left_corner(
+            pad_east, pad_north, shift_east=shift_east, shift_north=shift_north
+        )
+
+        raster_fn_list = []
+        for ii, key in enumerate(conductance_dict.keys()):
+            z = np.array(conductance_dict[key])
+            if key in ["surface"]:
+                index_min = 0
+            else:
+                index_min = np.where(self.grid_z <= z.min())[0][-1]
+            index_max = np.where(self.grid_z >= z.max())[0][0]
+
+            conductance = (1.0 / raster_array[:, :, index_min:index_max]) * abs(
+                self.grid_z[index_min:index_max]
+            )
+            conductance = np.log10(np.nansum(conductance, axis=2))
+            try:
+                raster_fn = self.save_path.joinpath(
+                    f"conductance_{z.min()}m_to_{z.max()}m_depth_utm_{self.center_point.utm_epsg}.tif".replace(
+                        "-", "m"
+                    )
+                )
+                array2raster(
+                    raster_fn,
+                    conductance,
+                    lower_left,
+                    cell_size,
+                    cell_size,
+                    self.center_point.utm_epsg,
+                    rotation_angle=rotation_angle,
+                )
+                raster_fn_list.append(raster_fn)
+                if verbose:
+                    self._logger.info(f"Wrote conductance {key} to {raster_fn}")
             except IndexError:
                 break
 
@@ -2201,9 +2326,10 @@ class StructuredGrid3D:
 
     def to_vtk(
         self,
+        vtk_fn=None,
         vtk_save_path=None,
         vtk_fn_basename="ModEM_model_res",
-        geographic_coordinates=False,
+        geographic=False,
         units="km",
         coordinate_system="nez+",
         label="resistivity",
@@ -2211,6 +2337,8 @@ class StructuredGrid3D:
         """
         Write a VTK file to plot in 3D rendering programs like Paraview
 
+        :param vtk_fn: full path to VKT file to be written
+        :type vtk_fn: string or Path
         :param vtk_save_path: directory to save vtk file to, defaults to None
         :type vtk_save_path: string or Path, optional
         :param vtk_fn_basename: filename basename of vtk file, note that .vtr
@@ -2229,11 +2357,10 @@ class StructuredGrid3D:
         :rtype: Path
 
         Write VTK file
-        >>> model.write_vtk_file(vtk_fn_basename="modem_model")
+        >>> model.to_vtk(vtk_fn="modem_model")
 
         Write VTK file in geographic coordinates with z+ up
-        >>> model.write_vtk_station_file(vtk_fn_basename="modem_model",
-        >>> ...                          coordinate_system='enz-')
+        >>> model.to_vtk(vtk_fn="modem_model", coordinate_system='enz-')
         """
 
         if isinstance(units, str):
@@ -2246,25 +2373,33 @@ class StructuredGrid3D:
         elif isinstance(units, (int, float)):
             scale = units
 
-        if vtk_save_path is None:
-            vtk_fn = self.save_path.joinpath(vtk_fn_basename)
+        if vtk_fn is None:
+            if vtk_save_path is None:
+                raise ValueError("Need to input vtk_save_path")
+            vtk_fn = Path(vtk_save_path, vtk_fn_basename)
         else:
-            vtk_fn = Path(vtk_save_path).joinpath(vtk_fn_basename)
+            vtk_fn = Path(vtk_fn)
+
+        if vtk_fn.suffix != "":
+            vtk_fn = vtk_fn.parent.joinpath(vtk_fn.stem)
 
         shift_north = 0
         shift_east = 0
         shift_z = 0
-        if geographic_coordinates:
+        if geographic:
             shift_north = self.center_point.north
             shift_east = self.center_point.east
-            shift_z = self.center_point.elevation
+            if self.grid_z[0] == self.center_point.elevation:
+                shift_z = 0
+            else:
+                shift_z = self.center_point.elevation
 
             vtk_y = (self.grid_north + shift_north) * scale
             vtk_x = (self.grid_east + shift_east) * scale
             if "+" in coordinate_system:
                 vtk_z = (self.grid_z + shift_z) * scale
             elif "-" in coordinate_system:
-                vtk_z = -1 * (self.grid_z + shift_z) * scale
+                vtk_z = -1 * (self.grid_z - shift_z) * scale
 
             cell_data = {label: self._rotate_res_model()}
 
@@ -2279,7 +2414,7 @@ class StructuredGrid3D:
             elif coordinate_system == "enz-":
                 vtk_y = (self.grid_north + shift_north) * scale
                 vtk_x = (self.grid_east + shift_east) * scale
-                vtk_z = -1 * (self.grid_z + shift_z) * scale
+                vtk_z = -1 * (self.grid_z - shift_z) * scale
                 cell_data = {label: self._rotate_res_model()}
 
         gridToVTK(vtk_fn.as_posix(), vtk_x, vtk_y, vtk_z, cellData=cell_data)

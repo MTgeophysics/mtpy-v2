@@ -21,10 +21,12 @@ import matplotlib.pyplot as plt
 
 from .mt import MT
 from .mt_stations import MTStations
+from mtpy.core import MTDataFrame
 
 from mtpy.modeling.errors import ModelErrors
 from mtpy.modeling.modem import Data
 from mtpy.modeling.occam2d import Occam2DData
+from mtpy.gis.shapefile_creator import ShapefileCreator
 from mtpy.imaging import (
     PlotStations,
     PlotMultipleResponses,
@@ -473,14 +475,25 @@ class MTData(OrderedDict, MTStations):
         df.reset_index(drop=True, inplace=True)
         return df
 
+    def to_mt_dataframe(self, utm_crs=None):
+        """
+        create an MTDataFrame
+
+        :param utm_crs: DESCRIPTION, defaults to None
+        :type utm_crs: TYPE, optional
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        return MTDataFrame(self.to_dataframe(utm_crs=utm_crs))
+
     def from_dataframe(self, df):
         """
         Create an dictionary of MT objects from a dataframe
 
         :param df: dataframe of mt data
         :type df: `pandas.DataFrame`
-        :return: DESCRIPTION
-        :rtype: TYPE
 
         """
 
@@ -490,13 +503,44 @@ class MTData(OrderedDict, MTStations):
             mt_object.from_dataframe(sdf)
             self.add_station(mt_object, compute_relative_location=False)
 
-    def to_geo_df(self, model_locations=False):
+    def from_mt_dataframe(self, mt_df):
+        """
+        Create an dictionary of MT objects from a dataframe
+
+        :param df: dataframe of mt data
+        :type df: `MTDataFrame`
+        """
+
+        self.from_dataframe(mt_df.dataframe)
+
+    def to_geo_df(self, model_locations=False, data_type="station_locations"):
         """
         Make a geopandas dataframe for easier GIS manipulation
 
+        :param model_locations: if True returns points in model coordinates,
+         defaults to False
+        :type model_locations: bool, optional
+        :param data_type: type of data in GeoDataFrame
+         [ 'station_locations' | 'phase_tensor' | 'tipper' | 'shapefiles' (both pt and tipper) ],
+         defaults to "station_locations"
+        :type data_type: string, optional
+        :return: Geopandas dataframe with requested data in requested coordinates
+        :rtype: geopandas.GeoDataFrame
+
         """
 
-        df = self.station_locations
+        if data_type in ["station_locations", "stations"]:
+            df = self.station_locations
+        elif data_type in ["phase_tensor", "pt"]:
+            df = self.to_mt_dataframe().phase_tensor
+        elif data_type in ["tipper", "t"]:
+            df = self.to_mt_dataframe().tipper
+        elif data_type in ["both", "shapefiles"]:
+            df = self.to_mt_dataframe().for_shapefiles
+        else:
+            raise ValueError(
+                f"Option for 'data_type' {data_type} is unsupported."
+            )
         if model_locations:
             gdf = gpd.GeoDataFrame(
                 df,
@@ -546,9 +590,7 @@ class MTData(OrderedDict, MTStations):
                 )
 
             else:
-                mt_data.add_station(
-                    new_mt_obj, compute_relative_location=False
-                )
+                mt_data.add_station(new_mt_obj, compute_relative_location=False)
 
         if not inplace:
             return mt_data
@@ -572,9 +614,7 @@ class MTData(OrderedDict, MTStations):
             if not inplace:
                 rot_mt_obj = mt_obj.copy()
                 rot_mt_obj.rotation_angle = rotation_angle
-                mt_data.add_station(
-                    rot_mt_obj, compute_relative_location=False
-                )
+                mt_data.add_station(rot_mt_obj, compute_relative_location=False)
             else:
                 mt_obj.rotation_angle = rotation_angle
 
@@ -672,12 +712,8 @@ class MTData(OrderedDict, MTStations):
             self.t_model_error.floor = t_floor
 
         for mt_obj in self.values():
-            mt_obj.compute_model_z_errors(
-                **self.z_model_error.error_parameters
-            )
-            mt_obj.compute_model_t_errors(
-                **self.t_model_error.error_parameters
-            )
+            mt_obj.compute_model_z_errors(**self.z_model_error.error_parameters)
+            mt_obj.compute_model_t_errors(**self.t_model_error.error_parameters)
 
     def get_nearby_stations(self, station_key, radius, radius_units="m"):
         """
@@ -1269,3 +1305,69 @@ class MTData(OrderedDict, MTStations):
         survey_data_02 = self.get_survey(survey_02)
 
         return PlotResidualPTMaps(survey_data_01, survey_data_02, **kwargs)
+
+    def to_shp(
+        self,
+        save_dir,
+        output_crs=None,
+        utm=False,
+        pt=True,
+        tipper=True,
+        periods=None,
+        period_tol=None,
+        ellipse_size=None,
+        arrow_size=None,
+    ):
+        """
+        Write phase tensor and tipper shape files.
+
+        .. note:: If you have a mixed data set such that the periods do not
+         match up, you should first interpolate onto a common period map and
+         then make shape files.  Otherwise you will have a bunch of shapefiles
+         with only a few shapes.
+
+        :param save_dir: Folder to save shape files to
+        :type save_dir: string or Path
+        :param output_crs: CRS the output shape files will be in,
+         defaults to None which will use either datum or utm from the data
+         depending of if utm is True or False
+        :type output_crs: string, CRS, optional
+        :param pt: Make phase tensor shape files, defaults to True
+        :type pt: bool, optional
+        :param tipper: Make tipper shape files, defaults to True
+        :type tipper: bool, optional
+        :param periods: Periods to plot, defaults to None which will use all
+         periods within the data
+        :type periods: np.ndarray, optional
+        :param period_tol: Tolerance to search around periods, defaults to None
+        :type period_tol: float, optional
+        :return: dictionary of file paths
+        :rtype: dictionary
+
+        :Interpolate first:
+
+            >>> import numpy as np
+            >>> from pathlib import Path
+            >>> from mtpy import MTData
+            >>> from mtpy_data import FWD_NE_CONDUCTOR_GRID_LIST
+            >>> md = MTData()
+            >>> md.add_statoin(FWD_NE_CONDUCTOR_GRID_LIST)
+            >>> new_periods = np.array([.01, .1, 1, 10, 100])
+            >>> # output in WGS84 to your current working directory
+            >>> shp_file_dict = md.to_shp(Path().cwd(), output_crs=4326)
+
+
+        """
+
+        sc = ShapefileCreator(
+            self.to_mt_dataframe(), output_crs, save_dir=save_dir
+        )
+        sc.utm = utm
+        if ellipse_size is None and pt == True:
+            sc.ellipse_size = sc.estimate_ellipse_size()
+        if arrow_size is None and tipper == True:
+            sc.arrow_soze = sc.estimate_arrow_size()
+
+        return sc.make_shp_files(
+            pt=pt, tipper=tipper, periods=periods, period_tol=period_tol
+        )

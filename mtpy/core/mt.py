@@ -17,6 +17,7 @@ from mt_metadata.transfer_functions.core import TF
 from mtpy.core import Z, Tipper
 from mtpy.core.mt_location import MTLocation
 from mtpy.core.mt_dataframe import MTDataFrame
+from mtpy.utils.estimate_tf_quality_factor import EMTFStats
 
 from mtpy.imaging import (
     PlotMTResponse,
@@ -294,6 +295,45 @@ class MT(TF, MTLocation):
     def rrhy_metadata(self):
         """RRHY metadata"""
         return self.station_metadata.runs[0].rrhy
+
+    def estimate_tf_quality(
+        self,
+        weights={
+            "bad": 0.35,
+            "corr": 0.2,
+            "diff": 0.2,
+            "std": 0.2,
+            "fit": 0.05,
+        },
+        round_qf=False,
+    ):
+        """
+        Estimate tranfer function quality factor 0-5, 5 being the best
+
+        :param weights: DESCRIPTION, defaults to
+         {
+            "bad": 0.35,
+            "corr": 0.2,
+            "diff": 0.2,
+            "std": 0.2,
+            "fit": 0.05,
+         }
+        :type weights: TYPE, optional
+        :param : DESCRIPTION
+        :type : TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        if self.has_impedance():
+            if self.has_tipper():
+                tf_stats = EMTFStats(self.Z, self.Tipper)
+            else:
+                tf_stats = EMTFStats(self.Z, None)
+        else:
+            tf_stats = EMTFStats(None, self.Tipper)
+
+        return tf_stats.estimate_quality_factor(weights, round_qf=round_qf)
 
     def remove_distortion(
         self, n_frequencies=None, comp="det", only_2d=False, inplace=False
@@ -756,8 +796,8 @@ class MT(TF, MTLocation):
             "zxy": (0, 1),
             "zyx": (1, 0),
             "zyy": (1, 1),
-            "tx": (0, 0),
-            "ty": (0, 1),
+            "tzx": (0, 0),
+            "tzy": (0, 1),
         }
 
         if isinstance(comp, str):
@@ -988,7 +1028,9 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j * self._transfer_function.transfer_function.imag * noise_imag
+                1j
+                * self._transfer_function.transfer_function.imag
+                * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
@@ -1002,7 +1044,9 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j * self._transfer_function.transfer_function.imag * noise_imag
+                1j
+                * self._transfer_function.transfer_function.imag
+                * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (

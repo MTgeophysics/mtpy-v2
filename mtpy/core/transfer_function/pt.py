@@ -67,7 +67,6 @@ class PhaseTensor(TFBase):
         pt_error=None,
         pt_model_error=None,
     ):
-
         super().__init__(
             tf=pt,
             tf_error=pt_error,
@@ -110,15 +109,15 @@ class PhaseTensor(TFBase):
         z_real = np.real(z)
         z_imag = np.imag(z)
 
-        det_real = np.linalg.det(z_real)
-        det_zero = np.where(det_real == 0)[0]
-        if det_zero.shape[0] > 0:
-            self.logger.debug(
-                f"z at index {det_zero} contains a singular matrix,"
-                " thus it cannot be converted into a phase tensor, setting to 0."
-            )
-
         with np.errstate(divide="ignore", invalid="ignore"):
+            det_real = np.linalg.det(z_real)
+            det_zero = np.where(det_real == 0)[0]
+            if det_zero.shape[0] > 0:
+                self.logger.debug(
+                    f"z at index {det_zero} contains a singular matrix,"
+                    " thus it cannot be converted into a phase tensor, setting to 0."
+                )
+
             pt_array[:, 0, 0] = (
                 z_real[:, 1, 1] * z_imag[:, 0, 0]
                 - z_real[:, 0, 1] * z_imag[:, 1, 0]
@@ -173,13 +172,13 @@ class PhaseTensor(TFBase):
         z_real = np.real(z)
         z_imag = np.imag(z)
 
-        det_real = np.abs(np.linalg.det(z_real))
-
         with np.errstate(divide="ignore", invalid="ignore"):
-
+            det_real = np.abs(np.linalg.det(z_real))
             pt_error[:, 0, 0] = (
                 np.abs(-pt_array[:, 0, 0] * z_real[:, 1, 1] * z_error[:, 0, 0])
-                + np.abs(pt_array[:, 0, 0] * z_real[:, 0, 1] * z_error[:, 1, 0])
+                + np.abs(
+                    pt_array[:, 0, 0] * z_real[:, 0, 1] * z_error[:, 1, 0]
+                )
                 + np.abs(
                     (z_imag[:, 0, 0] - pt_array[:, 0, 0] * z_real[:, 0, 0])
                     * z_error[:, 1, 1]
@@ -194,7 +193,9 @@ class PhaseTensor(TFBase):
 
             pt_error[:, 0, 1] = (
                 np.abs(-pt_array[:, 0, 1] * z_real[:, 1, 1] * z_error[:, 0, 0])
-                + np.abs(pt_array[:, 0, 1] * z_real[:, 0, 1] * z_error[:, 1, 0])
+                + np.abs(
+                    pt_array[:, 0, 1] * z_real[:, 0, 1] * z_error[:, 1, 0]
+                )
                 + np.abs(
                     (z_imag[:, 0, 1] - pt_array[:, 0, 1] * z_real[:, 0, 0])
                     * z_error[:, 1, 1]
@@ -212,7 +213,9 @@ class PhaseTensor(TFBase):
                     (z_imag[:, 1, 0] - pt_array[:, 1, 0] * z_real[:, 1, 1])
                     * z_error[:, 0, 0]
                 )
-                + np.abs(pt_array[:, 1, 0] * z_real[:, 1, 0] * z_error[:, 0, 1])
+                + np.abs(
+                    pt_array[:, 1, 0] * z_real[:, 1, 0] * z_error[:, 0, 1]
+                )
                 + np.abs(
                     (-z_imag[:, 0, 0] + pt_array[:, 1, 0] * z_real[:, 0, 1])
                     * z_error[:, 1, 0]
@@ -229,7 +232,9 @@ class PhaseTensor(TFBase):
                     (z_imag[:, 1, 1] - pt_array[:, 1, 1] * z_real[:, 1, 1])
                     * z_error[:, 0, 0]
                 )
-                + np.abs(pt_array[:, 1, 1] * z_real[:, 1, 0] * z_error[:, 0, 1])
+                + np.abs(
+                    pt_array[:, 1, 1] * z_real[:, 1, 0] * z_error[:, 0, 1]
+                )
                 + np.abs(
                     (-z_imag[:, 0, 1] + pt_array[:, 1, 1] * z_real[:, 0, 1])
                     * z_error[:, 1, 0]
@@ -458,7 +463,6 @@ class PhaseTensor(TFBase):
         """3D-dimensionality angle error Beta of phase tensor in degrees"""
 
         if self._has_tf_error():
-
             y = self.pt[:, 0, 1] - self.pt[:, 1, 0]
             yerr = np.sqrt(
                 self.pt_error[:, 0, 1] ** 2 + self.pt_error[:, 1, 0] ** 2
@@ -480,7 +484,6 @@ class PhaseTensor(TFBase):
         """3D-dimensionality angle model error Beta of phase tensor in degrees"""
 
         if self._has_tf_error():
-
             y = self.pt[:, 0, 1] - self.pt[:, 1, 0]
             yerr = np.sqrt(
                 self.pt_model_error[:, 0, 1] ** 2
@@ -581,7 +584,8 @@ class PhaseTensor(TFBase):
         """Determinant of phase tensor"""
         if self.pt is None:
             return None
-        return np.array([np.linalg.det(pt_arr) for pt_arr in self.pt])
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return np.array([np.linalg.det(pt_arr) for pt_arr in self.pt])
 
     @property
     def det_error(self):

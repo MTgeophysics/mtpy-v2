@@ -471,9 +471,7 @@ class MTStations:
 
             else:
                 self.logger.debug("locating center from UTM grid")
-                center_location.east = (
-                    st_en.east.max() + st_en.east.min()
-                ) / 2
+                center_location.east = (st_en.east.max() + st_en.east.min()) / 2
                 center_location.north = (
                     st_en.north.max() + st_en.north.min()
                 ) / 2
@@ -693,7 +691,10 @@ class MTStations:
         coordinate_system="nez+",
     ):
         """
+        Write a VTK file for plotting in 3D like Paraview
 
+        :param vtk_fn: full path to VKT file to be written
+        :type vtk_fn: string or Path
         :param vtk_save_path: directory to save vtk file to, defaults to None
         :type vtk_save_path: string or Path, optional
         :param vtk_fn_basename: filename basename of vtk file, note that .vtr
@@ -718,16 +719,16 @@ class MTStations:
         :rtype: Path
 
         Write VTK file
-        >>> md.write_vtk_station_file(vtk_fn_basename="modem_stations")
+        >>> md.to_vtk(vtk_fn="modem_stations")
 
         Write VTK file in geographic coordinates
-        >>> md.write_vtk_station_file(vtk_fn_basename="modem_stations",
-        >>> ...                       geographic=True)
+        >>> md.to_vtk(vtk_fn="modem_stations",
+                      geographic=True)
 
         Write VTK file in geographic coordinates with z+ up
-        >>> md.write_vtk_station_file(vtk_fn_basename="modem_stations",
-        >>> ...                       geographic=True,
-        >>> ...                       coordinate_system='enz-')
+        >>> md.to_vtk(vtk_fn="modem_stations",
+                      geographic=True,
+                      coordinate_system='enz-')
 
         """
 
@@ -770,12 +771,12 @@ class MTStations:
                 vtk_y = (sdf.north + shift_north) * scale
                 vtk_x = (sdf.east + shift_east) * scale
                 vtk_z = -1 * (sdf.elevation + shift_elev) * scale
-                extra = -1 * (sdf.elevation + shift_elev)
+                extra = -1 * (sdf.elevation + shift_elev) * scale
             elif coordinate_system == "enz-":
                 vtk_y = (sdf.north + shift_north) * scale
                 vtk_x = (sdf.east + shift_east) * scale
                 vtk_z = (sdf.elevation + shift_elev) * scale
-                extra = sdf.elevation + shift_elev
+                extra = (sdf.elevation + shift_elev) * scale
 
         # write file
         pointsToVTK(

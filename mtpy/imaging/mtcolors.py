@@ -307,7 +307,7 @@ def get_color(cvar, cmap):
     gets the color to plot for the given color map
 
     """
-    return cm.get_cmap(cmap)(cvar)
+    return plt.get_cmap(cmap)(cvar)
 
 
 def get_plot_color(colorx, comp, cmap, ckmin=None, ckmax=None, bounds=None):
@@ -339,7 +339,7 @@ def get_plot_color(colorx, comp, cmap, ckmin=None, ckmax=None, bounds=None):
         return get_color(cvar, cmap)
         """
         norm = colors.Normalize(ckmin, ckmax)
-        return cm.get_cmap(cmap)(norm(colorx))
+        return plt.get_cmap(cmap)(norm(colorx))
 
     elif comp == "skew" or comp == "normalized_skew":
         """
@@ -348,7 +348,7 @@ def get_plot_color(colorx, comp, cmap, ckmin=None, ckmax=None, bounds=None):
         """
 
         norm = colors.Normalize(ckmin, ckmax)
-        return cm.get_cmap(cmap)(norm(colorx))
+        return plt.get_cmap(cmap)(norm(colorx))
 
     elif comp == "skew_seg" or comp == "normalized_skew_seg":
         if bounds is None:
@@ -387,7 +387,7 @@ def get_plot_color(colorx, comp, cmap, ckmin=None, ckmax=None, bounds=None):
                     / step
                 )
             )
-        return cm.get_cmap(cmap)(norm(colorx))
+        return plt.get_cmap(cmap)(norm(colorx))
     else:
         raise NameError("color key " + comp + " not supported")
 
