@@ -1306,7 +1306,7 @@ class MTData(OrderedDict, MTStations):
 
         return PlotResidualPTMaps(survey_data_01, survey_data_02, **kwargs)
 
-    def to_shp(
+    def to_shp_pt_tipper(
         self,
         save_dir,
         output_crs=None,
