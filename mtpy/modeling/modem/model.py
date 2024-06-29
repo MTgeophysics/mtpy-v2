@@ -1052,8 +1052,8 @@ class Model:
         self.grid_z += shift_z
 
         # get cell size
-        self.cell_size_east = stats.mode(self.nodes_east)[0][0]
-        self.cell_size_north = stats.mode(self.nodes_north)[0][0]
+        self.cell_size_east = stats.mode(self.nodes_east, axis=None, keepdims=True)[0][0]
+        self.cell_size_north = stats.mode(self.nodes_north, axis=None, keepdims=True)[0][0]
 
         # get number of padding cells
         self.pad_east = np.where(

@@ -7,6 +7,7 @@ ModEM
 
 # revised by JP 2017
 # revised by AK 2017 to bring across functionality from ak branch
+# revised by OA 2024 to update docs
 
 """
 # =============================================================================
@@ -21,12 +22,35 @@ from mtpy.utils import exceptions as mtex
 
 class ControlInv(object):
     """
-    read and write control file for how the inversion starts and how it is run
+    Reads and writes control files for ModEM to control how the inversion 
+    starts and how it is run.
 
+    ==================== ======================================================
+    Attributes           Description
+    ==================== ======================================================
+    output_fn            Model and data output file name "prefix phrase", i.e. 
+                         written to the front of ModEM output file names before 
+                         the iteration number and file extension. str, 
+                         *default* is 'MODULAR_NLCG'
+    lambda_initial       Initial damping factor lambda. int, *default* is 10
+    lambda_step          To update lambda, divide by this value. int, *default* 
+                         is 10
+    model_search_step    Initial search step in model units. int, *default* is 
+                         1
+    rms_reset_search     Restart when rms diff is less than this value. float, 
+                         *default* is 0.002
+    rms_target           Exit search when rms is less than this value. float, 
+                         *default* is 1.05
+    lambda_exit          Exit when lambda is less than this value. float, 
+                         *default* is 0.0001
+    max_iterations       Maximum number of iterations. int, *default* is 100
+    save_path            Path at which to save the control file. PosixPath, 
+                         *default* is current working directory
+    fn_basename          Name of the control file. str, *default* is 
+                         'control.inv'
     """
 
     def __init__(self, **kwargs):
-
         self.output_fn = "MODULAR_NLCG"
         self.lambda_initial = 10
         self.lambda_step = 10
