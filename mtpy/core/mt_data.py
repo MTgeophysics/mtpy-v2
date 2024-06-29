@@ -448,7 +448,7 @@ class MTData(OrderedDict, MTStations):
 
         station_keys = [
             f"{survey}.{station}"
-            for survey, station in zip[bb_df.survey, bb_df.station]
+            for survey, station in zip(bb_df.survey, bb_df.station)
         ]
 
         return self.get_subset(station_keys)
