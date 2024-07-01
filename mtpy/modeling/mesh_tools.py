@@ -10,7 +10,7 @@ functions to assist with mesh generation
 # =============================================================================
 # Imports
 # =============================================================================
-# from pathlib import Path
+from pathlib import Path
 import numpy as np
 import mtpy.utils.filehandling as mtfh
 from mtpy.utils.gis_tools import project_point
@@ -247,7 +247,11 @@ def interpolate_elevation_to_grid(
     """
     # read the surface data in from ascii if surface not provided
     if surface_file:
-        lon, lat, elev = mtfh.read_surface_ascii(surface_file)
+        surface_file = Path(surface_file)
+        if surface_file.suffix[1:] in ["ascii", "txt", "asc"]:
+            lon, lat, elev = mtfh.read_surface_ascii(surface_file)
+        elif surface_file.suffix[1:] in ["tiff", "tif", "geotiff"]:
+            lon, lat, elev = mtfh.read_geotiff(surface_file)
     elif surface:
         lon, lat, elev = surface
     else:
@@ -414,8 +418,7 @@ def get_padding_from_stretch(cell_width, pad_stretch, num_cells):
 
     """
     nodes = np.around(
-        cell_width
-        * (np.ones(num_cells) * pad_stretch) ** np.arange(num_cells),
+        cell_width * (np.ones(num_cells) * pad_stretch) ** np.arange(num_cells),
         get_rounding(cell_width),
     )
 

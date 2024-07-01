@@ -5,6 +5,7 @@ Created on Sun Sep 25 15:16:31 2022
 @author: jpeacock
 """
 
+
 # ==============================================================================
 # Arrows properties for induction vectors
 # ==============================================================================
@@ -36,8 +37,8 @@ class MTArrows:
                   scaling by 'size'
 
     * 'direction : [ 0 | 1 ]
-                 - 0 for arrows to point toward a conductor
-                 - 1 for arrow to point away from conductor
+                 - 0 for arrows to point away a conductor
+                 - 1 for arrow to point toward from conductor
 
     """
 
@@ -51,7 +52,9 @@ class MTArrows:
         self.arrow_threshold = 2
         self.arrow_color_imag = "c"
         self.arrow_color_real = "k"
-        self.arrow_direction = 0
+        # the data is inherently pointing away from conductor, need to flip
+        # to be in parkinson convention
+        self.arrow_direction = 1
 
         # Set class property values from kwargs and pop them
         for v in vars(self):

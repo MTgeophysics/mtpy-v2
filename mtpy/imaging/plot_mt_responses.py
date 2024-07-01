@@ -135,7 +135,6 @@ class PlotMultipleResponses(PlotBase):
     def _plot_resistivity(
         self, axr, period, z_obj, mode="od", index=0, axr2=None
     ):
-
         if mode == "od":
             comps = ["xy", "yx"]
             props = [
@@ -309,6 +308,7 @@ class PlotMultipleResponses(PlotBase):
             self.font_size,
             legend=legend,
             zero_reference=zero_reference,
+            arrow_direction=self.arrow_direction,
         )
         if axt is None:
             return None, None
@@ -331,12 +331,14 @@ class PlotMultipleResponses(PlotBase):
     ):
         # ----plot phase tensor ellipse---------------------------------------
         if self.plot_pt:
-
             color_array = self.get_pt_color_array(pt_obj)
             x_limits = self.set_period_limits(period)
 
             # -------------plot ellipses-----------------------------------
-            self.cbax, self.cbpt, = plot_pt_lateral(
+            (
+                self.cbax,
+                self.cbpt,
+            ) = plot_pt_lateral(
                 axpt,
                 pt_obj,
                 color_array,
@@ -563,12 +565,9 @@ class PlotMultipleResponses(PlotBase):
         cyx = [(1, float(cc) / ns, 0) for cc in range(ns)]
         cdet = [(0, 1 - float(cc) / ns, 0) for cc in range(ns)]
         ctipr = [
-            (0.75 * cc / ns, 0.75 * cc / ns, 0.75 * cc / ns)
-            for cc in range(ns)
+            (0.75 * cc / ns, 0.75 * cc / ns, 0.75 * cc / ns) for cc in range(ns)
         ]
-        ctipi = [
-            (float(cc) / ns, 1 - float(cc) / ns, 0.25) for cc in range(ns)
-        ]
+        ctipi = [(float(cc) / ns, 1 - float(cc) / ns, 0.25) for cc in range(ns)]
 
         # make marker lists for the different components
         mxy = ["s", "D", "x", "+", "*", "1", "3", "4"] * ns

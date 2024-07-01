@@ -482,6 +482,7 @@ class PlotMTResponse(PlotBase):
                 self.arrow_real_properties,
                 self.arrow_imag_properties,
                 self.font_size,
+                arrow_direction=self.arrow_direction,
             )
             if self.plot_tipper.find("y") >= 0:
                 self.axt.set_xlabel("Period (s)", fontdict=self.font_dict)
