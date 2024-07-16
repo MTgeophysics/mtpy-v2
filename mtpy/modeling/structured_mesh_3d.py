@@ -2700,7 +2700,7 @@ class StructuredGrid3D:
                 self._nodes_z[count_z] = float(z_node)
                 count_z += 1
             line_index += 1
-        self.grid_z = 0. - np.insert(np.cumsum(self._nodes_z), 0, 0)
+        self.grid_z = np.insert(np.cumsum(self._nodes_z), 0, 0)
 
         # get the resistivity values, if type > 1
         if res_format >= 1:
@@ -2797,6 +2797,7 @@ class StructuredGrid3D:
                 count_n += 1
             line_index += 1
         self.grid_north = np.insert(np.cumsum(self.nodes_north), 0, 0)
+        self.grid_north = self.grid_north - (self.grid_north[-1] - self.grid_north[0])/2
 
         count_e = 0  # number of east nodes found
         while count_e < n_east:
@@ -2806,6 +2807,7 @@ class StructuredGrid3D:
                 count_e += 1
             line_index += 1
         self.grid_east = np.insert(np.cumsum(self.nodes_east), 0, 0)
+        self.grid_east = self.grid_east - (self.grid_east[-1] - self.grid_east[0])/2
 
         count_z = 0  # number of vertical nodes
         zdep = 0
