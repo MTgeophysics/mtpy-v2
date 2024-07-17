@@ -110,7 +110,7 @@ class WSData:
 
     """
 
-    def __init__(self, mt_dataframe, **kwargs):
+    def __init__(self, mt_dataframe=None, **kwargs):
         self.logger = logger
         self.dataframe = mt_dataframe
         self.save_path = Path()
@@ -146,12 +146,12 @@ class WSData:
             setattr(self, key, value)
 
         # make sure the error given is a decimal percent
-        if type(self.z_err) is not str and self.z_err > 1:
-            self.z_err /= 100.0
+        if type(self.z_error) is not str and self.z_error > 1:
+            self.z_error /= 100.0
 
         # make sure the error floor given is a decimal percent
-        if self.z_err_floor is not None and self.z_err_floor > 1:
-            self.z_err_floor /= 100.0
+        if self.z_error_floor is not None and self.z_error_floor > 1:
+            self.z_error_floor /= 100.0
 
     @property
     def dataframe(self):
@@ -454,8 +454,9 @@ class WSData:
 
                 # print '-'*20+dkey+'-'*20
                 per += 1
-
-            else:
+                # print(dl)
+            elif not dl.startswith('#'):
+                append = True
                 if dkey == "z_err_map":
                     zline = np.array(dl.strip().split(), dtype=float)
                     self.data[st][dkey][per - 1, :] = np.array(
@@ -470,25 +471,47 @@ class WSData:
                             ],
                         ]
                     )
-                else:
+                elif dkey == 'z_data_err':
                     zline = np.array(dl.strip().split(), dtype=float) * zconv
                     self.data[st][dkey][per - 1, :] = np.array(
                         [
                             [
-                                zline[0] - 1j * zline[1],
-                                zline[2] - 1j * zline[3],
+                                zline[0] + 1j * zline[1],
+                                zline[2] + 1j * zline[3],
                             ],
                             [
-                                zline[4] - 1j * zline[5],
-                                zline[6] - 1j * zline[7],
+                                zline[4] + 1j * zline[5],
+                                zline[6] + 1j * zline[7],
                             ],
                         ]
                     )
-                st += 1
+                else:
+                    
+                    zline = np.array(dl.strip().split(), dtype=float) * zconv
+                    # print(st)
+                    if len(zline) >= 8:
+                        self.data[st][dkey][per - 1, :] = np.array(
+                            [
+                                [
+                                    zline[0] - 1j * zline[1],
+                                    zline[2] - 1j * zline[3],
+                                ],
+                                [
+                                    zline[4] - 1j * zline[5],
+                                    zline[6] - 1j * zline[7],
+                                ],
+                            ]
+                        )
+                    else:
+                        append = False
+                if append:
+                    st += 1
 
         self.station_east = self.data["east"]
         self.station_north = self.data["north"]
         self.station_names = self.data["station"]
+        # apply masking (if err map is set to zero this effectively masks the point)
+        self.data['z_data'][self.data['z_err_map']==0] = np.nan
         self.z_data = self.data["z_data"]
         # need to be careful when multiplying complex numbers
         self.z_data_err = (
