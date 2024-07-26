@@ -252,8 +252,8 @@ class PlotMTResponse(PlotBase):
                 2,
                 subplot_spec=gs_master[0],
                 height_ratios=[2, 1.5],
-                hspace=0.05,
-                wspace=0.15,
+                hspace=self.subplot_hspace,
+                wspace=self.subplot_wspace,
             )
 
             # --> make figure for xy,yx components
