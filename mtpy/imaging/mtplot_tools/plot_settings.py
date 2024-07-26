@@ -162,6 +162,40 @@ class PlotSettings(MTArrows, MTEllipse):
             10 ** (np.ceil(np.log10(period.max()))),
         )
 
+    def _estimate_resistivity_min(self, res_array):
+        """
+        estimate resistivity minimum
+        """
+
+        nz = np.nonzero(res_array)
+        return np.nanmin(res_array[nz])
+
+    def _estimate_resistivity_max(self, res_array):
+        """
+        estimate resistivity maximum
+        """
+
+        nz = np.nonzero(res_array)
+        return np.nanmax(res_array[nz])
+
+    def _compute_power_ten_min(self, value):
+        return 10 ** (np.floor(np.log10(value)))
+
+    def _compute_power_ten_max(self, value):
+        return 10 ** (np.ceil(np.log10(value)))
+
+    def _estimate_resistivity_limits_min(self, res_list):
+
+        return self._compute_power_ten_min(
+            min([self._estimate_resistivity_min(rr) for rr in res_list])
+        )
+
+    def _estimate_resistivity_limits_max(self, res_list):
+
+        return self._compute_power_ten_max(
+            max([self._estimate_resistivity_max(rr) for rr in res_list])
+        )
+
     def set_resistivity_limits(self, resistivity, mode="od", scale="log"):
         """
         set resistivity limits
@@ -176,82 +210,26 @@ class PlotSettings(MTArrows, MTEllipse):
         """
 
         if mode in ["od"]:
-            try:
-                nz_xy = np.nonzero(resistivity[:, 0, 1])
-                nz_yx = np.nonzero(resistivity[:, 1, 0])
-                limits = [
-                    10
-                    ** (
-                        np.floor(
-                            np.log10(
-                                min(
-                                    [
-                                        np.nanmin(resistivity[nz_xy, 0, 1]),
-                                        np.nanmin(resistivity[nz_yx, 1, 0]),
-                                    ]
-                                )
-                            )
-                        )
-                    ),
-                    10
-                    ** (
-                        np.ceil(
-                            np.log10(
-                                max(
-                                    [
-                                        np.nanmax(resistivity[nz_xy, 0, 1]),
-                                        np.nanmax(resistivity[nz_yx, 1, 0]),
-                                    ]
-                                )
-                            )
-                        )
-                    ),
-                ]
-            except (ValueError, TypeError):
-                limits = [0.1, 10000]
+            res_list = [resistivity[:, 0, 1], resistivity[:, 1, 0]]
+
         elif mode == "d":
-            try:
-                nz_xx = np.nonzero(resistivity[:, 0, 1])
-                nz_yy = np.nonzero(resistivity[:, 1, 0])
-                limits = [
-                    10
-                    ** (
-                        np.floor(
-                            np.log10(
-                                min(
-                                    [
-                                        np.nanmin(resistivity[nz_xx, 0, 0]),
-                                        np.nanmin(resistivity[nz_yy, 1, 1]),
-                                    ]
-                                )
-                            )
-                        )
-                    ),
-                    10
-                    ** (
-                        np.ceil(
-                            np.log10(
-                                max(
-                                    [
-                                        np.nanmax(resistivity[nz_xx, 0, 0]),
-                                        np.nanmax(resistivity[nz_yy, 1, 1]),
-                                    ]
-                                )
-                            )
-                        )
-                    ),
-                ]
-            except (ValueError, TypeError):
-                limits = [0.1, 10000]
+            res_list = [resistivity[:, 0, 0], resistivity[:, 1, 1]]
         elif mode in ["det", "det_only"]:
-            try:
-                nz = np.nonzero(resistivity)
-                limits = [
-                    10 ** (np.floor(np.log10(np.nanmin(resistivity[nz])))),
-                    10 ** (np.ceil(np.log10(np.nanmax(resistivity[nz])))),
-                ]
-            except (ValueError, TypeError):
-                limits = [0.1, 10000]
+            res_list = [resistivity]
+        elif mode in ["all"]:
+            res_list = [
+                resistivity[:, 0, 0],
+                resistivity[:, 0, 1],
+                resistivity[:, 1, 0],
+                resistivity[:, 1, 1],
+            ]
+        try:
+            limits = [
+                self._estimate_resistivity_limits_min(res_list),
+                self._estimate_resistivity_limits_max(res_list),
+            ]
+        except (ValueError, TypeError):
+            limits = [0.1, 10000]
         if scale == "log":
             if limits[0] == 0:
                 limits[0] = 0.1

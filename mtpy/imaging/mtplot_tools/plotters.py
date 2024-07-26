@@ -339,6 +339,7 @@ def plot_tipper_lateral(
     font_size=6,
     legend=True,
     zero_reference=False,
+    arrow_direction=1,
 ):
     """
 
@@ -357,11 +358,19 @@ def plot_tipper_lateral(
         return None, None, None
 
     if plot_tipper.find("y") == 0 or plot_tipper:
-        txr = t_obj.mag_real * np.cos(np.deg2rad(-t_obj.angle_real))
-        tyr = t_obj.mag_real * np.sin(np.deg2rad(-t_obj.angle_real))
+        txr = t_obj.mag_real * np.cos(
+            np.deg2rad(-t_obj.angle_real) + arrow_direction * np.pi
+        )
+        tyr = t_obj.mag_real * np.sin(
+            np.deg2rad(-t_obj.angle_real) + arrow_direction * np.pi
+        )
 
-        txi = t_obj.mag_imag * np.cos(np.deg2rad(-t_obj.angle_imag))
-        tyi = t_obj.mag_imag * np.sin(np.deg2rad(-t_obj.angle_imag))
+        txi = t_obj.mag_imag * np.cos(
+            np.deg2rad(-t_obj.angle_imag) + arrow_direction * np.pi
+        )
+        tyi = t_obj.mag_imag * np.sin(
+            np.deg2rad(-t_obj.angle_imag) + arrow_direction * np.pi
+        )
 
         nt = len(txr)
         period = 1.0 / t_obj.frequency
