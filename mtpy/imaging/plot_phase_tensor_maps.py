@@ -186,20 +186,22 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
         :rtype: TYPE
 
         """
-        try:
-            z = self._get_interpolated_z(tf)
-            z_error = self._get_interpolated_z_error(tf)
+        pt_obj = None
+        if tf.has_impedance() and self.plot_pt:
+            try:
+                z = self._get_interpolated_z(tf)
+                z_error = self._get_interpolated_z_error(tf)
 
-            pt_obj = PhaseTensor(z=z, z_error=z_error)
-        except ValueError as error:
-            self.logger.warning(
-                f"Could not estimate phase tensor for {tf.station} at period "
-                f"{self.plot_period} s."
-            )
-            self.logger.error(error)
-            pt_obj = None
+                pt_obj = PhaseTensor(z=z, z_error=z_error)
+            except ValueError as error:
+                self.logger.warning(
+                    f"Could not estimate phase tensor for {tf.station} at period "
+                    f"{self.plot_period} s."
+                )
+                self.logger.error(error)
+                pt_obj = None
         new_t_obj = None
-        if tf.has_tipper():
+        if tf.has_tipper() and "y" in self.plot_tipper:
             try:
                 t = self._get_interpolated_t(tf)
                 t_err = self._get_interpolated_t_err(tf)
@@ -305,7 +307,7 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
             return (0, 0)
         if pt_obj is None:
             has_ellipse = False
-        if pt_obj is not None:
+        if pt_obj is not None and self.plot_pt:
             plot_x, plot_y = self._get_location(tf)
 
             # --> set local variables
@@ -370,8 +372,8 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
 
         """
         has_tipper = False
-        if t_obj is not None:
-            if "r" in self.plot_tipper == "yri":
+        if t_obj is not None and "y" in self.plot_tipper:
+            if "r" in self.plot_tipper:
                 if t_obj.mag_real[0] <= self.arrow_threshold:
                     has_tipper = True
                     txr = (
@@ -448,7 +450,7 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
         pt_obj, t_obj = self._get_pt(tf)
         plot_x, plot_y = self._get_location(tf)
         has_ellipse = False
-        if pt_obj is not None:
+        if pt_obj is not None and self.plot_pt:
             # --> set local variables
             phimin = np.nan_to_num(pt_obj.phimin)[0]
             phimax = np.nan_to_num(pt_obj.phimax)[0]
