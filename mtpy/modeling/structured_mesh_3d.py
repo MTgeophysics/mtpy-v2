@@ -2796,11 +2796,13 @@ class StructuredGrid3D:
         n_north = int(nsize[0])
         n_east = int(nsize[1])
         n_z = int(nsize[2])
+        # last integer describes resistivity format
+        res_format = int(nsize[3])
 
         # initialize empy arrays to put things into
-        self.nodes_north = np.zeros(n_north)
-        self.nodes_east = np.zeros(n_east)
-        self.nodes_z = np.zeros(n_z)
+        self._nodes_north = np.zeros(n_north)
+        self._nodes_east = np.zeros(n_east)
+        self._nodes_z = np.zeros(n_z)
         res_model = np.zeros((n_north, n_east, n_z))
 
         # get the grid line locations
@@ -2809,42 +2811,46 @@ class StructuredGrid3D:
         while count_n < n_north:
             iline = ilines[line_index].strip().split()
             for north_node in iline:
-                self.nodes_north[count_n] = float(north_node)
+                self._nodes_north[count_n] = float(north_node)
                 count_n += 1
             line_index += 1
+        self.grid_north = np.insert(np.cumsum(self.nodes_north), 0, 0)
+        self.grid_north = self.grid_north - (self.grid_north[-1] - self.grid_north[0])/2
 
         count_e = 0  # number of east nodes found
         while count_e < n_east:
             iline = ilines[line_index].strip().split()
             for east_node in iline:
-                self.nodes_east[count_e] = float(east_node)
+                self._nodes_east[count_e] = float(east_node)
                 count_e += 1
             line_index += 1
+        self.grid_east = np.insert(np.cumsum(self.nodes_east), 0, 0)
+        self.grid_east = self.grid_east - (self.grid_east[-1] - self.grid_east[0])/2
 
         count_z = 0  # number of vertical nodes
         while count_z < n_z:
             iline = ilines[line_index].strip().split()
             for z_node in iline:
-                self.nodes_z[count_z] = float(z_node)
+                print(z_node)
+                self._nodes_z[count_z] = float(z_node)
                 count_z += 1
             line_index += 1
 
-        # get the resistivity values
-        res_list = [float(rr) for rr in ilines[line_index].strip().split()]
-        line_index += 1
 
-        # get model
-        try:
-            iline = ilines[line_index].strip().split()
+        self.grid_z = np.insert(np.cumsum(self._nodes_z), 0, 0)
 
-        except IndexError:
-            res_model[:, :, :] = res_list[0]
-            return
-
-        if len(iline) == 0 or len(iline) == 1:
-            res_model[:, :, :] = res_list[0]
-            return
+        # get the resistivity values, if type > 1
+        if res_format >= 1:
+            res_list = [float(rr) for rr in ilines[line_index].strip().split()]
+            line_index += 1
         else:
+            res_list = []
+
+        # read in model, according to format
+        if res_format == 1:                
+            res_model[:, :, :] = res_list[0]
+            return
+        elif res_format > 1:
             while line_index < len(ilines):
                 iline = ilines[line_index].strip().split()
                 if len(iline) == 2:
@@ -2861,17 +2867,25 @@ class StructuredGrid3D:
                     while count_e < n_east:
                         # be sure the indes of res list starts at 0 not 1 as
                         # in ws3dinv
-                        self.res_model[count_n, count_e, l1:l2] = res_list[
+                        res_model[count_n, count_e, l1:l2] = res_list[
                             int(iline[count_e]) - 1
                         ]
                         count_e += 1
                     count_n += 1
                     line_index += 1
-            # Need to be sure that the resistivity array matches
-            # with the grids, such that the first index is the
-            # furthest south, even though ws3dinv outputs as first
-            # index as furthest north.
-            self.res_model = res_model[::-1, :, :]
+        elif res_format == 0:
+            for count_z in range(n_z):
+                for count_e in range(n_east):
+                    for count_n in range(n_north):
+                        iline = ilines[line_index].strip()
+                        res_model[count_n,count_e,count_z] = float(iline)
+                        line_index += 1
+            
+        # Need to be sure that the resistivity array matches
+        # with the grids, such that the first index is the
+        # furthest south, even though ws3dinv outputs as first
+        # index as furthest north.
+        self.res_model = res_model[::-1, :, :]
 
         return res_list
 
@@ -2920,6 +2934,7 @@ class StructuredGrid3D:
                 count_n += 1
             line_index += 1
         self.grid_north = np.insert(np.cumsum(self.nodes_north), 0, 0)
+        self.grid_north = self.grid_north - (self.grid_north[-1] - self.grid_north[0])/2
 
         count_e = 0  # number of east nodes found
         while count_e < n_east:
@@ -2929,6 +2944,7 @@ class StructuredGrid3D:
                 count_e += 1
             line_index += 1
         self.grid_east = np.insert(np.cumsum(self.nodes_east), 0, 0)
+        self.grid_east = self.grid_east - (self.grid_east[-1] - self.grid_east[0])/2
 
         count_z = 0  # number of vertical nodes
         zdep = 0
