@@ -689,6 +689,30 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
                 cb.ax.yaxis.tick_left()
                 cb.ax.tick_params(axis="y", direction="in")
 
+    def _add_tipper_legend(self):
+        if "y" in self.plot_tipper:
+            legend_lines = []
+            legend_labels = []
+            if "r" in self.plot_tipper:
+                real_line = plt.Line2D(
+                    [0, 0], [0, 0], color=self.arrow_color_real
+                )
+                legend_lines.append(real_line)
+                legend_labels.append("Real")
+            if "i" in self.plot_tipper:
+                imag_line = plt.Line2D(
+                    [0, 0], [0, 0], color=self.arrow_color_imag
+                )
+                legend_lines.append(imag_line)
+                legend_labels.append("Imag")
+
+            self.ax.legend(
+                legend_lines,
+                legend_labels,
+                loc="lower right",
+                prop={"size": self.font_size},
+            )
+
     # -----------------------------------------------
     # The main plot method for this module
     # -----------------------------------------------
@@ -815,7 +839,8 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
             plt.minorticks_on()  # turn on minor ticks automatically
         self.ax.set_axisbelow(True)
 
-        if self.pt_type == "ellipses":
+        if self.pt_type == "ellipses" and self.plot_pt:
             self._add_colorbar_ellipse()
-        elif self.pt_type == "wedges":
+        elif self.pt_type == "wedges" and self.plot_pt:
             self._add_colorbar_wedges()
+        self._add_tipper_legend()

@@ -1231,6 +1231,22 @@ class MTData(OrderedDict, MTStations):
 
         return PlotPhaseTensorMaps(mt_data=self, **kwargs)
 
+    def plot_tipper_map(self, **kwargs):
+        """
+        Plot Phase tensor maps for transfer functions in the working_dataframe
+
+        .. seealso:: :class:`mtpy.imaging.PlotPhaseTensorMaps`
+
+        :param **kwargs: DESCRIPTION
+        :type **kwargs: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        kwargs["plot_pt"] = False
+        kwargs["plot_tipper"] = "yri"
+        return PlotPhaseTensorMaps(mt_data=self, **kwargs)
+
     def plot_phase_tensor_pseudosection(self, mt_data=None, **kwargs):
         """
         Plot a pseudo section of  phase tensor ellipses and induction vectors
