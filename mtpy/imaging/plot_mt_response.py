@@ -580,9 +580,14 @@ class PlotMTResponse(PlotBase):
 
         if self.plot_z:
             if self.res_limits is None:
-                self.res_limits = self.set_resistivity_limits(
-                    self.Z.resistivity
-                )
+                if self.plot_num == 1:
+                    self.res_limits = self.set_resistivity_limits(
+                        self.Z.resistivity
+                    )
+                elif self.plot_num == 2 or self.plot_num == 3:
+                    self.res_limits = self.set_resistivity_limits(
+                        self.Z.resistivity, mode="all"
+                    )
 
             eb_list, labels = self._plot_resistivity(
                 self.axr, self.period, self.Z, mode="od"
@@ -595,9 +600,11 @@ class PlotMTResponse(PlotBase):
             if self.plot_num == 2:
                 self._plot_resistivity(self.axr2, self.period, self.Z, mode="d")
                 self._plot_phase(self.axp2, self.period, self.Z, mode="d")
+
             # ===Plot the Determinant if desired================================
             if self.plot_num == 3:
                 self._plot_determinant()
+
         self._plot_tipper()
         self._plot_pt()
 
