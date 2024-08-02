@@ -2831,7 +2831,6 @@ class StructuredGrid3D:
         while count_z < n_z:
             iline = ilines[line_index].strip().split()
             for z_node in iline:
-                print(z_node)
                 self._nodes_z[count_z] = float(z_node)
                 count_z += 1
             line_index += 1
