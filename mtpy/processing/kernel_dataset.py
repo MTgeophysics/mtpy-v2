@@ -71,7 +71,6 @@ import mt_metadata.timeseries
 from mt_metadata.utils.list_dict import ListDict
 import mth5.timeseries.run_ts
 
-from mtpy.processing import RUN_SUMMARY_COLUMNS
 from mtpy.processing.run_summary import RunSummary
 
 # =============================================================================
@@ -218,6 +217,8 @@ class KernelDataset:
             raise ValueError(msg)
         else:
             self._add_duration_column()
+
+        # add fc column
         self.df["fc"] = None
 
     @property
@@ -287,28 +288,109 @@ class KernelDataset:
         self.df.reset_index(drop=True, inplace=True)
         return
 
-    def select_station_runs(
-        self, station_runs_dict: dict, keep_or_drop: bool
-    ) -> None:
-        """
-        Updates dataframe based on input dict
+    # def select_station_runs(
+    #     self, station_runs_dict: dict, keep_or_drop: bool
+    # ) -> None:
+    #     """
+    #     Updates dataframe based on input dict
 
-        See doc in _select_station_runs
+    #     See doc in _select_station_runs
+
+    #     dict -> {station: [{run, start, end}]}
+
+    #     For example {"mt01":
+    #                  [
+    #                      {"run": "0001",
+    #                       "start": "2020-01-01T00:00:00",
+    #                       "end": "2020-01-02T06:00:00""
+    #                       }
+    #                      ]
+    #                  }
+
+    #     Parameters
+    #     ----------
+    #     station_runs_dict: dict
+    #         Add doc
+    #     keep_or_dro: bool
+    #         Add doc
+
+    #     Returns
+    #     -------
+
+    #     """
+    #     df = _select_station_runs(self.df, station_runs_dict, keep_or_drop)
+    #     self.df = df
+
+    def select_station_runs(
+        self,
+        station_runs_dict,
+        keep_or_drop,
+        inplace=True,
+    ):
+        """
+        Partition the rows of df based on the contents of station_runs_dict and return
+        one of the two partitions (based on value of keep_or_drop).
+
+        dict -> {station: [{run, start, end}]}
+
+        For example {"mt01": ["0001", "0003"]}
 
 
         Parameters
         ----------
         station_runs_dict: dict
-            Add doc
-        keep_or_dro: bool
-            Add doc
+            Keys are string ids of the stations to keep
+            Values are lists of string labels for run_ids to keep
+        keep_or_drop: str
+            If "keep": returns df with only the station-runs specified in station_runs_dict
+            If "drop": returns df with station_runs_dict excised
+        overwrite: bool
+            If True, self.df is overwritten with the reduced dataframe
 
         Returns
         -------
+            df: pd.DataFrame
+                reduced dataframe with only run_ids provided removed.
+        """
+
+        for station_id, run_ids in station_runs_dict.items():
+            if isinstance(run_ids, str):
+                run_ids = [
+                    run_ids,
+                ]
+            cond1 = self.df["station"] == station_id
+            cond2 = self.df["run"].isin(run_ids)
+            if keep_or_drop == "keep":
+                drop_df = self.df[cond1 & ~cond2]
+            else:
+                drop_df = self.df[cond1 & cond2]
+
+        if inplace:
+            self.df.drop(drop_df.index, inplace=True)
+            self.df.reset_index(drop=True, inplace=True)
+        else:
+            df = self.df.drop(drop_df.index, inplace=False)
+            df = df.reset_index(drop=True, inplace=True)
+            return df
+
+    def set_run_times(self, run_time_dict, inplace=True):
+        """
+        set run times from a dictionary formatted as {run_id: {start, end}}
+
+        :param run_time_dict: DESCRIPTION
+        :type run_time_dict: TYPE
+        :param inplace: DESCRIPTION, defaults to True
+        :type inplace: TYPE, optional
+        :return: DESCRIPTION
+        :rtype: TYPE
 
         """
-        df = _select_station_runs(self.df, station_runs_dict, keep_or_drop)
-        self.df = df
+
+        for key, times in run_time_dict.items():
+            cond1 = self.df.run == key
+            cond2 = self.df.start <= times["start"]
+            cond2 = self.df.end >= times["end"]
+            self.df.loc[cond1 & cond2 & cond3, "start"] = times["start"]
 
     @property
     def is_single_station(self) -> bool:

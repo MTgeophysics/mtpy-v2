@@ -22,6 +22,29 @@ class TestBaseProcessing(unittest.TestCase):
         self.fn = Path(__file__)
         self.base = BaseProcessing()
 
+    def test_set_local_station_id(self):
+        local = "mt01"
+        self.base.local_station_id = local
+        self.assertEqual(local, self.base.local_station_id)
+
+    def test_set_local_station_id_none(self):
+        local = None
+        self.base.local_station_id = local
+        self.assertEqual(local, self.base.local_station_id)
+
+    def test_set_remote_station_id(self):
+        remote = "mt01"
+        self.base.remote_station_id = remote
+        self.assertEqual(remote, self.base.remote_station_id)
+
+    def test_set_remote_station_id_none(self):
+        remote = None
+        self.base.remote_station_id = remote
+        self.assertEqual(remote, self.base.remote_station_id)
+
+    # def test_set_local_station_id_fail(self):
+    #     self.assertRaise(self.base.local_station_id.setter, )
+
     def test_set_local_mth5_path(self):
         self.base.local_mth5_path = self.fn
         self.assertEqual(self.fn, self.base.local_mth5_path)
