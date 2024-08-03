@@ -145,6 +145,25 @@ class RunSummary:
         self.df = self.df[self.df.valid]
         self.df.reset_index(drop=True, inplace=True)
 
+    def set_sample_rate(self, sample_rate: float, inplace: bool = False):
+        """
+        Set the sample rate so that the run summary represents all runs for
+        a single sample rate.
+
+        :param inplace: DESCRIPTION, defaults to True
+        :type inplace: TYPE, optional
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        if inplace:
+            self.df = self.df[self.df.sample_rate == sample_rate]
+        else:
+            new_rs = self.clone()
+            new_rs.df = new_rs.df[new_rs.df.sample_rate == sample_rate]
+            return new_rs
+
     # BELOW FUNCTION CAN BE COPIED FROM METHOD IN KernelDataset()
     # def drop_runs_shorter_than(self, duration, units="s"):
     #     if units != "s":
