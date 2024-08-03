@@ -24,7 +24,6 @@ from mth5.mth5 import MTH5
 from mt_metadata.utils.mttime import MTime
 
 from mtpy import MT
-from mtpy.processing.run_summary import RunSummary
 from mtpy.processing.base import BaseProcessing
 
 warnings.filterwarnings("ignore")

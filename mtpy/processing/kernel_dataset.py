@@ -400,7 +400,7 @@ class KernelDataset:
         sub_df.drop_duplicates(subset="run", inplace=True)
 
         # sanity check:
-        run_ids = sub_df.run_id.unique()
+        run_ids = sub_df.run.unique()
         assert len(run_ids) == len(sub_df)
 
         # iterate over these runs, packing metadata into

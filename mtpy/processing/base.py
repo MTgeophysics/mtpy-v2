@@ -85,7 +85,7 @@ class BaseProcessing:
 
         return return_path
 
-    def get_run_summary(self, local=True, remote=True):
+    def get_run_summary(self):
         """
         Get the RunSummary object
 
@@ -101,4 +101,6 @@ class BaseProcessing:
         if not self.has_local_mth5():
             raise IOError("Local MTH5 path must be set with a valid file path.")
         run_summary = RunSummary()
-        mth
+        run_summary.from_mth5s(self.mth5_list)
+
+        return run_summary
