@@ -3,6 +3,7 @@
 # Imports
 # =============================================================================
 import unittest
+import pandas as pd
 
 from mtpy.processing.run_summary import RunSummary
 from mtpy.processing import RUN_SUMMARY_COLUMNS
@@ -34,6 +35,18 @@ class TestRunSummary(unittest.TestCase):
             sorted(RUN_SUMMARY_COLUMNS), sorted(self.rs.df.columns)
         )
 
+    def test_set_df_fail_bad_type(self):
+        def set_df(value):
+            self.rs.df = value
+
+        self.assertRaises(TypeError, set_df, 10)
+
+    def test_set_df_fail_bad_df(self):
+        def set_df(value):
+            self.rs.df = value
+
+        self.assertRaises(ValueError, set_df, pd.DataFrame({"test": 0}))
+
     def test_df_shape(self):
         self.assertEqual((2, 13), self.rs.df.shape)
 
@@ -62,9 +75,9 @@ class TestRunSummary(unittest.TestCase):
     def test_set_sample_rate_faile(self):
         self.assertRaises(ValueError, self.rs.set_sample_rate, 10)
 
-    @classmethod
-    def tearDownClass(self):
-        self.mth5_path.unlink()
+    # @classmethod
+    # def tearDownClass(self):
+    #     self.mth5_path.unlink()
 
 
 # =============================================================================

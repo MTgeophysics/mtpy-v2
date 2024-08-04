@@ -45,6 +45,8 @@ from typing import Optional, Union
 import pandas as pd
 from loguru import logger
 
+from mtpy.processing import RUN_SUMMARY_COLUMNS
+
 import mth5
 from mth5.utils.helpers import initialize_mth5
 
@@ -83,6 +85,41 @@ class RunSummary:
             "start",
             "end",
         ]
+
+    @property
+    def df(self):
+        return self._df
+
+    @df.setter
+    def df(self, value):
+        """
+        Make sure the data frame is set properly with proper column names
+
+        :param value: DESCRIPTION
+        :type value: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        if value is None:
+            self._df = None
+            return
+
+        if not isinstance(value, pd.DataFrame):
+            msg = f"Need to set df with a Pandas.DataFrame not type({type(value)})"
+            logger.error(msg)
+
+            raise TypeError(msg)
+
+        need_columns = []
+        for col in RUN_SUMMARY_COLUMNS:
+            if not col in value.columns:
+                need_columns.append(col)
+        if need_columns:
+            msg = f"DataFrame need columns {', '.join(need_columns)}"
+            logger.error(msg)
+            raise ValueError(msg)
+        self._df = value
 
     def clone(self):
         """
