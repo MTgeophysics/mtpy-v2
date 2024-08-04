@@ -51,6 +51,7 @@ class TestRunSummary(unittest.TestCase):
         rs_clone = self.rs.clone()
         rs_clone.df.loc[0, "has_data"] = False
 
+        rs_clone._warn_no_data_runs()
         rs_clone.drop_no_data_rows()
         self.assertEqual((1, 13), rs_clone.df.shape)
 

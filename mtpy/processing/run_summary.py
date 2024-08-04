@@ -99,6 +99,15 @@ class RunSummary:
         run_summary_df = extract_run_summaries_from_mth5s(mth5_list)
         self.df = run_summary_df
 
+    def _warn_no_data_runs(self):
+        if False in self.df.has_data.values:
+            for row in self.df[self.df.has_data == False].itertuples():
+                logger.warning(
+                    f"Found no data run in row {row.Index}: "
+                    f"survey: {row.survey}, station: {row.station}, run: {row.run}"
+                )
+            logger.info("To drop no data runs use `drop_no_data_rows`")
+
     @property
     def mini_summary(self):
         """shows the dataframe with only a few columns for readbility"""
