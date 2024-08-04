@@ -1,19 +1,19 @@
 RUN_SUMMARY_COLUMNS = [
-    "survey",
-    "station",
-    "run",
-    "start",
-    "end",
-    "sample_rate",
-    "input_channels",
-    "output_channels",
-    "remote",
-    "mth5_path",
+    "channel_scale_factors",
     "duration",
+    "end",
     "has_data",
+    "input_channels",
+    "mth5_path",
+    "n_samples",
+    "output_channels",
+    "run",
+    "sample_rate",
+    "start",
+    "station",
+    "survey",
 ]
 
 KERNEL_DATASET_COLUMNS = RUN_SUMMARY_COLUMNS + [
-    "channel_scale_factors",
     "fc",
 ]

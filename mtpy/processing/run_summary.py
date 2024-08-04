@@ -109,9 +109,9 @@ class RunSummary:
         """Calls minisummary through logger so it is formatted."""
         logger.info(self.mini_summary)
 
-    def drop_invalid_rows(self) -> None:
+    def drop_no_data_rows(self):
         """
-        Drops rows marked invalid (df.valid is False) and resets the index of self.df
+        Drops rows marked `has_data` = False and resets the index of self.df
 
         """
         self.df = self.df[self.df.has_data]
@@ -129,6 +129,13 @@ class RunSummary:
 
         """
 
+        if sample_rate not in self.df.sample_rate.values:
+            msg = (
+                f"Sample rate {sample_rate} is not in RunSummary. Unique "
+                f"values are {self.df.sample_rate.unique()}"
+            )
+            logger.error(msg)
+            raise ValueError(msg)
         if inplace:
             self.df = self.df[self.df.sample_rate == sample_rate]
         else:
