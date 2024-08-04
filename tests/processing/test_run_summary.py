@@ -45,7 +45,7 @@ class TestRunSummary(unittest.TestCase):
         def set_df(value):
             self.rs.df = value
 
-        self.assertRaises(ValueError, set_df, pd.DataFrame({"test": 0}))
+        self.assertRaises(ValueError, set_df, pd.DataFrame({"test": [0]}))
 
     def test_df_shape(self):
         self.assertEqual((2, 13), self.rs.df.shape)
