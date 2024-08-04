@@ -109,40 +109,12 @@ class RunSummary:
         """Calls minisummary through logger so it is formatted."""
         logger.info(self.mini_summary)
 
-    def check_runs_are_valid(self, drop: bool = False):
-        """
-
-        Checks for runs that are identically zero.
-        TODO: Add optional arguments for other conditions to check, for
-        example there are nan, etc.
-
-        Parameters
-        ----------
-        drop: bool
-            If True, drop invalid rows from dataframe
-
-        """
-        # check_for_all_zero_runs
-        for i_row, row in self.df.iterrows():
-            logger.info(f"Checking row for zeros {row}")
-            m = mth5.mth5.MTH5()
-            m.open_mth5(row.mth5_path)
-            run_obj = m.get_run(row.station, row.run, row.survey)
-            runts = run_obj.to_runts()
-            if runts.dataset.to_array().data.__abs__().sum() == 0:
-                logger.critical("CRITICAL: Detected a run with all zero values")
-                self.df["valid"].at[i_row] = False
-            # load each run, and take the median of the sum of the absolute values
-        if drop:
-            self.drop_invalid_rows()
-        return
-
     def drop_invalid_rows(self) -> None:
         """
         Drops rows marked invalid (df.valid is False) and resets the index of self.df
 
         """
-        self.df = self.df[self.df.valid]
+        self.df = self.df[self.df.has_data]
         self.df.reset_index(drop=True, inplace=True)
 
     def set_sample_rate(self, sample_rate: float, inplace: bool = False):

@@ -9,10 +9,11 @@ RUN_SUMMARY_COLUMNS = [
     "output_channels",
     "remote",
     "mth5_path",
+    "duration",
+    "has_data",
 ]
 
 KERNEL_DATASET_COLUMNS = RUN_SUMMARY_COLUMNS + [
     "channel_scale_factors",
-    "duration",
     "fc",
 ]

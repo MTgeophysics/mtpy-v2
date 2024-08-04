@@ -389,8 +389,9 @@ class KernelDataset:
         for key, times in run_time_dict.items():
             cond1 = self.df.run == key
             cond2 = self.df.start <= times["start"]
-            cond2 = self.df.end >= times["end"]
+            cond3 = self.df.end >= times["end"]
             self.df.loc[cond1 & cond2 & cond3, "start"] = times["start"]
+            self.df.loc[cond1 & cond2 & cond3, "end"] = times["end"]
 
     @property
     def is_single_station(self) -> bool:
