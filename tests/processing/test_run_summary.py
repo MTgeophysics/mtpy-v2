@@ -23,11 +23,7 @@ class TestRunSummary(unittest.TestCase):
         if not self.mth5_path.exists():
             self.mth5_path = create_test12rr_h5()
         self.rs = RunSummary()
-        self.rs.from_mth5s(
-            [
-                self.mth5_path,
-            ]
-        )
+        self.rs.from_mth5s([self.mth5_path])
 
         self.maxDiff = None
 

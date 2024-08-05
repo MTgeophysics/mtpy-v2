@@ -24,11 +24,7 @@ class TestKernelDataset(unittest.TestCase):
         if not self.mth5_path.exists():
             self.mth5_path = create_test12rr_h5()
         self.run_summary = RunSummary()
-        self.run_summary.from_mth5s(
-            [
-                self.mth5_path,
-            ]
-        )
+        self.run_summary.from_mth5s([self.mth5_path])
 
     def setUp(self):
         self.run_summary = self.run_summary.clone()
@@ -36,9 +32,8 @@ class TestKernelDataset(unittest.TestCase):
         self.kd.from_run_summary(self.run_summary, "test1", "test2")
 
     def test_exception_from_empty_run_summary(self):
-        # make the run summary df empty
-        self.run_summary.df.valid = False
-        self.run_summary.drop_invalid_rows()
+        self.run_summary.df.loc[:, "has_data"] = False
+        self.run_summary.drop_no_data_rows()
         with self.assertRaises(ValueError):  # as context:
             self.kd.from_run_summary(self.run_summary, "test1", "test2")
 
@@ -62,6 +57,10 @@ class TestKernelDataset(unittest.TestCase):
         self.kd.df["fc"] = False
         assert (clone.df == self.kd.df).all().all()
         # add more checks
+
+    # @classmethod
+    # def tearDownClass(self):
+    #     self.mth5_path.unlink()
 
 
 class TestOverlapFunctions(unittest.TestCase):

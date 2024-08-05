@@ -14,9 +14,7 @@ RUN_SUMMARY_COLUMNS = [
     "survey",
 ]
 
-KERNEL_DATASET_COLUMNS = RUN_SUMMARY_COLUMNS + [
-    "fc",
-]
+KERNEL_DATASET_COLUMNS = RUN_SUMMARY_COLUMNS + ["fc", "remote"]
 
 MINI_SUMMARY_COLUMNS = [
     "survey",

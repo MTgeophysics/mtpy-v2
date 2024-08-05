@@ -229,6 +229,7 @@ class KernelDataset:
             raise ValueError(msg)
 
         df["remote"] = False
+        df["fc"] = None
         if remote_station_id:
             cond = df.station == remote_station_id
             df.remote = cond
@@ -240,16 +241,13 @@ class KernelDataset:
         # Again check df is non-empty
         if len(self.df) == 0:
             msg = (
-                f"Local {local_station_id} and remote {remote_station_id} do not overlap, "
-                f"Remote reference processing not a valid option"
+                f"Local: {local_station_id} and remote: {remote_station_id} do "
+                f"not overlap, Remote reference processing not a valid option."
             )
             logger.error(msg)
             raise ValueError(msg)
         else:
             self._add_duration_column()
-
-        # add fc column
-        self.df["fc"] = None
 
     @property
     def mini_summary(self) -> pd.DataFrame:
@@ -317,39 +315,6 @@ class KernelDataset:
         self.df.drop(self.df[drop_cond].index, inplace=True)
         self.df.reset_index(drop=True, inplace=True)
         return
-
-    # def select_station_runs(
-    #     self, station_runs_dict: dict, keep_or_drop: bool
-    # ) -> None:
-    #     """
-    #     Updates dataframe based on input dict
-
-    #     See doc in _select_station_runs
-
-    #     dict -> {station: [{run, start, end}]}
-
-    #     For example {"mt01":
-    #                  [
-    #                      {"run": "0001",
-    #                       "start": "2020-01-01T00:00:00",
-    #                       "end": "2020-01-02T06:00:00""
-    #                       }
-    #                      ]
-    #                  }
-
-    #     Parameters
-    #     ----------
-    #     station_runs_dict: dict
-    #         Add doc
-    #     keep_or_dro: bool
-    #         Add doc
-
-    #     Returns
-    #     -------
-
-    #     """
-    #     df = _select_station_runs(self.df, station_runs_dict, keep_or_drop)
-    #     self.df = df
 
     def select_station_runs(
         self,
