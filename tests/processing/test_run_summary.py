@@ -6,6 +6,7 @@ import unittest
 import pandas as pd
 
 from mth5.data.make_mth5_from_asc import MTH5_PATH, create_test12rr_h5
+from mth5.utils.helpers import close_open_files
 
 from mtpy.processing.run_summary import RunSummary
 from mtpy.processing import RUN_SUMMARY_COLUMNS
@@ -45,7 +46,7 @@ class TestRunSummary(unittest.TestCase):
         self.assertRaises(ValueError, set_df, pd.DataFrame({"test": [0]}))
 
     def test_df_shape(self):
-        self.assertEqual((2, 13), self.rs.df.shape)
+        self.assertEqual((2, 15), self.rs.df.shape)
 
     def test_clone(self):
         rs_clone = self.rs.clone()
@@ -63,7 +64,7 @@ class TestRunSummary(unittest.TestCase):
 
         rs_clone._warn_no_data_runs()
         rs_clone.drop_no_data_rows()
-        self.assertEqual((1, 13), rs_clone.df.shape)
+        self.assertEqual((1, 15), rs_clone.df.shape)
 
     def test_set_sample_rate(self):
         new_rs = self.rs.set_sample_rate(1)
@@ -72,9 +73,10 @@ class TestRunSummary(unittest.TestCase):
     def test_set_sample_rate_faile(self):
         self.assertRaises(ValueError, self.rs.set_sample_rate, 10)
 
-    # @classmethod
-    # def tearDownClass(self):
-    #     self.mth5_path.unlink()
+    @classmethod
+    def tearDownClass(self):
+        close_open_files()
+        self.mth5_path.unlink()
 
 
 # =============================================================================

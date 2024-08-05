@@ -482,45 +482,45 @@ class KernelDataset:
 
         self.df = df
 
-    def get_station_metadata(self, local_station_id: str):
-        """
+    # def get_station_metadata(self, local_station_id: str):
+    #     """
 
-        returns the station metadata.
+    #     returns the station metadata.
 
-        Development Notes:
-        TODO: This appears to be unused.  Was probably a precursor to the
-         update_survey_metadata() method. Delete if unused. If used fill out doc:
-        "Helper function for archiving the TF -- returns an object we can use to populate
-        station metadata in the _____"
+    #     Development Notes:
+    #     TODO: This appears to be unused.  Was probably a precursor to the
+    #      update_survey_metadata() method. Delete if unused. If used fill out doc:
+    #     "Helper function for archiving the TF -- returns an object we can use to populate
+    #     station metadata in the _____"
 
-        Parameters
-        ----------
-        local_station_id: str
-            The name of the local station
+    #     Parameters
+    #     ----------
+    #     local_station_id: str
+    #         The name of the local station
 
-        Returns
-        -------
+    #     Returns
+    #     -------
 
-        """
-        # get a list of local runs:
-        cond = self.df["station"] == local_station_id
-        sub_df = self.df[cond]
-        sub_df.drop_duplicates(subset="run", inplace=True)
+    #     """
+    #     # get a list of local runs:
+    #     cond = self.df["station"] == local_station_id
+    #     sub_df = self.df[cond]
+    #     sub_df.drop_duplicates(subset="run", inplace=True)
 
-        # sanity check:
-        run_ids = sub_df.run.unique()
-        assert len(run_ids) == len(sub_df)
+    #     # sanity check:
+    #     run_ids = sub_df.run.unique()
+    #     assert len(run_ids) == len(sub_df)
 
-        # iterate over these runs, packing metadata into
-        station_metadata = None
-        for i, row in sub_df.iterrows():
-            local_run_obj = self.get_run_object(row)
-            if station_metadata is None:
-                station_metadata = local_run_obj.station_metadata
-                station_metadata.runs = ListDict()
-            run_metadata = local_run_obj.metadata
-            station_metadata.add_run(run_metadata)
-        return station_metadata
+    #     # iterate over these runs, packing metadata into
+    #     station_metadata = None
+    #     for i, row in sub_df.iterrows():
+    #         local_run_obj = self.get_run_object(row)
+    #         if station_metadata is None:
+    #             station_metadata = local_run_obj.station_metadata
+    #             station_metadata.runs = ListDict()
+    #         run_metadata = local_run_obj.metadata
+    #         station_metadata.add_run(run_metadata)
+    #     return station_metadata
 
     @property
     def num_sample_rates(self) -> int:
