@@ -50,7 +50,7 @@ class TestKernelDataset(unittest.TestCase):
         self.assertRaises(ValueError, set_df, pd.DataFrame({"test": [0]}))
 
     def test_df_shape(self):
-        self.assertEqual((2, 15), self.kd.df.shape)
+        self.assertEqual((2, 20), self.kd.df.shape)
 
     def test_exception_from_empty_run_summary(self):
         self.run_summary.df.loc[:, "has_data"] = False
@@ -61,23 +61,21 @@ class TestKernelDataset(unittest.TestCase):
     def test_clone_dataframe(self):
         cloned_df = self.kd.clone_dataframe()
 
-        # fc column is None so this wont be true
-        self.assertFalse((cloned_df == self.kd.df).all().all())
+        # need to change na to a value
+        cloned_df.fillna(0, inplace=True)
+        self.kd.df.fillna(0, inplace=True)
 
-        cloned_df["fc"] = False
-        self.kd.df["fc"] = False
-        assert (cloned_df == self.kd.df).all().all()
+        # fc column is None so this wont be true
+        self.assertTrue((cloned_df == self.kd.df).all().all())
 
     def test_clone(self):
         clone = self.kd.clone()
 
-        # fc column is None so this wont be true
-        self.assertFalse((clone.df == self.kd.df).all().all())
+        # need to change na to a value
+        clone.df.fillna(0, inplace=True)
+        self.kd.df.fillna(0, inplace=True)
 
-        clone.df["fc"] = False
-        self.kd.df["fc"] = False
-        assert (clone.df == self.kd.df).all().all()
-        # add more checks
+        self.assertTrue((clone.df == self.kd.df).all().all())
 
     def test_mini_summary(self):
         mini_df = self.kd.mini_summary
@@ -177,6 +175,8 @@ class TestKernelDatasetMethods(unittest.TestCase):
                 ],
                 "station": [self.local, self.local, self.remote, self.remote],
                 "survey": ["test"] * 4,
+                "run_hdf5_reference": [None] * 4,
+                "station_hdf5_reference": [None] * 4,
             }
         )
         self.run_summary = RunSummary(df=self.rs_df)
@@ -230,6 +230,8 @@ class TestKernelDatasetMethodsFail(unittest.TestCase):
                 ],
                 "station": [self.local, self.local, self.remote, self.remote],
                 "survey": ["test"] * 4,
+                "run_hdf5_reference": [None] * 4,
+                "station_hdf5_reference": [None] * 4,
             }
         )
         self.run_summary = RunSummary(df=self.rs_df)

@@ -257,6 +257,8 @@ class KernelDataset:
         for col in ADDED_KERNEL_DATASET_COLUMNS:
             df[col] = None
 
+        df["fc"] = False
+
         # set remote reference
         df["remote"] = False
         if remote_station_id:
@@ -447,8 +449,8 @@ class KernelDataset:
         -------
 
         """
-        local_df = df[self.df.station == self.local_station_id]
-        remote_df = df[self.df.station == self.remote_station_id]
+        local_df = df[df.station == self.local_station_id]
+        remote_df = df[df.station == self.remote_station_id]
         output_sub_runs = []
         for i_local, local_row in local_df.iterrows():
             for i_remote, remote_row in remote_df.iterrows():
@@ -478,7 +480,7 @@ class KernelDataset:
                     pass
                     # print(f"NOVERLAP {i_local}, {i_remote}")
         new_df = pd.DataFrame(output_sub_runs)
-        new_df = df.reset_index(drop=True)
+        new_df = new_df.reset_index(drop=True)
 
         if new_df.empty:
             msg = (
