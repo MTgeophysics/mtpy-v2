@@ -116,7 +116,7 @@ class RunSummary:
             if not col in value.columns:
                 need_columns.append(col)
         if need_columns:
-            msg = f"DataFrame need columns {', '.join(need_columns)}"
+            msg = f"DataFrame needs columns {', '.join(need_columns)}"
             logger.error(msg)
             raise ValueError(msg)
         self._df = value

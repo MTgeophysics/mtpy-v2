@@ -73,7 +73,11 @@ import mth5.timeseries.run_ts
 
 
 from mtpy.processing.run_summary import RunSummary
-from mtpy.processing import KERNEL_DATASET_COLUMNS, MINI_SUMMARY_COLUMNS
+from mtpy.processing import (
+    ADDED_KERNEL_DATASET_COLUMNS,
+    KERNEL_DATASET_COLUMNS,
+    MINI_SUMMARY_COLUMNS,
+)
 
 # =============================================================================
 
@@ -184,7 +188,7 @@ class KernelDataset:
             if not col in value.columns:
                 need_columns.append(col)
         if need_columns:
-            msg = f"DataFrame need columns {', '.join(need_columns)}"
+            msg = f"DataFrame needs columns {', '.join(need_columns)}"
             logger.error(msg)
             raise ValueError(msg)
 
@@ -249,26 +253,31 @@ class KernelDataset:
             logger.critical(msg)
             raise ValueError(msg)
 
+        # add columns column
+        for col in ADDED_KERNEL_DATASET_COLUMNS:
+            df[col] = None
+
+        # set remote reference
         df["remote"] = False
-        df["fc"] = None
         if remote_station_id:
             cond = df.station == remote_station_id
             df.remote = cond
 
-        self.df = self._set_datetime_columns(df)
+        # be sure to set date time columns
+        df = self._set_datetime_columns(df)
         if remote_station_id:
-            self.restrict_run_intervals_to_simultaneous()
+            df = self.restrict_run_intervals_to_simultaneous(df)
 
         # Again check df is non-empty
-        if len(self.df) == 0:
+        if len(df) == 0:
             msg = (
                 f"Local: {local_station_id} and remote: {remote_station_id} do "
                 f"not overlap, Remote reference processing not a valid option."
             )
             logger.error(msg)
             raise ValueError(msg)
-        else:
-            self._add_duration_column()
+
+        self.df = df
 
     @property
     def mini_summary(self) -> pd.DataFrame:
@@ -424,7 +433,7 @@ class KernelDataset:
     # def is_remote_reference(self):
     #     raise NotImplementedError
 
-    def restrict_run_intervals_to_simultaneous(self) -> None:
+    def restrict_run_intervals_to_simultaneous(self, df) -> None:
         """
         For each run in local_station_id check if it has overlap with other runs
 
@@ -438,8 +447,8 @@ class KernelDataset:
         -------
 
         """
-        local_df = self.df[self.df.station == self.local_station_id]
-        remote_df = self.df[self.df.station == self.remote_station_id]
+        local_df = df[self.df.station == self.local_station_id]
+        remote_df = df[self.df.station == self.remote_station_id]
         output_sub_runs = []
         for i_local, local_row in local_df.iterrows():
             for i_remote, remote_row in remote_df.iterrows():
@@ -468,10 +477,10 @@ class KernelDataset:
                 else:
                     pass
                     # print(f"NOVERLAP {i_local}, {i_remote}")
-        df = pd.DataFrame(output_sub_runs)
-        df = df.reset_index(drop=True)
+        new_df = pd.DataFrame(output_sub_runs)
+        new_df = df.reset_index(drop=True)
 
-        if df.empty:
+        if new_df.empty:
             msg = (
                 f"Local: {self.local_station_id} and "
                 f"remote: {self.remote_station_id} do "
@@ -480,7 +489,7 @@ class KernelDataset:
             logger.error(msg)
             raise ValueError(msg)
 
-        self.df = df
+        return new_df
 
     # def get_station_metadata(self, local_station_id: str):
     #     """
