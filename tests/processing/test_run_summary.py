@@ -5,10 +5,11 @@
 import unittest
 import pandas as pd
 
+from mth5.data.make_mth5_from_asc import MTH5_PATH, create_test12rr_h5
+
 from mtpy.processing.run_summary import RunSummary
 from mtpy.processing import RUN_SUMMARY_COLUMNS
-from aurora.test_utils.synthetic.make_mth5_from_asc import create_test12rr_h5
-from aurora.test_utils.synthetic.paths import DATA_PATH
+
 
 # =============================================================================
 
@@ -18,7 +19,7 @@ class TestRunSummary(unittest.TestCase):
 
     @classmethod
     def setUpClass(self):
-        self.mth5_path = DATA_PATH.joinpath("synthetic", "mth5", "test12rr.h5")
+        self.mth5_path = MTH5_PATH.joinpath("test12rr.h5")
         if not self.mth5_path.exists():
             self.mth5_path = create_test12rr_h5()
         self.rs = RunSummary()

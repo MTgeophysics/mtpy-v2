@@ -71,7 +71,9 @@ import mt_metadata.timeseries
 from mt_metadata.utils.list_dict import ListDict
 import mth5.timeseries.run_ts
 
+
 from mtpy.processing.run_summary import RunSummary
+from mtpy.processing import KERNEL_DATASET_COLUMNS, MINI_SUMMARY_COLUMNS
 
 # =============================================================================
 
@@ -143,15 +145,43 @@ class KernelDataset:
         self.df = df
         self.local_station_id = local_station_id
         self.remote_station_id = remote_station_id
-        self._mini_summary_columns = [
-            "survey",
-            "station",
-            "run",
-            "start",
-            "end",
-            "duration",
-        ]
+        self._mini_summary_columns = MINI_SUMMARY_COLUMNS
         self.survey_metadata = {}
+
+    @property
+    def df(self):
+        return self._df
+
+    @df.setter
+    def df(self, value):
+        """
+        Make sure the data frame is set properly with proper column names
+
+        :param value: DESCRIPTION
+        :type value: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        if value is None:
+            self._df = None
+            return
+
+        if not isinstance(value, pd.DataFrame):
+            msg = f"Need to set df with a Pandas.DataFrame not type({type(value)})"
+            logger.error(msg)
+
+            raise TypeError(msg)
+
+        need_columns = []
+        for col in KERNEL_DATASET_COLUMNS:
+            if not col in value.columns:
+                need_columns.append(col)
+        if need_columns:
+            msg = f"DataFrame need columns {', '.join(need_columns)}"
+            logger.error(msg)
+            raise ValueError(msg)
+        self._df = value
 
     def clone(self):
         """return a deep copy"""

@@ -17,3 +17,12 @@ RUN_SUMMARY_COLUMNS = [
 KERNEL_DATASET_COLUMNS = RUN_SUMMARY_COLUMNS + [
     "fc",
 ]
+
+MINI_SUMMARY_COLUMNS = [
+    "survey",
+    "station",
+    "run",
+    "start",
+    "end",
+    "duration",
+]

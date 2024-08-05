@@ -45,7 +45,7 @@ from typing import Optional, Union
 import pandas as pd
 from loguru import logger
 
-from mtpy.processing import RUN_SUMMARY_COLUMNS
+from mtpy.processing import RUN_SUMMARY_COLUMNS, MINI_SUMMARY_COLUMNS
 
 import mth5
 from mth5.utils.helpers import initialize_mth5
@@ -78,13 +78,7 @@ class RunSummary:
         self.column_dtypes = [str, str, pd.Timestamp, pd.Timestamp]
         self._input_dict = input_dict
         self.df = df
-        self._mini_summary_columns = [
-            "survey",
-            "station",
-            "run",
-            "start",
-            "end",
-        ]
+        self._mini_summary_columns = MINI_SUMMARY_COLUMNS
 
     @property
     def df(self):
