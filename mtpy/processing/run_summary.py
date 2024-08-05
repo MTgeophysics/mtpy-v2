@@ -80,6 +80,12 @@ class RunSummary:
         self.df = df
         self._mini_summary_columns = MINI_SUMMARY_COLUMNS
 
+    def __str__(self):
+        return str(self.mini_summary.head())
+
+    def __repr__(self):
+        return self.__str__()
+
     @property
     def df(self):
         return self._df

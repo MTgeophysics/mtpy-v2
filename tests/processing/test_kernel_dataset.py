@@ -6,6 +6,7 @@ import unittest
 
 from mth5.data.make_mth5_from_asc import MTH5_PATH, create_test12rr_h5
 
+from mtpy.processing import KERNEL_DATASET_COLUMNS
 from mtpy.processing.run_summary import RunSummary
 
 from mtpy.processing.kernel_dataset import intervals_overlap
@@ -30,6 +31,26 @@ class TestKernelDataset(unittest.TestCase):
         self.run_summary = self.run_summary.clone()
         self.kd = KernelDataset()
         self.kd.from_run_summary(self.run_summary, "test1", "test2")
+
+    def test_df_columns(self):
+        self.assertListEqual(
+            sorted(KERNEL_DATASET_COLUMNS), sorted(self.kd.df.columns)
+        )
+
+    def test_set_df_fail_bad_type(self):
+        def set_df(value):
+            self.kd.df = value
+
+        self.assertRaises(TypeError, set_df, 10)
+
+    def test_set_df_fail_bad_df(self):
+        def set_df(value):
+            self.kd.df = value
+
+        self.assertRaises(ValueError, set_df, pd.DataFrame({"test": [0]}))
+
+    def test_df_shape(self):
+        self.assertEqual((2, 15), self.kd.df.shape)
 
     def test_exception_from_empty_run_summary(self):
         self.run_summary.df.loc[:, "has_data"] = False
@@ -57,6 +78,12 @@ class TestKernelDataset(unittest.TestCase):
         self.kd.df["fc"] = False
         assert (clone.df == self.kd.df).all().all()
         # add more checks
+
+    def test_mini_summary(self):
+        mini_df = self.kd.mini_summary
+        self.assertListEqual(
+            sorted(self.kd._mini_summary_columns), sorted(mini_df.columns)
+        )
 
     # @classmethod
     # def tearDownClass(self):
@@ -119,6 +146,115 @@ class TestOverlapFunctions(unittest.TestCase):
         self.assertTrue(tmp[1] == self.ti1_end)
 
         # TODO To test first line, we need t1 to completely enclose t2
+
+
+class TestKernelDatasetMethods(unittest.TestCase):
+    def setUp(self):
+        self.local = "mt01"
+        self.remote = "mt02"
+        self.rs_df = pd.DataFrame(
+            {
+                "channel_scale_factors": [1, 1, 1, 1],
+                "duration": [0, 0, 0, 0],
+                "end": [
+                    "2020-01-01T23:59:59",
+                    "2020-01-02T02:59:59",
+                    "2020-01-01T22:00:00",
+                    "2020-01-02T02:00:00.5",
+                ],
+                "has_data": [True, True, True, True],
+                "input_channels": ["hx, hy"] * 4,
+                "mth5_path": ["path"] * 4,
+                "n_samples": [86400, 86400, 79200, 7200],
+                "output_channels": ["hz, ex, ey"] * 4,
+                "run": ["01", "02", "03", "04"],
+                "sample_rate": [1, 1, 1, 1],
+                "start": [
+                    "2020-01-01T00:00:00",
+                    "2020-01-02T00:00:00",
+                    "2020-01-01T00:00:00",
+                    "2020-01-02T00:00:00.5",
+                ],
+                "station": [self.local, self.local, self.remote, self.remote],
+                "survey": ["test"] * 4,
+            }
+        )
+        self.run_summary = RunSummary(df=self.rs_df)
+        self.kd = KernelDataset()
+        self.kd.from_run_summary(self.run_summary, self.local, self.remote)
+
+    def test_from_run_summary(self):
+
+        with self.subTest("local_station_id"):
+            self.assertEqual(self.kd.local_station_id, self.local)
+        with self.subTest("remote_station_id"):
+            self.assertEqual(self.kd.remote_station_id, self.remote)
+        with self.subTest("has remote column"):
+            self.assertIn("remote", self.kd.df.columns)
+        with self.subTest("has fc column"):
+            self.assertIn("fc", self.kd.df.columns)
+
+    def test_num_sample_rates(self):
+        self.assertEqual(self.kd.num_sample_rates, 1)
+
+    def test_sample_rate(self):
+        self.assertEqual(self.kd.sample_rate, 1)
+
+
+class TestKernelDatasetMethodsFail(unittest.TestCase):
+    def setUp(self):
+        self.local = "mt01"
+        self.remote = "mt02"
+        self.rs_df = pd.DataFrame(
+            {
+                "channel_scale_factors": [1, 1, 1, 1],
+                "duration": [0, 0, 0, 0],
+                "end": [
+                    "2020-01-01T23:59:59",
+                    "2020-01-01T02:59:59",
+                    "2020-02-02T22:00:00",
+                    "2020-02-02T02:00:00.5",
+                ],
+                "has_data": [True, True, True, True],
+                "input_channels": ["hx, hy"] * 4,
+                "mth5_path": ["path"] * 4,
+                "n_samples": [86400, 86400, 79200, 7200],
+                "output_channels": ["hz, ex, ey"] * 4,
+                "run": ["01", "02", "03", "04"],
+                "sample_rate": [1, 4, 1, 4],
+                "start": [
+                    "2020-01-01T00:00:00",
+                    "2020-01-01T00:00:00",
+                    "2020-02-02T00:00:00",
+                    "2020-02-02T00:00:00.5",
+                ],
+                "station": [self.local, self.local, self.remote, self.remote],
+                "survey": ["test"] * 4,
+            }
+        )
+        self.run_summary = RunSummary(df=self.rs_df)
+        self.kd = KernelDataset()
+
+    def test_from_run_summary(self):
+        self.assertRaises(
+            ValueError,
+            self.kd.from_run_summary,
+            self.run_summary,
+            self.local,
+            self.remote,
+        )
+
+    def test_num_sample_rates(self):
+        self.kd.from_run_summary(self.run_summary, self.local)
+        self.assertEqual(self.kd.num_sample_rates, 2)
+
+    def test_sample_rate_fail(self):
+        self.kd.from_run_summary(self.run_summary, self.local)
+
+        def get_sample_rate():
+            return self.kd.sample_rate
+
+        self.assertRaises(NotImplementedError, get_sample_rate)
 
 
 # =============================================================================

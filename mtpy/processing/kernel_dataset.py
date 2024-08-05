@@ -148,6 +148,12 @@ class KernelDataset:
         self._mini_summary_columns = MINI_SUMMARY_COLUMNS
         self.survey_metadata = {}
 
+    def __str__(self):
+        return str(self.mini_summary.head())
+
+    def __repr__(self):
+        return self.__str__()
+
     @property
     def df(self):
         return self._df
@@ -181,7 +187,22 @@ class KernelDataset:
             msg = f"DataFrame need columns {', '.join(need_columns)}"
             logger.error(msg)
             raise ValueError(msg)
-        self._df = value
+
+        self._df = self._set_datetime_columns(value)
+
+    def _set_datetime_columns(self, df):
+        """
+        be sure to set start and end to be date time objects
+        """
+
+        try:
+            df.start = pd.to_datetime(df.start, format="mixed")
+            df.end = pd.to_datetime(df.end, format="mixed")
+        except ValueError:
+            df.start = pd.to_datetime(df.start)
+            df.end = pd.to_datetime(df.end)
+
+        return df
 
     def clone(self):
         """return a deep copy"""
@@ -234,7 +255,7 @@ class KernelDataset:
             cond = df.station == remote_station_id
             df.remote = cond
 
-        self.df = df
+        self.df = self._set_datetime_columns(df)
         if remote_station_id:
             self.restrict_run_intervals_to_simultaneous()
 
@@ -449,6 +470,15 @@ class KernelDataset:
                     # print(f"NOVERLAP {i_local}, {i_remote}")
         df = pd.DataFrame(output_sub_runs)
         df = df.reset_index(drop=True)
+
+        if df.empty:
+            msg = (
+                f"Local: {self.local_station_id} and "
+                f"remote: {self.remote_station_id} do "
+                f"not overlap, Remote reference processing not a valid option."
+            )
+            logger.error(msg)
+            raise ValueError(msg)
 
         self.df = df
 
