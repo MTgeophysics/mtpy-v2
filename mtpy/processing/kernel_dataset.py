@@ -659,41 +659,41 @@ class KernelDataset:
             Keys are station_id, values are MTH5 objects.
 
         """
-        columns_to_add = ["run_dataarray", "stft", "run_reference"]
+        # columns_to_add = ["run_dataarray", "stft", "run_reference"]
         mth5_obj_column = len(self.df) * [None]
         for i, station_id in enumerate(self.df["station"]):
             mth5_obj_column[i] = mth5_objs[station_id]
         self.df["mth5_obj"] = mth5_obj_column
-        for column_name in columns_to_add:
-            self.df[column_name] = None
+        # for column_name in columns_to_add:
+        #     self.df[column_name] = None
 
-    def get_run_object(
-        self, index_or_row: Union[int, pd.Series]
-    ) -> mt_metadata.timeseries.Run:
-        """
-        Gets the run object associated with a row of the df
+    # def get_run_object(
+    #     self, index_or_row: Union[int, pd.Series]
+    # ) -> mt_metadata.timeseries.Run:
+    #     """
+    #     Gets the run object associated with a row of the df
 
-        Development Notes:
-        TODO: This appears to be unused except by get_station_metadata.
-         Delete or integrate if desired.
-         - This has likely been deprecated by direct calls to
-         run_obj = row.mth5_obj.from_reference(row.run_reference) in pipelines.
+    #     Development Notes:
+    #     TODO: This appears to be unused except by get_station_metadata.
+    #      Delete or integrate if desired.
+    #      - This has likely been deprecated by direct calls to
+    #      run_obj = row.mth5_obj.from_reference(row.run_reference) in pipelines.
 
-        Parameters
-        ----------
-        index_or_row: integer index of df, or pd.Series object
+    #     Parameters
+    #     ----------
+    #     index_or_row: integer index of df, or pd.Series object
 
-        Returns
-        -------
-        run_obj: mt_metadata.timeseries.Run
-            The run associated with the row of the df.
-        """
-        if isinstance(index_or_row, int):
-            row = self.df.loc[index_or_row]
-        else:
-            row = index_or_row
-        run_obj = row.mth5_obj.from_reference(row.run_reference)
-        return run_obj
+    #     Returns
+    #     -------
+    #     run_obj: mt_metadata.timeseries.Run
+    #         The run associated with the row of the df.
+    #     """
+    #     if isinstance(index_or_row, int):
+    #         row = self.df.loc[index_or_row]
+    #     else:
+    #         row = index_or_row
+    #     run_obj = row.mth5_obj.from_reference(row.run_reference)
+    #     return run_obj
 
     def close_mth5s(self) -> None:
         """
