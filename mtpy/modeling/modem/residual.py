@@ -9,6 +9,7 @@ revised by JP 2017
 revised by AK 2017 to bring across functionality from ak branch
 
 """
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -123,11 +124,11 @@ class Residual(Data):
         if self.dataframe is None:
             return
 
-        for col in ["zxx", "zxy", "zyx", "zyy", "tzx", "tzy"]:
+        for col in ["z_xx", "z_xy", "z_yx", "z_yy", "t_zx", "t_zy"]:
             with np.errstate(divide="ignore", invalid="ignore"):
-                self.dataframe[f"rms_{col}"] = np.abs(self.dataframe[col]) / (
-                    np.real(self.dataframe[f"{col}_model_error"]) * np.sqrt(2)
-                )
+                self.dataframe[f"rms_{col.replace('_', '')}"] = np.abs(
+                    self.dataframe[col]
+                ) / (np.real(self.dataframe[f"{col}_model_error"]) * np.sqrt(2))
 
     @property
     def rms_per_period_all(self):

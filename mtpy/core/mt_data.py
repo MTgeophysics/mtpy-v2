@@ -421,6 +421,38 @@ class MTData(OrderedDict, MTStations):
         except KeyError:
             raise KeyError(f"Could not find {station_key} in MTData.")
 
+    def apply_bounding_box(self, lon_min, lon_max, lat_min, lat_max):
+        """
+        Apply a bounding box
+
+
+        :param lon_min: DESCRIPTION
+        :type lon_min: TYPE
+        :param lon_max: DESCRIPTION
+        :type lon_max: TYPE
+        :param lat_min: DESCRIPTION
+        :type lat_min: TYPE
+        :param lat_max: DESCRIPTION
+        :type lat_max: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        bb_df = self.station_locations.loc[
+            (self.station_locations.longitude >= lon_min)
+            & (self.station_locations.longitude <= lon_max)
+            & (self.station_locations.latitude >= lat_min)
+            & (self.station_locations.latitude <= lat_max)
+        ]
+
+        station_keys = [
+            f"{survey}.{station}"
+            for survey, station in zip(bb_df.survey, bb_df.station)
+        ]
+
+        return self.get_subset(station_keys)
+
     def get_subset(self, station_list):
         """
         get a subset of the data from a list of stations, could be station_id
@@ -1199,6 +1231,22 @@ class MTData(OrderedDict, MTStations):
 
         return PlotPhaseTensorMaps(mt_data=self, **kwargs)
 
+    def plot_tipper_map(self, **kwargs):
+        """
+        Plot Phase tensor maps for transfer functions in the working_dataframe
+
+        .. seealso:: :class:`mtpy.imaging.PlotPhaseTensorMaps`
+
+        :param **kwargs: DESCRIPTION
+        :type **kwargs: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        kwargs["plot_pt"] = False
+        kwargs["plot_tipper"] = "yri"
+        return PlotPhaseTensorMaps(mt_data=self, **kwargs)
+
     def plot_phase_tensor_pseudosection(self, mt_data=None, **kwargs):
         """
         Plot a pseudo section of  phase tensor ellipses and induction vectors
@@ -1306,7 +1354,7 @@ class MTData(OrderedDict, MTStations):
 
         return PlotResidualPTMaps(survey_data_01, survey_data_02, **kwargs)
 
-    def to_shp(
+    def to_shp_pt_tipper(
         self,
         save_dir,
         output_crs=None,

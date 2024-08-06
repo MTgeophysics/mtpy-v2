@@ -116,7 +116,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
 
         pt_obj = tf.pt
         has_pt = True
-        if pt_obj._has_tf():
+        if pt_obj._has_tf() and self.plot_pt:
             # this might make if faster
             phimax = pt_obj.phimax
             phimin = pt_obj.phimin
@@ -125,7 +125,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
             has_pt = False
 
         has_tipper = False
-        if tf.Tipper is not None:
+        if tf.Tipper is not None and "y" in self.plot_tipper:
             t_obj = tf.Tipper
             has_tipper = True
 
@@ -342,6 +342,30 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
             self.cb.ax.yaxis.tick_left()
             self.cb.ax.tick_params(axis="y", direction="in")
 
+    def _add_tipper_legend(self):
+        if "y" in self.plot_tipper:
+            legend_lines = []
+            legend_labels = []
+            if "r" in self.plot_tipper:
+                real_line = plt.Line2D(
+                    [0, 0], [0, 0], color=self.arrow_color_real
+                )
+                legend_lines.append(real_line)
+                legend_labels.append("Real")
+            if "i" in self.plot_tipper:
+                imag_line = plt.Line2D(
+                    [0, 0], [0, 0], color=self.arrow_color_imag
+                )
+                legend_lines.append(imag_line)
+                legend_labels.append("Imag")
+
+            self.ax.legend(
+                legend_lines,
+                legend_labels,
+                loc="lower right",
+                prop={"size": self.font_size},
+            )
+
     def plot(self):
         """
         plots the phase tensor pseudo section.  See class doc string for
@@ -454,3 +478,5 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
         self._add_colorbar()
 
         self.ax.set_axisbelow(True)
+
+        self._add_tipper_legend()

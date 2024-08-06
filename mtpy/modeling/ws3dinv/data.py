@@ -110,7 +110,7 @@ class WSData:
 
     """
 
-    def __init__(self, mt_dataframe, **kwargs):
+    def __init__(self, mt_dataframe=None, **kwargs):
         self.logger = logger
         self.dataframe = mt_dataframe
         self.save_path = Path()
@@ -146,12 +146,12 @@ class WSData:
             setattr(self, key, value)
 
         # make sure the error given is a decimal percent
-        if type(self.z_err) is not str and self.z_err > 1:
-            self.z_err /= 100.0
+        if type(self.z_error) is not str and self.z_error > 1:
+            self.z_error /= 100.0
 
         # make sure the error floor given is a decimal percent
-        if self.z_err_floor is not None and self.z_err_floor > 1:
-            self.z_err_floor /= 100.0
+        if self.z_error_floor is not None and self.z_error_floor > 1:
+            self.z_error_floor /= 100.0
 
     @property
     def dataframe(self):
@@ -380,6 +380,7 @@ class WSData:
         self.n_z = nz
         # make a structured array to keep things in for convenience
         z_shape = (n_periods, 2, 2)
+        t_shape = (n_periods, 1, 2)
         data_dtype = [
             ("station", "|S10"),
             ("east", float),
@@ -387,6 +388,9 @@ class WSData:
             ("z_data", (complex, z_shape)),
             ("z_data_err", (complex, z_shape)),
             ("z_err_map", (complex, z_shape)),
+            ("tipper_data", (complex, t_shape)),
+            ("tipper_data_err", (complex, t_shape)),
+            ("tipper_err_map", (complex, t_shape)),
         ]
         self.data = np.zeros(n_stations, dtype=data_dtype)
 
@@ -432,6 +436,7 @@ class WSData:
         per = 0
         error_find = False
         errmap_find = False
+        data_count = 0
         for ii, dl in enumerate(dlines[findlist[2] :]):
             if dl.lower().find("period") > 0:
                 st = 0
@@ -454,37 +459,95 @@ class WSData:
 
                 # print '-'*20+dkey+'-'*20
                 per += 1
-
-            else:
+                # print(dl)
+            elif not dl.startswith('#'):
+                
                 if dkey == "z_err_map":
                     zline = np.array(dl.strip().split(), dtype=float)
-                    self.data[st][dkey][per - 1, :] = np.array(
-                        [
+                    if len(zline) >= 8:
+                        self.data[st][dkey][per - 1, :] = np.array(
                             [
-                                zline[0] - 1j * zline[1],
-                                zline[2] - 1j * zline[3],
-                            ],
+                                [
+                                    zline[0] - 1j * zline[1],
+                                    zline[2] - 1j * zline[3],
+                                ],
+                                [
+                                    zline[4] - 1j * zline[5],
+                                    zline[6] - 1j * zline[7],
+                                ],
+                            ]
+                        )
+                    # append tipper data
+                    if ((len(zline) == 12) or (len(zline) == 4)):
+                        add_idx = len(zline) - 4
+                        self.data[st]['tipper_err_map'][per - 1, :] = np.array(
                             [
-                                zline[4] - 1j * zline[5],
-                                zline[6] - 1j * zline[7],
-                            ],
-                        ]
-                    )
-                else:
+                                [
+                                    zline[0+add_idx] - 1j * zline[1+add_idx],
+                                    zline[2+add_idx] - 1j * zline[3+add_idx],
+                                ]
+                            ]
+                        )                      
+                    
+                elif dkey == 'z_data_err':
                     zline = np.array(dl.strip().split(), dtype=float) * zconv
-                    self.data[st][dkey][per - 1, :] = np.array(
-                        [
+                    if len(zline) >= 8:
+                        self.data[st][dkey][per - 1, :] = np.array(
                             [
-                                zline[0] - 1j * zline[1],
-                                zline[2] - 1j * zline[3],
-                            ],
+                                [
+                                    zline[0] + 1j * zline[1],
+                                    zline[2] + 1j * zline[3],
+                                ],
+                                [
+                                    zline[4] + 1j * zline[5],
+                                    zline[6] + 1j * zline[7],
+                                ],
+                            ]
+                        )
+                    # append tipper data
+                    if ((len(zline) == 12) or (len(zline) == 4)):
+                        add_idx = len(zline) - 4
+                        self.data[st]['tipper_data_err'][per - 1, :] = np.array(
                             [
-                                zline[4] - 1j * zline[5],
-                                zline[6] - 1j * zline[7],
-                            ],
-                        ]
-                    )
-                st += 1
+                                [
+                                    zline[0+add_idx] - 1j * zline[1+add_idx],
+                                    zline[2+add_idx] - 1j * zline[3+add_idx],
+                                ]
+                            ]
+                        )  
+
+                else:
+                    
+                    zline = np.array(dl.strip().split(), dtype=float) * zconv
+                    # print(st)
+                    if len(zline) >= 8:
+                        self.data[st][dkey][per - 1, :] = np.array(
+                            [
+                                [
+                                    zline[0] - 1j * zline[1],
+                                    zline[2] - 1j * zline[3],
+                                ],
+                                [
+                                    zline[4] - 1j * zline[5],
+                                    zline[6] - 1j * zline[7],
+                                ],
+                            ]
+                        )
+                    # append tipper data
+                    if ((len(zline) == 12) or (len(zline) == 4)):
+                        add_idx = len(zline) - 4
+                        self.data[st]['tipper_data'][per - 1, :] = np.array(
+                            [
+                                [
+                                    zline[0+add_idx] - 1j * zline[1+add_idx],
+                                    zline[2+add_idx] - 1j * zline[3+add_idx],
+                                ]
+                            ]
+                        )                        
+                data_count += len(zline)
+                if data_count == self.n_z:
+                    st += 1
+                    data_count = 0
 
         self.station_east = self.data["east"]
         self.station_north = self.data["north"]

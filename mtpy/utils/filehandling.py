@@ -25,6 +25,7 @@ import time
 import fnmatch
 import shutil
 from pathlib import Path
+import rasterio
 
 import mtpy.utils.calculator as MTcc
 import mtpy.utils.exceptions as MTex
@@ -137,6 +138,27 @@ def read_surface_ascii(ascii_fn):
     return lon, lat, elevation  # this appears correct
 
 
+def read_geotiff(filename, target_epsg=None, bounds=None):
+    """
+    read in a geotiff
+
+    :param filename: DESCRIPTION
+    :type filename: TYPE
+    :param target_epsg: DESCRIPTION, defaults to None
+    :type target_epsg: TYPE, optional
+    :return: DESCRIPTION
+    :rtype: TYPE
+
+    """
+
+    dataset = rasterio.open(filename)
+    elev = dataset.read(1)[::-1, :]
+    lon = np.linspace(dataset.bounds.left, dataset.bounds.right, dataset.width)
+    lat = np.linspace(dataset.bounds.bottom, dataset.bounds.top, dataset.height)
+
+    return lon, lat, elev
+
+
 def read1columntext(textfile):
     """
     read a list from a one column text file
@@ -182,7 +204,6 @@ def read_stationdatafile(textfile, read_duplicates=True):
 
 
 def make_unique_filename(infn):
-
     fn = op.abspath(infn)
     outfn = fn
     i = 1
@@ -390,7 +411,6 @@ def get_sampling_interval_fromdatafile(filename, length=3600):
 def EDL_make_Nhour_files(
     n_hours, inputdir, sampling, stationname=None, outputdir=None
 ):
-
     """
     See 'EDL_make_dayfiles' for description and syntax.
 
@@ -512,7 +532,6 @@ def EDL_make_Nhour_files(
 
     # outer loop over all components
     for comp in components:
-
         # make list of files for the current component
         lo_files = np.array(
             [op.join(wd, i) for i in lo_allfiles if (i.lower()[-2:] == comp)]
@@ -571,9 +590,7 @@ def EDL_make_Nhour_files(
 
         # loop over all (sorted) files for the current component
         for idx_f, f in enumerate(lo_sorted_files):
-
             try:
-
                 print("Reading file %s" % (f))
                 # starting time of current file
                 file_start_time = lo_sorted_starttimes[idx_f]
@@ -669,7 +686,6 @@ def EDL_make_Nhour_files(
                 # if current file starts earlier than the endtime of data in buffer, but extends the time span
                 # then delete ambiguous  parts of the buffer:
                 elif (outfile_endtime - file_start_time) > epsilon:
-
                     # find point on the outfile time axis for the beginning of current file:
                     overlap_idx = arrayindex - int(
                         (outfile_endtime - file_start_time) / sampling
@@ -682,9 +698,7 @@ def EDL_make_Nhour_files(
                 # append current data
                 # if it's a single column of data
                 if np.size(data_in.shape) == 1:
-                    block_data[
-                        arrayindex : arrayindex + len(data_in)
-                    ] = data_in
+                    block_data[arrayindex : arrayindex + len(data_in)] = data_in
                     # outfile_data.extend(data_in.tolist())
                 # otherwise assuming that the first column is time, so just take the second one
                 else:
@@ -748,7 +762,6 @@ def EDL_make_Nhour_files(
 
             # check, if the file has to be closed and written now
             if complete is True:
-
                 # define header info
                 if outfile_starttime % 1 == 0:
                     outfile_starttime = int(outfile_starttime)
@@ -898,7 +911,6 @@ def EDL_make_dayfiles(inputdir, sampling, stationname=None, outputdir=None):
 
     # outer loop over all components
     for comp in components:
-
         # make list of files for the current component
         lo_files = np.array(
             [op.join(wd, i) for i in lo_allfiles if (i.lower()[-2:] == comp)]
@@ -952,9 +964,7 @@ def EDL_make_dayfiles(inputdir, sampling, stationname=None, outputdir=None):
 
         # loop over all (sorted) files for the current component
         for idx_f, f in enumerate(lo_sorted_files):
-
             try:
-
                 print("Reading file %s" % (f))
                 # starting time of current file
                 file_start_time = lo_sorted_starttimes[idx_f]
@@ -1037,7 +1047,6 @@ def EDL_make_dayfiles(inputdir, sampling, stationname=None, outputdir=None):
                 # if current file starts earlier than the endtime of data in buffer then delete ambiguous  parts of the buffer:
                 # elif (outfile_timeaxis[-1] - file_start_time) > epsilon:
                 elif (outfile_endtime - file_start_time) > epsilon:
-
                     # find point on the outfile time axis for the beginning of current file:
                     overlap_idx = arrayindex - int(
                         (outfile_endtime - file_start_time) / sampling
@@ -1113,7 +1122,6 @@ def EDL_make_dayfiles(inputdir, sampling, stationname=None, outputdir=None):
 
             # check, if the file has to be closed and written now
             if incomplete == 1:
-
                 # define header info
                 if outfile_starttime % 1 == 0:
                     outfile_starttime = int(outfile_starttime)
@@ -1191,7 +1199,6 @@ def EDL_get_starttime_fromfilename(filename):
 
 
 def EDL_get_stationname_fromfilename(filename):
-
     bn = op.basename(filename)
     parts_of_bn = bn.split(".")
     stationtime = parts_of_bn[-2]
@@ -1283,7 +1290,6 @@ def read_2c2_file(filename):
     data_raw = F_in.readlines()
 
     for ii in range(len(data_raw)):
-
         coh_row = data_raw[ii].strip().split()
 
         try:
@@ -1518,7 +1524,6 @@ def read_ts_file(mtdatafile):
 
 
 def reorient_files(lo_files, configfile, lo_stations=None, outdir=None):
-
     # read config file
     try:
         config_dict = MTcf.read_survey_configfile(configfile)
@@ -1637,8 +1642,7 @@ def reorient_files(lo_files, configfile, lo_stations=None, outdir=None):
                         (header_y["station"].upper() == sta.upper())
                         and (header_y["channel"].lower()[0] == sensor)
                         and (
-                            float(header_y["t_min"])
-                            == float(header_x["t_min"])
+                            float(header_y["t_min"]) == float(header_x["t_min"])
                         )
                     ):
                         if header_y["channel"].lower()[1] == "y":
@@ -1704,8 +1708,6 @@ def reorient_files(lo_files, configfile, lo_stations=None, outdir=None):
                 if z_file is not None:
                     shutil.copyfile(z_file, z_outfn)
                     written_files.append(z_outfn)
-                print(
-                    "\tSuccessfullly written files {0}".format(written_files)
-                )
+                print("\tSuccessfullly written files {0}".format(written_files))
 
     return 0
