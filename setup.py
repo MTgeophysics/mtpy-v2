@@ -25,7 +25,7 @@ requirements = [
     "rasterio",
     "contextily",
     "pyevtk",
-    "SimPEG==0.20.0",
+    "SimPEG",
 ]
 
 setup_requirements = [

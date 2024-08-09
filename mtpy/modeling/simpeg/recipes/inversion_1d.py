@@ -16,8 +16,8 @@ from mtpy.imaging.mtplot_tools.plotters import plot_errorbar
 
 try:
     from discretize import TensorMesh
-    from SimPEG.electromagnetics import natural_source as nsem
-    from SimPEG import (
+    from simpeg.electromagnetics import natural_source as nsem
+    from simpeg import (
         maps,
         data,
         data_misfit,
@@ -162,9 +162,7 @@ class Simpeg1D:
         """
         return sub_df.loc[(sub_df != 0).all(axis=1)]
 
-    def cull_from_difference(
-        self, sub_df, max_diff_res=1.0, max_diff_phase=10
-    ):
+    def cull_from_difference(self, sub_df, max_diff_res=1.0, max_diff_phase=10):
         """
         Remove points based on a simple difference between neighboring points
 
@@ -217,9 +215,7 @@ class Simpeg1D:
 
     @property
     def data_error(self):
-        return np.c_[
-            self._sub_df.res_error, self._sub_df.phase_error
-        ].flatten()
+        return np.c_[self._sub_df.res_error, self._sub_df.phase_error].flatten()
 
     def run_fixed_layer_inversion(
         self,
@@ -268,9 +264,7 @@ class Simpeg1D:
         # Reference model
         mref = np.ones(self.n_layers + 1) * np.log(1.0 / self.rho_reference)
 
-        dmis = data_misfit.L2DataMisfit(
-            simulation=simulation, data=data_object
-        )
+        dmis = data_misfit.L2DataMisfit(simulation=simulation, data=data_object)
 
         # Define the regularization (model objective function)
         reg = regularization.Sparse(
