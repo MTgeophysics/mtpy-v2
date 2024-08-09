@@ -194,6 +194,11 @@ class Simpeg1D:
 
         self._sub_df = sub_df.loc[(sub_df != 0).all(axis=1)]
 
+    def cull_from_interpolated(
+        self,
+    ):
+        pass
+
     def cull_from_model(self, iteration):
         """
         remove bad point based on initial run
