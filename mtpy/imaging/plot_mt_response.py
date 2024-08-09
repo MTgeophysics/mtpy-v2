@@ -611,6 +611,7 @@ class PlotMTResponse(PlotBase):
         # make plot_title and show
         if self.plot_title is None:
             self.plot_title = self.station
+        print(self.font_dict)
         self.fig.suptitle(self.plot_title, fontdict=self.font_dict)
 
         # be sure to show

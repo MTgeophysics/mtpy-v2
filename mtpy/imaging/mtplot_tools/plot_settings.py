@@ -350,7 +350,7 @@ class PlotSettings(MTArrows, MTEllipse):
 
     @property
     def font_dict(self):
-        return {"size": self.font_size + 2, "weight": self.font_weight}
+        return {"fontsize": self.font_size + 2, "fontweight": self.font_weight}
 
     def make_pt_cb(self, ax):
         cmap = mtcl.cmapdict[self.ellipse_cmap]
