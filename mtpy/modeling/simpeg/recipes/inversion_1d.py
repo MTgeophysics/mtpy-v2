@@ -302,6 +302,7 @@ class Simpeg1D:
             alpha_x=alpha_z,
             reference_model=mref,
             mapping=maps.IdentityMap(self.mesh),
+            norms=np.array([p_s, p_z]),
         )
 
         # Define how the optimization problem is solved. Here we will use an inexact
@@ -383,7 +384,7 @@ class Simpeg1D:
 
         """
 
-        target_misfit = self.data.size / 2.0
+        target_misfit = self.data.size
         iterations = list(self.output_dict.keys())
         n_iteration = len(iterations)
         phi_ds = np.zeros(n_iteration)
