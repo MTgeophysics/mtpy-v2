@@ -758,19 +758,20 @@ class MTStations:
         sdf = self.station_locations.copy()
 
         if geographic:
-            vtk_y = (sdf.north + shift_north) * scale
-            vtk_x = (sdf.east + shift_east) * scale
-
             if "+" in coordinate_system:
+                vtk_y = (sdf.north + shift_north) * scale
+                vtk_x = (sdf.east + shift_east) * scale
                 vtk_z = -1 * (sdf.elevation + shift_elev) * scale
                 extra = -1 * (sdf.elevation + shift_elev) * scale
             elif "-" in coordinate_system:
+                vtk_y = (sdf.north + shift_north) * scale
+                vtk_x = (sdf.east + shift_east) * scale
                 vtk_z = (sdf.elevation + shift_elev) * scale
                 extra = (sdf.elevation + shift_elev) * scale
         else:
             if coordinate_system == "nez+":
-                vtk_x = (sdf.model_north + shift_north) * scale
-                vtk_y = (sdf.model_east + shift_east) * scale
+                vtk_y = (sdf.model_north + shift_north) * scale
+                vtk_x = (sdf.model_east + shift_east) * scale
                 vtk_z = (sdf.model_elevation + shift_elev) * scale
                 extra = (sdf.model_elevation + shift_elev) * scale
             elif coordinate_system == "enz-":
