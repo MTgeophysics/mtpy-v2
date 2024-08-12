@@ -1899,10 +1899,10 @@ class StructuredGrid3D:
 
         """
 
-        if pad is not None:
-            return slice(pad, -pad)
+        if pad in [None, 0]:
+            return slice(None, None)
         else:
-            return slice(pad, pad)
+            return slice(pad, -pad)
 
     def _validate_pad_east(self, pad_east):
         """
@@ -1910,6 +1910,8 @@ class StructuredGrid3D:
         """
         if pad_east is None:
             return self.pad_east
+        elif pad_east == 0:
+            return None
         return pad_east
 
     def _validate_pad_north(self, pad_north):
@@ -1920,7 +1922,22 @@ class StructuredGrid3D:
             return self.pad_north
         return pad_north
 
+<<<<<<< Updated upstream
     def _clip_model(self, pad_east, pad_north):
+=======
+    def _validate_pad_z(self, pad_z):
+        """
+        validate pad north
+        """
+
+        if pad_z is None:
+            return self.pad_z
+        elif pad_z == 0:
+            return None
+        return pad_z
+
+    def _clip_model(self, pad_east, pad_north, pad_z):
+>>>>>>> Stashed changes
         """
         clip model based on excluding the number of padding cells.
 
@@ -1933,6 +1950,15 @@ class StructuredGrid3D:
 
         """
 
+<<<<<<< Updated upstream
+=======
+        return self.res_model[
+            self._get_pad_slice(pad_north),
+            self._get_pad_slice(pad_east),
+            0:pad_z,
+        ]
+
+>>>>>>> Stashed changes
     def to_raster(
         self,
         cell_size,
@@ -2383,9 +2409,94 @@ class StructuredGrid3D:
         if vtk_fn.suffix != "":
             vtk_fn = vtk_fn.parent.joinpath(vtk_fn.stem)
 
+<<<<<<< Updated upstream
         shift_north = 0
         shift_east = 0
         shift_z = 0
+=======
+        gridToVTK(vtk_fn.as_posix(), vtk_x, vtk_y, vtk_z, cellData=cell_data)
+
+        self._logger.info(f"Wrote VTK model file to {vtk_fn}")
+
+    def _to_output_coordinates(
+        self,
+        geographic=False,
+        units="km",
+        coordinate_system="nez+",
+        output_epsg=None,
+        pad_east=0,
+        pad_north=0,
+        pad_z=0,
+        shift_east=0,
+        shift_north=0,
+        shift_z=0,
+        model_units="resistivity",
+    ):
+        """
+        Create x, y, z, res outputs in requested coordinate system and units
+
+        Parameters are
+
+        :param geographic: [ True | False ] true for output in geographic
+         coordinates, False for relative model coordinates, defaults to False
+        :type geographic: bool, optional
+        :param units: [ 'm' | 'km' | 'ft' ], defaults to "km"
+        :type units: str, optional
+        :param coordinate_system: [ 'nez+' | 'enz-'], defaults to "nez+"
+        :type coordinate_system: str, optional
+        :param output_epsg: output EPSG number, if None uses
+         center_point.utm_epsg if geographic is True, defaults to None
+        :type output_epsg: int, optional
+        :param pad_east: number of cells to discard on each side in the east,
+         defaults to 0
+        :type pad_east: int, optional
+        :param pad_north: number of cells to discard on each side in the east,
+         defaults to 0
+        :type pad_north: int, optional
+        :param pad_z: number of cells to discard at bottom of model,
+         defaults to 0
+        :type pad_z: int, optional
+        :param shift_east: shift model east [in units], defaults to 0
+        :type shift_east: float, optional
+        :param shift_north: shift model north [in units], defaults to 0
+        :type shift_north: float, optional
+        :param shift_z: shift model vertically [in units], defaults to 0
+        :type shift_z: float, optional
+        :param model_units: ["resistivity" | "conductivity" ],
+         defaults to "resistivity"
+        :type model_units: string, optional
+
+        :return: x, y, z, res
+        :rtype: float
+
+        """
+
+        if isinstance(units, str):
+            if units.lower() == "km":
+                scale = 1.0 / 1000.00
+            elif units.lower() == "m":
+                scale = 1.0
+            elif units.lower() == "ft":
+                scale = 3.2808
+        elif isinstance(units, (int, float)):
+            scale = units
+
+        pad_z = self._validate_pad_z(pad_z)
+
+        east_slice = self._get_pad_slice(self._validate_pad_east(pad_east))
+        north_slice = self._get_pad_slice(self._validate_pad_north(pad_north))
+        if pad_z is None:
+            z_slice = slice(0, None)
+        else:
+            z_slice = slice(0, -pad_z)
+
+        if output_epsg is not None:
+            cp = self.center_point.copy()
+            cp.utm_epsg = output_epsg
+        else:
+            cp = self.center_point
+
+>>>>>>> Stashed changes
         if geographic:
             shift_north = self.center_point.north
             shift_east = self.center_point.east
@@ -2394,6 +2505,7 @@ class StructuredGrid3D:
             else:
                 shift_z = self.center_point.elevation
 
+<<<<<<< Updated upstream
             vtk_y = (self.grid_north + shift_north) * scale
             vtk_x = (self.grid_east + shift_east) * scale
             if "+" in coordinate_system:
@@ -2402,10 +2514,23 @@ class StructuredGrid3D:
                 vtk_z = -1 * (self.grid_z - shift_z) * scale
 
             cell_data = {label: self._rotate_res_model()}
+=======
+            x = (self.grid_east[east_slice] + shift_east) * scale
+            y = (self.grid_north[north_slice] + shift_north) * scale
+            if "+" in coordinate_system:
+                depth = (self.grid_z[z_slice] + shift_z) * scale
+            elif "-" in coordinate_system:
+                depth = -1 * (self.grid_z[z_slice] - shift_z) * scale
+
+            resistivity = self._rotate_res_model()[
+                east_slice, north_slice, z_slice
+            ]
+>>>>>>> Stashed changes
 
         # use cellData, this makes the grid properly as grid is n+1
         else:
             if coordinate_system == "nez+":
+<<<<<<< Updated upstream
                 vtk_x = (self.grid_north + shift_north) * scale
                 vtk_y = (self.grid_east + shift_east) * scale
                 vtk_z = (self.grid_z + shift_z) * scale
@@ -2416,6 +2541,20 @@ class StructuredGrid3D:
                 vtk_x = (self.grid_east + shift_east) * scale
                 vtk_z = -1 * (self.grid_z - shift_z) * scale
                 cell_data = {label: self._rotate_res_model()}
+=======
+                x = (self.grid_north[north_slice] + shift_north) * scale
+                y = (self.grid_east[east_slice] + shift_east) * scale
+                depth = (self.grid_z[z_slice] + shift_z) * scale
+                resistivity = self._clip_model(pad_east, pad_north, pad_z)
+
+            elif coordinate_system == "enz-":
+                y = (self.grid_north[north_slice] + shift_north) * scale
+                x = (self.grid_east[east_slice] + shift_east) * scale
+                depth = -1 * (self.grid_z[z_slice] - shift_z) * scale
+                resistivity = self._rotate_res_model()[
+                    east_slice, north_slice, z_slice
+                ]
+>>>>>>> Stashed changes
 
         gridToVTK(vtk_fn.as_posix(), vtk_x, vtk_y, vtk_z, cellData=cell_data)
 

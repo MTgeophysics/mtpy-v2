@@ -9,6 +9,7 @@ ModEM
 # revised by AK 2017 to bring across functionality from ak branch
 
 """
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -471,7 +472,9 @@ class MTStations:
 
             else:
                 self.logger.debug("locating center from UTM grid")
-                center_location.east = (st_en.east.max() + st_en.east.min()) / 2
+                center_location.east = (
+                    st_en.east.max() + st_en.east.min()
+                ) / 2
                 center_location.north = (
                     st_en.north.max() + st_en.north.min()
                 ) / 2
@@ -754,7 +757,17 @@ class MTStations:
 
         sdf = self.station_locations.copy()
 
-        if not geographic:
+        if geographic:
+            vtk_y = (sdf.north + shift_north) * scale
+            vtk_x = (sdf.east + shift_east) * scale
+
+            if "+" in coordinate_system:
+                vtk_z = -1 * (sdf.elevation + shift_elev) * scale
+                extra = -1 * (sdf.elevation + shift_elev) * scale
+            elif "-" in coordinate_system:
+                vtk_z = (sdf.elevation + shift_elev) * scale
+                extra = (sdf.elevation + shift_elev) * scale
+        else:
             if coordinate_system == "nez+":
                 vtk_x = (sdf.model_north + shift_north) * scale
                 vtk_y = (sdf.model_east + shift_east) * scale
@@ -765,18 +778,6 @@ class MTStations:
                 vtk_y = (sdf.model_east + shift_east) * scale
                 vtk_z = -1 * (sdf.model_elevation + shift_elev) * scale
                 extra = -1 * (sdf.model_elevation + shift_elev) * scale
-
-        else:
-            if coordinate_system == "nez+":
-                vtk_y = (sdf.north + shift_north) * scale
-                vtk_x = (sdf.east + shift_east) * scale
-                vtk_z = -1 * (sdf.elevation + shift_elev) * scale
-                extra = -1 * (sdf.elevation + shift_elev) * scale
-            elif coordinate_system == "enz-":
-                vtk_y = (sdf.north + shift_north) * scale
-                vtk_x = (sdf.east + shift_east) * scale
-                vtk_z = (sdf.elevation + shift_elev) * scale
-                extra = (sdf.elevation + shift_elev) * scale
 
         # write file
         pointsToVTK(
