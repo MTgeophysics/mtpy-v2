@@ -208,6 +208,12 @@ class TestKernelDatasetMethods(unittest.TestCase):
     def test_from_run_summary_remote_mth5_path(self):
         self.assertEqual(self.kd.remote_mth5_path, Path("remote_path"))
 
+    def test_from_run_summary_local_mth5_path_False(self):
+        self.assertFalse(self.kd.has_local_mth5())
+
+    def test_from_run_summary_remote_mth5_path_False(self):
+        self.assertFalse(self.kd.has_remote_mth5())
+
     def test_num_sample_rates(self):
         self.assertEqual(self.kd.num_sample_rates, 1)
 
