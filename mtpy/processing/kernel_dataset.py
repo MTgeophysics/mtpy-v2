@@ -65,13 +65,13 @@ import copy
 from typing import Optional, Union
 
 import pandas as pd
-
 from loguru import logger
 
 import mt_metadata.timeseries
 from mt_metadata.utils.list_dict import ListDict
-import mth5.timeseries.run_ts
 
+import mth5.timeseries.run_ts
+from mth5.utils.helpers import initialize_mth5
 
 from mtpy.processing.run_summary import RunSummary
 from mtpy.processing import (
@@ -151,6 +151,7 @@ class KernelDataset:
         self.remote_station_id = remote_station_id
         self._mini_summary_columns = MINI_SUMMARY_COLUMNS
         self.survey_metadata = {}
+        self.initialized = False
 
     def __str__(self):
         return str(self.mini_summary.head())
@@ -795,6 +796,33 @@ class KernelDataset:
                 )
         if len(self.survey_metadata.keys()) > 1:
             raise NotImplementedError
+
+    def initialize_mth5s(self, mode="r"):
+        """
+        returns a dict of open mth5 objects, keyed by station_id
+
+        A future version of this for multiple station processing may need
+        nested dict with [survey_id][station]
+
+        Returns
+        -------
+        mth5_objs : dict
+            Keyed by stations.
+            local station id : mth5.mth5.MTH5
+            remote station id: mth5.mth5.MTH5
+        """
+        mth5_obj_dict = {}
+        mth5_obj_dict[self.local_station_id] = initialize_mth5(
+            self.local_mth5_path, mode=mode
+        )
+        if self.remote_station_id:
+            mth5_obj_dict[self.remote_station_id] = initialize_mth5(
+                self.remote_mth5_path, mode="r"
+            )
+
+        self.initialized = True
+
+        return mth5_obj_dict
 
     def initialize_dataframe_for_processing(self, mth5_objs: dict) -> None:
         """
