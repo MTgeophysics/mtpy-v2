@@ -157,6 +157,17 @@ class KernelDataset:
     def __repr__(self):
         return self.__str__()
 
+    # def __iter__(self):
+    #     """
+    #     Iterate over rows in the dataframe
+
+    #     :return: DESCRIPTION
+    #     :rtype: TYPE
+
+    #     """
+
+    #     return self.df.iterrows()[0]
+
     @property
     def df(self):
         return self._df
@@ -182,7 +193,9 @@ class KernelDataset:
 
             raise TypeError(msg)
 
-        self._df = self._set_datetime_columns(self._add_columns(value))
+        self._df = self._add_duration_column(
+            self._set_datetime_columns(self._add_columns(value)), inplace=False
+        )
 
     def _set_datetime_columns(self, df):
         """
@@ -217,15 +230,15 @@ class KernelDataset:
                     raise ValueError(
                         f"{col} must be a filled column in the dataframe"
                     )
+
+                if isinstance(dtype, object):
+                    df[col] = None
                 else:
-                    if isinstance(dtype, object):
-                        df[col] = None
-                    else:
-                        df[col] = dtype(0)
-                    logger.warning(
-                        f"KernelDataset DataFrame needs column {col}, adding "
-                        f"and setting dtype to {dtype}."
-                    )
+                    df[col] = dtype(0)
+                logger.warning(
+                    f"KernelDataset DataFrame needs column {col}, adding "
+                    f"and setting dtype to {dtype}."
+                )
         return df
 
     def from_run_summary(
@@ -313,19 +326,32 @@ class KernelDataset:
             logger.warning(msg)
             return self.survey_metadata["0"]
 
-    def _add_duration_column(self) -> None:
+    def _add_duration_column(self, df, inplace=True) -> None:
         """adds a column to self.df with times end-start (in seconds)"""
-        timedeltas = self.df.end - self.df.start
-        durations = [x.total_seconds() for x in timedeltas]
-        self.df["duration"] = durations
-        return
 
-    def _update_duration_column(self) -> None:
+        timedeltas = df.end - df.start
+        durations = [x.total_seconds() for x in timedeltas]
+        if inplace:
+            df["duration"] = durations
+            return df
+        else:
+            new_df = df.copy()
+            new_df["duration"] = durations
+            return new_df
+
+    def _update_duration_column(self, inplace=True) -> None:
         """calls add_duration_column (after possible manual manipulation of start/end"""
-        self._add_duration_column()
+
+        if inplace:
+            self._df = self._add_duration_column(self._df, inplace)
+        else:
+            return self._add_duration_column(self._df, inplace)
 
     def drop_runs_shorter_than(
-        self, minimum_duration: float, units="s"
+        self,
+        minimum_duration: float,
+        units="s",
+        inplace=True,
     ) -> None:
         """
         Drop runs from df that are inconsequentially short
@@ -344,12 +370,18 @@ class KernelDataset:
         if units != "s":
             msg = "Expected units are seconds : units='s'"
             raise NotImplementedError(msg)
-        if "duration" not in self.df.columns:
-            self._add_duration_column()
+
         drop_cond = self.df.duration < minimum_duration
-        self.df.drop(self.df[drop_cond].index, inplace=True)
-        self.df.reset_index(drop=True, inplace=True)
-        return
+        if inplace:
+            self._update_duration_column(inplace)
+            self.df.drop(self.df[drop_cond].index, inplace=inplace)
+            self.df.reset_index(drop=True, inplace=True)
+            return
+        else:
+            new_df = self._update_duration_column(inplace)
+            new_df = self.df.drop(self.df[drop_cond].index)
+            new_df.reset_index(drop=True, inplace=True)
+            return new_df
 
     def select_station_runs(
         self,
@@ -525,17 +557,13 @@ class KernelDataset:
         run_ids = sub_df.run.unique()
         assert len(run_ids) == len(sub_df)
 
-        # iterate over these runs, packing metadata into
-        # get run metadata from the group object instead of loading the runTS
-        # object, should be much faster.
-        station_metadata = None
+        station_metadata = sub_df.mth5_obj[0].from_reference(
+            sub_df.station_hdf5_reference[0]
+        )
+        station_metadata.runs = ListDict()
         for i, row in sub_df.iterrows():
             local_run_obj = self.get_run_object(row)
-            if station_metadata is None:
-                station_metadata = local_run_obj.station_metadata
-                station_metadata.runs = ListDict()
-            run_metadata = local_run_obj.metadata
-            station_metadata.add_run(run_metadata)
+            station_metadata.add_run(local_run_obj.metadata)
         return station_metadata
 
     def get_run_object(
@@ -697,36 +725,6 @@ class KernelDataset:
         for i, station_id in enumerate(self.df["station"]):
             mth5_obj_column[i] = mth5_objs[station_id]
         self.df["mth5_obj"] = mth5_obj_column
-        # for column_name in columns_to_add:
-        #     self.df[column_name] = None
-
-    # def get_run_object(
-    #     self, index_or_row: Union[int, pd.Series]
-    # ) -> mt_metadata.timeseries.Run:
-    #     """
-    #     Gets the run object associated with a row of the df
-
-    #     Development Notes:
-    #     TODO: This appears to be unused except by get_station_metadata.
-    #      Delete or integrate if desired.
-    #      - This has likely been deprecated by direct calls to
-    #      run_obj = row.mth5_obj.from_reference(row.run_reference) in pipelines.
-
-    #     Parameters
-    #     ----------
-    #     index_or_row: integer index of df, or pd.Series object
-
-    #     Returns
-    #     -------
-    #     run_obj: mt_metadata.timeseries.Run
-    #         The run associated with the row of the df.
-    #     """
-    #     if isinstance(index_or_row, int):
-    #         row = self.df.loc[index_or_row]
-    #     else:
-    #         row = index_or_row
-    #     run_obj = row.mth5_obj.from_reference(row.run_reference)
-    #     return run_obj
 
     def close_mth5s(self) -> None:
         """

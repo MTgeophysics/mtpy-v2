@@ -83,6 +83,10 @@ class TestKernelDataset(unittest.TestCase):
             sorted(self.kd._mini_summary_columns), sorted(mini_df.columns)
         )
 
+    def test_str(self):
+        mini_df = self.kd.mini_summary
+        self.assertEqual(mini_df.head(), str(self.kd))
+
     # @classmethod
     # def tearDownClass(self):
     #     self.mth5_path.unlink()
@@ -193,12 +197,31 @@ class TestKernelDatasetMethods(unittest.TestCase):
             self.assertIn("remote", self.kd.df.columns)
         with self.subTest("has fc column"):
             self.assertIn("fc", self.kd.df.columns)
+        with self.subTest("has_duration"):
+            self.assertFalse((self.kd.df.duration == 0).all())
+
+        with self.subTest("has_all_columns"):
+            self.assertListEqual(
+                sorted(self.kd.df.columns), sorted(KERNEL_DATASET_COLUMNS)
+            )
 
     def test_num_sample_rates(self):
         self.assertEqual(self.kd.num_sample_rates, 1)
 
     def test_sample_rate(self):
         self.assertEqual(self.kd.sample_rate, 1)
+
+    def test_drop_runs_shorter_than(self):
+        self.kd.drop_runs_shorter_than(8000)
+        self.assertEqual((2, 20), self.kd.df.shape)
+
+    def test_survey_id(self):
+        self.assertEqual(self.kd.local_survey_id, "test")
+
+    def test_update_duration_column_not_inplace(self):
+        new_df = self.kd._update_duration_column(inplace=False)
+
+        self.assertTrue((new_df.duration == self.kd.df.duration).all())
 
 
 class TestKernelDatasetMethodsFail(unittest.TestCase):
