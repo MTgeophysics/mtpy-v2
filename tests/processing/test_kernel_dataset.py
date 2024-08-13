@@ -86,7 +86,7 @@ class TestKernelDataset(unittest.TestCase):
 
     def test_str(self):
         mini_df = self.kd.mini_summary
-        self.assertEqual(mini_df.head(), str(self.kd))
+        self.assertEqual(str(mini_df.head()), str(self.kd))
 
     # @classmethod
     # def tearDownClass(self):
