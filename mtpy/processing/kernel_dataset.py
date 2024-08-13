@@ -266,12 +266,11 @@ class KernelDataset:
                     raise ValueError(
                         f"{col} must be a filled column in the dataframe"
                     )
-
-                if isinstance(dtype, object):
-                    df[col] = None
-                else:
+                try:
                     df[col] = dtype(0)
-                logger.warning(
+                except TypeError:
+                    df[col] = None
+                logger.info(
                     f"KernelDataset DataFrame needs column {col}, adding "
                     f"and setting dtype to {dtype}."
                 )
@@ -412,9 +411,7 @@ class KernelDataset:
         self.local_station_id = local_station_id
         self.remote_station_id = remote_station_id
 
-        station_ids = [
-            local_station_id,
-        ]
+        station_ids = [local_station_id]
         if remote_station_id:
             station_ids.append(remote_station_id)
         df = restrict_to_station_list(
@@ -725,7 +722,7 @@ class KernelDataset:
         TODO: This appears to be unused except by get_station_metadata.
          Delete or integrate if desired.
          - This has likely been deprecated by direct calls to
-         run_obj = row.mth5_obj.from_reference(row.run_reference) in pipelines.
+         run_obj = row.mth5_obj.from_reference(row.run_hdf5_reference) in pipelines.
 
         Parameters
         ----------
@@ -740,7 +737,7 @@ class KernelDataset:
             row = self.df.loc[index_or_row]
         else:
             row = index_or_row
-        run_obj = row.mth5_obj.from_reference(row.run_reference)
+        run_obj = row.mth5_obj.from_reference(row.run_hdf5_reference)
         return run_obj
 
     @property
@@ -840,7 +837,7 @@ class KernelDataset:
     def initialize_dataframe_for_processing(self) -> None:
         """
         Adds extra columns needed for processing to the dataframe.
-        Populates them with mth5 objects, run_reference, and xr.Datasets.
+        Populates them with mth5 objects, run_hdf5_reference, and xr.Datasets.
 
         Development Notes:
         Note #1: When assigning xarrays to dataframe cells, df dislikes xr.Dataset,
@@ -865,7 +862,7 @@ class KernelDataset:
             run_obj = row.mth5_obj.get_run(
                 row.station, row.run, survey=row.survey
             )
-            self.df["run_reference"].at[i] = run_obj.hdf5_group.ref
+            self.df["run_hdf5_reference"].at[i] = run_obj.hdf5_group.ref
 
             if row.fc:
                 msg = (
@@ -883,7 +880,7 @@ class KernelDataset:
 
         logger.info("Dataset dataframe initialized successfully")
 
-    def add_columns_for_processing(self, mth5_objs) -> None:
+    def add_columns_for_processing(self) -> None:
         """
         Add columns to the dataframe used during processing.
 

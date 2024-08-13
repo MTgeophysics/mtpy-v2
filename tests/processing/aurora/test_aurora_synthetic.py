@@ -13,6 +13,7 @@ import pandas as pd
 import unittest
 
 from mth5.data.make_mth5_from_asc import MTH5_PATH, create_test12rr_h5
+from mth5.utils.helpers import close_open_files
 
 from mtpy.processing.run_summary import RunSummary
 
@@ -37,15 +38,19 @@ class TestProcessingSingleStation(unittest.TestCase):
         self.run_summary.from_mth5s([self.mth5_path])
         self.kernel_dataset = KernelDataset()
         self.kernel_dataset.from_run_summary(self.run_summary, "test1")
-        self.config = ConfigCreator()
-        self.config.create_from_kernel_dataset(self.kernel_dataset)
+        cc = ConfigCreator()
+        self.config = cc.create_from_kernel_dataset(self.kernel_dataset)
 
         self.tf_obj = process_mth5(self.config, self.kernel_dataset)
         self.mt_obj = MT(survey_metadata=self.tf_obj.survey_metadata)
-        self.mt_obj._transefer_function = self.tf_obj._transfer_function
+        self.mt_obj._transfer_function = self.tf_obj._transfer_function
 
     def test_tf_obj(self):
         self.assertIsInstance(self.mt_obj, MT)
+
+    @classmethod
+    def tearDownClass(self):
+        close_open_files()
 
 
 # =============================================================================
