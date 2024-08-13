@@ -837,7 +837,7 @@ class KernelDataset:
 
         return self.mth5_objs
 
-    def initialize_dataframe_for_processing(self, mth5_objs: dict) -> None:
+    def initialize_dataframe_for_processing(self) -> None:
         """
         Adds extra columns needed for processing to the dataframe.
         Populates them with mth5 objects, run_reference, and xr.Datasets.
@@ -853,17 +853,13 @@ class KernelDataset:
          row at a time and never ingest more than one run of data at a time ...
 
         Note #3: Uncommenting the continue statement here is desireable, will speed things up, but
-        is not yet tested.  A nice test would be to have two stations, some runs having FCs built
-        and others not having FCs built.  What goes wrong is in update_survey_metadata.
-        Need a way to get the survey metadata from a run, not a run_ts if possible
+         is not yet tested.  A nice test would be to have two stations, some runs having FCs built
+         and others not having FCs built.  What goes wrong is in update_survey_metadata.
+         Need a way to get the survey metadata from a run, not a run_ts if possible
 
-        Parameters
-        ----------
-        mth5_objs: dict,
-            Keys are station_id, values are MTH5 objects.
         """
 
-        self.add_columns_for_processing(mth5_objs)
+        self.add_columns_for_processing()
 
         for i, row in self.df.iterrows():
             run_obj = row.mth5_obj.get_run(
