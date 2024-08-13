@@ -74,8 +74,7 @@ import mth5.timeseries.run_ts
 
 from mtpy.processing.run_summary import RunSummary
 from mtpy.processing import (
-    ADDED_KERNEL_DATASET_COLUMNS,
-    KERNEL_DATASET_COLUMNS,
+    KERNEL_DATASET_DTYPE,
     MINI_SUMMARY_COLUMNS,
 )
 
@@ -183,16 +182,7 @@ class KernelDataset:
 
             raise TypeError(msg)
 
-        need_columns = []
-        for col in KERNEL_DATASET_COLUMNS:
-            if not col in value.columns:
-                need_columns.append(col)
-        if need_columns:
-            msg = f"DataFrame needs columns {', '.join(need_columns)}"
-            logger.error(msg)
-            raise ValueError(msg)
-
-        self._df = self._set_datetime_columns(value)
+        self._df = self._set_datetime_columns(self._add_columns(value))
 
     def _set_datetime_columns(self, df):
         """
@@ -215,6 +205,28 @@ class KernelDataset:
     def clone_dataframe(self) -> pd.DataFrame:
         """return a deep copy of dataframe"""
         return copy.deepcopy(self.df)
+
+    def _add_columns(self, df):
+        """
+        add columns with appropriate dtypes
+        """
+
+        for col, dtype in KERNEL_DATASET_DTYPE:
+            if not col in df.columns:
+                if col in ["survey", "station", "run", "start", "end"]:
+                    raise ValueError(
+                        f"{col} must be a filled column in the dataframe"
+                    )
+                else:
+                    if isinstance(dtype, object):
+                        df[col] = None
+                    else:
+                        df[col] = dtype(0)
+                    logger.warning(
+                        f"KernelDataset DataFrame needs column {col}, adding "
+                        f"and setting dtype to {dtype}."
+                    )
+        return df
 
     def from_run_summary(
         self,
@@ -254,18 +266,14 @@ class KernelDataset:
             raise ValueError(msg)
 
         # add columns column
-        for col in ADDED_KERNEL_DATASET_COLUMNS:
-            df[col] = None
-
-        df["fc"] = False
+        df = self._add_columns(df)
 
         # set remote reference
-        df["remote"] = False
         if remote_station_id:
             cond = df.station == remote_station_id
             df.remote = cond
 
-        # be sure to set date time columns
+        # be sure to set date time columns and restrict to simultaneous runs
         df = self._set_datetime_columns(df)
         if remote_station_id:
             df = self.restrict_run_intervals_to_simultaneous(df)
@@ -285,11 +293,6 @@ class KernelDataset:
     def mini_summary(self) -> pd.DataFrame:
         """return a dataframe that fits in terminal"""
         return self.df[self._mini_summary_columns]
-
-    @property
-    def print_mini_summary(self) -> None:
-        """prints a dataframe that (hopefully) fits in terminal"""
-        logger.info(self.mini_summary)
 
     @property
     def local_survey_id(self) -> str:
@@ -523,6 +526,8 @@ class KernelDataset:
         assert len(run_ids) == len(sub_df)
 
         # iterate over these runs, packing metadata into
+        # get run metadata from the group object instead of loading the runTS
+        # object, should be much faster.
         station_metadata = None
         for i, row in sub_df.iterrows():
             local_run_obj = self.get_run_object(row)
@@ -532,6 +537,34 @@ class KernelDataset:
             run_metadata = local_run_obj.metadata
             station_metadata.add_run(run_metadata)
         return station_metadata
+
+    def get_run_object(
+        self, index_or_row: Union[int, pd.Series]
+    ) -> mt_metadata.timeseries.Run:
+        """
+        Gets the run object associated with a row of the df
+
+        Development Notes:
+        TODO: This appears to be unused except by get_station_metadata.
+         Delete or integrate if desired.
+         - This has likely been deprecated by direct calls to
+         run_obj = row.mth5_obj.from_reference(row.run_reference) in pipelines.
+
+        Parameters
+        ----------
+        index_or_row: integer index of df, or pd.Series object
+
+        Returns
+        -------
+        run_obj: mt_metadata.timeseries.Run
+            The run associated with the row of the df.
+        """
+        if isinstance(index_or_row, int):
+            row = self.df.loc[index_or_row]
+        else:
+            row = index_or_row
+        run_obj = row.mth5_obj.from_reference(row.run_reference)
+        return run_obj
 
     @property
     def num_sample_rates(self) -> int:
