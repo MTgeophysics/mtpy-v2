@@ -60,6 +60,7 @@ TODO: Might need to groupby survey & station, for now consider station_id  uniqu
 # =============================================================================
 # Imports
 # =============================================================================
+from pathlib import Path
 import copy
 from typing import Optional, Union
 
@@ -197,6 +198,38 @@ class KernelDataset:
             self._set_datetime_columns(self._add_columns(value)), inplace=False
         )
 
+    def _has_df(self):
+        """
+        check to see if dataframe is set
+        """
+        if self._df is not None:
+            if not self._df.empty:
+                return True
+            return False
+        return False
+
+    def _df_has_local_station_id(self):
+        """
+        Check to make sure the dataframe has the local station id
+
+        :return: DESCRIPTION
+        :rtype: bool
+
+        """
+        if self._has_df():
+            return (self._df.station == self.local_station_id).any()
+
+    def _df_has_remote_station_id(self):
+        """
+        Check to make sure the dataframe has the local station id
+
+        :return: DESCRIPTION
+        :rtype: bool
+
+        """
+        if self._has_df():
+            return (self._df.station == self.remote_station_id).any()
+
     def _set_datetime_columns(self, df):
         """
         be sure to set start and end to be date time objects
@@ -240,6 +273,119 @@ class KernelDataset:
                     f"and setting dtype to {dtype}."
                 )
         return df
+
+    @property
+    def local_station_id(self):
+        return self._local_station_id
+
+    @local_station_id.setter
+    def local_station_id(self, value):
+        if value is None:
+            self._local_station_id = None
+        else:
+            try:
+                self._local_station_id = str(value)
+            except ValueError:
+                raise ValueError(
+                    f"Bad type {type(value)}. "
+                    "Cannot convert local_station_id value to string."
+                )
+            if self._has_df():
+                if not self._df_has_local_station_id():
+                    raise NameError(
+                        f"Could not find {self._local_station_id} in dataframe"
+                    )
+
+    @property
+    def local_mth5_path(self):
+        """
+
+        :return: Local station MTH5 path, a property extracted from the dataframe
+        :rtype: Path
+
+        """
+        if self._has_df():
+            return Path(
+                self._df.loc[
+                    self._df.station == self.local_station_id, "mth5_path"
+                ].unique()[0]
+            )
+        else:
+            return None
+
+    # @local_mth5_path.setter
+    # def local_mth5_path(self, value):
+    #     self._local_mth5_path = self.set_path(value)
+
+    def has_local_mth5(self):
+        """test if local mth5 exists"""
+        if self.local_mth5_path is None:
+            return False
+        else:
+            return self.local_mth5_path.exists()
+
+    @property
+    def remote_station_id(self):
+        return self._remote_station_id
+
+    @remote_station_id.setter
+    def remote_station_id(self, value):
+        if value is None:
+            self._remote_station_id = None
+        else:
+            try:
+                self._remote_station_id = str(value)
+            except ValueError:
+                raise ValueError(
+                    f"Bad type {type(value)}. "
+                    "Cannot convert remote_station_id value to string."
+                )
+            if self._has_df():
+                if not self._df_has_remote_station_id():
+                    raise NameError(
+                        f"Could not find {self._remote_station_id} in dataframe"
+                    )
+
+    @property
+    def remote_mth5_path(self):
+        """
+
+        :return: remote station MTH5 path, a property extracted from the dataframe
+        :rtype: Path
+
+        """
+        if self._has_df() and self.remote_station_id is not None:
+            return Path(
+                self._df.loc[
+                    self._df.station == self.remote_station_id, "mth5_path"
+                ].unique()[0]
+            )
+        else:
+            return None
+
+    # @remote_mth5_path.setter
+    # def remote_mth5_path(self, value):
+    #     self._remote_mth5_path = self.set_path(value)
+
+    def has_remote_mth5(self):
+        """test if remote mth5 exists"""
+        if self.remote_mth5_path is None:
+            return False
+        else:
+            return self.remote_mth5_path.exists()
+
+    @classmethod
+    def set_path(self, value):
+        return_path = None
+        if value is not None:
+            if isinstance(value, (str, Path)):
+                return_path = Path(value)
+                if not return_path.exists():
+                    raise IOError(f"Cannot find file: {return_path}")
+            else:
+                raise ValueError(f"Cannot convert type{type(value)} to Path")
+
+        return return_path
 
     def from_run_summary(
         self,

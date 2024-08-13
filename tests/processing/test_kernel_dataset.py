@@ -1,6 +1,7 @@
 # =============================================================================
 # Imports
 # =============================================================================
+from pathlib import Path
 import pandas as pd
 import unittest
 
@@ -166,7 +167,7 @@ class TestKernelDatasetMethods(unittest.TestCase):
                 ],
                 "has_data": [True, True, True, True],
                 "input_channels": ["hx, hy"] * 4,
-                "mth5_path": ["path"] * 4,
+                "mth5_path": ["path"] * 2 + ["remote_path"] * 2,
                 "n_samples": [86400, 86400, 79200, 7200],
                 "output_channels": ["hz, ex, ey"] * 4,
                 "run": ["01", "02", "03", "04"],
@@ -187,23 +188,25 @@ class TestKernelDatasetMethods(unittest.TestCase):
         self.kd = KernelDataset()
         self.kd.from_run_summary(self.run_summary, self.local, self.remote)
 
-    def test_from_run_summary(self):
+    def test_from_run_summary_local_station_id(self):
+        self.assertEqual(self.kd.local_station_id, self.local)
 
-        with self.subTest("local_station_id"):
-            self.assertEqual(self.kd.local_station_id, self.local)
-        with self.subTest("remote_station_id"):
-            self.assertEqual(self.kd.remote_station_id, self.remote)
-        with self.subTest("has remote column"):
-            self.assertIn("remote", self.kd.df.columns)
-        with self.subTest("has fc column"):
-            self.assertIn("fc", self.kd.df.columns)
-        with self.subTest("has_duration"):
-            self.assertFalse((self.kd.df.duration == 0).all())
+    def test_from_run_summary_remote_station_id(self):
+        self.assertEqual(self.kd.remote_station_id, self.remote)
 
-        with self.subTest("has_all_columns"):
-            self.assertListEqual(
-                sorted(self.kd.df.columns), sorted(KERNEL_DATASET_COLUMNS)
-            )
+    def test_from_run_summary_has_duration(self):
+        self.assertFalse((self.kd.df.duration == 0).all())
+
+    def test_from_run_summary_has_all_columns(self):
+        self.assertListEqual(
+            sorted(self.kd.df.columns), sorted(KERNEL_DATASET_COLUMNS)
+        )
+
+    def test_from_run_summary_local_mth5_path(self):
+        self.assertEqual(self.kd.local_mth5_path, Path("path"))
+
+    def test_from_run_summary_remote_mth5_path(self):
+        self.assertEqual(self.kd.remote_mth5_path, Path("remote_path"))
 
     def test_num_sample_rates(self):
         self.assertEqual(self.kd.num_sample_rates, 1)
@@ -222,6 +225,18 @@ class TestKernelDatasetMethods(unittest.TestCase):
         new_df = self.kd._update_duration_column(inplace=False)
 
         self.assertTrue((new_df.duration == self.kd.df.duration).all())
+
+    def test_set_local_station_id_fail(self):
+        def set_station(value):
+            self.kd.local_station_id = value
+
+        self.assertRaises(NameError, set_station, "mt03")
+
+    def test_set_remote_station_id_fail(self):
+        def set_station(value):
+            self.kd.remote_station_id = value
+
+        self.assertRaises(NameError, set_station, "mt03")
 
 
 class TestKernelDatasetMethodsFail(unittest.TestCase):

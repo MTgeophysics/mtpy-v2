@@ -189,20 +189,6 @@ class RunSummary:
             new_rs.df = new_rs.df[new_rs.df.sample_rate == sample_rate]
             return new_rs
 
-    # BELOW FUNCTION CAN BE COPIED FROM METHOD IN KernelDataset()
-    # def drop_runs_shorter_than(self, duration, units="s"):
-    #     if units != "s":
-    #         raise NotImplementedError
-    #     if "duration" not in self.df.columns:
-    #         self.add_duration()
-    #     drop_cond = self.df.duration < duration
-    #     # df = self.df[drop_cond]
-    #     self.df.drop(self.df[drop_cond].index, inplace=True)
-    #     df = df.reset_index()
-    #
-    #     self.df = df
-    #     return df
-
 
 def extract_run_summary_from_mth5(mth5_obj, summary_type="run"):
     """
