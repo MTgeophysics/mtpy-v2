@@ -152,6 +152,8 @@ class KernelDataset:
         self._mini_summary_columns = MINI_SUMMARY_COLUMNS
         self.survey_metadata = {}
         self.initialized = False
+        self.local_mth5_obj = None
+        self.remote_mth5_obj = None
 
     def __str__(self):
         return str(self.mini_summary.head())
@@ -797,6 +799,20 @@ class KernelDataset:
         if len(self.survey_metadata.keys()) > 1:
             raise NotImplementedError
 
+    @property
+    def mth5_objs(self):
+        """
+
+        :return: dictionary [station_id: mth5_obj]
+        :rtype: dict
+
+        """
+        mth5_obj_dict = {}
+        mth5_obj_dict[self.local_station_id] = self.local_mth5_obj
+        if self.remote_station_id is not None:
+            mth5_obj_dict[self.remote_station_id] = self.remote_mth5_obj
+        return mth5_obj_dict
+
     def initialize_mth5s(self, mode="r"):
         """
         returns a dict of open mth5 objects, keyed by station_id
@@ -811,18 +827,15 @@ class KernelDataset:
             local station id : mth5.mth5.MTH5
             remote station id: mth5.mth5.MTH5
         """
-        mth5_obj_dict = {}
-        mth5_obj_dict[self.local_station_id] = initialize_mth5(
-            self.local_mth5_path, mode=mode
-        )
+        self.local_mth5_obj = initialize_mth5(self.local_mth5_path, mode=mode)
         if self.remote_station_id:
-            mth5_obj_dict[self.remote_station_id] = initialize_mth5(
+            self.remote_mth5_obj = initialize_mth5(
                 self.remote_mth5_path, mode="r"
             )
 
         self.initialized = True
 
-        return mth5_obj_dict
+        return self.mth5_objs
 
     def initialize_dataframe_for_processing(self, mth5_objs: dict) -> None:
         """
@@ -894,11 +907,17 @@ class KernelDataset:
             Keys are station_id, values are MTH5 objects.
 
         """
-        # columns_to_add = ["run_dataarray", "stft", "run_reference"]
-        mth5_obj_column = len(self.df) * [None]
-        for i, station_id in enumerate(self.df["station"]):
-            mth5_obj_column[i] = mth5_objs[station_id]
-        self.df["mth5_obj"] = mth5_obj_column
+        if not self.initialized:
+            raise ValueError("mth5 objects have not been initialized yet.")
+
+        if self._has_df():
+            self._df.loc[
+                self._df.station == self.local_station_id, "mth5_obj"
+            ] = self.local_mth5_obj
+            if self.remote_station_id is not None:
+                self._df.loc[
+                    self._df.station == self.remote_station_id, "mth5_obj"
+                ] = self.remote_mth5_obj
 
     def close_mth5s(self) -> None:
         """
