@@ -44,6 +44,42 @@ class TestProcessingSingleStation(unittest.TestCase):
     def test_tf_obj(self):
         self.assertIsInstance(self.mt_obj, MT)
 
+    def test_run_summary(self):
+        """
+        Most of the testing for run_summary is in test, this is just a quick
+        check
+
+        """
+
+        with self.subTest("shape"):
+            self.assertEqual(self.run_summary.df.shape, (2, 15))
+
+    def test_kernel_dataset(self):
+        with self.subTest("shape"):
+            self.assertEqual(self.kernel_dataset.df.shape, (1, 20))
+        with self.subTest("remote is None"):
+            self.assertEqual(None, self.kernel_dataset.remote_station_id)
+        with self.subTest("remote_df is None"):
+            self.assertEqual(None, self.kernel_dataset.remote_df)
+        with self.subTest("input_channels"):
+            self.assertListEqual(
+                self.kernel_dataset.input_channels, ["hx", "hy"]
+            )
+        with self.subTest("output_channels"):
+            self.assertListEqual(
+                self.kernel_dataset.output_channels, ["ex", "ey", "hz"]
+            )
+
+    def test_config(self):
+        with self.subTest("input_channels"):
+            self.assertListEqual(
+                self.config.decimations[0].input_channels, ["hx", "hy"]
+            )
+        with self.subTest("output_channels"):
+            self.assertListEqual(
+                self.config.decimations[0].output_channels, ["ex", "ey", "hz"]
+            )
+
     @classmethod
     def tearDownClass(self):
         close_open_files()

@@ -383,6 +383,20 @@ class KernelDataset:
             return self.remote_mth5_path.exists()
 
     @property
+    def processing_id(self):
+        """its difficult to come put with unique ids without crazy long names
+        so this is a generic id of local-remote, the station metadata
+        will have run information and the config parameters.
+        """
+        if self.remote_station_id is not None:
+            return (
+                f"{self.local_station_id}-rr_{self.remote_station_id}_"
+                f"sr{int(self.sample_rate)}"
+            )
+        else:
+            return f"{self.local_station_id}_sr{int(self.sample_rate)}"
+
+    @property
     def input_channels(self):
         """
         get input channels from data frame

@@ -10,9 +10,11 @@ from mth5.data.make_mth5_from_asc import MTH5_PATH, create_test12rr_h5
 from mtpy.processing import KERNEL_DATASET_COLUMNS
 from mtpy.processing.run_summary import RunSummary
 
-from mtpy.processing.kernel_dataset import intervals_overlap
-from mtpy.processing.kernel_dataset import overlap
-from mtpy.processing.kernel_dataset import KernelDataset
+from mtpy.processing.kernel_dataset import (
+    intervals_overlap,
+    overlap,
+    KernelDataset,
+)
 
 # =============================================================================
 
@@ -98,7 +100,7 @@ class TestKernelDataset(unittest.TestCase):
         with self.subTest("shape"):
             self.assertEqual(self.kd.local_df.shape, (1, 20))
         with self.subTest("local station only length"):
-            self.assertEqual(len(self.kd.local_df.station.unqiue()), 1)
+            self.assertEqual(len(self.kd.local_df.station.unique()), 1)
         with self.subTest("local station only"):
             self.assertListEqual(
                 list(self.kd.local_df.station.unique()), ["test1"]
@@ -108,11 +110,14 @@ class TestKernelDataset(unittest.TestCase):
         with self.subTest("shape"):
             self.assertEqual(self.kd.remote_df.shape, (1, 20))
         with self.subTest("remote station only length"):
-            self.assertEqual(len(self.kd.remote_df.station.unqiue()), 1)
+            self.assertEqual(len(self.kd.remote_df.station.unique()), 1)
         with self.subTest("remote station only"):
             self.assertListEqual(
-                list(self.kd.remote_df.station.unique()), ["test1"]
+                list(self.kd.remote_df.station.unique()), ["test2"]
             )
+
+    def test_processing_id(self):
+        self.assertEqual(self.kd.processing_id, "test1-rr_test2_sr1")
 
     # @classmethod
     # def tearDownClass(self):
