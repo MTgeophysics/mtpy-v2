@@ -382,6 +382,58 @@ class KernelDataset:
         else:
             return self.remote_mth5_path.exists()
 
+    @property
+    def input_channels(self):
+        """
+        get input channels from data frame
+
+        :return: Input channels (sources)
+        :rtype: list of strings
+
+        """
+
+        if self._has_df():
+            return self.local_df.input_channels[0]
+
+    @property
+    def output_channels(self):
+        """
+        get input channels from data frame
+
+        :return: Input channels (sources)
+        :rtype: list of strings
+
+        """
+
+        if self._has_df():
+            return self.local_df.output_channels[0]
+
+    @property
+    def local_df(self):
+        """
+        split data frame to just the local station runs
+
+        :return: Local station runs
+        :rtype: pd.DataFrame
+
+        """
+
+        if self._has_df():
+            return self.df[self.df.station == self.local_station_id]
+
+    @property
+    def remote_df(self):
+        """
+        split data frame to just the local station runs
+
+        :return: Local station runs
+        :rtype: pd.DataFrame
+
+        """
+
+        if self._has_df() and self.remote_station_id is not None:
+            return self.df[self.df.station == self.remote_station_id]
+
     @classmethod
     def set_path(self, value):
         return_path = None

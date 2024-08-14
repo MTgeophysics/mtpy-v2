@@ -88,6 +88,32 @@ class TestKernelDataset(unittest.TestCase):
         mini_df = self.kd.mini_summary
         self.assertEqual(str(mini_df.head()), str(self.kd))
 
+    def test_input_channels(self):
+        self.assertListEqual(["hx", "hy"], self.kd.input_channels)
+
+    def test_output_channels(self):
+        self.assertListEqual(["ex", "ey", "hz"], self.kd.output_channels)
+
+    def test_local_df(self):
+        with self.subTest("shape"):
+            self.assertEqual(self.kd.local_df.shape, (1, 20))
+        with self.subTest("local station only length"):
+            self.assertEqual(len(self.kd.local_df.station.unqiue()), 1)
+        with self.subTest("local station only"):
+            self.assertListEqual(
+                list(self.kd.local_df.station.unique()), ["test1"]
+            )
+
+    def test_remote_df(self):
+        with self.subTest("shape"):
+            self.assertEqual(self.kd.remote_df.shape, (1, 20))
+        with self.subTest("remote station only length"):
+            self.assertEqual(len(self.kd.remote_df.station.unqiue()), 1)
+        with self.subTest("remote station only"):
+            self.assertListEqual(
+                list(self.kd.remote_df.station.unique()), ["test1"]
+            )
+
     # @classmethod
     # def tearDownClass(self):
     #     self.mth5_path.unlink()
@@ -111,11 +137,15 @@ class TestOverlapFunctions(unittest.TestCase):
         # hours
 
         # shift the interval forward, leave it overlapping
-        self.ti2_start = self.ti1_start + pd.Timedelta(hours=self.shift_1_hours)
+        self.ti2_start = self.ti1_start + pd.Timedelta(
+            hours=self.shift_1_hours
+        )
         self.ti2_end = self.ti1_end + pd.Timedelta(hours=self.shift_1_hours)
 
         # shift the interval forward, non-verlapping
-        self.ti3_start = self.ti1_start + pd.Timedelta(hours=self.shift_2_hours)
+        self.ti3_start = self.ti1_start + pd.Timedelta(
+            hours=self.shift_2_hours
+        )
         self.ti3_end = self.ti1_end + pd.Timedelta(hours=self.shift_2_hours)
 
     def test_overlaps_boolean(self):
