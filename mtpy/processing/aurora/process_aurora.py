@@ -154,6 +154,7 @@ class AuroraProcessing(BaseProcessing):
             logger.error(f"Skipping sample_rate {sample_rate}")
             return None
 
+        tf_obj.tf_id = self.processing_id
         mt_obj = MT(survey_metadata=tf_obj.survey_metadata)
         mt_obj._transfer_function = tf_obj._transfer_function
 
@@ -213,9 +214,50 @@ class AuroraProcessing(BaseProcessing):
                     tf_processed[sr]["processed"] = True
                     tf_processed[sr]["tf"] = mt_obj
 
-            if merge:
-                ### merge transfer functions according to merge dict
-                pass
+        if merge:
+            ### merge transfer functions according to merge dict
+            pass
+
+        if save_to_mth5:
+            ### add tf to local MTH5
+            self._add_tf_to_local_mth5(tf_processed)
+
+        return tf_processed
+
+    def _get_processed_tf_dict(self, tf_dict):
+        """
+        Pick out processed transfer functions from a given processed dict,
+        which may have some sample rates that did not process for whatever
+        reason.
+
+        :param tf_dict: DESCRIPTION
+        :type tf_dict: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        new_dict = {}
+        for key, p_dict in tf_dict.items():
+            if p_dict["processed"]:
+                new_dict[key] = p_dict
+        return new_dict
+
+    def _add_tf_to_local_mth5(self, tf_dict):
+        """
+        add transfer function to MTH5
+
+        :param tf_dict: DESCRIPTION
+        :type tf_dict: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        with MTH5() as m:
+            m.open_mth5(self.local_mth5_path)
+            for p_dict in tf_dict.values():
+                m.add_transfer_function(p_dict["tf"])
 
     def merge_transfer_functions(self, tf_dict):
         """
@@ -227,4 +269,3 @@ class AuroraProcessing(BaseProcessing):
         :rtype: TYPE
 
         """
-        pass

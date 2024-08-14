@@ -38,7 +38,8 @@ class BaseProcessing(KernelDataset):
         if self.has_local_mth5():
             mth5_list.append(self.local_mth5_path)
         if self.has_remote_mth5():
-            mth5_list.append(self.remote_mth5_path)
+            if self.local_mth5_path != self.remote_mth5_path:
+                mth5_list.append(self.remote_mth5_path)
 
         if len(mth5_list) == 0:
             raise ValueError("No MTH5 file paths set. Return list is empty.")
