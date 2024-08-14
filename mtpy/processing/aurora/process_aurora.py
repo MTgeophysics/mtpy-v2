@@ -12,9 +12,11 @@ import warnings
 from pathlib import Path
 from loguru import logger
 import pandas as pd
+import numpy as np
 
 from aurora.config.config_creator import ConfigCreator
 from aurora.pipelines.process_mth5 import process_mth5
+from aurora.config.metadata import Processing
 
 from mth5.helpers import close_open_files
 from mth5.mth5 import MTH5
@@ -81,6 +83,7 @@ class AuroraProcessing(BaseProcessing):
             else:
                 decimation_kwargs.update(self.default_window_parameters["low"])
             self._set_decimation_level_parameters(config, **decimation_kwargs)
+            return config
         else:
             raise ValueError(
                 "Cannot make config because KernelDataset has not been set yet."
@@ -123,7 +126,9 @@ class AuroraProcessing(BaseProcessing):
 
         self.from_run_summary(run_summary, local_station_id, remote_station_id)
 
-    def _process_single_sample_rate(self, config):
+    def process_single_sample_rate(
+        self, sample_rate, config=None, kernel_dataset=None
+    ):
         """
         process data
 
@@ -132,28 +137,90 @@ class AuroraProcessing(BaseProcessing):
 
         """
 
-        tf_obj = process_mth5(config, self)
+        if kernel_dataset is None:
+            run_summary = self.run_summary.set_sample_rate(sample_rate)
+            self.from_run_summary(run_summary)
+            kernel_dataset = self.clone()
+        if config is None:
+            config = self.create_config()
+
+        try:
+            tf_obj = process_mth5(config, kernel_dataset)
+        except Exception as error:
+            close_open_files()
+            logger.exception(error)
+            logger.error(f"Skipping sample_rate {sample_rate}")
+            return None
+
         mt_obj = MT(survey_metadata=tf_obj.survey_metadata)
         mt_obj._transfer_function = tf_obj._transfer_function
 
         return mt_obj
 
-    def process(self, sample_rates, configs, merge=True, save_to_mth5=True):
+    def process(
+        self, sample_rates, processing_dict=None, merge=True, save_to_mth5=True
+    ):
         """
+        If you provide just the sample rates, then at each sample rate a
+        KernelDataset will be created as well as a subsequent config object
+        which are then used to process the data.
+
+        If processing_dict is set then the processing will loop through the
+        dictionary and use the provided config and kernel datasets.
+
         process all runs for all sample rates and the combine the transfer
         function according to merge_dict.
 
         Need to figure out a way to adjust the config per sample rate.  Maybe
         A dictionary of configs keyed by sample rate.
 
-        :param sample_rates: DESCRIPTION
-        :type sample_rates: TYPE
+        processing_dict = {sample_rate: {
+            "config": config object,
+            "kernel_dataset": KernelDataset object,
+            }
+
         :param config: dictionary of configuration keyed by sample rates.
         :type config: dictionary
         :param merge: DESCRIPTION, defaults to True
         :type merge: TYPE, optional
         :param save_to_mth5: DESCRIPTION, defaults to True
         :type save_to_mth5: TYPE, optional
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        if processing_dict is None:
+            if isinstance(sample_rates, (int, float)):
+                sample_rates = [sample_rates]
+            elif isinstance(sample_rates, (list, tuple, np.ndarray)):
+                sample_rates = list(sample_rates)
+            else:
+                raise TypeError(
+                    "Sample rates are incorrect type. Expected an int or "
+                    f"list not {type(sample_rates)}"
+                )
+
+            tf_processed = dict(
+                [(sr, {"processed": False, "tf": None}) for sr in sample_rates]
+            )
+
+            for sr in sample_rates:
+                mt_obj = self._process_single_sample_rate(sr)
+                if mt_obj is not None:
+                    tf_processed[sr]["processed"] = True
+                    tf_processed[sr]["tf"] = mt_obj
+
+            if merge:
+                ### merge transfer functions according to merge dict
+                pass
+
+    def merge_transfer_functions(self, tf_dict):
+        """
+        merge transfer functions according to merge dict
+
+        :param tf_dict: DESCRIPTION
+        :type tf_dict: TYPE
         :return: DESCRIPTION
         :rtype: TYPE
 

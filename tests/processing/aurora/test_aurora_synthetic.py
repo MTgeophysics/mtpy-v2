@@ -20,6 +20,7 @@ from mtpy import MT
 
 from aurora.config.config_creator import ConfigCreator
 from aurora.pipelines.process_mth5 import process_mth5
+from mtpy.processing.aurora.process_aurora import AuroraProcessing
 
 
 # =============================================================================
@@ -79,6 +80,30 @@ class TestProcessingSingleStation(unittest.TestCase):
             self.assertListEqual(
                 self.config.decimations[0].output_channels, ["ex", "ey", "hz"]
             )
+
+    @classmethod
+    def tearDownClass(self):
+        close_open_files()
+
+
+class TestAuroraProcessingSingleStationSingleSampleRate(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.mth5_path = MTH5_PATH.joinpath("test12rr.h5")
+        if not self.mth5_path.exists():
+            self.mth5_path = create_test12rr_h5()
+
+        self.ap = AuroraProcessing()
+        self.ap.local_station_id = "test1"
+        self.ap.local_mth5_path = self.mth5_path
+
+        self.ap.run_summary = self.ap.get_run_summary()
+        self.ap.from_run_summary(self.ap.run_summary)
+
+        self.mt_obj = self.ap.process_single_sample_rate(1)
+
+    def test_tf_obj(self):
+        self.assertIsInstance(self.mt_obj, MT)
 
     @classmethod
     def tearDownClass(self):
