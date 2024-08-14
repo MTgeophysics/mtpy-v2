@@ -398,9 +398,9 @@ class KernelDataset:
     def from_run_summary(
         self,
         run_summary: RunSummary,
-        local_station_id: Optional[Union(str, None)] = None,
+        local_station_id: Optional[Union[str, None]] = None,
         remote_station_id: Optional[Union[str, None]] = None,
-        sample_rate: Optional[Union(float, int, None)] = None,
+        sample_rate: Optional[Union[float, int, None]] = None,
     ) -> None:
         """
         Initialize the dataframe from a run summary
@@ -878,9 +878,7 @@ class KernelDataset:
             self.df["run_hdf5_reference"].at[i] = run_obj.hdf5_group.ref
 
             if row.fc:
-                msg = (
-                    f"row {row} already has fcs prescribed by processing config"
-                )
+                msg = f"row {row} already has fcs prescribed by processing config"
                 msg += "-- skipping time series initialisation"
                 logger.info(msg)
                 # see Note #3

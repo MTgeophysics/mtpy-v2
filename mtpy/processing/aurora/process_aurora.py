@@ -47,23 +47,61 @@ class AuroraProcessing(BaseProcessing):
             24000: {"period_min": 1.0 / 6000, "period_max": 1.0 / 187.5},
         }
 
-    def create_config(self, inplace=True, **kwargs):
+        self.default_window_parameters = {
+            "high": {
+                "window.overlap": 256,
+                "window.num_samples": 1024,
+                "window.type": "dpss",
+                "window.additional_args": {"alpha": 2.5},
+            },
+            "low": {
+                "window.overlap": 64,
+                "window.num_samples": 128,
+                "window.type": "dpss",
+                "window.additional_args": {"alpha": 2.5},
+            },
+        }
+
+    def create_config(self, decimation_kwargs={}, **kwargs):
         """
 
+        decimation kwargs can include information about window,
+
         :return: DESCRIPTION
-        :rtype: TYPE
+        :rtype: aurora.config
 
         """
         if self.has_kernel_dataset():
             cc = ConfigCreator()
-            if inplace:
-                self.config = cc.create_from_kernel_dataset(self, **kwargs)
+            config = cc.create_from_kernel_dataset(self, **kwargs)
+            if self.sample_rate > 1000:
+                decimation_kwargs.update(
+                    self.default_window_parameters["high"]
+                )
             else:
-                return cc.create_from_kernel_dataset(self, **kwargs)
+                decimation_kwargs.update(self.default_window_parameters["low"])
+            self._set_decimation_level_parameters(config, **decimation_kwargs)
         else:
             raise ValueError(
                 "Cannot make config because KernelDataset has not been set yet."
             )
+
+    def _set_decimation_level_parameters(self, config, **kwargs):
+        """
+        set decimation level parameters
+
+        :param config: DESCRIPTION
+        :type config: TYPE
+        :param **kwargs: DESCRIPTION
+        :type **kwargs: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        for decimation in config.decimations:
+            for key, value in kwargs.items():
+                decimation.set_attr_from_name(key, value)
 
     def build_kernel_dataset(
         self,
@@ -85,7 +123,7 @@ class AuroraProcessing(BaseProcessing):
 
         self.from_run_summary(run_summary, local_station_id, remote_station_id)
 
-    def _process_single_sample_rate(self):
+    def _process_single_sample_rate(self, config):
         """
         process data
 
@@ -94,13 +132,13 @@ class AuroraProcessing(BaseProcessing):
 
         """
 
-        tf_obj = process_mth5(self.config, self)
+        tf_obj = process_mth5(config, self)
         mt_obj = MT(survey_metadata=tf_obj.survey_metadata)
         mt_obj._transfer_function = tf_obj._transfer_function
 
         return mt_obj
 
-    def process(self, sample_rates, merge=True, save_to_mth5=True):
+    def process(self, sample_rates, configs, merge=True, save_to_mth5=True):
         """
         process all runs for all sample rates and the combine the transfer
         function according to merge_dict.
@@ -110,6 +148,8 @@ class AuroraProcessing(BaseProcessing):
 
         :param sample_rates: DESCRIPTION
         :type sample_rates: TYPE
+        :param config: dictionary of configuration keyed by sample rates.
+        :type config: dictionary
         :param merge: DESCRIPTION, defaults to True
         :type merge: TYPE, optional
         :param save_to_mth5: DESCRIPTION, defaults to True
