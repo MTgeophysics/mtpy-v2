@@ -400,6 +400,7 @@ class KernelDataset:
         run_summary: RunSummary,
         local_station_id: Optional[Union(str, None)] = None,
         remote_station_id: Optional[Union[str, None]] = None,
+        sample_rate: Optional[Union(float, int, None)] = None,
     ) -> None:
         """
         Initialize the dataframe from a run summary
@@ -418,6 +419,9 @@ class KernelDataset:
             self.local_station_id = local_station_id
         if remote_station_id is not None:
             self.remote_station_id = remote_station_id
+
+        if sample_rate is not None:
+            run_summary = run_summary.set_sample_rate(sample_rate)
 
         station_ids = [self.local_station_id]
         if remote_station_id:

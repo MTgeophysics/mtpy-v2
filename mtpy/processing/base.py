@@ -24,6 +24,7 @@ class BaseProcessing(KernelDataset):
         super().__init__(**kwargs)
 
         self.config = None
+        self.run_summary = None
 
     @property
     def mth5_list(self):
@@ -43,6 +44,32 @@ class BaseProcessing(KernelDataset):
             raise ValueError("No MTH5 file paths set. Return list is empty.")
         return mth5_list
 
+    @property
+    def run_summary(self):
+        """
+        run summary object
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        return self._run_summary
+
+    @run_summary.setter
+    def run_summary(self, value):
+        """
+        set run summary
+
+        :param value: DESCRIPTION
+        :type value: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        if value is None:
+            self._run_summary = None
+        else:
+            self._run_summary = RunSummary(df=value.df)
+
     def get_run_summary(self):
         """
         Get the RunSummary object
@@ -60,6 +87,18 @@ class BaseProcessing(KernelDataset):
         run_summary.from_mth5s(self.mth5_list)
         return run_summary
 
+    def has_run_summary(self):
+        """
+        check to see if run summary is set
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        if self.run_summary is None:
+            return False
+        return True
+
     def has_kernel_dataset(self):
         """
         test if has kernel dataset
@@ -69,6 +108,6 @@ class BaseProcessing(KernelDataset):
 
         """
 
-        if self.kernel_dataset.df is not None:
+        if self.df is not None:
             return True
         return False
