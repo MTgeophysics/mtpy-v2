@@ -132,6 +132,7 @@ class KernelDataset:
         df: Optional[Union[pd.DataFrame, None]] = None,
         local_station_id: Optional[str] = "",
         remote_station_id: Optional[Union[str, None]] = None,
+        **kwargs,
     ):
         """
         Constructor.
@@ -154,6 +155,11 @@ class KernelDataset:
         self.initialized = False
         self.local_mth5_obj = None
         self.remote_mth5_obj = None
+        self._local_mth5_path = None
+        self._remote_mth5_path = None
+
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
     def __str__(self):
         return str(self.mini_summary.head())
@@ -313,11 +319,11 @@ class KernelDataset:
                 ].unique()[0]
             )
         else:
-            return None
+            return self._local_mth5_path
 
-    # @local_mth5_path.setter
-    # def local_mth5_path(self, value):
-    #     self._local_mth5_path = self.set_path(value)
+    @local_mth5_path.setter
+    def local_mth5_path(self, value):
+        self._local_mth5_path = self.set_path(value)
 
     def has_local_mth5(self):
         """test if local mth5 exists"""
@@ -365,9 +371,9 @@ class KernelDataset:
         else:
             return None
 
-    # @remote_mth5_path.setter
-    # def remote_mth5_path(self, value):
-    #     self._remote_mth5_path = self.set_path(value)
+    @remote_mth5_path.setter
+    def remote_mth5_path(self, value):
+        self._remote_mth5_path = self.set_path(value)
 
     def has_remote_mth5(self):
         """test if remote mth5 exists"""
@@ -392,7 +398,7 @@ class KernelDataset:
     def from_run_summary(
         self,
         run_summary: RunSummary,
-        local_station_id: str,
+        local_station_id: Optional[Union(str, None)] = None,
         remote_station_id: Optional[Union[str, None]] = None,
     ) -> None:
         """
@@ -408,12 +414,14 @@ class KernelDataset:
             Label of the remote reference station
 
         """
-        self.local_station_id = local_station_id
-        self.remote_station_id = remote_station_id
+        if local_station_id is not None:
+            self.local_station_id = local_station_id
+        if remote_station_id is not None:
+            self.remote_station_id = remote_station_id
 
-        station_ids = [local_station_id]
+        station_ids = [self.local_station_id]
         if remote_station_id:
-            station_ids.append(remote_station_id)
+            station_ids.append(self.remote_station_id)
         df = restrict_to_station_list(
             run_summary.df, station_ids, inplace=False
         )
@@ -428,20 +436,21 @@ class KernelDataset:
         df = self._add_columns(df)
 
         # set remote reference
-        if remote_station_id:
-            cond = df.station == remote_station_id
+        if self.remote_station_id:
+            cond = df.station == self.remote_station_id
             df.remote = cond
 
         # be sure to set date time columns and restrict to simultaneous runs
         df = self._set_datetime_columns(df)
-        if remote_station_id:
+        if self.remote_station_id:
             df = self.restrict_run_intervals_to_simultaneous(df)
 
         # Again check df is non-empty
         if len(df) == 0:
             msg = (
-                f"Local: {local_station_id} and remote: {remote_station_id} do "
-                f"not overlap, Remote reference processing not a valid option."
+                f"Local: {self.local_station_id} and remote: "
+                f"{self.remote_station_id} do not overlap. Remote reference "
+                "processing not a valid option."
             )
             logger.error(msg)
             raise ValueError(msg)

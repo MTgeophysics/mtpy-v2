@@ -8,17 +8,13 @@ Created on Tue Aug 13 15:53:28 2024
 # =============================================================================
 # Imports
 # =============================================================================
-from pathlib import Path
-import pandas as pd
+
 import unittest
 
 from mth5.data.make_mth5_from_asc import MTH5_PATH, create_test12rr_h5
 from mth5.utils.helpers import close_open_files
 
 from mtpy.processing.run_summary import RunSummary
-
-from mtpy.processing.kernel_dataset import intervals_overlap
-from mtpy.processing.kernel_dataset import overlap
 from mtpy.processing.kernel_dataset import KernelDataset
 from mtpy import MT
 
