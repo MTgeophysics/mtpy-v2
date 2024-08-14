@@ -490,7 +490,7 @@ class KernelDataset:
             run_summary = run_summary.set_sample_rate(sample_rate)
 
         station_ids = [self.local_station_id]
-        if remote_station_id:
+        if self.remote_station_id:
             station_ids.append(self.remote_station_id)
         df = restrict_to_station_list(
             run_summary.df, station_ids, inplace=False
