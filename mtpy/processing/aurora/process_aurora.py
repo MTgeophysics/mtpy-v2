@@ -138,6 +138,8 @@ class AuroraProcessing(BaseProcessing):
         """
 
         if kernel_dataset is None:
+            if not self.has_run_summary():
+                self.run_summary = self.get_run_summary()
             run_summary = self.run_summary.set_sample_rate(sample_rate)
             self.from_run_summary(run_summary)
             kernel_dataset = self.clone()
