@@ -117,17 +117,19 @@ class TestProcessingSingleStationCompare(unittest.TestCase):
         if not self.mth5_path.exists():
             self.mth5_path = create_test12rr_h5()
 
+        # process with mtpy
+        self.ap = AuroraProcessing()
+        self.ap.local_station_id = "test1"
+        self.ap.local_mth5_path = self.mth5_path
+        self.mt_obj_new = self.ap.process_single_sample_rate(1)
+
+        # process with aurora infrastructure
         self.run_summary = RunSummary()
         self.run_summary.from_mth5s([self.mth5_path])
         self.kernel_dataset = KernelDataset()
         self.kernel_dataset.from_run_summary(self.run_summary, "test1")
         cc = ConfigCreator()
         self.config = cc.create_from_kernel_dataset(self.kernel_dataset)
-
-        self.ap = AuroraProcessing()
-        self.ap.local_station_id = "test1"
-        self.ap.local_mth5_path = self.mth5_path
-
         ## need to set same config parameters
         self.ap._set_decimation_level_parameters(
             self.config,
@@ -139,7 +141,50 @@ class TestProcessingSingleStationCompare(unittest.TestCase):
         self.mt_obj_legacy._transfer_function = self.tf_obj._transfer_function
         self.mt_obj_legacy.tf_id = self.kernel_dataset.processing_id
 
-        self.mt_obj_new = self.ap.process_single_sample_rate(1)
+    def test_mt_objs_equal(self):
+        self.assertEqual(self.mt_obj_legacy, self.mt_obj_new)
+
+    def test_tf_id(self):
+        self.assertEqual(self.mt_obj_new.tf_id, self.ap.processing_id)
+
+    @classmethod
+    def tearDownClass(self):
+        close_open_files()
+
+
+class TestProcessSingleStationCompare(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.mth5_path = MTH5_PATH.joinpath("test12rr.h5")
+        if not self.mth5_path.exists():
+            self.mth5_path = create_test12rr_h5()
+
+        # process with mtpy
+        self.ap = AuroraProcessing()
+        self.ap.local_station_id = "test1"
+        self.ap.local_mth5_path = self.mth5_path
+        self.processed = self.ap.process(
+            sample_rates=1, merge=True, save_to_mth5=True
+        )
+        self.mt_obj_new = self.processed[1]["tf"]
+
+        # process with aurora infrastructure
+        self.run_summary = RunSummary()
+        self.run_summary.from_mth5s([self.mth5_path])
+        self.kernel_dataset = KernelDataset()
+        self.kernel_dataset.from_run_summary(self.run_summary, "test1")
+        cc = ConfigCreator()
+        self.config = cc.create_from_kernel_dataset(self.kernel_dataset)
+        ## need to set same config parameters
+        self.ap._set_decimation_level_parameters(
+            self.config,
+            **self.ap.default_window_parameters["low"],
+        )
+
+        self.tf_obj = process_mth5(self.config, self.kernel_dataset)
+        self.mt_obj_legacy = MT(survey_metadata=self.tf_obj.survey_metadata)
+        self.mt_obj_legacy._transfer_function = self.tf_obj._transfer_function
+        self.mt_obj_legacy.tf_id = self.kernel_dataset.processing_id
 
     def test_mt_objs_equal(self):
         self.assertEqual(self.mt_obj_legacy, self.mt_obj_new)

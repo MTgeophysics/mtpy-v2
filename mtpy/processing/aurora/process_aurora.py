@@ -35,6 +35,32 @@ class AuroraProcessing(BaseProcessing):
     """
     convenience class to process with Aurora
 
+
+    .. code-block:: python
+
+        from mtpy.processing.aurora.process_aurora import AuroraProcessing
+
+        ap = AuroraProcessing()
+
+        # set local station and path to MTH5
+        ap.local_station_id = "mt01"
+        ap.local_mth5_path = "/path/to/local_mth5.h5"
+
+        # set remote station and path to MTH5
+        ap.remote_station_id = "rr01"
+        ap.remote_mth5_path = "/path/to/remote_mth5.h5"
+
+        # process single sample rate
+        tf_obj = ap.process_single_sample_rate(sample_rate=1)
+
+        # process multiple sample rates, merge them all together and
+        # save transfer functions to the local MTH5
+        tf_processed_dict = ap.process(
+            sample_rates=[4096, 1],
+            merge=True,
+            save_to_mth5=True
+            )
+
     """
 
     def __init__(self, **kwargs):
@@ -66,6 +92,23 @@ class AuroraProcessing(BaseProcessing):
         }
 
         self._processing_dict_keys = ["config", "kernel_dataset"]
+
+    def _get_merge_df(self):
+        """
+        a datafram containing the periods to use for each sample rate
+        """
+
+        return pd.DataFrame(
+            {
+                "sample_rate": list(self.merge_dictionary.keys()),
+                "period_min": [
+                    mgd["period_min"] for mgd in self.merge_dictionary.values()
+                ],
+                "period_max": [
+                    mgd["period_max"] for mgd in self.merge_dictionary.values()
+                ],
+            }
+        )
 
     def create_config(self, decimation_kwargs={}, **kwargs):
         """
@@ -164,7 +207,11 @@ class AuroraProcessing(BaseProcessing):
         return mt_obj
 
     def process(
-        self, sample_rates, processing_dict=None, merge=True, save_to_mth5=True
+        self,
+        sample_rates=None,
+        processing_dict=None,
+        merge=True,
+        save_to_mth5=True,
     ):
         """
         If you provide just the sample rates, then at each sample rate a
@@ -195,6 +242,11 @@ class AuroraProcessing(BaseProcessing):
         :rtype: TYPE
 
         """
+
+        if sample_rates is None and processing_dict is None:
+            raise ValueError(
+                "Must set either sample rates or processing_dict."
+            )
 
         if processing_dict is None:
             if isinstance(sample_rates, (int, float)):
@@ -234,11 +286,13 @@ class AuroraProcessing(BaseProcessing):
                     tf_processed[sr]["processed"] = True
                     tf_processed[sr]["tf"] = mt_obj
 
-        processed = self._get_processed_tf_dict(tf_processed)
-
-        if merge:
-            ### merge transfer functions according to merge dict
-            processed["combined"] = self.merge_transfer_functions(processed)
+        processed = self._validate_tf_processed_dict(tf_processed)
+        if len(processed.keys()) > 1:
+            if merge:
+                ### merge transfer functions according to merge dict
+                processed["combined"] = self.merge_transfer_functions(
+                    processed
+                )
 
         if save_to_mth5:
             ### add tf to local MTH5
@@ -309,7 +363,7 @@ class AuroraProcessing(BaseProcessing):
             self._validate_config(pdict["config"])
             self._validate_kernel_dataset(pdict["kernel_dataset"])
 
-    def _get_processed_tf_dict(self, tf_dict):
+    def _validate_tf_processed_dict(self, tf_dict):
         """
         Pick out processed transfer functions from a given processed dict,
         which may have some sample rates that did not process for whatever
@@ -347,7 +401,7 @@ class AuroraProcessing(BaseProcessing):
             for p_dict in tf_dict.values():
                 m.add_transfer_function(p_dict["tf"])
 
-    def merge_transfer_functions(self, tf_dict):
+    def _get_merge_tf_list(self, tf_dict):
         """
         merge transfer functions according to merge dict
 
@@ -357,4 +411,43 @@ class AuroraProcessing(BaseProcessing):
         :rtype: TYPE
 
         """
-        pass
+
+        merge_df = self._get_merge_df()
+        merge_list = []
+        for key, pdict in self._validate_tf_processed_dict(tf_dict):
+            if key in merge_df.sample_rate:
+                row = merge_df.loc[merge_df.sample_rate == key]
+                period_min = row.period_min[0]
+                period_max = row.period_max[0]
+            else:
+                period_min = pdict["tf"].period.min()
+                period_max = pdict["tf"].period.max()
+
+            merge_list.append(
+                {
+                    "tf": pdict["tf"],
+                    "period_min": period_min,
+                    "period_max": period_max,
+                }
+            )
+
+        return merge_list
+
+    def merge_transfer_functions(self, tf_dict):
+        """
+
+        :param tf_dict: DESCRIPTION
+        :type tf_dict: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        merge_list = self._get_merge_tf_list(tf_dict)
+
+        if len(merge_list) > 1:
+            return merge_list[0]["tf"].merge(
+                merge_list[1:], period_max=merge_list[0]["period_max"]
+            )
+        else:
+            return merge_list[0]["tf"]
