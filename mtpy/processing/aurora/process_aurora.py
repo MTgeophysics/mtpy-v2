@@ -264,7 +264,7 @@ class AuroraProcessing(BaseProcessing):
             )
 
             for sr in sample_rates:
-                mt_obj = self._process_single_sample_rate(sr)
+                mt_obj = self.process_single_sample_rate(sr)
                 if mt_obj is not None:
                     tf_processed[sr]["processed"] = True
                     tf_processed[sr]["tf"] = mt_obj
@@ -278,7 +278,7 @@ class AuroraProcessing(BaseProcessing):
                 ]
             )
             for key, pdict in processing_dict.items():
-                mt_obj = self._process_single_sample_rate(
+                mt_obj = self.process_single_sample_rate(
                     config=pdict["config"],
                     kernel_dataset=pdict["kernel_dataset"],
                 )
