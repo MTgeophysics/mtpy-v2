@@ -24,6 +24,7 @@ from mth5.mth5 import MTH5
 from mt_metadata.utils.mttime import MTime
 
 from mtpy import MT
+from mtpy.processing.kernel_dataset import KernelDataset
 from mtpy.processing.base import BaseProcessing
 
 warnings.filterwarnings("ignore")
@@ -63,6 +64,8 @@ class AuroraProcessing(BaseProcessing):
                 "window.additional_args": {"alpha": 2.5},
             },
         }
+
+        self._processing_dict_keys = ["config", "kernel_dataset"]
 
     def create_config(self, decimation_kwargs={}, **kwargs):
         """
@@ -213,16 +216,98 @@ class AuroraProcessing(BaseProcessing):
                 if mt_obj is not None:
                     tf_processed[sr]["processed"] = True
                     tf_processed[sr]["tf"] = mt_obj
+        else:
+            self._validate_processing_dict(processing_dict)
+
+            tf_processed = dict(
+                [
+                    (sr, {"processed": False, "tf": None})
+                    for sr in processing_dict.keys()
+                ]
+            )
+            for key, pdict in processing_dict.items():
+                mt_obj = self._process_single_sample_rate(
+                    config=pdict["config"],
+                    kernel_dataset=pdict["kernel_dataset"],
+                )
+                if mt_obj is not None:
+                    tf_processed[sr]["processed"] = True
+                    tf_processed[sr]["tf"] = mt_obj
+
+        processed = self._get_processed_tf_dict(tf_processed)
 
         if merge:
             ### merge transfer functions according to merge dict
-            pass
+            processed["combined"] = self.merge_transfer_functions(processed)
 
         if save_to_mth5:
             ### add tf to local MTH5
-            self._add_tf_to_local_mth5(tf_processed)
+            self._add_tf_to_local_mth5(processed)
 
         return tf_processed
+
+    def _validate_config(self, config):
+        """
+
+        :param config: DESCRIPTION
+        :type config: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        if not isinstance(config, Processing):
+            raise TypeError(
+                "Config must be a aurora.config.metadata.Processing object. "
+                f"Got type {type(config)}"
+            )
+
+    def _validate_kernel_dataset(self, kernel_dataset):
+        """
+
+        :param config: DESCRIPTION
+        :type config: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        if not isinstance(kernel_dataset, KernelDataset):
+            raise TypeError(
+                "Config must be a mtpy.processing.KernelDataset object. "
+                f"Got type {type(kernel_dataset)}"
+            )
+
+    def _validate_processing_dict(self, processing_dict):
+        """
+        validate the processing dict to make sure it is in the correct format
+
+        :param processing_dict: DESCRIPTION
+        :type processing_dict: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        error_msg = "Format is {sample_rate: {'config': config object, "
+        "'kernel_dataset': KernelDataset object}"
+        if not isinstance(processing_dict, dict):
+            raise TypeError(
+                "Input processing_dict must be a dictionary. "
+                f"Got type {type(processing_dict)}."
+            )
+
+        for key, pdict in processing_dict.items():
+            if not isinstance(pdict, dict):
+                raise TypeError(
+                    "Input processing_dict must be a dictionary. "
+                    f"Got type {type(pdict)}. " + error_msg
+                )
+            if sorted(self._processing_dict_keys) != sorted(pdict.keys()):
+                raise KeyError(
+                    "Processing dict can only have keys "
+                    f"{self._processing_dict_keys}. " + error_msg
+                )
+
+            self._validate_config(pdict["config"])
+            self._validate_kernel_dataset(pdict["kernel_dataset"])
 
     def _get_processed_tf_dict(self, tf_dict):
         """
@@ -241,6 +326,9 @@ class AuroraProcessing(BaseProcessing):
         for key, p_dict in tf_dict.items():
             if p_dict["processed"]:
                 new_dict[key] = p_dict
+
+        if new_dict == {}:
+            raise ValueError("No Transfer Functions were processed.")
         return new_dict
 
     def _add_tf_to_local_mth5(self, tf_dict):
@@ -269,3 +357,4 @@ class AuroraProcessing(BaseProcessing):
         :rtype: TYPE
 
         """
+        pass
