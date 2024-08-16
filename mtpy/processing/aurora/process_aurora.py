@@ -139,30 +139,9 @@ class AuroraProcessing(BaseProcessing):
                 )
                 return config
             else:
-                if (
-                    self.local_mth5_path is not None
-                    and self.local_station_id is not None
-                ):
-                    self._initialize_kernel_dataset()
-                    cc = ConfigCreator()
-                    config = cc.create_from_kernel_dataset(self, **kwargs)
-                    if self.sample_rate > 1000:
-                        decimation_kwargs.update(
-                            self.default_window_parameters["high"]
-                        )
-                    else:
-                        decimation_kwargs.update(
-                            self.default_window_parameters["low"]
-                        )
-                    self._set_decimation_level_parameters(
-                        config, **decimation_kwargs
-                    )
-                    return config
-
-                else:
-                    raise ValueError(
-                        "Cannot make config because KernelDataset has not been set yet."
-                    )
+                raise ValueError(
+                    "Cannot make config because KernelDataset has not been set yet."
+                )
         else:
             cc = ConfigCreator()
             config = cc.create_from_kernel_dataset(kernel_dataset, **kwargs)
@@ -203,7 +182,10 @@ class AuroraProcessing(BaseProcessing):
         if sample_rate is not None:
             run_summary = self.run_summary.set_sample_rate(sample_rate)
         else:
-            run_summary = self.run_summary.clone()
+            # have to use a single sample rate otherwise an error is thrown.
+            run_summary = self.run_summary.set_sample_rate(
+                self.run_summary.df.sample_rate.unique()[0]
+            )
 
         self.from_run_summary(run_summary)
 
@@ -213,7 +195,6 @@ class AuroraProcessing(BaseProcessing):
         local_station_id=None,
         remote_station_id=None,
         sample_rate=None,
-        inplace=False,
     ):
         """
         This can be a stane alone method and return a kds, or create in place
@@ -227,14 +208,8 @@ class AuroraProcessing(BaseProcessing):
         if sample_rate is not None:
             run_summary = self.run_summary.set_sample_rate(sample_rate)
 
-        if inplace:
-            self.from_run_summary(run_summary)
-        else:
-            kernel_dataset = KernelDataset()
-            kernel_dataset.from_run_summary(
-                run_summary, local_station_id, remote_station_id
-            )
-            return kernel_dataset
+        self.from_run_summary(run_summary)
+        return self.clone()
 
     def process_single_sample_rate(
         self, sample_rate, config=None, kernel_dataset=None
@@ -254,7 +229,7 @@ class AuroraProcessing(BaseProcessing):
                 sample_rate=sample_rate,
             )
         if config is None:
-            config = self.create_config()
+            config = self.create_config(kernel_dataset=kernel_dataset)
 
         try:
             tf_obj = process_mth5(config, kernel_dataset)
@@ -262,7 +237,7 @@ class AuroraProcessing(BaseProcessing):
             close_open_files()
             logger.exception(error)
             logger.error(f"Skipping sample_rate {sample_rate}")
-            return None
+            return
 
         tf_obj.tf_id = self.processing_id
         mt_obj = MT(survey_metadata=tf_obj.survey_metadata)
