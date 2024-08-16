@@ -11,6 +11,10 @@ Created on Thu Nov  9 10:43:06 2023
 import numpy as np
 
 from discretize import TensorMesh
+from discretize import TreeMesh
+from discretize.utils import mkvc
+import matplotlib.pyplot as plt
+from discretize.utils import active_from_xyz
 
 # from dask.distributed import Client, LocalCluster
 from geoana.em.fdem import skin_depth
@@ -98,6 +102,212 @@ def generate_2d_mesh_structured(
         -mesh.hx[:npadx].sum() + rx_locs[:, 0].min(), -hz_down.sum()
     ]
     return mesh
+
+
+class QuadTreeMesh:
+    """
+    build a quad tree mesh based on station locations and frequencies to invert
+
+    dimensions are x for the lateral dimension and z for the vertical.
+
+    station locations should be offsets from a single point [offset, elevation].
+    should be shape [n, 2]
+
+    topography should be [x, z] -: [n, 2] and in station location coordinate
+    system.
+
+    """
+
+    def __init__(self, station_locations, frequencies, **kwargs):
+        self.station_locations = station_locations
+        self.frequencies = frequencies
+        self.topography = None
+        self.topography_padding = [[0, 2], [0, 2]]
+        self.station_padding = [2, 2]
+
+        self.sigma_background = 0.01
+        # station spacing (only used for this example)
+        self.station_spacing = None
+        # factor for cell spacing
+        self.factor_spacing = 4
+        # factor to pad in the x-direction
+        self.factor_x_pad = 2
+        # factor to pad in the subsurface
+        self.factor_z_pad_down = 2
+        # padding factor within the core model volume
+        self.factor_z_core = 1
+        self.factor_z_pad_up = 1
+        self.topography_level = -1
+        self.station_level = -1
+
+        self.update_from_stations = True
+        self.update_from_topography = True
+
+        self.origin = "CC"
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    @property
+    def x_pad(self):
+        return (
+            skin_depth(self.frequencies.min(), self.sigma_background)
+            * self.factor_x_pad
+        )
+
+    @property
+    def x_total(self):
+        """
+        get the total distance in the horizontal direction.
+        """
+        return (
+            self.station_locations.max()
+            - self.station_locations.min()
+            + self.x_pad * 2
+        )
+
+    @property
+    def z_pad_down(self):
+        return (
+            skin_depth(self.frequencies.min(), self.sigma_background)
+            * self.factor_z_pad_down
+        )
+
+    @property
+    def z_core(self):
+        return (
+            skin_depth(self.frequencies.min(), self.sigma_background)
+            * self.factor_z_core
+        )
+
+    @property
+    def z_pad_up(self):
+        return (
+            skin_depth(self.frequencies.min(), self.sigma_background)
+            * self.factor_z_pad_up
+        )
+
+    @property
+    def z_total(self):
+        return self.z_pad_up + self.z_core + self.z_pad_down
+
+    @property
+    def dx(self):
+        return np.diff(
+            self.station_locations[:, 0] / self.factor_spacing
+        ).mean()
+
+    @property
+    def dz(self):
+        return np.round(
+            skin_depth(self.frequencies.max(), self.sigma_background) / 4,
+            decimals=-1,
+        )
+
+    @property
+    def nx(self):
+        return 2 ** int(np.ceil(np.log(self.x_total / self.dx) / np.log(2.0)))
+
+    @property
+    def nz(self):
+        return 2 ** int(np.ceil(np.log(self.z_total / self.dz) / np.log(2.0)))
+
+    @property
+    def z_max(self):
+        if self.topography:
+            return self.topography.max()
+        else:
+            return self.station_locations[:, 1].max()
+
+    def make_mesh(self, **kwargs):
+        """
+        create mesh
+        """
+
+        mesh = TreeMesh(
+            [[(self.dx, self.nx)], [(self.dz, self.nz)]], x0=self.origin
+        )
+
+        # Refine surface topography
+        if self.topography is not None and self.update_from_topography:
+            pts = np.c_[self.topography[:, 0], self.topography[:, 1]]
+            mesh.refine_surface(
+                pts,
+                level=self.topography_level,
+                padding_cells_by_level=self.topography_padding,
+                finalize=False,
+            )
+
+        # Refine mesh near points
+        if self.update_from_stations:
+            pts = np.c_[
+                self.station_locations[:, 0], self.station_locations[:, 1]
+            ]
+            mesh.refine_points(
+                pts,
+                level=self.station_level,
+                padding_cells_by_level=self.station_padding,
+                finalize=False,
+            )
+
+        mesh.finalize()
+
+        return mesh
+
+        # f_min = self.frequencies.min()
+        # f_max = self.frequencies.max()
+
+        # # estimate total dimensions of grid
+        # # number of skin depths to pad to in x, z+, z-, z-core
+        # lx_pad = skin_depth(f_min, self.sigma_background) * self.factor_x_pad
+        # lz_pad_down = (
+        #     skin_depth(f_min, self.sigma_background) * self.factor_z_pad_down
+        # )
+        # lz_core = skin_depth(f_min, self.sigma_background) * self.factor_z_core
+        # lz_pad_up = (
+        #     skin_depth(f_min, self.sigma_background) * self.factor_z_pad_up
+        # )
+
+        # # estimate the total size of the core
+        # lx_core = self.station_locations.max() - self.station_locations.min()
+
+        # # estimate total size of the grid
+        # lx = lx_pad + lx_core + lx_pad
+        # lz = lz_pad_down + lz_core + lz_pad_up
+
+        # # estimate factors in x, z
+        # dx = self.station_locations / self.factor_spacing
+        # dz = np.round(skin_depth(f_max, self.sigma_background) / 4, decimals=-1)
+
+        # # Compute number of base mesh cells required in x and y factor of 2
+        # nbcx = 2 ** int(np.ceil(np.log(lx / dx) / np.log(2.0)))
+        # nbcz = 2 ** int(np.ceil(np.log(lz / dz) / np.log(2.0)))
+
+        # # build the mesh using discretize helpers
+        # mesh = dis_utils.mesh_builder_xyz(
+        #     rx_loc,
+        #     [dx, dz],
+        #     padding_distance=[
+        #         [lx_pad, lx_pad],
+        #         [lz_pad_down, lz_pad_up],
+        #     ],
+        #     depth_core=lz_core,
+        #     mesh_type="tree",
+        # )
+        # X, Y = np.meshgrid(mesh.nodes_x, mesh.nodes_y)
+        # topo = np.c_[X.flatten(), Y.flatten(), np.zeros(X.size)]
+        # # refine around topography
+        # mesh.refine_surface(
+        #     topo,
+        #     level=-1,
+        #     padding_cells_by_level=[[0, 0, 2], [0, 0, 3]],
+        #     finalize=False,
+        # )
+
+        # # refine around the stations
+        # mesh.refine_points(
+        #     rx_loc, level=-1, padding_cells_by_level=[1, 2, 1], finalize=True
+        # )
+        return mesh
 
 
 # =============================================================================
