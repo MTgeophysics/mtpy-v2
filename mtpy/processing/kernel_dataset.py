@@ -162,7 +162,7 @@ class KernelDataset:
             setattr(self, key, value)
 
     def __str__(self):
-        return str(self.mini_summary.head())
+        return str(self.mini_summary.head(-1))
 
     def __repr__(self):
         return self.__str__()
@@ -369,7 +369,7 @@ class KernelDataset:
                 ].unique()[0]
             )
         else:
-            return None
+            return self._remote_mth5_path
 
     @remote_mth5_path.setter
     def remote_mth5_path(self, value):

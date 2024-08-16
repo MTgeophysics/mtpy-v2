@@ -64,7 +64,6 @@ class AuroraProcessing(BaseProcessing):
     """
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
         self.merge_dictionary = {
             1: {"period_min": 4, "period_max": 30000},
             4: {"period_min": 1, "period_max": 30000},
@@ -93,6 +92,8 @@ class AuroraProcessing(BaseProcessing):
 
         self._processing_dict_keys = ["config", "kernel_dataset"]
 
+        super().__init__(**kwargs)
+
     def _get_merge_df(self):
         """
         a datafram containing the periods to use for each sample rate
@@ -110,7 +111,9 @@ class AuroraProcessing(BaseProcessing):
             }
         )
 
-    def create_config(self, decimation_kwargs={}, **kwargs):
+    def create_config(
+        self, kernel_dataset=None, decimation_kwargs={}, **kwargs
+    ):
         """
 
         decimation kwargs can include information about window,
@@ -119,10 +122,51 @@ class AuroraProcessing(BaseProcessing):
         :rtype: aurora.config
 
         """
-        if self.has_kernel_dataset():
+        if kernel_dataset is None:
+            if self.has_kernel_dataset():
+                cc = ConfigCreator()
+                config = cc.create_from_kernel_dataset(self, **kwargs)
+                if self.sample_rate > 1000:
+                    decimation_kwargs.update(
+                        self.default_window_parameters["high"]
+                    )
+                else:
+                    decimation_kwargs.update(
+                        self.default_window_parameters["low"]
+                    )
+                self._set_decimation_level_parameters(
+                    config, **decimation_kwargs
+                )
+                return config
+            else:
+                if (
+                    self.local_mth5_path is not None
+                    and self.local_station_id is not None
+                ):
+                    self._initialize_kernel_dataset()
+                    cc = ConfigCreator()
+                    config = cc.create_from_kernel_dataset(self, **kwargs)
+                    if self.sample_rate > 1000:
+                        decimation_kwargs.update(
+                            self.default_window_parameters["high"]
+                        )
+                    else:
+                        decimation_kwargs.update(
+                            self.default_window_parameters["low"]
+                        )
+                    self._set_decimation_level_parameters(
+                        config, **decimation_kwargs
+                    )
+                    return config
+
+                else:
+                    raise ValueError(
+                        "Cannot make config because KernelDataset has not been set yet."
+                    )
+        else:
             cc = ConfigCreator()
-            config = cc.create_from_kernel_dataset(self, **kwargs)
-            if self.sample_rate > 1000:
+            config = cc.create_from_kernel_dataset(kernel_dataset, **kwargs)
+            if kernel_dataset.sample_rate > 1000:
                 decimation_kwargs.update(
                     self.default_window_parameters["high"]
                 )
@@ -130,10 +174,6 @@ class AuroraProcessing(BaseProcessing):
                 decimation_kwargs.update(self.default_window_parameters["low"])
             self._set_decimation_level_parameters(config, **decimation_kwargs)
             return config
-        else:
-            raise ValueError(
-                "Cannot make config because KernelDataset has not been set yet."
-            )
 
     def _set_decimation_level_parameters(self, config, **kwargs):
         """
@@ -152,14 +192,31 @@ class AuroraProcessing(BaseProcessing):
             for key, value in kwargs.items():
                 decimation.set_attr_from_name(key, value)
 
-    def build_kernel_dataset(
+    def _initialize_kernel_dataset(self, sample_rate=None):
+        """
+        make an initial kernel dataset
+        """
+
+        if not self.has_run_summary():
+            self.run_summary = self.get_run_summary()
+
+        if sample_rate is not None:
+            run_summary = self.run_summary.set_sample_rate(sample_rate)
+        else:
+            run_summary = self.run_summary.clone()
+
+        self.from_run_summary(run_summary)
+
+    def create_kernel_dataset(
         self,
         run_summary=None,
         local_station_id=None,
         remote_station_id=None,
         sample_rate=None,
+        inplace=False,
     ):
         """
+        This can be a stane alone method and return a kds, or create in place
         Build KernelDataset
         """
 
@@ -170,7 +227,14 @@ class AuroraProcessing(BaseProcessing):
         if sample_rate is not None:
             run_summary = self.run_summary.set_sample_rate(sample_rate)
 
-        self.from_run_summary(run_summary, local_station_id, remote_station_id)
+        if inplace:
+            self.from_run_summary(run_summary)
+        else:
+            kernel_dataset = KernelDataset()
+            kernel_dataset.from_run_summary(
+                run_summary, local_station_id, remote_station_id
+            )
+            return kernel_dataset
 
     def process_single_sample_rate(
         self, sample_rate, config=None, kernel_dataset=None
@@ -184,11 +248,11 @@ class AuroraProcessing(BaseProcessing):
         """
 
         if kernel_dataset is None:
-            if not self.has_run_summary():
-                self.run_summary = self.get_run_summary()
-            run_summary = self.run_summary.set_sample_rate(sample_rate)
-            self.from_run_summary(run_summary)
-            kernel_dataset = self.clone()
+            kernel_dataset = self.create_kernel_dataset(
+                local_station_id=self.local_station_id,
+                remote_station_id=self.remote_station_id,
+                sample_rate=sample_rate,
+            )
         if config is None:
             config = self.create_config()
 
@@ -414,7 +478,7 @@ class AuroraProcessing(BaseProcessing):
 
         merge_df = self._get_merge_df()
         merge_list = []
-        for key, pdict in self._validate_tf_processed_dict(tf_dict):
+        for key, pdict in self._validate_tf_processed_dict(tf_dict).items():
             if key in merge_df.sample_rate:
                 row = merge_df.loc[merge_df.sample_rate == key]
                 period_min = row.period_min[0]
