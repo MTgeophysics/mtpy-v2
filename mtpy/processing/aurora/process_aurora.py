@@ -454,10 +454,10 @@ class AuroraProcessing(BaseProcessing):
         merge_df = self._get_merge_df()
         merge_list = []
         for key, pdict in self._validate_tf_processed_dict(tf_dict).items():
-            if key in merge_df.sample_rate:
+            if key in merge_df.sample_rate.tolist():
                 row = merge_df.loc[merge_df.sample_rate == key]
-                period_min = row.period_min[0]
-                period_max = row.period_max[0]
+                period_min = row.period_min.iloc[0]
+                period_max = row.period_max.iloc[0]
             else:
                 period_min = pdict["tf"].period.min()
                 period_max = pdict["tf"].period.max()
