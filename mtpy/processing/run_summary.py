@@ -87,11 +87,11 @@ class RunSummary:
         return self.__str__()
 
     @property
-    def df(self):
+    def df(self) -> pd.DataFrame:
         return self._df
 
     @df.setter
-    def df(self, value):
+    def df(self, value: pd.DataFrame):
         """
         Make sure the data frame is set properly with proper column names
 
@@ -129,7 +129,7 @@ class RunSummary:
         """
         return copy.deepcopy(self)
 
-    def from_mth5s(self, mth5_list):
+    def from_mth5s(self, mth5_list) -> list:
         """Iterates over mth5s in list and creates one big dataframe
         summarizing the runs
         """
@@ -146,16 +146,16 @@ class RunSummary:
             logger.info("To drop no data runs use `drop_no_data_rows`")
 
     @property
-    def mini_summary(self):
+    def mini_summary(self) -> pd.DataFrame:
         """shows the dataframe with only a few columns for readbility"""
         return self.df[self._mini_summary_columns]
 
     @property
-    def print_mini_summary(self):
+    def print_mini_summary(self) -> str:
         """Calls minisummary through logger so it is formatted."""
         logger.info(self.mini_summary)
 
-    def drop_no_data_rows(self):
+    def drop_no_data_rows(self) -> bool:
         """
         Drops rows marked `has_data` = False and resets the index of self.df
 
@@ -190,7 +190,9 @@ class RunSummary:
             return new_rs
 
 
-def extract_run_summary_from_mth5(mth5_obj, summary_type="run"):
+def extract_run_summary_from_mth5(
+    mth5_obj, summary_type: Optional[str] = "run"
+):
     """
     Given a single mth5 object, get the channel_summary and compress it to a
     run_summary.
