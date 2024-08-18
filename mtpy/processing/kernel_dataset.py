@@ -167,23 +167,12 @@ class KernelDataset:
     def __repr__(self):
         return self.__str__()
 
-    # def __iter__(self):
-    #     """
-    #     Iterate over rows in the dataframe
-
-    #     :return: DESCRIPTION
-    #     :rtype: TYPE
-
-    #     """
-
-    #     return self.df.iterrows()[0]
-
     @property
     def df(self):
         return self._df
 
     @df.setter
-    def df(self, value):
+    def df(self, value: pd.DataFrame) -> None:
         """
         Make sure the data frame is set properly with proper column names
 
@@ -207,7 +196,7 @@ class KernelDataset:
             self._set_datetime_columns(self._add_columns(value)), inplace=False
         )
 
-    def _has_df(self):
+    def _has_df(self) -> bool:
         """
         check to see if dataframe is set
         """
@@ -217,7 +206,7 @@ class KernelDataset:
             return False
         return False
 
-    def _df_has_local_station_id(self):
+    def _df_has_local_station_id(self) -> bool:
         """
         Check to make sure the dataframe has the local station id
 
@@ -228,7 +217,7 @@ class KernelDataset:
         if self._has_df():
             return (self._df.station == self.local_station_id).any()
 
-    def _df_has_remote_station_id(self):
+    def _df_has_remote_station_id(self) -> bool:
         """
         Check to make sure the dataframe has the local station id
 
@@ -239,7 +228,7 @@ class KernelDataset:
         if self._has_df():
             return (self._df.station == self.remote_station_id).any()
 
-    def _set_datetime_columns(self, df):
+    def _set_datetime_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         be sure to set start and end to be date time objects
         """
@@ -261,7 +250,7 @@ class KernelDataset:
         """return a deep copy of dataframe"""
         return copy.deepcopy(self.df)
 
-    def _add_columns(self, df):
+    def _add_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         add columns with appropriate dtypes
         """
@@ -283,11 +272,11 @@ class KernelDataset:
         return df
 
     @property
-    def local_station_id(self):
+    def local_station_id(self) -> str:
         return self._local_station_id
 
     @local_station_id.setter
-    def local_station_id(self, value):
+    def local_station_id(self, value: str) -> None:
         if value is None:
             self._local_station_id = None
         else:
@@ -305,7 +294,7 @@ class KernelDataset:
                     )
 
     @property
-    def local_mth5_path(self):
+    def local_mth5_path(self) -> Path:
         """
 
         :return: Local station MTH5 path, a property extracted from the dataframe
@@ -322,10 +311,10 @@ class KernelDataset:
             return self._local_mth5_path
 
     @local_mth5_path.setter
-    def local_mth5_path(self, value):
+    def local_mth5_path(self, value: Union[str, Path]):
         self._local_mth5_path = self.set_path(value)
 
-    def has_local_mth5(self):
+    def has_local_mth5(self) -> bool:
         """test if local mth5 exists"""
         if self.local_mth5_path is None:
             return False
@@ -333,11 +322,11 @@ class KernelDataset:
             return self.local_mth5_path.exists()
 
     @property
-    def remote_station_id(self):
+    def remote_station_id(self) -> str:
         return self._remote_station_id
 
     @remote_station_id.setter
-    def remote_station_id(self, value):
+    def remote_station_id(self, value: Union[str, Path]):
         if value is None:
             self._remote_station_id = None
         else:
@@ -355,7 +344,7 @@ class KernelDataset:
                     )
 
     @property
-    def remote_mth5_path(self):
+    def remote_mth5_path(self) -> Path:
         """
 
         :return: remote station MTH5 path, a property extracted from the dataframe
@@ -372,10 +361,10 @@ class KernelDataset:
             return self._remote_mth5_path
 
     @remote_mth5_path.setter
-    def remote_mth5_path(self, value):
+    def remote_mth5_path(self, value: Union[str, Path]):
         self._remote_mth5_path = self.set_path(value)
 
-    def has_remote_mth5(self):
+    def has_remote_mth5(self) -> bool:
         """test if remote mth5 exists"""
         if self.remote_mth5_path is None:
             return False
@@ -383,7 +372,7 @@ class KernelDataset:
             return self.remote_mth5_path.exists()
 
     @property
-    def processing_id(self):
+    def processing_id(self) -> str:
         """its difficult to come put with unique ids without crazy long names
         so this is a generic id of local-remote, the station metadata
         will have run information and the config parameters.
@@ -397,7 +386,7 @@ class KernelDataset:
             return f"{self.local_station_id}_sr{int(self.sample_rate)}"
 
     @property
-    def input_channels(self):
+    def input_channels(self) -> list:
         """
         get input channels from data frame
 
@@ -410,7 +399,7 @@ class KernelDataset:
             return self.local_df.input_channels[0]
 
     @property
-    def output_channels(self):
+    def output_channels(self) -> list:
         """
         get input channels from data frame
 
@@ -423,7 +412,7 @@ class KernelDataset:
             return self.local_df.output_channels[0]
 
     @property
-    def local_df(self):
+    def local_df(self) -> pd.DataFrame:
         """
         split data frame to just the local station runs
 
@@ -436,7 +425,7 @@ class KernelDataset:
             return self.df[self.df.station == self.local_station_id]
 
     @property
-    def remote_df(self):
+    def remote_df(self) -> pd.DataFrame:
         """
         split data frame to just the local station runs
 
@@ -449,7 +438,7 @@ class KernelDataset:
             return self.df[self.df.station == self.remote_station_id]
 
     @classmethod
-    def set_path(self, value):
+    def set_path(self, value: Union[str, Path]) -> Path:
         return_path = None
         if value is not None:
             if isinstance(value, (str, Path)):
@@ -575,9 +564,9 @@ class KernelDataset:
     def drop_runs_shorter_than(
         self,
         minimum_duration: float,
-        units="s",
-        inplace=True,
-    ) -> None:
+        units: Optional[str] = "s",
+        inplace: Optional[bool] = True,
+    ) -> pd.DataFrame:
         """
         Drop runs from df that are inconsequentially short
 
@@ -610,10 +599,10 @@ class KernelDataset:
 
     def select_station_runs(
         self,
-        station_runs_dict,
-        keep_or_drop,
-        inplace=True,
-    ):
+        station_runs_dict: dict,
+        keep_or_drop: bool,
+        inplace: Optional[bool] = True,
+    ) -> pd.DataFrame:
         """
         Partition the rows of df based on the contents of station_runs_dict and return
         one of the two partitions (based on value of keep_or_drop).
@@ -660,7 +649,9 @@ class KernelDataset:
             df = df.reset_index(drop=True, inplace=True)
             return df
 
-    def set_run_times(self, run_time_dict, inplace=True):
+    def set_run_times(
+        self, run_time_dict: dict, inplace: Optional[bool] = True
+    ):
         """
         set run times from a dictionary formatted as {run_id: {start, end}}
 
@@ -691,11 +682,7 @@ class KernelDataset:
         else:
             return False
 
-    # @property
-    # def is_remote_reference(self):
-    #     raise NotImplementedError
-
-    def restrict_run_intervals_to_simultaneous(self, df) -> None:
+    def restrict_run_intervals_to_simultaneous(self, df: pd.DataFrame) -> None:
         """
         For each run in local_station_id check if it has overlap with other runs
 
@@ -753,7 +740,9 @@ class KernelDataset:
 
         return new_df
 
-    def get_station_metadata(self, local_station_id: str):
+    def get_station_metadata(
+        self, local_station_id: str
+    ) -> mt_metadata.timeseries.Station:
         """
 
         returns the station metadata.
@@ -889,7 +878,7 @@ class KernelDataset:
             mth5_obj_dict[self.remote_station_id] = self.remote_mth5_obj
         return mth5_obj_dict
 
-    def initialize_mth5s(self, mode="r"):
+    def initialize_mth5s(self, mode: Optional[str] = "r"):
         """
         returns a dict of open mth5 objects, keyed by station_id
 
@@ -944,7 +933,9 @@ class KernelDataset:
             self.df["run_hdf5_reference"].at[i] = run_obj.hdf5_group.ref
 
             if row.fc:
-                msg = f"row {row} already has fcs prescribed by processing config"
+                msg = (
+                    f"row {row} already has fcs prescribed by processing config"
+                )
                 msg += "-- skipping time series initialisation"
                 logger.info(msg)
                 # see Note #3
@@ -999,7 +990,11 @@ class KernelDataset:
         return
 
 
-def restrict_to_station_list(df, station_ids, inplace=True) -> pd.DataFrame:
+def restrict_to_station_list(
+    df: pd.DataFrame,
+    station_ids: Union[str, list],
+    inplace: Optional[bool] = True,
+) -> pd.DataFrame:
     """
     Drops all rows of run_summary dataframe where station_ids are NOT in
     the provided list of station_ids.  Operates on a deepcopy of self.df if a df
@@ -1031,10 +1026,10 @@ def restrict_to_station_list(df, station_ids, inplace=True) -> pd.DataFrame:
 
 
 def _select_station_runs(
-    df,
-    station_runs_dict,
-    keep_or_drop,
-    overwrite=True,
+    df: pd.DataFrame,
+    station_runs_dict: dict,
+    keep_or_drop: bool,
+    overwrite: Optional[bool] = True,
 ):
     """
     Partition the rows of df based on the contents of station_runs_dict and return
