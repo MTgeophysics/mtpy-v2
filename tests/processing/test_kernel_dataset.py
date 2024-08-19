@@ -3,12 +3,13 @@
 # =============================================================================
 from pathlib import Path
 import pandas as pd
+import numpy as np
 import unittest
 
 from mth5.data.make_mth5_from_asc import MTH5_PATH, create_test12rr_h5
 
 from mtpy.processing import KERNEL_DATASET_COLUMNS
-from mtpy.processing.run_summary import RunSummary
+from mtpy.processing import RunSummary
 
 from mtpy.processing.kernel_dataset import (
     intervals_overlap,
@@ -34,6 +35,22 @@ class TestKernelDataset(unittest.TestCase):
         self.run_summary = self.run_summary.clone()
         self.kd = KernelDataset()
         self.kd.from_run_summary(self.run_summary, "test1", "test2")
+
+    def test_df(self):
+        self.assertTrue(self.kd._has_df())
+
+    def test_df_has_local_station_id(self):
+        self.assertTrue(self.kd._has_local_station_id)
+
+    def test_df_has_remote_station_id(self):
+        self.assertTrue(self.kd._has_remote_station_id)
+
+    def test_set_datetime_columns(self):
+        new_df = self.kd._set_datetime_columns(self.kd.df)
+        with self.subTest("start"):
+            self.assertEqual(new_df.start.dtype.type, np.datetime64)
+        with self.subTest("end"):
+            self.assertEqual(new_df.end.dtype.type, np.datetime64)
 
     def test_df_columns(self):
         self.assertListEqual(
@@ -86,6 +103,19 @@ class TestKernelDataset(unittest.TestCase):
             sorted(self.kd._mini_summary_columns), sorted(mini_df.columns)
         )
 
+    def test_local_station_id(self):
+        self.assertEqual("test1", self.kd.local_station_id)
+
+    def test_set_local_station_id_fail(self):
+        self.assertRaises(
+            NameError, self.kd.__setattr__, "local_station_id", "test3"
+        )
+
+    def test_set_remote_station_id_fail(self):
+        self.assertRaises(
+            NameError, self.kd.__setattr__, "remote_station_id", "test3"
+        )
+
     def test_str(self):
         mini_df = self.kd.mini_summary
         self.assertEqual(str(mini_df.head()), str(self.kd))
@@ -119,6 +149,9 @@ class TestKernelDataset(unittest.TestCase):
     def test_processing_id(self):
         self.assertEqual(self.kd.processing_id, "test1-rr_test2_sr1")
 
+    def test_local_survey_id(self):
+        self.assertEqual("EMTF Synthetic", self.kd.local_survey_id)
+
     # @classmethod
     # def tearDownClass(self):
     #     self.mth5_path.unlink()
@@ -142,15 +175,11 @@ class TestOverlapFunctions(unittest.TestCase):
         # hours
 
         # shift the interval forward, leave it overlapping
-        self.ti2_start = self.ti1_start + pd.Timedelta(
-            hours=self.shift_1_hours
-        )
+        self.ti2_start = self.ti1_start + pd.Timedelta(hours=self.shift_1_hours)
         self.ti2_end = self.ti1_end + pd.Timedelta(hours=self.shift_1_hours)
 
         # shift the interval forward, non-verlapping
-        self.ti3_start = self.ti1_start + pd.Timedelta(
-            hours=self.shift_2_hours
-        )
+        self.ti3_start = self.ti1_start + pd.Timedelta(hours=self.shift_2_hours)
         self.ti3_end = self.ti1_end + pd.Timedelta(hours=self.shift_2_hours)
 
     def test_overlaps_boolean(self):
