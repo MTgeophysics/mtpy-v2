@@ -113,6 +113,7 @@ class TestAuroraProcessingSingleStationSingleSampleRate(unittest.TestCase):
 class TestProcessingSingleStationCompare(unittest.TestCase):
     @classmethod
     def setUpClass(self):
+        self.maxDiff = None
         self.mth5_path = MTH5_PATH.joinpath("test12rr.h5")
         if not self.mth5_path.exists():
             self.mth5_path = create_test12rr_h5()
@@ -138,7 +139,7 @@ class TestProcessingSingleStationCompare(unittest.TestCase):
 
         self.tf_obj = process_mth5(self.config, self.kernel_dataset)
         self.tf_obj.survey_metadata.id = "EMTF_Synthetic"
-        self.tf_obj.station_metadata.transfer_functions.runs_processed = ["001"]
+        self.tf_obj.station_metadata.transfer_function.runs_processed = ["001"]
         self.mt_obj_legacy = MT(survey_metadata=self.tf_obj.survey_metadata)
         self.mt_obj_legacy._transfer_function = self.tf_obj._transfer_function
         self.mt_obj_legacy.tf_id = self.kernel_dataset.processing_id
