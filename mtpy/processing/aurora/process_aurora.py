@@ -329,15 +329,19 @@ class AuroraProcessing(BaseProcessing):
         if len(processed.keys()) > 1:
             if merge:
                 ### merge transfer functions according to merge dict
-                processed["combined"] = self.merge_transfer_functions(
-                    processed
-                )
+                combined_tf = self.merge_transfer_functions(processed)
+                combined_tf_id = self.local_station_id
+                if self.remote_station_id:
+                    combined_tf_id += f"_{self.remote_rr_station_id}"
+                combined_tf_id += "_combined"
+                combined_tf.tf_id = combined_tf_id
+                processed["combined"] = {"processed": True, "tf": combined_tf}
 
         if save_to_mth5:
             ### add tf to local MTH5
             self._add_tf_to_local_mth5(processed)
 
-        return tf_processed
+        return processed
 
     def _validate_config(self, config):
         """
