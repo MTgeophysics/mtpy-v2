@@ -664,12 +664,22 @@ class KernelDataset:
 
         """
 
+        msg = "Need to set run time with a dictionary in the form of {run_id: {start, end}}"
+        if not isinstance(run_time_dict, dict):
+            raise TypeError(msg)
+
         for key, times in run_time_dict.items():
+            if not isinstance(times, dict):
+                raise TypeError(msg)
+            if not "start" in times.keys() or "end" not in times.keys():
+                raise KeyError(msg)
+
             cond1 = self.df.run == key
             cond2 = self.df.start <= times["start"]
             cond3 = self.df.end >= times["end"]
             self.df.loc[cond1 & cond2 & cond3, "start"] = times["start"]
             self.df.loc[cond1 & cond2 & cond3, "end"] = times["end"]
+        self._update_duration_column()
 
     @property
     def is_single_station(self) -> bool:

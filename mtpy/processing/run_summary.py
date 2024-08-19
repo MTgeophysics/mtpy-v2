@@ -81,7 +81,7 @@ class RunSummary:
         self._mini_summary_columns = MINI_SUMMARY_COLUMNS
 
     def __str__(self):
-        return str(self.mini_summary.head(-1))
+        return str(self.mini_summary.head(None))
 
     def __repr__(self):
         return self.__str__()

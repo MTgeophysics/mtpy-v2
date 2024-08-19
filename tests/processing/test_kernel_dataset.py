@@ -149,6 +149,26 @@ class TestKernelDataset(unittest.TestCase):
     def test_local_survey_id(self):
         self.assertEqual("EMTF Synthetic", self.kd.local_survey_id)
 
+    def test_set_run_times(self):
+        times = {
+            "001": {
+                "start": "1980-01-01T01:00:00+00:00",
+                "end": "1980-01-01T08:00:00+00:00",
+            }
+        }
+
+        self.kd.set_run_times(times)
+        self.assertEqual(self.kd.df.iloc[0].duration, 25200)
+
+    def test_set_run_times_bad_input(self):
+        self.assertRaises(TypeError, self.kd.set_run_times, 10)
+
+    def test_set_run_times_bad_dict(self):
+        self.assertRaises(TypeError, self.kd.set_run_times, {"001": 10})
+
+    def test_set_run_times_bad_dict_keys(self):
+        self.assertRaises(KeyError, self.kd.set_run_times, {"001": {"a": 1}})
+
     # @classmethod
     # def tearDownClass(self):
     #     self.mth5_path.unlink()
