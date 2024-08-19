@@ -3,18 +3,14 @@
 # =============================================================================
 from pathlib import Path
 import pandas as pd
-import numpy as np
 import unittest
 
 from mth5.data.make_mth5_from_asc import MTH5_PATH, create_test12rr_h5
 
-from mtpy.processing import KERNEL_DATASET_COLUMNS
-from mtpy.processing import RunSummary
-
+from mtpy.processing import KERNEL_DATASET_COLUMNS, KernelDataset, RunSummary
 from mtpy.processing.kernel_dataset import (
     intervals_overlap,
     overlap,
-    KernelDataset,
 )
 
 # =============================================================================
@@ -32,25 +28,25 @@ class TestKernelDataset(unittest.TestCase):
         self.run_summary.from_mth5s([self.mth5_path])
 
     def setUp(self):
-        self.run_summary = self.run_summary.clone()
+        self.setup_run_summary = self.run_summary.clone()
         self.kd = KernelDataset()
-        self.kd.from_run_summary(self.run_summary, "test1", "test2")
+        self.kd.from_run_summary(self.setup_run_summary, "test1", "test2")
 
     def test_df(self):
         self.assertTrue(self.kd._has_df())
 
     def test_df_has_local_station_id(self):
-        self.assertTrue(self.kd._has_local_station_id)
+        self.assertTrue(self.kd._df_has_local_station_id)
 
     def test_df_has_remote_station_id(self):
-        self.assertTrue(self.kd._has_remote_station_id)
+        self.assertTrue(self.kd._df_has_remote_station_id)
 
     def test_set_datetime_columns(self):
         new_df = self.kd._set_datetime_columns(self.kd.df)
         with self.subTest("start"):
-            self.assertEqual(new_df.start.dtype.type, np.datetime64)
+            self.assertEqual(new_df.start.dtype.type, pd.Timestamp)
         with self.subTest("end"):
-            self.assertEqual(new_df.end.dtype.type, np.datetime64)
+            self.assertEqual(new_df.end.dtype.type, pd.Timestamp)
 
     def test_df_columns(self):
         self.assertListEqual(
@@ -73,10 +69,11 @@ class TestKernelDataset(unittest.TestCase):
         self.assertEqual((2, 20), self.kd.df.shape)
 
     def test_exception_from_empty_run_summary(self):
-        self.run_summary.df.loc[:, "has_data"] = False
-        self.run_summary.drop_no_data_rows()
-        with self.assertRaises(ValueError):  # as context:
-            self.kd.from_run_summary(self.run_summary, "test1", "test2")
+        rs = self.run_summary.clone()
+        rs.df.loc[:, "has_data"] = False
+        rs.drop_no_data_rows()
+        with self.assertRaises(ValueError):
+            self.kd.from_run_summary(rs, "test1", "test2")
 
     def test_clone_dataframe(self):
         cloned_df = self.kd.clone_dataframe()

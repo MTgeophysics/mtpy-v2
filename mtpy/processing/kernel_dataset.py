@@ -162,7 +162,7 @@ class KernelDataset:
             setattr(self, key, value)
 
     def __str__(self):
-        return str(self.mini_summary.head(-1))
+        return str(self.mini_summary.head(None))
 
     def __repr__(self):
         return self.__str__()
