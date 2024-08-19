@@ -680,6 +680,7 @@ class KernelDataset:
             self.df.loc[cond1 & cond2 & cond3, "start"] = times["start"]
             self.df.loc[cond1 & cond2 & cond3, "end"] = times["end"]
         self._update_duration_column()
+        self.df = self.restrict_run_intervals_to_simultaneous(self.df)
 
     @property
     def is_single_station(self) -> bool:

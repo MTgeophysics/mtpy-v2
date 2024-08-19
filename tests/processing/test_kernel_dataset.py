@@ -158,7 +158,10 @@ class TestKernelDataset(unittest.TestCase):
         }
 
         self.kd.set_run_times(times)
-        self.assertEqual(self.kd.df.iloc[0].duration, 25200)
+        with self.subTest("local duration"):
+            self.assertEqual(self.kd.df.iloc[0].duration, 25200)
+        with self.subTest("remote duration"):
+            self.assertEqual(self.kd.df.iloc[1].duration, 25200)
 
     def test_set_run_times_bad_input(self):
         self.assertRaises(TypeError, self.kd.set_run_times, 10)
@@ -168,6 +171,12 @@ class TestKernelDataset(unittest.TestCase):
 
     def test_set_run_times_bad_dict_keys(self):
         self.assertRaises(KeyError, self.kd.set_run_times, {"001": {"a": 1}})
+
+    def test_sample_rate(self):
+        self.assertEqual(1, self.kd.sample_rate)
+
+    def test_num_sample_rates(self):
+        self.assertEqual(1, self.kd.num_sample_rates)
 
     # @classmethod
     # def tearDownClass(self):
