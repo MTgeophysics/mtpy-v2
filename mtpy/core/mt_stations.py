@@ -363,7 +363,7 @@ class MTStations:
             self.logger.warning(
                 f"Found more than one {key} number, using median EPSG number {epsg}"
             )
-            return epsg
+            return int(epsg)
         else:
             if getattr(self, key) is None:
                 epsg = df[key].unique()[0]
@@ -437,9 +437,7 @@ class MTStations:
 
             else:
                 self.logger.debug("locating center from UTM grid")
-                center_location.east = (
-                    st_en.east.max() + st_en.east.min()
-                ) / 2
+                center_location.east = (st_en.east.max() + st_en.east.min()) / 2
                 center_location.north = (
                     st_en.north.max() + st_en.north.min()
                 ) / 2
