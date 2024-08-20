@@ -22,8 +22,7 @@ import mtpy.core.mt as mt
 
 # ==============================================================================
 class BIRRPParameters(object):
-    """
-    class to hold and produce the appropriate parameters given the input
+    """Class to hold and produce the appropriate parameters given the input
     parameters.
     """
 
@@ -75,9 +74,7 @@ class BIRRPParameters(object):
         self._validate_parameters()
 
     def to_dict(self):
-        """
-        get appropriate parameters
-        """
+        """Get appropriate parameters."""
 
         param_dict = {}
         param_dict["ninp"] = self.ninp
@@ -136,9 +133,7 @@ class BIRRPParameters(object):
         return param_dict
 
     def from_dict(self, birrp_dict):
-        """
-        set birrp parameters from dict
-        """
+        """Set birrp parameters from dict."""
 
         for key, value in birrp_dict.items():
             try:
@@ -149,9 +144,7 @@ class BIRRPParameters(object):
         self._validate_parameters()
 
     def _validate_parameters(self):
-        """
-        check to make sure the parameters are legit.
-        """
+        """Check to make sure the parameters are legit."""
 
         # be sure the
         if self.ninp not in [1, 2, 3]:
@@ -313,9 +306,7 @@ class BIRRPParameters(object):
             print("  --> setting thetaf to {0}".format(self.thetaf))
 
     def read_config_file(self, birrp_config_fn):
-        """
-        read in a configuration file and fill in the appropriate parameters
-        """
+        """Read in a configuration file and fill in the appropriate parameters."""
 
         birrp_dict = mtcfg.read_configfile(birrp_config_fn)
 
@@ -330,9 +321,7 @@ class BIRRPParameters(object):
             setattr(self, birrp_key, b_value)
 
     def write_config_file(self, save_fn):
-        """
-        write a config file for birrp parameters
-        """
+        """Write a config file for birrp parameters."""
 
         cfg_fn = mtfh.make_unique_filename(
             "{0}_birrp_params.cfg".format(save_fn)
@@ -361,102 +350,97 @@ class ScriptFileError(Exception):
 # write script file
 # ==============================================================================
 class ScriptFile(BIRRPParameters):
-    """
-    class to read and write script file
+    """Class to read and write script file.
 
-    **Arguments**
-    --------------------
+    **Arguments**:
 
-        **fn_arr** : numpy.ndarray
-                     numpy.ndarray([[block 1], [block 2]])
+            **fn_arr** : numpy.ndarray
+                         numpy.ndarray([[block 1], [block 2]])
 
-    .. note::  [block n] is a numpy structured array with data type
+        .. note::  [block n] is a numpy structured array with data type
 
-        =================== ================================= =================
-        Name                Description                       Type
-        =================== ================================= =================
-        fn                  file path/name                    string
-        nread               number of points to read          int
-        nskip               number of points to skip          int
-        comp                component                         [ ex | ey | hx hy | hz ]
-        calibration_fn      calibration file path/name        string
-        rr                  a remote reference channel        [ True | False ]
-        rr_num              remote reference pair number      int
-        start               start time iso format             Timestamp
-        stop                stop time iso format              Timestamp
-        station             station name                      string
-        sampling_rate       sampling rate                     int
-        =================== ================================= =================
+            =================== ================================= =================
+            Name                Description                       Type
+            =================== ================================= =================
+            fn                  file path/name                    string
+            nread               number of points to read          int
+            nskip               number of points to skip          int
+            comp                component                         [ ex | ey | hx hy | hz ]
+            calibration_fn      calibration file path/name        string
+            rr                  a remote reference channel        [ True | False ]
+            rr_num              remote reference pair number      int
+            start               start time iso format             Timestamp
+            stop                stop time iso format              Timestamp
+            station             station name                      string
+            sampling_rate       sampling rate                     int
+            =================== ================================= =================
 
+    **BIRRP Parameters**:
 
-    **BIRRP Parameters**
-    -------------------------
+        ================== ========================================================
+        parameter          description
+        ================== ========================================================
+        ilev               processing mode 0 for basic and 1 for advanced RR-2
+                           stage
+        nout               Number of Output time series (2 or 3-> for BZ)
+        ninp               Number of input time series for E-field (1,2,3)
+        nref               Number of reference channels (2 for MT)
+        nrr                bounded remote reference (0) or 2 stage bounded
+                           influence (1)
+        tbw                Time bandwidth for Sepian sequence
+        deltat             Sampling rate (+) for (s), (-) for (Hz)
+        nfft               Length of FFT (should be even)
+        nsctinc            section increment divisor (2 to divide by half)
+        nsctmax            Number of windows used in FFT
+        nf1                1st frequency to extract from FFT window (>=3)
+        nfinc              frequency extraction increment
+        nfsect             number of frequencies to extract
+        mfft               AR filter factor, window divisor (2 for half)
+        uin                Quantile factor determination
+        ainlin             Residual rejection factor low end (usually 0)
+        ainuin             Residual rejection factor high end (.95-.99)
+        c2threshb          Coherence threshold for magnetics (0 if undesired)
+        c2threshe          Coherence threshold for electrics (0 if undesired)
+        nz                 Threshold for Bz (0=separate from E, 1=E threshold,
+                                             2=E and B)
+                           Input if 3 B components else None
+        c2thresh1          Squared coherence for Bz, input if NZ=0, Nout=3
+        perlo              longest period to apply coherence threshold over
+        perhi              shortes period to apply coherence threshold over
+        ofil               Output file root(usually three letters, can add full
+                                            path)
+        nlev               Output files (0=Z; 1=Z,qq; 2=Z,qq,w; 3=Z,qq,w,d)
+        nprej              number of frequencies to reject
+        prej               frequencies to reject (+) for period, (-) for frequency
+        npcs               Number of independent data to be processed (1 for one
+                           segement)
+        nar                Prewhitening Filter (3< >15) or 0 if not desired',
+        imode              Output file mode (0=ascii; 1=binary; 2=headerless ascii;
+                           3=ascii in TS mode',
+        jmode              input file mode (0=user defined; 1=sconvert2tart time
+                                            YYYY-MM-DD HH:MM:SS)',
+        nread              Number of points to be read for each data set
+                           (if segments>1 -> npts1,npts2...)',
+        nfil               Filter parameters (0=none; >0=input parameters;
+                                              <0=filename)
+        nskip              Skip number of points in time series (0) if no skip,
+                            (if segements >1 -> input1,input2...)',
+        nskipr             Number of points to skip over (0) if none,
+                           (if segements >1 -> input1,input2...)',
+        thetae             Rotation angles for electrics (relative to geomagnetic
+                           North)(N,E,rot)',
+        thetab             Rotation angles for magnetics (relative to geomagnetic
+                           North)(N,E,rot)',
+        thetar             Rotation angles for calculation (relative to geomagnetic
+                           North)(N,E,rot)'
+        ================== ========================================================
 
-    ================== ========================================================
-    parameter          description
-    ================== ========================================================
-    ilev               processing mode 0 for basic and 1 for advanced RR-2
-                       stage
-    nout               Number of Output time series (2 or 3-> for BZ)
-    ninp               Number of input time series for E-field (1,2,3)
-    nref               Number of reference channels (2 for MT)
-    nrr                bounded remote reference (0) or 2 stage bounded
-                       influence (1)
-    tbw                Time bandwidth for Sepian sequence
-    deltat             Sampling rate (+) for (s), (-) for (Hz)
-    nfft               Length of FFT (should be even)
-    nsctinc            section increment divisor (2 to divide by half)
-    nsctmax            Number of windows used in FFT
-    nf1                1st frequency to extract from FFT window (>=3)
-    nfinc              frequency extraction increment
-    nfsect             number of frequencies to extract
-    mfft               AR filter factor, window divisor (2 for half)
-    uin                Quantile factor determination
-    ainlin             Residual rejection factor low end (usually 0)
-    ainuin             Residual rejection factor high end (.95-.99)
-    c2threshb          Coherence threshold for magnetics (0 if undesired)
-    c2threshe          Coherence threshold for electrics (0 if undesired)
-    nz                 Threshold for Bz (0=separate from E, 1=E threshold,
-                                         2=E and B)
-                       Input if 3 B components else None
-    c2thresh1          Squared coherence for Bz, input if NZ=0, Nout=3
-    perlo              longest period to apply coherence threshold over
-    perhi              shortes period to apply coherence threshold over
-    ofil               Output file root(usually three letters, can add full
-                                        path)
-    nlev               Output files (0=Z; 1=Z,qq; 2=Z,qq,w; 3=Z,qq,w,d)
-    nprej              number of frequencies to reject
-    prej               frequencies to reject (+) for period, (-) for frequency
-    npcs               Number of independent data to be processed (1 for one
-                       segement)
-    nar                Prewhitening Filter (3< >15) or 0 if not desired',
-    imode              Output file mode (0=ascii; 1=binary; 2=headerless ascii;
-                       3=ascii in TS mode',
-    jmode              input file mode (0=user defined; 1=sconvert2tart time
-                                        YYYY-MM-DD HH:MM:SS)',
-    nread              Number of points to be read for each data set
-                       (if segments>1 -> npts1,npts2...)',
-    nfil               Filter parameters (0=none; >0=input parameters;
-                                          <0=filename)
-    nskip              Skip number of points in time series (0) if no skip,
-                        (if segements >1 -> input1,input2...)',
-    nskipr             Number of points to skip over (0) if none,
-                       (if segements >1 -> input1,input2...)',
-    thetae             Rotation angles for electrics (relative to geomagnetic
-                       North)(N,E,rot)',
-    thetab             Rotation angles for magnetics (relative to geomagnetic
-                       North)(N,E,rot)',
-    thetar             Rotation angles for calculation (relative to geomagnetic
-                       North)(N,E,rot)'
-    ================== ========================================================
+        .. note:: Currently only supports jmode = 0 and imode = 0
 
-    .. note:: Currently only supports jmode = 0 and imode = 0
+        .. seealso:: BIRRP Manual and publications by Chave and Thomson
+                    for more details on the parameters found at:
 
-    .. seealso:: BIRRP Manual and publications by Chave and Thomson
-                for more details on the parameters found at:
-
-                http://www.whoi.edu/science/AOPE/people/achave/Site/Next1.html
-
+                    http://www.whoi.edu/science/AOPE/people/achave/Site/Next1.html
     """
 
     def __init__(self, script_fn=None, fn_arr=None, **kwargs):
@@ -494,9 +478,7 @@ class ScriptFile(BIRRPParameters):
             setattr(self, key, kwargs[key])
 
     def _validate_fn_arr(self):
-        """
-        make sure fn_arr is an np.array
-        """
+        """Make sure fn_arr is an np.array."""
 
         for aa in self.fn_arr:
             if type(aa) not in [np.ndarray, np.recarray]:
@@ -550,6 +532,7 @@ class ScriptFile(BIRRPParameters):
 
     @property
     def nout(self):
+        """Nout function."""
         if self.fn_arr is not None:
             self._nout = len(np.where(self.fn_arr[0]["rr"] == False)[0]) - 2
         else:
@@ -559,6 +542,7 @@ class ScriptFile(BIRRPParameters):
 
     @property
     def npcs(self):
+        """Npcs function."""
         if self.fn_arr is not None:
             self._npcs = len(self.fn_arr)
         else:
@@ -568,6 +552,7 @@ class ScriptFile(BIRRPParameters):
 
     @property
     def nref(self):
+        """Nref function."""
         if self.fn_arr is not None:
             num_ref = np.where(self.fn_arr[0]["rr"] == True)[0]
             self._nref = len(num_ref)
@@ -582,10 +567,12 @@ class ScriptFile(BIRRPParameters):
 
     @property
     def deltat(self):
+        """Deltat function."""
         return -1 * np.unique(self.fn_arr["sampling_rate"])[0]
 
     @property
     def comp_list(self):
+        """Comp list."""
         num_comp = self.ninp + self.nout
         if num_comp == 4:
             self._comp_list = ["ex", "ey", "hx", "hy"]
@@ -611,6 +598,7 @@ class ScriptFile(BIRRPParameters):
         return self._comp_list
 
     def write_script_file(self, script_fn=None, ofil=None):
+        """Write script file."""
         if ofil is not None:
             self.ofil = ofil
 
@@ -772,14 +760,12 @@ class ScriptFile(BIRRPParameters):
         print("INFO: Wrote script file to {0}".format(self.script_fn))
 
     def make_fn_lines_block_00(self, fn_arr):
-        """
-        make lines for file in script file which includes
+        """Make lines for file in script file which includes
 
             - nread
             - filter_fn
             - fn
-            - nskip
-
+            - nskip.
         """
         lines = []
         if fn_arr["calibration_fn"] in ["", 0, "0"]:
@@ -793,14 +779,12 @@ class ScriptFile(BIRRPParameters):
         return lines
 
     def make_fn_lines_block_n(self, fn_arr):
-        """
-        make lines for file in script file which includes
+        """Make lines for file in script file which includes
 
             - nread
             - filter_fn
             - fn
-            - nskip
-
+            - nskip.
         """
         lines = []
         lines += [str(fn_arr["fn"])]
@@ -813,30 +797,26 @@ class ScriptFile(BIRRPParameters):
 # run birrp
 # =============================================================================
 def run(birrp_exe, script_file):
-    """
-    run a birrp script file from command line via python subprocess.
+    """Run a birrp script file from command line via python subprocess.
 
-    Arguments
-    --------------
+    Arguments:
 
-        **birrp_exe** : string
-                        full path to the compiled birrp executable
+            **birrp_exe** : string
+                            full path to the compiled birrp executable
 
-        **script_file** : string
-                          full path to input script file following the
-                          guidelines of the BIRRP documentation.
+            **script_file** : string
+                              full path to input script file following the
+                              guidelines of the BIRRP documentation.
 
-    Outputs
-    ---------------
+    Outputs:
 
-        **log_file.log** : a log file of how BIRRP ran
+            **log_file.log** : a log file of how BIRRP ran
 
 
-    .. seealso:: BIRRP Manual and publications by Chave and Thomson
-                for more details on the parameters found at:
+        .. seealso:: BIRRP Manual and publications by Chave and Thomson
+                    for more details on the parameters found at:
 
-                http://www.whoi.edu/science/AOPE/people/achave/Site/Next1.html
-
+                    http://www.whoi.edu/science/AOPE/people/achave/Site/Next1.html
     """
     # check to make sure the given executable is legit
     if not os.path.isfile(birrp_exe):
@@ -884,57 +864,53 @@ def run(birrp_exe, script_file):
 # Write edi file from birrp outputs
 # ==============================================================================
 class J2Edi(object):
-    """
-    Read in BIRRP out puts, in this case the .j file and convert that into
+    """Read in BIRRP out puts, in this case the .j file and convert that into
     an .edi file using the survey_config_fn parameters.
 
-    Key Word Arguments
-    ----------------------
+    Key Word Arguments:
 
-        **birrp_dir** : string
-                        full path to directory where birrp outputs are
+            **birrp_dir** : string
+                            full path to directory where birrp outputs are
 
-        **station** : string
-                      station name
+            **station** : string
+                          station name
 
-        **survey_config_fn** : string
-                               full path to survey configuration file with
-                               information on location and site setup
-                               must have a key that is the same as station.
+            **survey_config_fn** : string
+                                   full path to survey configuration file with
+                                   information on location and site setup
+                                   must have a key that is the same as station.
 
-        **birrp_config_fn** : string
-                              full path to configuration file that was used to
-                              process with (all the birrp parameters used).  If
-                              None is input, the file is searched for, if it
-                              is not found, the processing parameters are
-                              used from the .j file.
+            **birrp_config_fn** : string
+                                  full path to configuration file that was used to
+                                  process with (all the birrp parameters used).  If
+                                  None is input, the file is searched for, if it
+                                  is not found, the processing parameters are
+                                  used from the .j file.
 
-        **j_fn** : string
-                   full path to j file.  If none is input the .j file is
-                   searched for in birrp_dir.
+            **j_fn** : string
+                       full path to j file.  If none is input the .j file is
+                       searched for in birrp_dir.
 
 
-    ============================ ==============================================
-    Methods                      Description
-    ============================ ==============================================
-    read_survey_config_fn        read in survey configuration file
-    get_birrp_config_fn          get the birrp_config_fn in birrp_dir
-    read_birrp_config_fn         read in birrp_config_fn
-    get_j_file                   find .j file in birrp_dir
-    write_edi_file               write an .edi file fro all the provided
-                                 information.
-    ============================ ==============================================
+        ============================ ==============================================
+        Methods                      Description
+        ============================ ==============================================
+        read_survey_config_fn        read in survey configuration file
+        get_birrp_config_fn          get the birrp_config_fn in birrp_dir
+        read_birrp_config_fn         read in birrp_config_fn
+        get_j_file                   find .j file in birrp_dir
+        write_edi_file               write an .edi file fro all the provided
+                                     information.
+        ============================ ==============================================
 
-    Example
-    -------------
+    Example:
 
-        >>> import mtpy.proceessing.birrp as birrp
-        >>> j2edi_obj = birrp.J_To_Edi()
-        >>> j2edi_obj.birrp_dir = r"/home/data/mt01/BF/256"
-        >>> j2edi_obj.station = 'mt01'
-        >>> j2edi_obj.survey_config_fn = r"/home/data/2016_survey.cfg"
-        >>> j2edi_obj.write_edi_file()
-
+            >>> import mtpy.proceessing.birrp as birrp
+            >>> j2edi_obj = birrp.J_To_Edi()
+            >>> j2edi_obj.birrp_dir = r"/home/data/mt01/BF/256"
+            >>> j2edi_obj.station = 'mt01'
+            >>> j2edi_obj.survey_config_fn = r"/home/data/2016_survey.cfg"
+            >>> j2edi_obj.write_edi_file()
     """
 
     def __init__(self, **kwargs):
@@ -954,9 +930,7 @@ class J2Edi(object):
             setattr(self, key, kwargs[key])
 
     def read_survey_config_fn(self, survey_config_fn=None):
-        """
-        read in survey configuration file and output into a useful dictionary
-        """
+        """Read in survey configuration file and output into a useful dictionary."""
         if survey_config_fn is None:
             return
 
@@ -974,9 +948,7 @@ class J2Edi(object):
         )[self.station]
 
     def get_birrp_config_fn(self):
-        """
-        get birrp configuration file from birrp directory
-        """
+        """Get birrp configuration file from birrp directory."""
 
         if self.birrp_dir is None:
             print(
@@ -1003,9 +975,7 @@ class J2Edi(object):
             return
 
     def read_birrp_config_fn(self, birrp_config_fn=None):
-        """
-        read in birrp configuration file
-        """
+        """Read in birrp configuration file."""
 
         if birrp_config_fn is not None:
             self.birrp_config_fn = birrp_config_fn
@@ -1019,10 +989,7 @@ class J2Edi(object):
         self.birrp_dict = mtcfg.read_configfile(self.birrp_config_fn)
 
     def get_j_file(self, birrp_dir=None):
-        """
-        get .j file output by birrp
-
-        """
+        """Get .j file output by birrp."""
 
         if birrp_dir is not None:
             self.birrp_dir = birrp_dir
@@ -1047,9 +1014,7 @@ class J2Edi(object):
             self.j_fn = None
 
     def _fill_site(self):
-        """
-        fill header data
-        """
+        """Fill header data."""
         if self.survey_config_dict is None:
             return
         self.mt_obj.latitude = self.survey_config_dict["latitude"]
@@ -1065,9 +1030,7 @@ class J2Edi(object):
         )
 
     def _fill_info(self):
-        """
-        fill information section
-        """
+        """Fill information section."""
         self.mt_obj.station_metadata.comments = []
         for key in sorted(self.birrp_dict.keys()):
             self.mt_obj.station_metadata.comments.append(
@@ -1075,9 +1038,7 @@ class J2Edi(object):
             )
 
     def _fill_field_notes(self):
-        """
-        get define measurement blocks
-        """
+        """Get define measurement blocks."""
 
         # --> hx
         self.mt_obj.FieldNotes.Magnetometer_hx.id = 1
@@ -1185,88 +1146,83 @@ class J2Edi(object):
         copy_path=None,
     ):
 
-        """
-        Read in BIRRP out puts, in this case the .j file and convert that into
+        """Read in BIRRP out puts, in this case the .j file and convert that into
         an .edi file using the survey_config_fn parameters.
 
-        Arguments
-        -------------
+        Arguments:
 
-            **station** : string
-                          name of station
+                **station** : string
+                              name of station
 
-            **birrp_dir** : string
-                            full path to output directory for BIRRP
+                **birrp_dir** : string
+                                full path to output directory for BIRRP
 
-            **survey_config_fn** : string
-                                  full path to survey configuration file
+                **survey_config_fn** : string
+                                      full path to survey configuration file
 
-            **birrp_config_fn** : string
-                                  full path to birrp configuration file
-                                  *default* is none and is looked for in the
-                                  birrp_dir
+                **birrp_config_fn** : string
+                                      full path to birrp configuration file
+                                      *default* is none and is looked for in the
+                                      birrp_dir
 
-            **copy_path** : string
-                            full path to directory to copy the edi file to
+                **copy_path** : string
+                                full path to directory to copy the edi file to
 
-        Outputs
-        -------------
+        Outputs:
 
-            **edi_fn** : string
-                         full path to edi file
+                **edi_fn** : string
+                             full path to edi file
 
-        .. note::
+            .. note::
 
-        The survey_config_fn is a file that has the structure:
-            [station]
-                b_instrument_amplification = 1
-                b_instrument_type = coil
-                b_logger_gain = 1
-                b_logger_type = zen
-                b_xaxis_azimuth = 0
-                b_yaxis_azimuth = 90
-                box = 26
-                date = 2015/06/09
-                e_instrument_amplification = 1
-                e_instrument_type = Ag-Agcl electrodes
-                e_logger_gain = 1
-                e_logger_type = zen
-                e_xaxis_azimuth = 0
-                e_xaxis_length = 100
-                e_yaxis_azimuth = 90
-                e_yaxis_length = 100
-                elevation = 2113.2
-                hx = 2274
-                hy = 2284
-                hz = 2254
-                lat = 37.7074236995
-                location = Earth
-                lon = -118.999542099
-                network = USGS
-                notes = Generic config file
-                rr_box = 25
-                rr_date = 2015/06/09
-                rr_hx = 2334
-                rr_hy = 2324
-                rr_lat = 37.6909139779
-                rr_lon = -119.028707542
-                rr_station = 302
-                sampling_interval = all
-                save_path = \home\mtdata\survey_01\mt_01
-                station = 300
-                station_type = mt
+            The survey_config_fn is a file that has the structure:
+                [station]
+                    b_instrument_amplification = 1
+                    b_instrument_type = coil
+                    b_logger_gain = 1
+                    b_logger_type = zen
+                    b_xaxis_azimuth = 0
+                    b_yaxis_azimuth = 90
+                    box = 26
+                    date = 2015/06/09
+                    e_instrument_amplification = 1
+                    e_instrument_type = Ag-Agcl electrodes
+                    e_logger_gain = 1
+                    e_logger_type = zen
+                    e_xaxis_azimuth = 0
+                    e_xaxis_length = 100
+                    e_yaxis_azimuth = 90
+                    e_yaxis_length = 100
+                    elevation = 2113.2
+                    hx = 2274
+                    hy = 2284
+                    hz = 2254
+                    lat = 37.7074236995
+                    location = Earth
+                    lon = -118.999542099
+                    network = USGS
+                    notes = Generic config file
+                    rr_box = 25
+                    rr_date = 2015/06/09
+                    rr_hx = 2334
+                    rr_hy = 2324
+                    rr_lat = 37.6909139779
+                    rr_lon = -119.028707542
+                    rr_station = 302
+                    sampling_interval = all
+                    save_path = \home\mtdata\survey_01\mt_01
+                    station = 300
+                    station_type = mt
 
-        This file can be written using mtpy.utils.configfile::
+            This file can be written using mtpy.utils.configfile::
 
-            >>> import mtpy.utils.configfile as mtcfg
-            >>> station_dict = {}
-            >>> station_dict['lat'] = 21.346
-            >>> station_dict['lon'] = 122.45654
-            >>> station_dict['elev'] = 123.43
-            >>> cfg_fn = r"\home\mtdata\survey_01"
-            >>> mtcfg.write_dict_to_configfile({station: station_dict}, cfg_fn)
-
-
+                >>> import mtpy.utils.configfile as mtcfg
+                >>> station_dict = {}
+                >>> station_dict['lat'] = 21.346
+                >>> station_dict['lon'] = 122.45654
+                >>> station_dict['elev'] = 123.43
+                >>> cfg_fn = r"\home\mtdata\survey_01"
+                >>> mtcfg.write_dict_to_configfile({station: station_dict}, cfg_fn)
         """
         # check to make sure all the files exist
         if station is not None:

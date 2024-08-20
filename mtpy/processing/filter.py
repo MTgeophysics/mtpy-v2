@@ -23,6 +23,7 @@ import scipy.signal as signal
 
 
 def butter_bandpass(lowcut, highcut, samplingrate, order=4):
+    """Butter bandpass."""
     nyq = 0.5 * samplingrate
     low = lowcut / nyq
     high = highcut / nyq
@@ -55,12 +56,14 @@ def butter_bandpass(lowcut, highcut, samplingrate, order=4):
 
 
 def butter_bandpass_filter(data, lowcut, highcut, samplingrate, order=4):
+    """Butter bandpass filter."""
     b, a = butter_bandpass(lowcut, highcut, samplingrate, order=order)
     y = signal.lfilter(b, a, data)
     return y
 
 
 def low_pass(f, low_pass_freq, cutoff_freq, sampling_rate):
+    """Low pass."""
     nyq = 0.5 * sampling_rate
     filt_order, wn = signal.buttord(
         low_pass_freq / nyq, cutoff_freq / nyq, 3, 40
@@ -77,11 +80,9 @@ def tukey(window_length, alpha=0.2):
 
     output
 
-    Reference
-    ---------
+    Reference:
 
-    http://www.mathworks.com/access/helpdesk/help/toolbox/signal/tukeywin.html
-
+        http://www.mathworks.com/access/helpdesk/help/toolbox/signal/tukeywin.html
     """
     # Special cases
     if alpha <= 0:
@@ -111,26 +112,22 @@ def tukey(window_length, alpha=0.2):
 
 
 def zero_pad(input_array, power=2, pad_fill=0):
-    """
-    pad the input array with pad_fill to the next power of power.
+    """Pad the input array with pad_fill to the next power of power.
 
     For faster fft computation pad the array to the next power of 2 with zeros
 
-    Arguments:
-    -----------
-        **input_array** : np.ndarray (only 1-d arrays are supported at the
-                                      moment)
+    Arguments::
+            **input_array** : np.ndarray (only 1-d arrays are supported at the
+                                          moment)
 
-        **power** : [ 2 | 10 ]
-                    power look for
+            **power** : [ 2 | 10 ]
+                        power look for
 
-        **pad_fill** : float or int
-                       pad the array with this
+            **pad_fill** : float or int
+                           pad the array with this
 
-    Output:
-    --------
-        **pad_array** : np.ndarray padded with pad_fill
-
+    Output::
+            **pad_array** : np.ndarray padded with pad_fill
     """
 
     len_array = input_array.shape[0]
@@ -161,84 +158,79 @@ def adaptive_notch_filter(
     rp=0.1,
     dbstop_limit=5.0,
 ):
-    """
-    adaptive_notch_filter(bx, df, notches=[50,100], notchradius=.3, freqrad=.9)
+    """Adaptive_notch_filter(bx, df, notches=[50,100], notchradius=.3, freqrad=.9)
     will apply a notch filter to the array bx by finding the nearest peak
     around the supplied notch locations.  The filter is a zero-phase
     Chebyshev type 1 bandstop filter with minimal ripples.
 
-    Arguments:
-    -----------
-        **bx** : np.ndarray(len_time_series)
-                 time series to filter
+    Arguments::
+            **bx** : np.ndarray(len_time_series)
+                     time series to filter
 
-        **df** : float
-                 sampling frequency in Hz
+            **df** : float
+                     sampling frequency in Hz
 
-        **notches** : list of frequencies (Hz) to filter
+            **notches** : list of frequencies (Hz) to filter
 
-        **notchradius** : float
-                          radius of the notch in frequency domain (Hz)
+            **notchradius** : float
+                              radius of the notch in frequency domain (Hz)
 
-        **freqrad** : float
-                      radius to searching for peak about notch from notches
+            **freqrad** : float
+                          radius to searching for peak about notch from notches
 
-        **rp** : float
-                 ripple of Chebyshev type 1 filter, lower numbers means less
-                 ripples
+            **rp** : float
+                     ripple of Chebyshev type 1 filter, lower numbers means less
+                     ripples
 
-        **dbstop_limit** : float (in decibels)
-                           limits the difference between the peak at the
-                           notch and surrounding spectra.  Any difference
-                           above dbstop_limit will be filtered, anything
-                           less will not
+            **dbstop_limit** : float (in decibels)
+                               limits the difference between the peak at the
+                               notch and surrounding spectra.  Any difference
+                               above dbstop_limit will be filtered, anything
+                               less will not
 
-    Outputs:
-    ---------
+    Outputs::
 
-        **bx** : np.ndarray(len_time_series)
-                 filtered array
+            **bx** : np.ndarray(len_time_series)
+                     filtered array
 
-        **filtlst** : list
-                      location of notches and power difference between peak of
-                      notch and average power.
+            **filtlst** : list
+                          location of notches and power difference between peak of
+                          notch and average power.
 
-    ..Example: ::
+        ..Example: ::
 
-        >>> import RemovePeriodicNoise_Kate as rmp
-        >>> # make a variable for the file to load in
-        >>> fn = r"/home/MT/mt01_20130101_000000.BX"
-        >>> # load in file, if the time series is not an ascii file
-        >>> # might need to add keywords to np.loadtxt or use another
-        >>> # method to read in the file
-        >>> bx = np.loadtxt(fn)
-        >>> # create a list of frequencies to filter out
-        >>> freq_notches = [50, 150, 200]
-        >>> # filter data
-        >>> bx_filt, filt_lst = rmp.adaptiveNotchFilter(bx, df=100.
-        >>> ...                                         notches=freq_notches)
-        >>> #save the filtered data into a file
-        >>> np.savetxt(r"/home/MT/Filtered/mt01_20130101_000000.BX", bx_filt)
+            >>> import RemovePeriodicNoise_Kate as rmp
+            >>> # make a variable for the file to load in
+            >>> fn = r"/home/MT/mt01_20130101_000000.BX"
+            >>> # load in file, if the time series is not an ascii file
+            >>> # might need to add keywords to np.loadtxt or use another
+            >>> # method to read in the file
+            >>> bx = np.loadtxt(fn)
+            >>> # create a list of frequencies to filter out
+            >>> freq_notches = [50, 150, 200]
+            >>> # filter data
+            >>> bx_filt, filt_lst = rmp.adaptiveNotchFilter(bx, df=100.
+            >>> ...                                         notches=freq_notches)
+            >>> #save the filtered data into a file
+            >>> np.savetxt(r"/home/MT/Filtered/mt01_20130101_000000.BX", bx_filt)
 
-    Notes:
-    -------
-        Most of the time the default parameters work well, the only thing
-        you need to change is the notches and perhaps the radius.  I would
-        test it out with a few time series to find the optimum parameters.
-        Then make a loop over all you time series data. Something like
+    Notes::
+            Most of the time the default parameters work well, the only thing
+            you need to change is the notches and perhaps the radius.  I would
+            test it out with a few time series to find the optimum parameters.
+            Then make a loop over all you time series data. Something like
 
-        >>> import os
-        >>> dirpath = r"/home/MT"
-        >>> #make a director to save filtered time series
-        >>> save_path = r"/home/MT/Filtered"
-        >>> if not os.path.exists(save_path):
-        >>>     os.mkdir(save_path)
-        >>> for fn in os.listdir(dirpath):
-        >>>     bx = np.loadtxt(os.path.join(dirpath, fn)
-        >>>     bx_filt, filt_lst = rmp.adaptiveNotchFilter(bx, df=100.
-        >>>     ...                                         notches=freq_notches)
-        >>>     np.savetxt(os.path.join(save_path, fn), bx_filt)
-
+            >>> import os
+            >>> dirpath = r"/home/MT"
+            >>> #make a director to save filtered time series
+            >>> save_path = r"/home/MT/Filtered"
+            >>> if not os.path.exists(save_path):
+            >>>     os.mkdir(save_path)
+            >>> for fn in os.listdir(dirpath):
+            >>>     bx = np.loadtxt(os.path.join(dirpath, fn)
+            >>>     bx_filt, filt_lst = rmp.adaptiveNotchFilter(bx, df=100.
+            >>>     ...                                         notches=freq_notches)
+            >>>     np.savetxt(os.path.join(save_path, fn), bx_filt)
     """
 
     bx = np.array(bx)
@@ -305,64 +297,59 @@ def adaptive_notch_filter(
 
 
 def remove_periodic_noise(filename, dt, noiseperiods, save="n"):
-    """
-    removePeriodicNoise will take a window of length noise period and
+    """RemovePeriodicNoise will take a window of length noise period and
     compute the median of signal for as many windows that can fit within the
     data.  This median window is convolved with a series of delta functions at
     each window location to create a noise time series. This is then
     subtracted from the data to get a 'noise free' time series.
 
-    Arguments:
-    ----------
-        **filename** : string (full path to file) or array
-                      name of file to have periodic noise removed from
-                      can be an array
+    Arguments::
+            **filename** : string (full path to file) or array
+                          name of file to have periodic noise removed from
+                          can be an array
 
-        **dt** : float
-                 time sample rate (s)
+            **dt** : float
+                     time sample rate (s)
 
-        **noiseperiods** : list
-                           a list of estimated periods with a range of values
-                           to look around [[noiseperiod1,df1]...] where df1 is
-                           a fraction value find the peak about noiseperiod1
-                           must be less than 1. (0 is a good start, but
-                           if you're periodic noise drifts, might need to
-                           adjust df1 to .2 or something)
-        **save** : [ 'y' | 'n' ]
-                    * 'y' to save file to:
-                        os.path.join(os.path.dirname(filename), 'Filtered', fn)
-                    * 'n' to return the filtered time series
+            **noiseperiods** : list
+                               a list of estimated periods with a range of values
+                               to look around [[noiseperiod1,df1]...] where df1 is
+                               a fraction value find the peak about noiseperiod1
+                               must be less than 1. (0 is a good start, but
+                               if you're periodic noise drifts, might need to
+                               adjust df1 to .2 or something)
+            **save** : [ 'y' | 'n' ]
+                        * 'y' to save file to:
+                            os.path.join(os.path.dirname(filename), 'Filtered', fn)
+                        * 'n' to return the filtered time series
 
-    Outputs:
-    --------
+    Outputs::
 
-        **bxnf** : np.ndarray
-                   filtered time series
+            **bxnf** : np.ndarray
+                       filtered time series
 
-        **pn** : np.ndarray
-                periodic noise time series
+            **pn** : np.ndarray
+                    periodic noise time series
 
-        **fitlst** : list
-                     list of peaks found in time series
+            **fitlst** : list
+                         list of peaks found in time series
 
-    ..Example: ::
+        ..Example: ::
 
-        >>> import RemovePeriodicNoise_Kate as rmp
-        >>> # make a variable for the file to load in
-        >>> fn = r"/home/MT/mt01_20130101_000000.BX"
-        >>> # filter data assuming a 12 second period in noise and save data
-        >>> rmp.remove_periodic_noise(fn, 100., [[12,0]], save='y')
+            >>> import RemovePeriodicNoise_Kate as rmp
+            >>> # make a variable for the file to load in
+            >>> fn = r"/home/MT/mt01_20130101_000000.BX"
+            >>> # filter data assuming a 12 second period in noise and save data
+            >>> rmp.remove_periodic_noise(fn, 100., [[12,0]], save='y')
 
-    Notes:
-    -------
-        Test out the periodic noise period at first to see if it drifts.  Then
-        loop over files
+    Notes::
+            Test out the periodic noise period at first to see if it drifts.  Then
+            loop over files
 
-        >>> import os
-        >>> dirpath = r"/home/MT"
-        >>> for fn in os.listdir(dirpath):
-        >>>     rmp.remove_periodic_noise(fn, 100., [[12,0]], save='y')
-
+            >>> import os
+            >>> dirpath = r"/home/MT"
+            >>> for fn in os.listdir(dirpath):
+            >>>     rmp.remove_periodic_noise(fn, 100., [[12,0]], save='y')
     """
 
     if type(noiseperiods) != list:

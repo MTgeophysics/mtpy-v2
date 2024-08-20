@@ -8,27 +8,28 @@ import numpy as np
 
 
 def _an_sort(collection):
-    """Alphanumeric sort.
-    """
+    """Alphanumeric sort."""
 
     def convert(text):
+        """Convert function."""
         return int(text) if text.isdigit() else text
 
     def alphanum_key(key):
+        """Alphanum key."""
         return [convert(c) for c in re.split("([0-9]+)", key)]
 
     return sorted(collection, key=alphanum_key)
 
 
 def concatenate_log_files(directory):
-    """
-    Any file of the pattern '*.log' will be included. The files are
-    sorted alphanumerically and this is the order they will be
+    """Any file of the pattern '*.log' will be included.
+
+    The files are
+sorted alphanumerically and this is the order they will be
     concatenated in. It is up to the user to ensure that the files are
     named correctly to achieve the desired order.
-
-    Args:
-        directory (str):
+    :param directory:
+    :type directory: str
     """
     directory = os.path.abspath(directory)
     files = _an_sort(glob.glob(os.path.join(directory, "*.log")))
@@ -53,17 +54,13 @@ def concatenate_log_files(directory):
 
 
 def read(logfile):
-    """
-    Get a sequence of values from a ModEM logfile. Each type of value
-    present in the logfile is collected and ordered by iteration.
+    """Get a sequence of values from a ModEM logfile.
 
-
-    Args:
-        path (str): Path to the logfile to be read.
-
-    Returns
-        dict of str, float: A dictionary containing lists of metric
-            values.
+    Each type of value
+present in the logfile is collected and ordered by iteration.
+    :param logfile:
+    :param Returns: Dict of str, float: A dictionary containing lists of metric
+        values.
     """
     lf = open(logfile, "r")
     lines = lf.readlines()
@@ -98,6 +95,7 @@ def plot(
     dpi=100,
     minor_ticks=True,
 ):
+    """Plot function."""
     fig_width = 800 if fig_width is None else fig_width
     fig_height = 800 if fig_height is None else fig_height
     dpi = 100 if dpi is None else dpi

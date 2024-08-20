@@ -30,46 +30,37 @@ from mtpy.imaging.mtplot_tools import (
 
 
 class PlotMultipleResponses(PlotBase):
-    """
-    plots multiple MT responses simultaneously either in single plots or in
+    """Plots multiple MT responses simultaneously either in single plots or in
     one plot of sub-figures or in a single plot with subfigures for each
     component.
 
-
-    Arguments:
-    ----------
-        **fn_list** : list of filenames to plot
-                     ie. [fn_1, fn_2, ...], *default* is None
+    Arguments::
+            **fn_list** : list of filenames to plot
+                         ie. [fn_1, fn_2, ...], *default* is None
 
 
-        **plot_num** : [ 1 | 2 | 3 ]
-                        * 1 for just Ex/By and Ey/Bx *default*
-                        * 2 for all 4 components
-                        * 3 for off diagonal plus the determinant
+            **plot_num** : [ 1 | 2 | 3 ]
+                            * 1 for just Ex/By and Ey/Bx *default*
+                            * 2 for all 4 components
+                            * 3 for off diagonal plus the determinant
 
-        **plot_style** : [ '1' | 'all' | 'compare' ]
-                        determines the plotting style:
-                            * '1' for plotting each station in a different
-                                  figure. *default*
+            **plot_style** : [ '1' | 'all' | 'compare' ]
+                            determines the plotting style:
+                                * '1' for plotting each station in a different
+                                      figure. *default*
 
-                            * 'all' for plotting each station in a subplot
-                                    all in the same figure
+                                * 'all' for plotting each station in a subplot
+                                        all in the same figure
 
-                            * 'compare' for comparing the responses all in
-                                        one plot.  Here the responses are
-                                        colored from dark to light.  This
-                                        plot can get messy if too many stations
-                                        are plotted.
-
-
-
-
+                                * 'compare' for comparing the responses all in
+                                            one plot.  Here the responses are
+                                            colored from dark to light.  This
+                                            plot can get messy if too many stations
+                                            are plotted.
     """
 
     def __init__(self, mt_data, **kwargs):
-        """
-        Initialize parameters
-        """
+        """Initialize parameters."""
         self.plot_num = 1
         self.plot_style = "1"
         self.mt_data = mt_data
@@ -108,23 +99,24 @@ class PlotMultipleResponses(PlotBase):
     # ---need to rotate data on setting rotz
     @property
     def rotation_angle(self):
+        """Rotation angle."""
         return self._rotation_angle
 
     @rotation_angle.setter
     def rotation_angle(self, value):
-        """
-        only a single value is allowed
-        """
+        """Only a single value is allowed."""
         for tf in self.mt_data:
             tf.rotation_angle = value
         self._rotation_angle = value
 
     @property
     def plot_model_error(self):
+        """Plot model error."""
         return self._plot_model_error
 
     @plot_model_error.setter
     def plot_model_error(self, value):
+        """Plot model error."""
         if value:
             self._error_str = "model_error"
         else:
@@ -135,6 +127,7 @@ class PlotMultipleResponses(PlotBase):
     def _plot_resistivity(
         self, axr, period, z_obj, mode="od", index=0, axr2=None
     ):
+        """Plot resistivity."""
         if mode == "od":
             comps = ["xy", "yx"]
             props = [
@@ -220,6 +213,7 @@ class PlotMultipleResponses(PlotBase):
         return eb_list, label_list
 
     def _plot_phase(self, axp, period, z_obj, mode="od", index=0, axp2=None):
+        """Plot phase."""
         if mode == "od":
             comps = ["xy", "yx"]
             if axp2 is not None:
@@ -296,6 +290,7 @@ class PlotMultipleResponses(PlotBase):
     def _plot_tipper(
         self, axt, period, t_obj, index=0, legend=False, zero_reference=False
     ):
+        """Plot tipper."""
         if t_obj is None:
             return None, None
 
@@ -329,6 +324,7 @@ class PlotMultipleResponses(PlotBase):
     def _plot_pt(
         self, axpt, period, pt_obj, index=0, y_shift=0, edge_color=None
     ):
+        """Plot pt."""
         # ----plot phase tensor ellipse---------------------------------------
         if self.plot_pt:
             color_array = self.get_pt_color_array(pt_obj)
@@ -379,6 +375,7 @@ class PlotMultipleResponses(PlotBase):
                 )
 
     def _get_nrows(self):
+        """Get nrows."""
         pdict = {"res": 0, "phase": 1}
         index = 0
         nrows = 1
@@ -405,6 +402,7 @@ class PlotMultipleResponses(PlotBase):
         hspace=0.05,
         wspace=0.15,
     ):
+        """Setup subplots."""
         # create a dictionary for the number of subplots needed
         pdict = {"res": 0, "phase": 1}
         # start the index at 2 because resistivity and phase is permanent for
@@ -478,6 +476,7 @@ class PlotMultipleResponses(PlotBase):
         return axr, axp, axr2, axp2, axt, axpt, label_coords
 
     def _plot_all(self):
+        """Plot all."""
         ns = self.mt_data.n_stations
 
         # set figure size according to what the plot will be.
@@ -553,6 +552,7 @@ class PlotMultipleResponses(PlotBase):
             )
 
     def _plot_compare(self):
+        """Plot compare."""
         # plot diagonal components
         if self.plot_num == 2:
             raise ValueError(
@@ -754,6 +754,7 @@ class PlotMultipleResponses(PlotBase):
         self.axpt = axpt
 
     def _plot_single(self):
+        """Plot single."""
         p_dict = {}
         for ii, tf in enumerate(self.mt_data.values(), 1):
             p = tf.plot_mt_response(
@@ -769,9 +770,7 @@ class PlotMultipleResponses(PlotBase):
 
     # ---plot the resistivity and phase
     def plot(self):
-        """
-        plot the apparent resistivity and phase
-        """
+        """Plot the apparent resistivity and phase."""
 
         plt.clf()
         self.subplot_right = 0.98

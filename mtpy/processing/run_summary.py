@@ -54,13 +54,10 @@ from mth5.utils.helpers import initialize_mth5
 
 
 class RunSummary:
-    """
-    Class to contain a run-summary table from one or more mth5s.
+    """Class to contain a run-summary table from one or more mth5s.
 
     WIP: For the full MMT case this may need modification to a channel based
     summary.
-
-
     """
 
     def __init__(
@@ -68,12 +65,14 @@ class RunSummary:
         input_dict: Optional[Union[dict, None]] = None,
         df: Optional[Union[pd.DataFrame, None]] = None,
     ):
-        """
-        Constructor
-
-        Parameters
-        ----------
-        kwargs
+        """Constructor.
+        :param df:
+            Defaults to None.
+        :type df: Optional[Union[pd.DataFrame, None]], optional
+        :param input_dict:
+            Defaults to None.
+        :type input_dict: Optional[Union[dict, None]], optional
+        :param kwargs:
         """
         self.column_dtypes = [str, str, pd.Timestamp, pd.Timestamp]
         self._input_dict = input_dict
@@ -81,25 +80,25 @@ class RunSummary:
         self._mini_summary_columns = MINI_SUMMARY_COLUMNS
 
     def __str__(self):
+        """Str function."""
         return str(self.mini_summary.head(None))
 
     def __repr__(self):
+        """Repr function."""
         return self.__str__()
 
     @property
     def df(self) -> pd.DataFrame:
+        """Df function."""
         return self._df
 
     @df.setter
     def df(self, value: pd.DataFrame):
-        """
-        Make sure the data frame is set properly with proper column names
-
-        :param value: DESCRIPTION
-        :type value: TYPE
-        :return: DESCRIPTION
+        """Make sure the data frame is set properly with proper column names.
+        :param value: DESCRIPTION.
+        :type value: pd.DataFrame
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if value is None:
             self._df = None
@@ -122,10 +121,8 @@ class RunSummary:
         self._df = value
 
     def clone(self):
-        """
-        2022-10-20:
+        """2022-10-20:
         Cloning may be causing issues with extra instances of open h5 files ...
-
         """
         return copy.deepcopy(self)
 
@@ -137,6 +134,7 @@ class RunSummary:
         self.df = run_summary_df
 
     def _warn_no_data_runs(self):
+        """Warn no data runs."""
         if False in self.df.has_data.values:
             for row in self.df[self.df.has_data == False].itertuples():
                 logger.warning(
@@ -147,7 +145,7 @@ class RunSummary:
 
     @property
     def mini_summary(self) -> pd.DataFrame:
-        """shows the dataframe with only a few columns for readbility"""
+        """Shows the dataframe with only a few columns for readbility."""
         return self.df[self._mini_summary_columns]
 
     @property
@@ -156,23 +154,19 @@ class RunSummary:
         logger.info(self.mini_summary)
 
     def drop_no_data_rows(self) -> bool:
-        """
-        Drops rows marked `has_data` = False and resets the index of self.df
-
-        """
+        """Drops rows marked `has_data` = False and resets the index of self.df."""
         self.df = self.df[self.df.has_data]
         self.df.reset_index(drop=True, inplace=True)
 
     def set_sample_rate(self, sample_rate: float, inplace: bool = False):
-        """
-        Set the sample rate so that the run summary represents all runs for
+        """Set the sample rate so that the run summary represents all runs for
         a single sample rate.
-
-        :param inplace: DESCRIPTION, defaults to True
-        :type inplace: TYPE, optional
-        :return: DESCRIPTION
+        :param sample_rate:
+        :type sample_rate: float
+        :param inplace: DESCRIPTION, defaults to False.
+        :type inplace: bool, optional
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if sample_rate not in self.df.sample_rate.values:
@@ -193,24 +187,17 @@ class RunSummary:
 def extract_run_summary_from_mth5(
     mth5_obj, summary_type: Optional[str] = "run"
 ):
-    """
-    Given a single mth5 object, get the channel_summary and compress it to a
+    """Given a single mth5 object, get the channel_summary and compress it to a
     run_summary.
 
     Development Notes:
     TODO: Move this into MTH5 or replace with MTH5 built-in run_summary method.
-
-    Parameters
-    ----------
-    mth5_obj: mth5.mth5.MTH5
-        The initialized mth5 object that will be interrogated
-    summary_type: str
-        One of ["run", "channel"].  Returns a run summary or a channel summary
-
-    Returns
-    -------
-    out_df: pd.Dataframe
-        Table summarizing the available runs in the input mth5_obj
+    :param mth5_obj: The initialized mth5 object that will be interrogated.
+    :type mth5_obj: mth5.mth5.MTH5
+    :param summary_type: One of ["run", "channel"].  Returns a run summary or a channel summary, defaults to "run".
+    :type summary_type: Optional[str], optional
+    :return out_df: Table summarizing the available runs in the input mth5_obj.
+    :rtype out_df: pd.Dataframe
     """
 
     if summary_type == "run":
@@ -224,8 +211,7 @@ def extract_run_summary_from_mth5(
 def extract_run_summaries_from_mth5s(
     mth5_list, summary_type="run", deduplicate=True
 ):
-    """
-    Given a list of mth5's, iterate over them, extracting run_summaries and
+    """Given a list of mth5's, iterate over them, extracting run_summaries and
     merging into one big table.
 
     Development Notes:
@@ -240,23 +226,17 @@ def extract_run_summaries_from_mth5s(
 
     In order to drop duplicates I used the solution here:
     https://stackoverflow.com/questions/43855462/pandas-drop-duplicates-method-not-working-on-dataframe-containing-lists
-
-    Parameters
-    ----------
-    mth5_paths: list
-        paths or strings that point to mth5s
-    summary_type: string
-        one of ["channel", "run"]
+    :param mth5_list:
+    :param mth5_paths: Paths or strings that point to mth5s.
+    :type mth5_paths: list
+    :param summary_type: One of ["channel", "run"]
         "channel" returns concatenated channel summary,
-        "run" returns concatenated run summary,
-    deduplicate: bool
-        Default is True, deduplicates the summary_df
-
-    Returns
-    -------
-    super_summary: pd.DataFrame
-        Given a list of mth5s, a dataframe of all available runs
-
+        "run" returns concatenated run summary,, defaults to "run".
+    :type summary_type: string, optional
+    :param deduplicate:, defaults to True.
+    :type deduplicate: bool, optional
+    :return super_summary: Given a list of mth5s, a dataframe of all available runs.
+    :rtype super_summary: pd.DataFrame
     """
     dfs = len(mth5_list) * [None]
 

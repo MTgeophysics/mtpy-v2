@@ -43,15 +43,12 @@ from mtpy.core.transfer_function import PhaseTensor
 
 
 class PlotPhaseTensorMaps(PlotBaseMaps):
-    """
-    Plots phase tensor ellipses in map view from a list of edi files
-
-    """
+    """Plots phase tensor ellipses in map view from a list of edi files."""
 
     def __init__(self, mt_data, **kwargs):
-        """
-        Initialise the object
-        :param kwargs: keyword-value pairs
+        """Initialise the object.
+        :param mt_data:
+        :param **kwargs: Keyword-value pairs.
         """
         super().__init__(**kwargs)
 
@@ -110,7 +107,7 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
 
     @property
     def skew_cmap_bounds(self):
-        """skew bounds for a segmented colorbar"""
+        r"""Skew bounds for a segmented colorba."""
         return np.arange(
             self.skew_limits[0],
             self.skew_limits[1] + self.skew_step,
@@ -119,10 +116,12 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
 
     @property
     def map_scale(self):
+        """Map scale."""
         return self._map_scale
 
     @map_scale.setter
     def map_scale(self, map_scale):
+        """Map scale."""
         self._map_scale = map_scale
 
         if self._map_scale == "deg":
@@ -165,26 +164,22 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
     # ---need to rotate data on setting rotz
     @property
     def rotation_angle(self):
+        """Rotation angle."""
         return self._rotation_angle
 
     @rotation_angle.setter
     def rotation_angle(self, value):
-        """
-        only a single value is allowed
-        """
+        """Only a single value is allowed."""
         for tf in self.mt_data:
             tf.rotation_angle = value
         self._rotation_angle = value
 
     def _get_pt(self, tf):
-        """
-        Get phase tensor object from TF object
-
-        :param tf: DESCRIPTION
+        """Get phase tensor object from TF object.
+        :param tf: DESCRIPTION.
         :type tf: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         pt_obj = None
         if tf.has_impedance() and self.plot_pt:
@@ -215,11 +210,9 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
         return pt_obj, new_t_obj
 
     def _get_tick_format(self):
-        """
-
-        :return: DESCRIPTION
+        """Get tick format.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         # set tick parameters depending on the mapscale
@@ -229,6 +222,7 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
             self.tickstrfmt = "%.0f"
 
     def _set_axis_labels(self):
+        """Set axis labels."""
         # --> set axes properties depending on map scale------------------------
         if self.map_scale == "deg":
             self.ax.set_xlabel(
@@ -261,15 +255,12 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
             )
 
     def _get_location(self, tf):
-        """
-        Get plot_x and plot_y in appropriate units
-
-        :param tf: DESCRIPTION
+        """Get plot_x and plot_y in appropriate units.
+        :param tf: DESCRIPTION.
         :type tf: TYPE
-        :raises NameError: DESCRIPTION
-        :return: DESCRIPTION
+        :raises NameError: DESCRIPTION.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         # if map scale is lat lon set parameters
         if self.map_scale == "deg":
@@ -291,14 +282,11 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
         return plot_x, plot_y
 
     def _get_patch_ellipse(self, tf):
-        """
-        Get ellipse patch
-
-        :param tf: DESCRIPTION
+        """Get ellipse patch.
+        :param tf: DESCRIPTION.
         :type tf: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         pt_obj, t_obj = self._get_pt(tf)
@@ -363,13 +351,13 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
             return (0, 0)
 
     def _get_tipper_patch(self, plot_x, plot_y, t_obj):
-        """
-
-        :param t_obj: DESCRIPTION
+        """Get tipper patch.
+        :param plot_y:
+        :param plot_x:
+        :param t_obj: DESCRIPTION.
         :type t_obj: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         has_tipper = False
         if t_obj is not None and "y" in self.plot_tipper:
@@ -443,9 +431,7 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
         return has_tipper
 
     def _get_patch_wedges(self, tf):
-        """
-        Add patches to plot
-        """
+        """Add patches to plot."""
 
         pt_obj, t_obj = self._get_pt(tf)
         plot_x, plot_y = self._get_location(tf)
@@ -553,12 +539,9 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
             return (0, 0)
 
     def _add_colorbar_ellipse(self):
-        """
-        Add phase tensor color bar
-
-        :return: DESCRIPTION
+        """Add phase tensor color bar.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if self.cb_position is None:
@@ -604,12 +587,9 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
             self.cb.ax.tick_params(axis="y", direction="in")
 
     def _add_colorbar_wedges(self):
-        """
-        Add phase tensor color bar
-
-        :return: DESCRIPTION
+        """Add phase tensor color bar.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if self.cb_orientation == "vertical":
@@ -690,6 +670,7 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
                 cb.ax.tick_params(axis="y", direction="in")
 
     def _add_tipper_legend(self):
+        """Add tipper legend."""
         if "y" in self.plot_tipper:
             legend_lines = []
             legend_labels = []
@@ -724,14 +705,16 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
         raster_file=None,
         raster_kwargs={},
     ):
-        """
-        Plots the phase tensor map.
-        :param fig: optional figure object
-        :param save_path: path to folder for saving plots
-        :param show: show plots if True
-        :param raster_dict: dictionary containing information for a raster
-         to be plotted below the phase tensors.
-
+        """Plots the phase tensor map.
+        :param raster_kwargs:
+            Defaults to {}.
+        :param raster_file:
+            Defaults to None.
+        :param fig: Optional figure object, defaults to None.
+        :param save_path: Path to folder for saving plots, defaults to None.
+        :param show: Show plots if True, defaults to True.
+        :param raster_dict: Dictionary containing information for a raster
+            to be plotted below the phase tensors.
         """
         self._set_subplot_params()
 

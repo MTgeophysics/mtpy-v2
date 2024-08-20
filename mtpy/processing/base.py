@@ -16,9 +16,7 @@ from mtpy.processing.kernel_dataset import KernelDataset
 
 
 class BaseProcessing(KernelDataset):
-    """
-    Base processing class contains path to various files
-    """
+    """Base processing class contains path to various files."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -28,11 +26,9 @@ class BaseProcessing(KernelDataset):
 
     @property
     def mth5_list(self):
-        """
-
-        :return: list of mth5 to get run summary from
+        """Mth5 list.
+        :return: List of mth5 to get run summary from.
         :rtype: list
-
         """
         mth5_list = []
         if self.has_local_mth5():
@@ -47,24 +43,19 @@ class BaseProcessing(KernelDataset):
 
     @property
     def run_summary(self):
-        """
-        run summary object
-        :return: DESCRIPTION
+        """Run summary object.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         return self._run_summary
 
     @run_summary.setter
     def run_summary(self, value):
-        """
-        set run summary
-
-        :param value: DESCRIPTION
+        """Set run summary.
+        :param value: DESCRIPTION.
         :type value: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if value is None:
             self._run_summary = None
@@ -72,16 +63,13 @@ class BaseProcessing(KernelDataset):
             self._run_summary = RunSummary(df=value.df)
 
     def get_run_summary(self):
-        """
-        Get the RunSummary object
-
-        :param local: DESCRIPTION, defaults to True
+        """Get the RunSummary object.
+        :param local: DESCRIPTION, defaults to True.
         :type local: TYPE, optional
-        :param remote: DESCRIPTION, defaults to True
+        :param remote: DESCRIPTION, defaults to True.
         :type remote: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         run_summary = RunSummary()
@@ -89,24 +77,18 @@ class BaseProcessing(KernelDataset):
         return run_summary
 
     def has_run_summary(self):
-        """
-        check to see if run summary is set
-
-        :return: DESCRIPTION
+        """Check to see if run summary is set.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if self.run_summary is None:
             return False
         return True
 
     def has_kernel_dataset(self):
-        """
-        test if has kernel dataset
-
-        :return: DESCRIPTION
+        """Test if has kernel dataset.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if self.df is not None:

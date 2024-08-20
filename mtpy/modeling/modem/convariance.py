@@ -27,24 +27,23 @@ from pyevtk.hl import gridToVTK
 
 
 class Covariance(object):
-    """
-    Class that deals with model covariance and smoothing, writing covariance
+    """Class that deals with model covariance and smoothing, writing covariance
     (.cov) files for use in ModEM.
-    
+
     ==================== ======================================================
     Attributes           Description
     ==================== ======================================================
     grid_dimensions      Grid dimensions excluding air layers (Nx, Ny, NzEarth)
     smoothing_east       Smoothing in east direction. float, *default* is 0.3
     smoothing_north      Smoothing in north direction. float, *default* is 0.3
-    smoothing_z          Smoothing in vertical direction. float, *default* is 
+    smoothing_z          Smoothing in vertical direction. float, *default* is
                          0.3
     smoothing_num        Number of smoothing iterations. int, *default* is 1
     exception_list       List of exceptions. list, *default* is empty
     mask_arr             Mask array. numpy.ndarray, *default* is None
-    save_path            Path at which to save the covariance file. PosixPath, 
+    save_path            Path at which to save the covariance file. PosixPath,
                          *default* is current working directory
-    fn_basename          Name of the covariance file. *default* is 
+    fn_basename          Name of the covariance file. *default* is
                          'covariance.cov'
     """
 
@@ -96,10 +95,12 @@ class Covariance(object):
 
     @property
     def cov_fn(self):
+        """Cov fn."""
         return self.save_path.joinpath(self.fn_basename)
 
     @cov_fn.setter
     def cov_fn(self, value):
+        """Cov fn."""
         if value is not None:
             value = Path(value)
             self.save_path = value.parent
@@ -114,24 +115,22 @@ class Covariance(object):
         sea_water=0.3,
         air=1.0e12,
     ):  
-        """
-        Writes a ModEM covariance (.cov) file.
-
-        :param cov_fn: Name for the covariance file. *default* is None
+        """Writes a ModEM covariance (.cov) file.
+        :param cov_fn: Name for the covariance file. *default* is None, defaults to None.
         :type cov_fn: str | Path, optional
-        :param save_path: location at which to save the covariance file. 
-            *default* is None
+        :param save_path: Location at which to save the covariance file.
+            *default* is None, defaults to None.
         :type save_path: str | Path, optional
-        :param fn_basename: _description_, *default* is None
+        :param fn_basename: _description_, *default* is None, defaults to None.
         :type fn_basename: _type_, optional
-        :param res_model: Resistivity model the covariance should be generated 
-            from, *default* is None
+        :param res_model: Resistivity model the covariance should be generated
+            from, *default* is None, defaults to None.
         :type res_model: _type_, optional
-        :param sea_water: Electrical resistivity of sea water cells in 
-            Ohm-meters within the model domain, *default* is 0.3
+        :param sea_water: Electrical resistivity of sea water cells in
+            Ohm-meters within the model domain, *default* is 0.3, defaults to 0.3.
         :type sea_water: float, optional
-        :param air: Electrical resistivity of air cells in Ohm-meters within 
-            the model domain, *default* is 1.0e12
+        :param air: Electrical resistivity of air cells in Ohm-meters within
+            the model domain, *default* is 1.0e12, defaults to 1.0e12.
         :type air: float, optional
         :raises CovarianceError: Error related to the covariance class.
         """
@@ -236,9 +235,7 @@ class Covariance(object):
         self._logger.info("Wrote covariance file to {0}".format(self.cov_fn))
 
     def read_cov_file(self, cov_fn):
-        """
-        Reads a ModEM covariance (.cov) file.
-
+        """Reads a ModEM covariance (.cov) file.
         :param cov_fn: Filename of the target ModEM covariance (.cov) file.
         :type cov_fn: str
         :raises CovarianceError: Error related to the covariance class.
@@ -303,6 +300,7 @@ class Covariance(object):
                     count += 1
 
     def get_parameters(self):
+        """Get parameters."""
         parameter_list = [
             "smoothing_north",
             "smoothing_east",
@@ -325,9 +323,7 @@ class Covariance(object):
         grid_north=None,
         grid_z=None,
     ):
-        """
-        write a vtk file of the covariance to match things up
-        """
+        """Write a vtk file of the covariance to match things up."""
 
         if model_fn is not None:
             m_obj = Model()

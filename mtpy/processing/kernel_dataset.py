@@ -83,8 +83,7 @@ from mtpy.processing import (
 
 
 class KernelDataset:
-    """
-    This class is intended to work with mth5-derived channel_summary or run_summary
+    """This class is intended to work with mth5-derived channel_summary or run_summary
     dataframes, that specify time series intervals.
 
     Development Notes:
@@ -124,7 +123,6 @@ class KernelDataset:
     needs to be modified.  Maybe better to use a decorator that allows for df kwarg
     to be passed, and if it is not passed the modification is done in place.
     The user who doesn't want to modify in place can work with a clone.
-
     """
 
     def __init__(
@@ -134,18 +132,14 @@ class KernelDataset:
         remote_station_id: Optional[Union[str, None]] = None,
         **kwargs,
     ):
-        """
-        Constructor.
-
-        Parameters
-        ----------
-        df: Optional[Union[pd.DataFrame, None]]
-            Option to pass an already formed dataframe.  Normally the df if built from a run_summary.
-        local_station_id: Optional[str]
-            The local station for the dataset.  Normally this is passed via from_run_summary method.
-        remote_station_id: Optional[Union[str, None]]
-            The remote station for the dataset.  Normally this is passed via from_run_summary method.
-
+        """Constructor.
+        :param **kwargs:
+        :param df: Option to pass an already formed dataframe.  Normally the df if built from a run_summary, defaults to None.
+        :type df: Optional[Union[pd.DataFrame, None]], optional
+        :param local_station_id: The local station for the dataset.  Normally this is passed via from_run_summary method, defaults to "".
+        :type local_station_id: Optional[str], optional
+        :param remote_station_id: The remote station for the dataset.  Normally this is passed via from_run_summary method, defaults to None.
+        :type remote_station_id: Optional[Union[str, None]], optional
         """
         self.df = df
         self.local_station_id = local_station_id
@@ -162,25 +156,25 @@ class KernelDataset:
             setattr(self, key, value)
 
     def __str__(self):
+        """Str function."""
         return str(self.mini_summary.head(None))
 
     def __repr__(self):
+        """Repr function."""
         return self.__str__()
 
     @property
     def df(self):
+        """Df function."""
         return self._df
 
     @df.setter
     def df(self, value: pd.DataFrame) -> None:
-        """
-        Make sure the data frame is set properly with proper column names
-
-        :param value: DESCRIPTION
-        :type value: TYPE
-        :return: DESCRIPTION
+        """Make sure the data frame is set properly with proper column names.
+        :param value: DESCRIPTION.
+        :type value: pd.DataFrame
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if value is None:
             self._df = None
@@ -197,9 +191,7 @@ class KernelDataset:
         )
 
     def _has_df(self) -> bool:
-        """
-        check to see if dataframe is set
-        """
+        """Check to see if dataframe is set."""
         if self._df is not None:
             if not self._df.empty:
                 return True
@@ -207,31 +199,23 @@ class KernelDataset:
         return False
 
     def _df_has_local_station_id(self) -> bool:
-        """
-        Check to make sure the dataframe has the local station id
-
-        :return: DESCRIPTION
+        """Check to make sure the dataframe has the local station id.
+        :return: DESCRIPTION.
         :rtype: bool
-
         """
         if self._has_df():
             return (self._df.station == self.local_station_id).any()
 
     def _df_has_remote_station_id(self) -> bool:
-        """
-        Check to make sure the dataframe has the local station id
-
-        :return: DESCRIPTION
+        """Check to make sure the dataframe has the local station id.
+        :return: DESCRIPTION.
         :rtype: bool
-
         """
         if self._has_df():
             return (self._df.station == self.remote_station_id).any()
 
     def _set_datetime_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        be sure to set start and end to be date time objects
-        """
+        """Be sure to set start and end to be date time objects."""
 
         try:
             df.start = pd.to_datetime(df.start, format="mixed")
@@ -243,17 +227,15 @@ class KernelDataset:
         return df
 
     def clone(self):
-        """return a deep copy"""
+        """Return a deep copy."""
         return copy.deepcopy(self)
 
     def clone_dataframe(self) -> pd.DataFrame:
-        """return a deep copy of dataframe"""
+        """Return a deep copy of dataframe."""
         return copy.deepcopy(self.df)
 
     def _add_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        add columns with appropriate dtypes
-        """
+        """Add columns with appropriate dtypes."""
 
         for col, dtype in KERNEL_DATASET_DTYPE:
             if not col in df.columns:
@@ -273,10 +255,12 @@ class KernelDataset:
 
     @property
     def local_station_id(self) -> str:
+        """Local station id."""
         return self._local_station_id
 
     @local_station_id.setter
     def local_station_id(self, value: str) -> None:
+        """Local station id."""
         if value is None:
             self._local_station_id = None
         else:
@@ -295,11 +279,9 @@ class KernelDataset:
 
     @property
     def local_mth5_path(self) -> Path:
-        """
-
-        :return: Local station MTH5 path, a property extracted from the dataframe
+        """Local mth5 path.
+        :return: Local station MTH5 path, a property extracted from the dataframe.
         :rtype: Path
-
         """
         if self._has_df():
             return Path(
@@ -312,10 +294,11 @@ class KernelDataset:
 
     @local_mth5_path.setter
     def local_mth5_path(self, value: Union[str, Path]):
+        """Local mth5 path."""
         self._local_mth5_path = self.set_path(value)
 
     def has_local_mth5(self) -> bool:
-        """test if local mth5 exists"""
+        """Test if local mth5 exists."""
         if self.local_mth5_path is None:
             return False
         else:
@@ -323,10 +306,12 @@ class KernelDataset:
 
     @property
     def remote_station_id(self) -> str:
+        """Remote station id."""
         return self._remote_station_id
 
     @remote_station_id.setter
     def remote_station_id(self, value: Union[str, Path]):
+        """Remote station id."""
         if value is None:
             self._remote_station_id = None
         else:
@@ -345,11 +330,9 @@ class KernelDataset:
 
     @property
     def remote_mth5_path(self) -> Path:
-        """
-
-        :return: remote station MTH5 path, a property extracted from the dataframe
+        """Remote mth5 path.
+        :return: Remote station MTH5 path, a property extracted from the dataframe.
         :rtype: Path
-
         """
         if self._has_df() and self.remote_station_id is not None:
             return Path(
@@ -362,10 +345,11 @@ class KernelDataset:
 
     @remote_mth5_path.setter
     def remote_mth5_path(self, value: Union[str, Path]):
+        """Remote mth5 path."""
         self._remote_mth5_path = self.set_path(value)
 
     def has_remote_mth5(self) -> bool:
-        """test if remote mth5 exists"""
+        """Test if remote mth5 exists."""
         if self.remote_mth5_path is None:
             return False
         else:
@@ -373,7 +357,7 @@ class KernelDataset:
 
     @property
     def processing_id(self) -> str:
-        """its difficult to come put with unique ids without crazy long names
+        """Its difficult to come put with unique ids without crazy long names
         so this is a generic id of local-remote, the station metadata
         will have run information and the config parameters.
         """
@@ -387,12 +371,9 @@ class KernelDataset:
 
     @property
     def input_channels(self) -> list:
-        """
-        get input channels from data frame
-
-        :return: Input channels (sources)
+        """Get input channels from data frame.
+        :return: Input channels (sources).
         :rtype: list of strings
-
         """
 
         if self._has_df():
@@ -400,12 +381,9 @@ class KernelDataset:
 
     @property
     def output_channels(self) -> list:
-        """
-        get input channels from data frame
-
-        :return: Input channels (sources)
+        """Get input channels from data frame.
+        :return: Input channels (sources).
         :rtype: list of strings
-
         """
 
         if self._has_df():
@@ -413,12 +391,9 @@ class KernelDataset:
 
     @property
     def local_df(self) -> pd.DataFrame:
-        """
-        split data frame to just the local station runs
-
-        :return: Local station runs
+        """Split data frame to just the local station runs.
+        :return: Local station runs.
         :rtype: pd.DataFrame
-
         """
 
         if self._has_df():
@@ -426,12 +401,9 @@ class KernelDataset:
 
     @property
     def remote_df(self) -> pd.DataFrame:
-        """
-        split data frame to just the local station runs
-
-        :return: Local station runs
+        """Split data frame to just the local station runs.
+        :return: Local station runs.
         :rtype: pd.DataFrame
-
         """
 
         if self._has_df() and self.remote_station_id is not None:
@@ -439,6 +411,7 @@ class KernelDataset:
 
     @classmethod
     def set_path(self, value: Union[str, Path]) -> Path:
+        """Set path."""
         return_path = None
         if value is not None:
             if isinstance(value, (str, Path)):
@@ -457,18 +430,16 @@ class KernelDataset:
         remote_station_id: Optional[Union[str, None]] = None,
         sample_rate: Optional[Union[float, int, None]] = None,
     ) -> None:
-        """
-        Initialize the dataframe from a run summary
-
-        Parameters
-        ----------
-        run_summary: aurora.pipelines.run_summary.RunSummary
-            Summary of available data for processing from one or more stations
-        local_station_id: str
-            Label of the station for which an estimate will be computed
-        remote_station_id: Optional[Union[str, None]]
-            Label of the remote reference station
-
+        """Initialize the dataframe from a run summary.
+        :param sample_rate:
+            Defaults to None.
+        :type sample_rate: Optional[Union[float, int, None]], optional
+        :param run_summary: Summary of available data for processing from one or more stations.
+        :type run_summary: RunSummary
+        :param local_station_id: Label of the station for which an estimate will be computed, defaults to None.
+        :type local_station_id: Optional[Union[str, None]], optional
+        :param remote_station_id: Label of the remote reference station, defaults to None.
+        :type remote_station_id: Optional[Union[str, None]], optional
         """
         if local_station_id is not None:
             self.local_station_id = local_station_id
@@ -518,12 +489,12 @@ class KernelDataset:
 
     @property
     def mini_summary(self) -> pd.DataFrame:
-        """return a dataframe that fits in terminal"""
+        """Return a dataframe that fits in terminal."""
         return self.df[self._mini_summary_columns]
 
     @property
     def local_survey_id(self) -> str:
-        """return string label for local survey id"""
+        """Return string label for local survey id."""
         survey_id = self.df.loc[~self.df.remote].survey.unique()[0]
         if survey_id in ["none"]:
             survey_id = "0"
@@ -531,7 +502,7 @@ class KernelDataset:
 
     @property
     def local_survey_metadata(self) -> mt_metadata.timeseries.Survey:
-        """return survey metadata for local station"""
+        """Return survey metadata for local station."""
         try:
             return self.survey_metadata[self.local_survey_id]
         except KeyError:
@@ -541,7 +512,7 @@ class KernelDataset:
             return self.survey_metadata["0"]
 
     def _add_duration_column(self, df, inplace=True) -> None:
-        """adds a column to self.df with times end-start (in seconds)"""
+        """Adds a column to self.df with times end-start (in seconds)."""
 
         timedeltas = df.end - df.start
         durations = [x.total_seconds() for x in timedeltas]
@@ -554,7 +525,7 @@ class KernelDataset:
             return new_df
 
     def _update_duration_column(self, inplace=True) -> None:
-        """calls add_duration_column (after possible manual manipulation of start/end"""
+        """Calls add_duration_column (after possible manual manipulation of start/end."""
 
         if inplace:
             self._df = self._add_duration_column(self._df, inplace)
@@ -567,19 +538,17 @@ class KernelDataset:
         units: Optional[str] = "s",
         inplace: Optional[bool] = True,
     ) -> pd.DataFrame:
-        """
-        Drop runs from df that are inconsequentially short
+        """Drop runs from df that are inconsequentially short
 
         Development Notes:
-        This needs to have duration refreshed before hand
-
-        Parameters
-        ----------
-        minimum_duration: float
-            The minimum allowed duration for a run (in units of units)
-        units: str
-            placeholder to support units that are not seconds
-
+        This needs to have duration refreshed before hand.
+        :param inplace:
+            Defaults to True.
+        :type inplace: Optional[bool], optional
+        :param minimum_duration: The minimum allowed duration for a run (in units of units).
+        :type minimum_duration: float
+        :param units: Placeholder to support units that are not seconds, defaults to "s".
+        :type units: Optional[str], optional
         """
         if units != "s":
             msg = "Expected units are seconds : units='s'"
@@ -603,30 +572,24 @@ class KernelDataset:
         keep_or_drop: bool,
         inplace: Optional[bool] = True,
     ) -> pd.DataFrame:
-        """
-        Partition the rows of df based on the contents of station_runs_dict and return
+        """Partition the rows of df based on the contents of station_runs_dict and return
         one of the two partitions (based on value of keep_or_drop).
 
         dict -> {station: [{run, start, end}]}
 
         For example {"mt01": ["0001", "0003"]}
-
-
-        Parameters
-        ----------
-        station_runs_dict: dict
-            Keys are string ids of the stations to keep
-            Values are lists of string labels for run_ids to keep
-        keep_or_drop: str
-            If "keep": returns df with only the station-runs specified in station_runs_dict
-            If "drop": returns df with station_runs_dict excised
-        overwrite: bool
-            If True, self.df is overwritten with the reduced dataframe
-
-        Returns
-        -------
-            df: pd.DataFrame
-                reduced dataframe with only run_ids provided removed.
+        :param inplace:
+            Defaults to True.
+        :type inplace: Optional[bool], optional
+        :param station_runs_dict: Keys are string ids of the stations to keep
+            Values are lists of string labels for run_ids to keep.
+        :type station_runs_dict: dict
+        :param keep_or_drop: If "keep": returns df with only the station-runs specified in station_runs_dict
+            If "drop": returns df with station_runs_dict excised.
+        :type keep_or_drop: bool
+        :param overwrite: If True, self.df is overwritten with the reduced dataframe.
+        :type overwrite: bool
+        :rtype: pd.DataFrame
         """
 
         for station_id, run_ids in station_runs_dict.items():
@@ -652,16 +615,13 @@ class KernelDataset:
     def set_run_times(
         self, run_time_dict: dict, inplace: Optional[bool] = True
     ):
-        """
-        set run times from a dictionary formatted as {run_id: {start, end}}
-
-        :param run_time_dict: DESCRIPTION
-        :type run_time_dict: TYPE
-        :param inplace: DESCRIPTION, defaults to True
-        :type inplace: TYPE, optional
-        :return: DESCRIPTION
+        """Set run times from a dictionary formatted as {run_id: {start, end}}.
+        :param run_time_dict: DESCRIPTION.
+        :type run_time_dict: dict
+        :param inplace: DESCRIPTION, defaults to True.
+        :type inplace: Optional[bool], optional
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         msg = "Need to set run time with a dictionary in the form of {run_id: {start, end}}"
@@ -684,7 +644,7 @@ class KernelDataset:
 
     @property
     def is_single_station(self) -> bool:
-        """returns True if no RR station"""
+        """Returns True if no RR station."""
         if self.local_station_id:
             if self.remote_station_id:
                 return False
@@ -694,18 +654,14 @@ class KernelDataset:
             return False
 
     def restrict_run_intervals_to_simultaneous(self, df: pd.DataFrame) -> None:
-        """
-        For each run in local_station_id check if it has overlap with other runs
+        """For each run in local_station_id check if it has overlap with other runs
 
         There is room for optimization here
 
         Note that you can wind up splitting runs here.  For example, in that case where
         local is running continuously, but remote is intermittent.  Then the local
-        run may break into several chunks.
-
-        Returns
-        -------
-
+        run may break into several chunks..
+        :rtype: None
         """
         local_df = df[df.station == self.local_station_id]
         remote_df = df[df.station == self.remote_station_id]
@@ -754,24 +710,16 @@ class KernelDataset:
     def get_station_metadata(
         self, local_station_id: str
     ) -> mt_metadata.timeseries.Station:
-        """
-
-        returns the station metadata.
+        """Returns the station metadata.
 
         Development Notes:
         TODO: This appears to be unused.  Was probably a precursor to the
           update_survey_metadata() method. Delete if unused. If used fill out doc:
         "Helper function for archiving the TF -- returns an object we can use to populate
         station metadata in the _____"
-
-        Parameters
-        ----------
-        local_station_id: str
-            The name of the local station
-
-        Returns
-        -------
-
+        :param local_station_id: The name of the local station.
+        :type local_station_id: str
+        :rtype: mt_metadata.timeseries.Station
         """
         # get a list of local runs:
         cond = self.df["station"] == local_station_id
@@ -794,23 +742,17 @@ class KernelDataset:
     def get_run_object(
         self, index_or_row: Union[int, pd.Series]
     ) -> mt_metadata.timeseries.Run:
-        """
-        Gets the run object associated with a row of the df
+        """Gets the run object associated with a row of the df
 
         Development Notes:
         TODO: This appears to be unused except by get_station_metadata.
          Delete or integrate if desired.
          - This has likely been deprecated by direct calls to
-         run_obj = row.mth5_obj.from_reference(row.run_hdf5_reference) in pipelines.
-
-        Parameters
-        ----------
-        index_or_row: integer index of df, or pd.Series object
-
-        Returns
-        -------
-        run_obj: mt_metadata.timeseries.Run
-            The run associated with the row of the df.
+         run_obj = row.mth5_obj.from_reference(row.run_hdf5_reference) in pipelines..
+        :param index_or_row:
+        :type index_or_row: Union[int, pd.Series]
+        :return run_obj: The run associated with the row of the df.
+        :rtype run_obj: mt_metadata.timeseries.Run
         """
         if isinstance(index_or_row, int):
             row = self.df.loc[index_or_row]
@@ -821,12 +763,12 @@ class KernelDataset:
 
     @property
     def num_sample_rates(self) -> int:
-        """returns the number of unique sample rates in the dataframe"""
+        """Returns the number of unique sample rates in the dataframe."""
         return len(self.df.sample_rate.unique())
 
     @property
     def sample_rate(self) -> float:
-        """returns the sample rate that of the data in the dataframer"""
+        r"""Returns the sample rate that of the data in the dataframe."""
         if self.num_sample_rates != 1:
             msg = "Aurora does not yet process data from mixed sample rates"
             logger.error(f"{msg}")
@@ -837,8 +779,7 @@ class KernelDataset:
     def update_survey_metadata(
         self, i: int, row: pd.Series, run_ts: mth5.timeseries.run_ts.RunTS
     ) -> None:
-        """
-        Wrangle survey_metadata into kernel_dataset.
+        """Wrangle survey_metadata into kernel_dataset.
 
         Development Notes:
         - The survey metadata needs to be passed to TF before exporting data.
@@ -847,18 +788,13 @@ class KernelDataset:
            There may be some performance implications to passing the whole object.
            Consider passing run_ts.survey_metadata, run_ts.run_metadata,
            run_ts.station_metadata only
-
-        Parameters
-        ----------
-        i: integer.
-            This would be the index of row, if we were sure that the dataframe was cleanly indexed
-        row: row of kernel_dataset dataframe corresponding to a survey-station-run.
-        run_ts: mth5.timeseries.run_ts.RunTS
-            mth5 object having the survey_metadata
-
-        Returns
-        -------
-
+        :param i: This would be the index of row, if we were sure that the dataframe was cleanly indexed.
+        :type i: int
+        :param row:
+        :type row: pd.Series
+        :param run_ts: Mth5 object having the survey_metadata.
+        :type run_ts: mth5.timeseries.run_ts.RunTS
+        :rtype: None
         """
         survey_id = run_ts.survey_metadata.id
         if i == 0:
@@ -877,11 +813,9 @@ class KernelDataset:
 
     @property
     def mth5_objs(self):
-        """
-
-        :return: dictionary [station_id: mth5_obj]
+        """Mth5 objs.
+        :return: Dictionary [station_id: mth5_obj].
         :rtype: dict
-
         """
         mth5_obj_dict = {}
         mth5_obj_dict[self.local_station_id] = self.local_mth5_obj
@@ -890,18 +824,14 @@ class KernelDataset:
         return mth5_obj_dict
 
     def initialize_mth5s(self, mode: Optional[str] = "r"):
-        """
-        returns a dict of open mth5 objects, keyed by station_id
+        """Returns a dict of open mth5 objects, keyed by station_id
 
         A future version of this for multiple station processing may need
-        nested dict with [survey_id][station]
-
-        Returns
-        -------
-        mth5_objs : dict
-            Keyed by stations.
+        nested dict with [survey_id][station].
+        :return mth5_objs: Keyed by stations.
             local station id : mth5.mth5.MTH5
-            remote station id: mth5.mth5.MTH5
+            remote station id: mth5.mth5.MTH5.
+        :rtype mth5_objs: dict
         """
         self.local_mth5_obj = initialize_mth5(self.local_mth5_path, mode=mode)
         if self.remote_station_id:
@@ -914,8 +844,8 @@ class KernelDataset:
         return self.mth5_objs
 
     def initialize_dataframe_for_processing(self) -> None:
-        """
-        Adds extra columns needed for processing to the dataframe.
+        """Adds extra columns needed for processing to the dataframe.
+
         Populates them with mth5 objects, run_hdf5_reference, and xr.Datasets.
 
         Development Notes:
@@ -932,7 +862,6 @@ class KernelDataset:
          is not yet tested.  A nice test would be to have two stations, some runs having FCs built
          and others not having FCs built.  What goes wrong is in update_survey_metadata.
          Need a way to get the survey metadata from a run, not a run_ts if possible
-
         """
 
         self.add_columns_for_processing()
@@ -960,8 +889,7 @@ class KernelDataset:
         logger.info("Dataset dataframe initialized successfully")
 
     def add_columns_for_processing(self) -> None:
-        """
-        Add columns to the dataframe used during processing.
+        """Add columns to the dataframe used during processing.
 
         Development Notes:
         - This was originally in pipelines.
@@ -972,12 +900,8 @@ class KernelDataset:
         for multiple station processing.
         - Currently the model of keeping all these data objects "live" in the df
         seems to work OK, but is not well suited to HPC or lazy processing.
-
-        Parameters
-        ----------
-        mth5_objs: dict,
-            Keys are station_id, values are MTH5 objects.
-
+        :param mth5_objs: Keys are station_id, values are MTH5 objects.
+        :type mth5_objs: dict,
         """
         if not self.initialized:
             raise ValueError("mth5 objects have not been initialized yet.")
@@ -992,9 +916,7 @@ class KernelDataset:
                 ] = self.remote_mth5_obj
 
     def close_mth5s(self) -> None:
-        """
-        Loop over all unique mth5_objs in dataset df and make sure they are closed.+
-        """
+        """Loop over all unique mth5_objs in dataset df and make sure they are closed.+."""
         mth5_objs = self.df["mth5_obj"].unique()
         for mth5_obj in mth5_objs:
             mth5_obj.close_mth5()
@@ -1006,23 +928,16 @@ def restrict_to_station_list(
     station_ids: Union[str, list],
     inplace: Optional[bool] = True,
 ) -> pd.DataFrame:
-    """
-    Drops all rows of run_summary dataframe where station_ids are NOT in
+    """Drops all rows of run_summary dataframe where station_ids are NOT in
     the provided list of station_ids.  Operates on a deepcopy of self.df if a df
     isn't provided
-
-    Parameters
-    ----------
-    df: pd.DataFrame
-        a run summary dataframer
-    station_ids: str or list of strings
-        These are the station ids to keep, normally local and remote
-    inplace: bool
-        If True, self.df is overwritten with the reduced dataframe
-
-    Returns
-    -------
-        reduced dataframe with only stations associated with the station_ids
+    :param df: A run summary dataframer.
+    :type df: pd.DataFrame
+    :param station_ids: These are the station ids to keep, normally local and remote.
+    :type station_ids: Union[str, list]
+    :param inplace: If True, self.df is overwritten with the reduced dataframe, defaults to True.
+    :type inplace: Optional[bool], optional
+    :rtype: pd.DataFrame
     """
     if isinstance(station_ids, str):
         station_ids = [
@@ -1042,25 +957,18 @@ def _select_station_runs(
     keep_or_drop: bool,
     overwrite: Optional[bool] = True,
 ):
-    """
-    Partition the rows of df based on the contents of station_runs_dict and return
+    """Partition the rows of df based on the contents of station_runs_dict and return
     one of the two partitions (based on value of keep_or_drop).
-
-    Parameters
-    ----------
-    station_runs_dict: dict
-        Keys are string ids of the stations to keep
-        Values are lists of string labels for run_ids to keep
-    keep_or_drop: str
-        If "keep": returns df with only the station-runs specified in station_runs_dict
-        If "drop": returns df with station_runs_dict excised
-    overwrite: bool
-        If True, self.df is overwritten with the reduced dataframe
-
-    Returns
-    -------
-        df: pd.DataFrame
-            reduced dataframe with only run_ids provided removed.
+    :param df:
+    :type df: pd.DataFrame
+    :param station_runs_dict: Keys are string ids of the stations to keep
+        Values are lists of string labels for run_ids to keep.
+    :type station_runs_dict: dict
+    :param keep_or_drop: If "keep": returns df with only the station-runs specified in station_runs_dict
+        If "drop": returns df with station_runs_dict excised.
+    :type keep_or_drop: bool
+    :param overwrite: If True, self.df is overwritten with the reduced dataframe, defaults to True.
+    :type overwrite: Optional[bool], optional
     """
 
     if not overwrite:
@@ -1088,8 +996,7 @@ def intervals_overlap(
     start2: pd.Timestamp,
     end2: pd.Timestamp,
 ) -> bool:
-    """
-    Checks if intervals 1, and 2 overlap.
+    """Checks if intervals 1, and 2 overlap.
 
     Interval 1 is (start1, end1), Interval 2 is (start2, end2),
 
@@ -1099,23 +1006,16 @@ def intervals_overlap(
     for many objects that have an ordering associated.
     This website was used as a reference when writing the method:
     https://stackoverflow.com/questions/3721249/python-date-interval-intersection
-
-    Parameters
-    ----------
-    start1: pd.Timestamp
-        Start of interval 1
-    end1: pd.Timestamp
-        End of interval 1
-    start2: pd.Timestamp
-        Start of interval 2
-    end2: pd.Timestamp
-        End of interval 2
-
-    Returns
-    -------
-    cond: bool
-        True of the intervals overlap, False if they do now
-
+    :param start1: Start of interval 1.
+    :type start1: pd.Timestamp
+    :param end1: End of interval 1.
+    :type end1: pd.Timestamp
+    :param start2: Start of interval 2.
+    :type start2: pd.Timestamp
+    :param end2: End of interval 2.
+    :type end2: pd.Timestamp
+    :return cond: True of the intervals overlap, False if they do now.
+    :rtype cond: bool
     """
     cond = (start1 <= start2 <= end1) or (start2 <= start1 <= end2)
     return cond
@@ -1127,8 +1027,8 @@ def overlap(
     t2_start: pd.Timestamp,
     t2_end: pd.Timestamp,
 ) -> tuple:
-    """
-    Get the start and end times of the overlap between two intervals.
+    """Get the start and end times of the overlap between two intervals.
+
     Interval 1 is (start1, end1), Interval 2 is (start2, end2),
 
     Development Notes:
@@ -1136,23 +1036,16 @@ def overlap(
      https://stackoverflow.com/questions/3721249/python-date-interval-intersection
      - Intended to work with pd.Timestamp objects, but should work for many objects
       that have an ordering associated.
-
-    Parameters
-    ----------
-    t1_start: pd.Timestamp
-        The start of interval 1.
-    t1_end: pd.Timestamp
-        The end of interval 1.
-    t2_start: pd.Timestamp
-        The start of interval 2.
-    t2_end: pd.Timestamp
-        The end of interval 2.
-
-
-    Returns
-    -------
-    start, end : tuple
-        start, end are either same type as input, or they are None,None
+    :param t1_start: The start of interval 1.
+    :type t1_start: pd.Timestamp
+    :param t1_end: The end of interval 1.
+    :type t1_end: pd.Timestamp
+    :param t2_start: The start of interval 2.
+    :type t2_start: pd.Timestamp
+    :param t2_end: The end of interval 2.
+    :type t2_end: pd.Timestamp
+    :return start, end: Start, end are either same type as input, or they are None,None.
+    :rtype start, end: tuple
     """
     if t1_start <= t2_start <= t2_end <= t1_end:
         return t2_start, t2_end

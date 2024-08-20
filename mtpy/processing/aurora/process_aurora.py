@@ -32,8 +32,7 @@ warnings.filterwarnings("ignore")
 
 
 class AuroraProcessing(BaseProcessing):
-    """
-    convenience class to process with Aurora
+    """Convenience class to process with Aurora
 
 
     .. code-block:: python
@@ -59,8 +58,7 @@ class AuroraProcessing(BaseProcessing):
             sample_rates=[4096, 1],
             merge=True,
             save_to_mth5=True
-            )
-
+            ).
     """
 
     def __init__(self, **kwargs):
@@ -95,9 +93,7 @@ class AuroraProcessing(BaseProcessing):
         super().__init__(**kwargs)
 
     def _get_merge_df(self):
-        """
-        a datafram containing the periods to use for each sample rate
-        """
+        """A datafram containing the periods to use for each sample rate."""
 
         return pd.DataFrame(
             {
@@ -114,13 +110,9 @@ class AuroraProcessing(BaseProcessing):
     def create_config(
         self, kernel_dataset=None, decimation_kwargs={}, **kwargs
     ):
-        """
-
-        decimation kwargs can include information about window,
-
-        :return: DESCRIPTION
+        """Decimation kwargs can include information about window,.
+        :return: DESCRIPTION.
         :rtype: aurora.config
-
         """
         if kernel_dataset is None:
             if self.has_kernel_dataset():
@@ -155,16 +147,13 @@ class AuroraProcessing(BaseProcessing):
             return config
 
     def _set_decimation_level_parameters(self, config, **kwargs):
-        """
-        set decimation level parameters
-
-        :param config: DESCRIPTION
+        """Set decimation level parameters.
+        :param config: DESCRIPTION.
         :type config: TYPE
-        :param **kwargs: DESCRIPTION
+        :param **kwargs: DESCRIPTION.
         :type **kwargs: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         for decimation in config.decimations:
@@ -172,9 +161,7 @@ class AuroraProcessing(BaseProcessing):
                 decimation.set_attr_from_name(key, value)
 
     def _initialize_kernel_dataset(self, sample_rate=None):
-        """
-        make an initial kernel dataset
-        """
+        """Make an initial kernel dataset."""
 
         if not self.has_run_summary():
             self.run_summary = self.get_run_summary()
@@ -196,8 +183,7 @@ class AuroraProcessing(BaseProcessing):
         remote_station_id=None,
         sample_rate=None,
     ):
-        """
-        This can be a stane alone method and return a kds, or create in place
+        """This can be a stane alone method and return a kds, or create in place
         Build KernelDataset
         """
 
@@ -214,12 +200,9 @@ class AuroraProcessing(BaseProcessing):
     def process_single_sample_rate(
         self, sample_rate, config=None, kernel_dataset=None
     ):
-        """
-        process data
-
-        :return: DESCRIPTION
+        """Process data.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if kernel_dataset is None:
@@ -252,8 +235,7 @@ class AuroraProcessing(BaseProcessing):
         merge=True,
         save_to_mth5=True,
     ):
-        """
-        If you provide just the sample rates, then at each sample rate a
+        """If you provide just the sample rates, then at each sample rate a
         KernelDataset will be created as well as a subsequent config object
         which are then used to process the data.
 
@@ -270,16 +252,18 @@ class AuroraProcessing(BaseProcessing):
             "config": config object,
             "kernel_dataset": KernelDataset object,
             }
-
-        :param config: dictionary of configuration keyed by sample rates.
+        :param processing_dict:
+            Defaults to None.
+        :param sample_rates:
+            Defaults to None.
+        :param config: Dictionary of configuration keyed by sample rates.
         :type config: dictionary
-        :param merge: DESCRIPTION, defaults to True
+        :param merge: DESCRIPTION, defaults to True.
         :type merge: TYPE, optional
-        :param save_to_mth5: DESCRIPTION, defaults to True
+        :param save_to_mth5: DESCRIPTION, defaults to True.
         :type save_to_mth5: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if sample_rates is None and processing_dict is None:
@@ -344,13 +328,11 @@ class AuroraProcessing(BaseProcessing):
         return processed
 
     def _validate_config(self, config):
-        """
-
-        :param config: DESCRIPTION
+        """Validate config.
+        :param config: DESCRIPTION.
         :type config: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if not isinstance(config, Processing):
             raise TypeError(
@@ -359,13 +341,12 @@ class AuroraProcessing(BaseProcessing):
             )
 
     def _validate_kernel_dataset(self, kernel_dataset):
-        """
-
-        :param config: DESCRIPTION
+        """Validate kernel dataset.
+        :param kernel_dataset:
+        :param config: DESCRIPTION.
         :type config: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if not isinstance(kernel_dataset, KernelDataset):
             raise TypeError(
@@ -374,14 +355,11 @@ class AuroraProcessing(BaseProcessing):
             )
 
     def _validate_processing_dict(self, processing_dict):
-        """
-        validate the processing dict to make sure it is in the correct format
-
-        :param processing_dict: DESCRIPTION
+        """Validate the processing dict to make sure it is in the correct format.
+        :param processing_dict: DESCRIPTION.
         :type processing_dict: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         error_msg = "Format is {sample_rate: {'config': config object, "
         "'kernel_dataset': KernelDataset object}"
@@ -407,16 +385,13 @@ class AuroraProcessing(BaseProcessing):
             self._validate_kernel_dataset(pdict["kernel_dataset"])
 
     def _validate_tf_processed_dict(self, tf_dict):
-        """
-        Pick out processed transfer functions from a given processed dict,
+        """Pick out processed transfer functions from a given processed dict,
         which may have some sample rates that did not process for whatever
         reason.
-
-        :param tf_dict: DESCRIPTION
+        :param tf_dict: DESCRIPTION.
         :type tf_dict: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         new_dict = {}
@@ -429,14 +404,11 @@ class AuroraProcessing(BaseProcessing):
         return new_dict
 
     def _add_tf_to_local_mth5(self, tf_dict):
-        """
-        add transfer function to MTH5
-
-        :param tf_dict: DESCRIPTION
+        """Add transfer function to MTH5.
+        :param tf_dict: DESCRIPTION.
         :type tf_dict: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         with MTH5() as m:
@@ -445,14 +417,11 @@ class AuroraProcessing(BaseProcessing):
                 m.add_transfer_function(p_dict["tf"])
 
     def _get_merge_tf_list(self, tf_dict):
-        """
-        merge transfer functions according to merge dict
-
-        :param tf_dict: DESCRIPTION
+        """Merge transfer functions according to merge dict.
+        :param tf_dict: DESCRIPTION.
         :type tf_dict: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         merge_df = self._get_merge_df()
@@ -477,13 +446,11 @@ class AuroraProcessing(BaseProcessing):
         return merge_list
 
     def merge_transfer_functions(self, tf_dict):
-        """
-
-        :param tf_dict: DESCRIPTION
+        """Merge transfer functions.
+        :param tf_dict: DESCRIPTION.
         :type tf_dict: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         merge_list = self._get_merge_tf_list(tf_dict)

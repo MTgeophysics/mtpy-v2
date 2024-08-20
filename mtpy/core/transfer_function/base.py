@@ -29,11 +29,8 @@ from mtpy.utils.calculator import (
 # Impedance Tensor Class
 # ==============================================================================
 class TFBase:
-    """
-
-    Generic transfer function object that uses xarray as its base container
+    """Generic transfer function object that uses xarray as its base container
     for the data.
-
     """
 
     def __init__(
@@ -70,6 +67,7 @@ class TFBase:
         )
 
     def __str__(self):
+        """Str function."""
         lines = [f"Transfer Function {self._name}", "-" * 30]
         if self.frequency is not None:
             lines.append(f"\tNumber of periods:  {self.frequency.size}")
@@ -92,9 +90,11 @@ class TFBase:
         return "\n".join(lines)
 
     def __repr__(self):
+        """Repr function."""
         return self.__str__()
 
     def __eq__(self, other):
+        """Eq function."""
         if not isinstance(other, TFBase):
             msg = f"Cannot compare {type(other)} with TFBase"
             self.logger.error(msg)
@@ -107,6 +107,7 @@ class TFBase:
         return True
 
     def __deepcopy__(self, memo):
+        """Deepcopy function."""
         cls = self.__class__
         result = cls.__new__(cls)
         memo[id(self)] = result
@@ -118,15 +119,13 @@ class TFBase:
         return result
 
     def copy(self):
+        """Copy function."""
         return deepcopy(self)
 
     def _initialize(
         self, periods=[1], tf=None, tf_error=None, tf_model_error=None
     ):
-        """
-        initialized based on input channels, output channels and period
-
-        """
+        """Initialized based on input channels, output channels and period."""
 
         if tf is not None:
             tf = self._validate_array_input(tf, self._tf_dtypes["tf"])
@@ -225,12 +224,9 @@ class TFBase:
         )
 
     def _is_empty(self):
-        """
-        Check to see if the data set is empty, default settings
-
-        :return: DESCRIPTION
+        """Check to see if the data set is empty, default settings.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if self._dataset is None:
             return True
@@ -248,41 +244,43 @@ class TFBase:
         return False
 
     def _has_tf(self):
+        """Has tf."""
         return not (self._dataset.transfer_function.values == 0).all()
 
     def _has_tf_error(self):
+        """Has tf error."""
         return not (self._dataset.transfer_function_error.values == 0).all()
 
     def _has_tf_model_error(self):
+        """Has tf model error."""
         return not (
             self._dataset.transfer_function_model_error.values == 0
         ).all()
 
     def _has_frequency(self):
+        """Has frequency."""
         if (self._dataset.coords["period"].values == np.array([1])).all():
             return False
         return True
 
     @property
     def comps(self):
+        """Comps function."""
         return dict(input=self.inputs, output=self.outputs)
 
     # ---frequencyuency-------------------------------------------------------------
     @property
     def frequency(self):
-        """
-        frequencyuencies for each impedance tensor element
+        """Frequencyuencies for each impedance tensor element
 
-        Units are Hz.
+        Units are Hz..
         """
         return 1.0 / self._dataset.period.values
 
     @frequency.setter
     def frequency(self, frequency):
-        """
-        Set the array of frequency.
-
-        :param frequency: array of frequencyunecies (Hz)
+        """Set the array of frequency.
+        :param frequency: Array of frequencyunecies (Hz).
         :type frequency: np.ndarray
         """
 
@@ -304,31 +302,26 @@ class TFBase:
 
     @property
     def period(self):
-        """
-        periods in seconds
-        """
+        """Periods in seconds."""
 
         return 1.0 / self.frequency
 
     @period.setter
     def period(self, value):
-        """
-        setting periods will set the frequencyuencies
-        """
+        """Setting periods will set the frequencyuencies."""
 
         self.frequency = 1.0 / value
 
     @property
     def n_periods(self):
+        """N periods."""
         if self._is_empty():
             return 0
 
         return self.period.size
 
     def _validate_frequency(self, frequency, n_frequencies=None):
-        """
-        validate frequency
-        """
+        """Validate frequency."""
 
         if frequency is None:
             return np.array([1])
@@ -352,16 +345,17 @@ class TFBase:
         return frequency
 
     def _validate_array_input(self, tf_array, expected_dtype, old_shape=None):
-        """
-        Validate an input impedance array
-
-        :param array: DESCRIPTION
+        """Validate an input impedance array.
+        :param old_shape:
+            Defaults to None.
+        :param expected_dtype:
+        :param tf_array:
+        :param array: DESCRIPTION.
         :type array: TYPE
-        :param dtype: DESCRIPTION
+        :param dtype: DESCRIPTION.
         :type dtype: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if tf_array is None:
@@ -415,17 +409,14 @@ class TFBase:
             raise ValueError(msg)
 
     def _validate_array_shape(self, array, expected_shape):
-        """
-        Check array for expected shape
-
-        :param array: DESCRIPTION
+        """Check array for expected shape.
+        :param array: DESCRIPTION.
         :type array: TYPE
-        :param expected_shape: DESCRIPTION
+        :param expected_shape: DESCRIPTION.
         :type expected_shape: TYPE
-        :raises ValueError: DESCRIPTION
-        :return: DESCRIPTION
+        :raises ValueError: DESCRIPTION.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         # check to see if the new z array is the same shape as the old
         if array.shape != expected_shape:
@@ -439,14 +430,12 @@ class TFBase:
             raise ValueError(msg)
 
     def _validate_real_valued(self, array):
-        """
-        make sure resistivity is real valued
-
-        :param res: DESCRIPTION
+        """Make sure resistivity is real valued.
+        :param array:
+        :param res: DESCRIPTION.
         :type res: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         # assert real array:
         if np.linalg.norm(np.imag(array)) != 0:
@@ -457,11 +446,9 @@ class TFBase:
 
     @property
     def inverse(self):
-        """
-        Return the inverse of transfer function.
+        """Return the inverse of transfer function.
 
         (no error propagtaion included yet)
-
         """
 
         if self.has_tf():
@@ -480,15 +467,13 @@ class TFBase:
             return inverse
 
     def rotate(self, alpha, inplace=False):
-        """
-        Rotate transfer function array by angle alpha.
+        """Rotate transfer function array by angle alpha.
 
         Rotation angle must be given in degrees. All angles are referenced
         to geographic North, positive in clockwise direction.
         (Mathematically negative!)
 
         In non-rotated state, X refs to North and Y to East direction.
-
         """
 
         if not self._has_tf():
@@ -498,13 +483,14 @@ class TFBase:
             return
 
         def get_rotate_function(shape):
+            """Get rotate function."""
             if shape[0] == 2:
                 return rotate_matrix_with_errors
             elif shape[0] == 1:
                 return rotate_vector_with_errors
 
         def validate_angle(self, angle):
-            """validate angle to be a valid float"""
+            """Validate angle to be a valid float."""
             try:
                 return float(angle % 360)
             except ValueError:
@@ -591,9 +577,10 @@ class TFBase:
         extrapolate=False,
         **kwargs,
     ):
-        """
-        interpolate onto a new period range.  The way this works is that NaNs
-        are first interpolated using method `na_method` along the original
+        """Interpolate onto a new period range.
+
+        The way this works is that NaNs
+are first interpolated using method `na_method` along the original
         period map. This allows us to use xarray tools for interpolation. If we
         drop NaNs using xarray it drops each column or row that has a single
         NaN and removes way too much data. Therefore interpolating NaNs first
@@ -606,36 +593,27 @@ class TFBase:
         like impedance. It seems that functions that are naturally in log-space
         cause issues with the interpolators so taking the log of the function
         seems to produce better results.
-
-
-        :param new_periods: new periods to interpolate on to
+        :param new_periods: New periods to interpolate on to.
         :type new_periods: np.ndarray, list
-        :param inplace: Interpolate inplace, defaults to False
+        :param inplace: Interpolate inplace, defaults to False.
         :type inplace: bool, optional
-        :param method: method for 1D linear interpolation options are
-         ["linear", "nearest", "zero", "slinear", "quadratic", "cubic"],
-         defaults to "slinear"
+        :param method: Method for 1D linear interpolation options are
+            ["linear", "nearest", "zero", "slinear", "quadratic", "cubic"],, defaults to "slinear".
         :type method: string, optional
-        :param na_method: method to interpolate NaNs along original periods
-         options are {"linear", "nearest", "zero", "slinear", "quadratic",
-         "cubic", "polynomial", "barycentric", "krogh", "pchip", "spline",
-         "akima"}, defaults to "pchip"
+        :param na_method: Method to interpolate NaNs along original periods
+            options are {"linear", "nearest", "zero", "slinear", "quadratic",
+            "cubic", "polynomial", "barycentric", "krogh", "pchip", "spline",
+            "akima"}, defaults to "pchip".
         :type na_method: string, optional
-        :param log_space: Set to true if function is naturally logarithmic,
-         defaults to False
+        :param log_space: Set to true if function is naturally logarithmic,, defaults to False.
         :type log_space: bool, optional
-        :param extrapolate: extrapolate past original period range, default is
-         False. If set to True be careful cause the values are not great.
-        :type extrapolate: bool
-        :param **kwargs: keyword args passed to interpolation methods
+        :param extrapolate: Extrapolate past original period range, default is
+            False. If set to True be careful cause the values are not great, defaults to False.
+        :type extrapolate: bool, optional
+        :param **kwargs: Keyword args passed to interpolation methods.
         :type **kwargs: dict
-        :return: interpolated object
+        :return: Interpolated object.
         :rtype: :class:`mtpy.core.transfer_fuction.base.TFBase`
-
-        .. seealso:: `xarray.DataArray.interpolate_na` and
-         `xarray.DataArray.interp`
-
-
         """
 
         da_dict = {}
@@ -680,17 +658,16 @@ class TFBase:
 
     @staticmethod
     def _find_nans_index(data_array):
-        """
-        find nans at beginning and end of xarray.  When you interpolate a
-        xarray.DataArray we interpolate nans, which removes the original nans
+        """Find nans at beginning and end of xarray.
+
+        When you interpolate a
+xarray.DataArray we interpolate nans, which removes the original nans
         at the beginning and end of the array.  We need to find these
         indicies and period min and max so we can put them back in.
-
-        :param data_array: DESCRIPTION
+        :param data_array: DESCRIPTION.
         :type data_array: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         index_list = []
@@ -740,16 +717,13 @@ class TFBase:
         return index_list
 
     def _backfill_nans(self, original, interpolated):
-        """
-        back fill with nans for extrapolated values
-
-        :param original: original data array
+        """Back fill with nans for extrapolated values.
+        :param original: Original data array.
         :type original: xarray.DataArray
-        :param interpolated: Interpolated data array
+        :param interpolated: Interpolated data array.
         :type interpolated: xr.DataArray
-        :return: nan's filled in from beginning and end of original data
+        :return: Nan's filled in from beginning and end of original data.
         :rtype: xarray.DataArray
-
         """
 
         original_index = self._find_nans_index(original)
@@ -769,25 +743,19 @@ class TFBase:
         return interpolated
 
     def to_xarray(self):
-        """
-        To an xarray dataset
-
-        :return: DESCRIPTION
+        """To an xarray dataset.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         return self._dataset
 
     def from_xarray(self, dataset):
-        """
-        fill from an xarray dataset
-
-        :param dataset: DESCRIPTION
+        """Fill from an xarray dataset.
+        :param dataset: DESCRIPTION.
         :type dataset: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         ## Probably need more validation than this
@@ -795,25 +763,19 @@ class TFBase:
             self._dataset = dataset
 
     def to_dataframe(self):
-        """
-        Return a pandas dataframe with the appropriate columns as a single
+        """Return a pandas dataframe with the appropriate columns as a single
         index, or multi-index?
-
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         pass
 
     def from_dataframe(self, dataframe):
-        """
-        fill from a pandas dataframe with the appropriate columns
-
-        :param dataframe: DESCRIPTION
+        """Fill from a pandas dataframe with the appropriate columns.
+        :param dataframe: DESCRIPTION.
         :type dataframe: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         pass

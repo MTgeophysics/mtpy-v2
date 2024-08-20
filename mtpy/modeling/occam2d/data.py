@@ -19,8 +19,7 @@ from mtpy.core.mt_dataframe import MTDataFrame
 
 
 class Occam2DData:
-    """
-    Reads and writes data files and more.
+    """Reads and writes data files and more.
 
     Inherets Profile, so the intended use is to use Data to project stations
     onto a profile, then write the data file.
@@ -51,7 +50,6 @@ class Occam2DData:
         >>> occam_data_object.read_data_file(r"path/to/data/file.dat")
         >>> occam_data_object.model_mode = 2
         >>> occam_data_object.write_data_file(r"path/to/new/data/file_te.dat")
-
     """
 
     def __init__(self, dataframe=None, center_point=None, **kwargs):
@@ -157,6 +155,7 @@ class Occam2DData:
             setattr(self, key, value)
 
     def __str__(self):
+        """Str function."""
         lines = ["Occam2D Data"]
         lines.append(f"\tNumber of Stations:     {self.n_stations}")
         lines.append(f"\tNumber of Frequencies:  {self.n_frequencies}")
@@ -165,39 +164,47 @@ class Occam2DData:
         return "\n".join(lines)
 
     def __repr__(self):
+        """Repr function."""
         return self.__str__()
 
     def _has_data(self):
+        """Has data."""
         return self._mt_dataframe._has_data()
 
     @property
     def n_stations(self):
+        """N stations."""
         if self._has_data():
             return self.dataframe.station.unique().size
         return 0
 
     @property
     def n_frequencies(self):
+        """N frequencies."""
         if self._has_data():
             return self._mt_dataframe.period.size
         return 0
 
     @property
     def n_data(self):
+        """N data."""
         return self._mt_dataframe.nonzero_items
 
     @property
     def frequencies(self):
+        """Frequencies function."""
         if self._has_data():
             return pd.Series(self._mt_dataframe.frequency)
 
     @property
     def stations(self):
+        """Stations function."""
         if self._has_data():
             return pd.Series(self.dataframe.station.unique())
 
     @property
     def offsets(self):
+        """Offsets function."""
         return np.array(
             [
                 self.dataframe.loc[
@@ -209,10 +216,12 @@ class Occam2DData:
 
     @property
     def data_filename(self):
+        """Data filename."""
         return self._data_fn
 
     @data_filename.setter
     def data_filename(self, value):
+        """Data filename."""
         if value is None:
             self._data_fn = None
         else:
@@ -220,17 +229,16 @@ class Occam2DData:
 
     @property
     def dataframe(self):
+        """Dataframe function."""
         return self._mt_dataframe.dataframe
 
     @dataframe.setter
     def dataframe(self, df):
-        """
-        Set dataframe to an MTDataframe
-        :param df: DESCRIPTION
+        """Set dataframe to an MTDataframe.
+        :param df: DESCRIPTION.
         :type df: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if df is None:
@@ -245,15 +253,15 @@ class Occam2DData:
             )
 
     def _line_entry(self):
+        """Line entry."""
         return dict([(key, np.nan) for key in self._line_keys])
 
     def _get_model_locations(self, profile_offset, profile_angle):
-        """
-        get the origin of the profile in real world coordinates
+        """Get the origin of the profile in real world coordinates
 
         Author: Alison Kirkby (2013)
 
-        NEED TO ADAPT THIS TO THE CURRENT SETUP.
+        NEED TO ADAPT THIS TO THE CURRENT SETUP..
         """
 
         return (
@@ -262,14 +270,11 @@ class Occam2DData:
         )
 
     def _read_title_string(self, title_string):
-        """
-        get information from the title string
-
-        :param title_string: DESCRIPTION
+        """Get information from the title string.
+        :param title_string: DESCRIPTION.
         :type title_string: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         title_list = title_string.split(",", 3)
@@ -311,26 +316,23 @@ class Occam2DData:
                             setattr(self, key, (0, 0))
 
     def read_data_file(self, data_fn=None):
-        """
-        Read in an existing data file and populate appropriate attributes
+        """Read in an existing data file and populate appropriate attributes
             * data
             * data_list
             * freq
             * station_list
             * station_locations
 
-        Arguments:
-        -----------
-            **data_fn** : string
-                          full path to data file
-                          *default* is None and set to save_path/fn_basename
+        Arguments::
+                **data_fn** : string
+                              full path to data file
+                              *default* is None and set to save_path/fn_basename
 
-        :Example: ::
+            :Example: ::
 
-            >>> import mtpy.modeling.occam2d as occam2d
-            >>> ocd = occam2d.Data()
-            >>> ocd.read_data_file(r"/home/Occam2D/Line1/Inv1/Data.dat")
-
+                >>> import mtpy.modeling.occam2d as occam2d
+                >>> ocd = occam2d.Data()
+                >>> ocd.read_data_file(r"/home/Occam2D/Line1/Inv1/Data.dat")
         """
 
         if data_fn is not None:
@@ -455,14 +457,11 @@ class Occam2DData:
         self.model_mode = self._get_model_mode_from_data(res_log)
 
     def _get_model_mode_from_data(self, res_log):
-        """
-        Get inversion mode from the data
-
-        :param res_log: DESCRIPTION
+        """Get inversion mode from the data.
+        :param res_log: DESCRIPTION.
         :type res_log: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         inv_list = []
         for inv_mode, comp in self.df_dict.items():
@@ -486,13 +485,11 @@ class Occam2DData:
         return self._match_inv_list_to_mode(inv_list)
 
     def _match_inv_list_to_mode(self, inv_list):
-        """
-        match the modes to the inversion mode
-        :param inv_list: DESCRIPTION
+        """Match the modes to the inversion mode.
+        :param inv_list: DESCRIPTION.
         :type inv_list: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         for inv_mode, comp_list in self.mode_dict.items():
@@ -500,10 +497,7 @@ class Occam2DData:
                 return inv_mode
 
     def _get_data_block(self):
-        """
-        Get all the data needed to write a data file.
-
-        """
+        """Get all the data needed to write a data file."""
         if not self._has_data():
             raise ValueError("Cannot write data from an empty dataframe.")
         data_list = []
@@ -543,11 +537,10 @@ class Occam2DData:
         return data_list
 
     def mask_from_datafile(self, mask_datafn):
-        """
-        reads a separate data file and applies mask from this data file.
+        """Reads a separate data file and applies mask from this data file.
+
         mask_datafn needs to have exactly the same frequencies, and station names
         must match exactly.
-
         """
         ocdm = Occam2DData()
         ocdm.read_data_file(mask_datafn)
@@ -576,9 +569,7 @@ class Occam2DData:
         self.write_data_file()
 
     def _make_title(self):
-        """
-        make title with profile angle, strike and origin
-        """
+        """Make title with profile angle, strike and origin."""
         return (
             f"{self.title}, Profile={self.profile_angle:.1f} deg, "
             f"Strike={self.geoelectric_strike:.1f} deg, "
@@ -586,27 +577,24 @@ class Occam2DData:
         )
 
     def write_data_file(self, data_fn=None):
-        """
-        Write a data file.
+        """Write a data file.
 
-        Arguments:
-        -----------
-            **data_fn** : string
-                          full path to data file.
-                          *default* is save_path/fn_basename
+        Arguments::
+                **data_fn** : string
+                              full path to data file.
+                              *default* is save_path/fn_basename
 
-        If there data is None, then _fill_data is called to create a profile,
-        rotate data and get all the necessary data.  This way you can use
-        write_data_file directly without going through the steps of projecting
-        the stations, etc.
+            If there data is None, then _fill_data is called to create a profile,
+            rotate data and get all the necessary data.  This way you can use
+            write_data_file directly without going through the steps of projecting
+            the stations, etc.
 
-        :Example: ::
-            >>> edipath = r"/home/mt/edi_files"
-            >>> slst = ['mt{0:03}'.format(ss) for ss in range(1, 20)]
-            >>> ocd = occam2d.Data(edi_path=edipath, station_list=slst)
-            >>> ocd.save_path = r"/home/occam/line1/inv1"
-            >>> ocd.write_data_file()
-
+            :Example: ::
+                >>> edipath = r"/home/mt/edi_files"
+                >>> slst = ['mt{0:03}'.format(ss) for ss in range(1, 20)]
+                >>> ocd = occam2d.Data(edi_path=edipath, station_list=slst)
+                >>> ocd.save_path = r"/home/occam/line1/inv1"
+                >>> ocd.write_data_file()
         """
 
         if data_fn is not None:

@@ -50,6 +50,7 @@ class GISError(Exception):
 
 
 def assert_minutes(minutes):
+    """Assert minutes."""
     if not 0 <= minutes < 60.0:
         msg = (
             f"minutes are not within 0 < > 60, currently {minutes:.0f} "
@@ -62,6 +63,7 @@ def assert_minutes(minutes):
 
 
 def assert_seconds(seconds):
+    """Assert seconds."""
     if not 0 <= seconds < 60.0:
         msg = (
             "seconds should be 0 < > 60, currently {0:.0f}".format(seconds)
@@ -74,13 +76,11 @@ def assert_seconds(seconds):
 
 
 def convert_position_str2float(position_str):
-    """
-    Convert a position string in the format of DD:MM:SS to decimal degrees
-
-    :param position: latitude or longitude om DD:MM:SS.ms
+    """Convert a position string in the format of DD:MM:SS to decimal degrees.
+    :param position_str:
+    :param position: Latitude or longitude om DD:MM:SS.ms.
     :type position: float
-
-    :returns: latitude or longitude as a float
+    :return s: Latitude or longitude as a float.
     """
 
     if position_str in [None, "None"]:
@@ -117,11 +117,10 @@ def convert_position_str2float(position_str):
 
 
 def assert_lat_value(latitude):
-    """
-    Make sure the latitude value is in decimal degrees, if not change it.
-    And that the latitude is within -90 < lat > 90.
+    """Make sure the latitude value is in decimal degrees, if not change it.
 
-    :param latitude: latitude in decimal degrees or other format
+    And that the latitude is within -90 < lat > 90.
+    :param latitude: Latitude in decimal degrees or other format.
     :type latitude: float or string
     """
     if latitude in [None, "None", "none", "unknown"]:
@@ -147,11 +146,11 @@ def assert_lat_value(latitude):
 
 
 def assert_lon_value(longitude):
-    """
-    Make sure the longitude value is in decimal degrees, if not change it.
-    And that the latitude is within -180 < lat > 180.
+    """Make sure the longitude value is in decimal degrees, if not change it.
 
-    :param latitude: longitude in decimal degrees or other format
+    And that the latitude is within -180 < lat > 180.
+    :param longitude:
+    :param latitude: Longitude in decimal degrees or other format.
     :type latitude: float or string
     """
     if longitude in [None, "None", "none", "unknown"]:
@@ -179,10 +178,8 @@ def assert_lon_value(longitude):
 
 
 def assert_elevation_value(elevation):
-    """
-    make sure elevation is a floating point number
-
-    :param elevation: elevation as a float or string that can convert
+    """Make sure elevation is a floating point number.
+    :param elevation: Elevation as a float or string that can convert.
     :type elevation: float or str
     """
 
@@ -199,13 +196,10 @@ def assert_elevation_value(elevation):
 
 
 def convert_position_float2str(position):
-    """
-    Convert position float to a string in the format of DD:MM:SS.
-
-    :param position: decimal degrees of latitude or longitude
+    """Convert position float to a string in the format of DD:MM:SS.
+    :param position: Decimal degrees of latitude or longitude.
     :type position: float
-
-    :returns: latitude or longitude in format of DD:MM:SS.ms
+    :return s: Latitude or longitude in format of DD:MM:SS.ms.
     """
 
     if not isinstance(position, (float, int)):
@@ -241,23 +235,20 @@ def convert_position_float2str(position):
 
 
 def validate_input_values(values, location_type=None):
-    """
-    make sure the input values for lat, lon, easting, northing will be an
+    """Make sure the input values for lat, lon, easting, northing will be an
     numpy array with a float data type
 
     can input a string as a comma separated list
-
-    :param values: values to project, can be given as:
+    :param location_type:
+        Defaults to None.
+    :param values: Values to project, can be given as:
         * float
         * string of a single value or a comma separate string '34.2, 34.5'
         * list of floats or string
-        * numpy.ndarray
-
+        * numpy.ndarray.
     :type values: [ float | string | list | numpy.ndarray ]
-
-    :return: array of floats
+    :return: Array of floats.
     :rtype: numpy.ndarray(dtype=float)
-
     """
     if isinstance(
         values, (int, float, np.float_, np.float16, np.float32, np.float64)
@@ -291,20 +282,17 @@ def validate_input_values(values, location_type=None):
 
 
 def project_point(x, y, old_epsg, new_epsg):
-    """
-    Transform point to new epsg
-
-    :param x: DESCRIPTION
+    """Transform point to new epsg.
+    :param x: DESCRIPTION.
     :type x: TYPE
-    :param y: DESCRIPTION
+    :param y: DESCRIPTION.
     :type y: TYPE
-    :param old_epsg: DESCRIPTION
+    :param old_epsg: DESCRIPTION.
     :type old_epsg: TYPE
-    :param new_epsg: DESCRIPTION
+    :param new_epsg: DESCRIPTION.
     :type new_epsg: TYPE
-    :return: DESCRIPTION
+    :return: DESCRIPTION.
     :rtype: TYPE
-
     """
 
     if old_epsg is None:
@@ -340,47 +328,24 @@ def project_point(x, y, old_epsg, new_epsg):
 
 
 def project_point_ll2utm(lat, lon, datum="WGS84", epsg=None):
-    """
-    Project a point that is in latitude and longitude to the specified
+    """Project a point that is in latitude and longitude to the specified
     UTM coordinate system.
-
-    :param latitude: latitude in [ 'DD:mm:ss.ms' | 'DD.decimal' | float ]
+    :param lon:
+    :param lat:
+    :param latitude: Latitude in [ 'DD:mm:ss.ms' | 'DD.decimal' | float ].
     :type latitude: [ string | float ]
-
-    :param longitude: longitude in [ 'DD:mm:ss.ms' | 'DD.decimal' | float ]
+    :param longitude: Longitude in [ 'DD:mm:ss.ms' | 'DD.decimal' | float ].
     :type longitude: [ string | float ]
-
-    :param datum: well known datum
-    :type datum: string
-
+    :param datum: Well known datum, defaults to "WGS84".
+    :type datum: string, optional
     :param epsg: EPSG number defining projection
-                (see http://spatialreference.org/ref/ for moreinfo)
-                Overrides utm_zone if both are provided
-    :type epsg: [ int | string ]
-
-    :return: project point(s)
-    :rtype: tuple if a single point, np.recarray if multiple points
+        (see http://spatialreference.org/ref/ for moreinfo)
+        Overrides utm_zone if both are provided, defaults to None.
+    :type epsg: [ int | string ], optional
+    :return: Project point(s)
         * tuple is (easting, northing,utm_zone)
-        * recarray has attributes (easting, northing, utm_zone, elevation)
-
-    :Single Point: ::
-
-        >>> gis_tools.project_point_ll2utm('-34:17:57.99', '149.2010301')
-        (702562.6911014864, 6202448.5654573515, '55H')
-
-    :Multiple Points: ::
-
-        >>> lat = np.arange(20, 40, 5)
-        >>> lon = np.arange(-110, -90, 5)
-        >>> gis_tools.project_point_ll2utm(lat, lon, datum='NAD27')
-        rec.array([( -23546.69921068, 2219176.82320353, 0., '13R'),
-                   ( 500000.        , 2764789.91224626, 0., '13R'),
-                   ( 982556.42985037, 3329149.98905941, 0., '13R'),
-                   (1414124.6019547 , 3918877.48599922, 0., '13R')],
-                  dtype=[('easting', '<f8'), ('northing', '<f8'),
-                         ('elev', '<f8'), ('utm_zone', '<U3')])
-
-
+        * recarray has attributes (easting, northing, utm_zone, elevation).
+    :rtype: tuple if a single point, np.recarray if multiple points
     """
     if lat is None or lon is None:
         return None, None, None
@@ -419,50 +384,27 @@ def project_point_ll2utm(lat, lon, datum="WGS84", epsg=None):
 
 
 def project_point_utm2ll(easting, northing, utm_epsg, datum_epsg=4326):
-    """
-    Project a point that is in UTM to the specified geographic coordinate
+    """Project a point that is in UTM to the specified geographic coordinate
     system.
-
-    :param easting: easting in meters
+    :param datum_epsg:
+        Defaults to 4326.
+    :param utm_epsg:
+    :param easting: Easting in meters.
     :type easting: float
-
-    :param northing: northing in meters
+    :param northing: Northing in meters.
     :type northing: float
-
-    :param datum: well known datum
+    :param datum: Well known datum.
     :type datum: string
-
-    :param utm_zone: utm_zone {0-9}{0-9}{C-X} or {+, -}{0-9}{0-9}
+    :param utm_zone: Utm_zone {0-9}{0-9}{C-X} or {+, -}{0-9}{0-9}.
     :type utm_zone: [ string | int ]
-
     :param epsg: EPSG number defining projection
-                (see http://spatialreference.org/ref/ for moreinfo)
-                Overrides utm_zone if both are provided
+        (see http://spatialreference.org/ref/ for moreinfo)
+        Overrides utm_zone if both are provided.
     :type epsg: [ int | string ]
-
-    :return: project point(s)
-    :rtype: tuple if a single point, np.recarray if multiple points
+    :return: Project point(s)
         * tuple is (easting, northing,utm_zone)
-        * recarray has attributes (easting, northing, utm_zone, elevation)
-
-    :Single Point: ::
-
-        >>> gis_tools.project_point_utm2ll(670804.18810336,
-        ...                                4429474.30215206,
-        ...                                datum='WGS84',
-        ...                                utm_zone='11T',
-        ...                                epsg=26711)
-        (40.000087, -114.999128)
-
-    :Multiple Points: ::
-
-        >>> gis_tools.project_point_utm2ll([670804.18810336, 680200],
-        ...                                [4429474.30215206, 4330200],
-        ...                                datum='WGS84', utm_zone='11T',
-        ...                                epsg=26711)
-        rec.array([(40.000087, -114.999128), (39.104208, -114.916058)],
-                  dtype=[('latitude', '<f8'), ('longitude', '<f8')])
-
+        * recarray has attributes (easting, northing, utm_zone, elevation).
+    :rtype: tuple if a single point, np.recarray if multiple points
     """
     easting = validate_input_values(easting)
     northing = validate_input_values(northing)
