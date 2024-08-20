@@ -11,7 +11,7 @@ Created on Fri Aug  9 12:11:57 2024
 
 
 # =============================================================================
-class SimpegData:
+class Simpeg2DData:
     """ """
 
     def __init__(self, dataframe, **kwargs):
@@ -26,23 +26,25 @@ class SimpegData:
             "zx": "zy",
             "zy": "zx",
         }
-        
+
     def get_station_locations(self, utm=True):
         """
         get station locations in utm geographic coordinates if True, otherwise
         will be in model coordinates.
-        
+
         :param geographic: DESCRIPTION, defaults to True
         :type geographic: TYPE, optional
         :return: DESCRIPTION
         :rtype: TYPE
 
         """
-        station_df = self.dataframe.groupby(station)
+        station_df = self.dataframe.groupby("station")
         if utm:
-            east = self.dataframe.east.
-            north = self.dataframe.north
-        
+            east = station_df.east
+            north = station_df.north
+        else:
+            east = self.dataframe.model_east
+            north = self.dataframe.model_north
 
     def from_dataframe():
         """
