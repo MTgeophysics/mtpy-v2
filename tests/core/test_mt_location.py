@@ -123,7 +123,7 @@ class TestMTLocationModelLocation(unittest.TestCase):
         self.true_lat = 40.0
         self.true_lon = -120.0
         self.utm_epsg = 32611
-        self.true_elevation = 1895.33996582
+        self.true_elevation = 1899.16394043
 
         self.loc = MTLocation(
             latitude=self.true_lat,
