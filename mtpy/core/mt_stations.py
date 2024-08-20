@@ -160,8 +160,11 @@ class MTStations:
 
         .. note:: At the moment this is very slow because it is making a lot
          of deep copies.  Use sparingly.
-        :return: Deep copy of MTStation object.
-        :rtype: :class:`mtpy.core.mt_stations.MTStations`
+
+        Returns
+        -------
+        :class:`mtpy.core.mt_stations.MTStations`
+            Deep copy of MTStation object.
         """
 
         if self.mt_list is not None:
@@ -186,24 +189,33 @@ class MTStations:
     @property
     def model_epsg(self):
         """Model epsg.
-        :return: Model epsg number from the model_crs object.
-        :rtype: int
+
+        Returns
+        -------
+        int
+            Model epsg number from the model_crs object.
         """
         return self.utm_epsg
 
     @model_epsg.setter
     def model_epsg(self, value):
         """Model epsg.
-        :param value: EPSG number for the model.
-        :type value: integer or string
+
+        Parameters
+        ----------
+        value : integer or string
+            EPSG number for the model.
         """
         self.utm_epsg = value
 
     @property
     def utm_crs(self):
         """Utm crs.
-        :return: UTM CRS object.
-        :rtype: :class:`pyproj.CRS`
+
+        Returns
+        -------
+        :class:`pyproj.CRS`
+            UTM CRS object.
         """
         if self._utm_crs is not None:
             return self._utm_crs
@@ -211,8 +223,11 @@ class MTStations:
     @property
     def utm_name(self):
         """Utm name.
-        :return: UTM CRS name.
-        :rtype: string
+
+        Returns
+        -------
+        string
+            UTM CRS name.
         """
         if self._utm_crs is not None:
             return self._utm_crs.name
@@ -220,8 +235,11 @@ class MTStations:
     @property
     def utm_epsg(self):
         """Utm epsg.
-        :return: UTM EPSG number.
-        :rtype: int
+
+        Returns
+        -------
+        int
+            UTM EPSG number.
         """
         if self._utm_crs is not None:
             return self._utm_crs.to_epsg()
@@ -229,16 +247,22 @@ class MTStations:
     @utm_epsg.setter
     def utm_epsg(self, value):
         """Utm epsg.
-        :param value: EPSG number.
-        :type value: int or str
+
+        Parameters
+        ----------
+        value : int or str
+            EPSG number.
         """
         self.utm_crs = value
 
     @property
     def utm_zone(self):
         """Utm zone.
-        :return: UTM Zone number.
-        :rtype: str
+
+        Returns
+        -------
+        str
+            UTM Zone number.
         """
         if self._utm_crs is not None:
             return self._utm_crs.utm_zone
@@ -246,8 +270,11 @@ class MTStations:
     @utm_crs.setter
     def utm_crs(self, value):
         """Utm crs.
-        :param value: UTM CRS object, EPSG number, proj4 string.
-        :type value: :class:`pyproj.CRS`, int, str
+
+        Parameters
+        ----------
+        value : :class:`pyproj.CRS`, int, str
+            UTM CRS object, EPSG number, proj4 string.
         """
         if value in [None, "None", "none", "null"]:
             return
@@ -260,8 +287,11 @@ class MTStations:
     @property
     def datum_crs(self):
         """Datum crs.
-        :return: Datum CRS object.
-        :rtype: :class:`pyproj.CRS`
+
+        Returns
+        -------
+        :class:`pyproj.CRS`
+            Datum CRS object.
         """
         if self._datum_crs is not None:
             return self._datum_crs
@@ -269,8 +299,11 @@ class MTStations:
     @property
     def datum_name(self):
         """Datum name.
-        :return: Datum well known name.
-        :rtype: str
+
+        Returns
+        -------
+        str
+            Datum well known name.
         """
         if self._datum_crs is not None:
             return self._datum_crs.name
@@ -278,8 +311,11 @@ class MTStations:
     @property
     def datum_epsg(self):
         """Datum epsg.
-        :return: Datum EPSG number.
-        :rtype: int
+
+        Returns
+        -------
+        int
+            Datum EPSG number.
         """
         if self._datum_crs is not None:
             return self._datum_crs.to_epsg()
@@ -287,16 +323,22 @@ class MTStations:
     @datum_epsg.setter
     def datum_epsg(self, value):
         """Datum epsg.
-        :param value: Datum EPSG number.
-        :type value: int or str
+
+        Parameters
+        ----------
+        value : int or str
+            Datum EPSG number.
         """
         self.datum_crs = value
 
     @datum_crs.setter
     def datum_crs(self, value):
         """Set the model epsg number an project east, north.
-        :param value: Datum CRS object, EPSG number, proj4 string.
-        :type value: :class:`pyproj.CRS`, int, str
+
+        Parameters
+        ----------
+        value : :class:`pyproj.CRS`, int, str
+            Datum CRS object, EPSG number, proj4 string.
         """
         if value in [None, "None", "none", "null"]:
             return
@@ -309,8 +351,11 @@ class MTStations:
     @property
     def station_locations(self):
         """Station locations.
-        :return: Dataframe of station location information.
-        :rtype: :class:`pandas.DataFrame`
+
+        Returns
+        -------
+        :class:`pandas.DataFrame`
+            Dataframe of station location information.
         """
 
         # make a structured array to put station location information into
@@ -349,12 +394,18 @@ class MTStations:
         """Make sure that there is only one EPSG number for each of the Datum
         and UTM.  If there are more than one use the median value or the
         first in a unique list of EPSG numbers
-        :param key:
-            Defaults to "datum".
-        :param df: Station_location dataframe.
-        :type df: :class:`pandas.DataFrame`
-        :return: EPSG number.
-        :rtype: int
+
+        Parameters
+        ----------
+        key :
+            By default, "datum".
+        df : :class:`pandas.DataFrame`
+            Station_location dataframe.
+
+        Returns
+        -------
+        int
+            EPSG number.
         """
 
         key = f"{key}_epsg"
@@ -391,9 +442,12 @@ class MTStations:
         If _center attributes are set, that is returned as the center point.
 
         Otherwise, looks for non-zero locations in E-N first, then Lat/Lon and
-        estimates the center point as (max - min) / 2..
-        :return: Center point.
-        :rtype: :class:`mtpy.core.MTLocation`
+        estimates the center point as (max - min) / 2...
+
+        Returns
+        -------
+        :class:`mtpy.core.MTLocation`
+            Center point.
         """
 
         center_location = MTLocation()
@@ -457,9 +511,12 @@ class MTStations:
          example if you rotate the stations 15 degrees, then again by 20 degrees
          the resulting station locations will be 35 degrees rotated from the
          original locations.
-        :param rotation_angle: Rotation angle in degrees assuming N=0, E=90.
+
+        Parameters
+        ----------
+        rotation_angle : float
+            Rotation angle in degrees assuming N=0, E=90.
             Positive clockwise.
-        :type rotation_angle: float
         """
 
         cos_ang = np.cos(np.deg2rad(rotation_angle))
@@ -491,8 +548,11 @@ class MTStations:
         """Center station locations to the middle of cells, is useful for
         topography cause it reduces edge effects of stations close to cell edges.
         Recalculates rel_east, rel_north to center of model cell.
-        :param model_obj: :class:`mtpy.modeling.Structured` object of the model.
-        :type model_obj: :class:`mtpy.modeling.modem.Model`
+
+        Parameters
+        ----------
+        model_obj : :class:`mtpy.modeling.modem.Model`
+            :class:`mtpy.modeling.Structured` object of the model.
         """
 
         for mt_obj in self.mt_list:
@@ -518,15 +578,18 @@ class MTStations:
         ocean_bottom=False,
     ):
         """Project stations on topography of a given model.
-        :param model_object:
-        :param model_obj: :class:`mtpy.modeling.modem.Model` object of the model.
-        :type model_obj: :class:`mtpy.modeling.modem.Model`
-        :param air_resistivity: Resistivity value of air cells in the model, defaults to 1e12.
-        :type air_resistivity: float, optional
-        :param sea_resistivity: Resistivity of sea, defaults to 0.3.
-        :type sea_resistivity: float, optional
-        :param ocean_bottom: If True places stations at bottom of sea cells, defaults to False.
-        :type ocean_bottom: boolean, optional
+
+        Parameters
+        ----------
+        model_object :
+        model_obj : :class:`mtpy.modeling.modem.Model`
+            :class:`mtpy.modeling.modem.Model` object of the model.
+        air_resistivity : float, optional
+            Resistivity value of air cells in the model. By default, 1e12.
+        sea_resistivity : float, optional
+            Resistivity of sea3. By default, 0.3.
+        ocean_bottom : boolean, optional
+            If True places stations at bottom of sea cells. By default, False.
         """
 
         # find index of each station on grid
@@ -587,8 +650,11 @@ class MTStations:
 
     def to_geopd(self):
         """Create a geopandas dataframe.
-        :return: Geopandas DataFrame with points from latitude and longitude.
-        :rtype: :class:`geopandas.DataFrame`
+
+        Returns
+        -------
+        :class:`geopandas.DataFrame`
+            Geopandas DataFrame with points from latitude and longitude.
         """
 
         gdf = gpd.GeoDataFrame(
@@ -605,8 +671,11 @@ class MTStations:
     def to_shp(self, shp_fn):
         """Write a shape file of the station locations using geopandas which only takes
         in epsg numbers
-        :param shp_fn: Full path to new shapefile.
-        :type shp_fn: string
+
+        Parameters
+        ----------
+        shp_fn : string
+            Full path to new shapefile.
         """
         sdf = self.to_geopd()
 
@@ -616,10 +685,13 @@ class MTStations:
     def to_csv(self, csv_fn, geometry=False):
         """Write a shape file of the station locations using geopandas which only takes
         in epsg numbers
-        :param geometry:
-            Defaults to False.
-        :param csv_fn: Full path to new shapefile.
-        :type csv_fn: string
+
+        Parameters
+        ----------
+        geometry :
+            By default, False.
+        csv_fn : string
+            Full path to new shapefile.
         """
         sdf = self.to_geopd()
         use_columns = list(sdf.columns)
@@ -640,25 +712,32 @@ class MTStations:
         coordinate_system="nez+",
     ):
         """Write a VTK file for plotting in 3D like Paraview.
-        :param coordinate_system:
-            Defaults to "nez+".
-        :param units:
-            Defaults to "km".
-        :param shift_elev:
-            Defaults to 0.
-        :param shift_north:
-            Defaults to 0.
-        :param shift_east:
-            Defaults to 0.
-        :param geographic:
-            Defaults to False.
-        :param vtk_fn: Full path to VKT file to be written, defaults to None.
-        :type vtk_fn: string or Path, optional
-        :param vtk_save_path: Directory to save vtk file to, defaults to None.
-        :type vtk_save_path: string or Path, optional
-        :param vtk_fn_basename: Filename basename of vtk file, note that .vtr, defaults to "ModEM_stations".
-        :return: Full path to VTK file.
-        :rtype: Path
+
+        Parameters
+        ----------
+        coordinate_system :
+            By default, "nez+".
+        units :
+            By default, "km".
+        shift_elev :
+            By default, 0.
+        shift_north :
+            By default, 0.
+        shift_east :
+            By default, 0.
+        geographic :
+            By default, False.
+        vtk_fn : string or Path, optional
+            Full path to VKT file to be written. By default, None.
+        vtk_save_path : string or Path, optional
+            Directory to save vtk file to. By default, None.
+        vtk_fn_basename :
+            Filename basename of vtk file, note that .vtr. By default, "ModEM_stations".
+
+        Returns
+        -------
+        Path
+            Full path to VTK file.
         """
 
         if isinstance(units, str):
@@ -720,8 +799,11 @@ class MTStations:
 
     def generate_profile(self, units="deg"):
         """Estimate a profile from the data.
-        :return: DESCRIPTION.
-        :rtype: TYPE
+
+        Returns
+        -------
+        TYPE
+            DESCRIPTION.
         """
 
         if units == "deg":
@@ -762,11 +844,17 @@ class MTStations:
 
     def generate_profile_from_strike(self, strike, units="deg"):
         """Estimate a profile line from a given geoelectric strike.
-        :param strike:
-        :param units: DESCRIPTION, defaults to "deg".
-        :type units: TYPE, optional
-        :return: DESCRIPTION.
-        :rtype: TYPE
+
+        Parameters
+        ----------
+        strike :
+        units : TYPE, optional
+            DESCRIPTION. By default, "deg".
+
+        Returns
+        -------
+        TYPE
+            DESCRIPTION.
         """
 
         if units == "deg":
@@ -793,18 +881,24 @@ class MTStations:
     def _extract_profile(self, x1, y1, x2, y2, radius):
         """Extract stations along a profile line that lie with in the given
         radius
-        :param y2:
-        :param x2:
-        :param y1:
-        :param x1:
-        :param point1: DESCRIPTION.
-        :type point1: TYPE
-        :param point2: DESCRIPTION.
-        :type point2: TYPE
-        :param radius: DESCRIPTION.
-        :type radius: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+
+        Parameters
+        ----------
+        y2 :
+        x2 :
+        y1 :
+        x1 :
+        point1 : TYPE
+            DESCRIPTION.
+        point2 : TYPE
+            DESCRIPTION.
+        radius : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        TYPE
+            DESCRIPTION.
         """
 
         if np.abs(x2 - x1) < 100:
