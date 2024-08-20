@@ -28,26 +28,10 @@ mtpy.modeling.occam2d.model module
    :undoc-members:
    :show-inheritance:
 
-mtpy.modeling.occam2d.profile module
-------------------------------------
-
-.. automodule:: mtpy.modeling.occam2d.profile
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 mtpy.modeling.occam2d.regularization module
 -------------------------------------------
 
 .. automodule:: mtpy.modeling.occam2d.regularization
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mtpy.modeling.occam2d.response module
--------------------------------------
-
-.. automodule:: mtpy.modeling.occam2d.response
    :members:
    :undoc-members:
    :show-inheritance:

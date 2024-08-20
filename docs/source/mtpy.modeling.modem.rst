@@ -44,14 +44,6 @@ mtpy.modeling.modem.data module
    :undoc-members:
    :show-inheritance:
 
-mtpy.modeling.modem.data\_model\_analysis module
-------------------------------------------------
-
-.. automodule:: mtpy.modeling.modem.data_model_analysis
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 mtpy.modeling.modem.exception module
 ------------------------------------
 
@@ -64,46 +56,6 @@ mtpy.modeling.modem.model module
 --------------------------------
 
 .. automodule:: mtpy.modeling.modem.model
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mtpy.modeling.modem.model\_manipulator module
----------------------------------------------
-
-.. automodule:: mtpy.modeling.modem.model_manipulator
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mtpy.modeling.modem.phase\_tensor\_maps module
-----------------------------------------------
-
-.. automodule:: mtpy.modeling.modem.phase_tensor_maps
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mtpy.modeling.modem.plot\_response module
------------------------------------------
-
-.. automodule:: mtpy.modeling.modem.plot_response
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mtpy.modeling.modem.plot\_rms\_maps module
-------------------------------------------
-
-.. automodule:: mtpy.modeling.modem.plot_rms_maps
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mtpy.modeling.modem.plot\_slices module
----------------------------------------
-
-.. automodule:: mtpy.modeling.modem.plot_slices
    :members:
    :undoc-members:
    :show-inheritance:
