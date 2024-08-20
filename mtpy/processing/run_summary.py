@@ -66,13 +66,14 @@ class RunSummary:
         df: Optional[Union[pd.DataFrame, None]] = None,
     ):
         """Constructor.
-        :param df:
-            Defaults to None.
-        :type df: Optional[Union[pd.DataFrame, None]], optional
-        :param input_dict:
-            Defaults to None.
-        :type input_dict: Optional[Union[dict, None]], optional
-        :param kwargs:
+
+        Parameters
+        ----------
+        df : Optional[Union[pd.DataFrame, None]], optional
+            By default, None.
+        input_dict : Optional[Union[dict, None]], optional
+            By default, None.
+        kwargs :
         """
         self.column_dtypes = [str, str, pd.Timestamp, pd.Timestamp]
         self._input_dict = input_dict
@@ -95,10 +96,16 @@ class RunSummary:
     @df.setter
     def df(self, value: pd.DataFrame):
         """Make sure the data frame is set properly with proper column names.
-        :param value: DESCRIPTION.
-        :type value: pd.DataFrame
-        :return: DESCRIPTION.
-        :rtype: TYPE
+
+        Parameters
+        ----------
+        value : pd.DataFrame
+            DESCRIPTION.
+
+        Returns
+        -------
+        TYPE
+            DESCRIPTION.
         """
         if value is None:
             self._df = None
@@ -161,12 +168,17 @@ class RunSummary:
     def set_sample_rate(self, sample_rate: float, inplace: bool = False):
         """Set the sample rate so that the run summary represents all runs for
         a single sample rate.
-        :param sample_rate:
-        :type sample_rate: float
-        :param inplace: DESCRIPTION, defaults to False.
-        :type inplace: bool, optional
-        :return: DESCRIPTION.
-        :rtype: TYPE
+
+        Parameters
+        ----------
+        sample_rate : float
+        inplace : bool, optional
+            DESCRIPTION. By default, False.
+
+        Returns
+        -------
+        TYPE
+            DESCRIPTION.
         """
 
         if sample_rate not in self.df.sample_rate.values:
@@ -192,12 +204,18 @@ def extract_run_summary_from_mth5(
 
     Development Notes:
     TODO: Move this into MTH5 or replace with MTH5 built-in run_summary method.
-    :param mth5_obj: The initialized mth5 object that will be interrogated.
-    :type mth5_obj: mth5.mth5.MTH5
-    :param summary_type: One of ["run", "channel"].  Returns a run summary or a channel summary, defaults to "run".
-    :type summary_type: Optional[str], optional
-    :return out_df: Table summarizing the available runs in the input mth5_obj.
-    :rtype out_df: pd.Dataframe
+
+    Parameters
+    ----------
+    mth5_obj : mth5.mth5.MTH5
+        The initialized mth5 object that will be interrogated.
+    summary_type : Optional[str], optional
+        One of ["run", "channel"].  Returns a run summary or a channel summary. By default, "run".
+
+    Returns
+    -------
+    out_df : pd.Dataframe
+        Table summarizing the available runs in the input mth5_obj.
     """
 
     if summary_type == "run":
@@ -226,17 +244,24 @@ def extract_run_summaries_from_mth5s(
 
     In order to drop duplicates I used the solution here:
     https://stackoverflow.com/questions/43855462/pandas-drop-duplicates-method-not-working-on-dataframe-containing-lists
-    :param mth5_list:
-    :param mth5_paths: Paths or strings that point to mth5s.
-    :type mth5_paths: list
-    :param summary_type: One of ["channel", "run"]
+
+    Parameters
+    ----------
+    deduplicate :
+        By default, True.
+    mth5_list :
+    mth5_paths : list
+        Paths or strings that point to mth5s.
+    summary_type : string, optional
+        One of ["channel", "run"]
         "channel" returns concatenated channel summary,
-        "run" returns concatenated run summary,, defaults to "run".
-    :type summary_type: string, optional
-    :param deduplicate:, defaults to True.
-    :type deduplicate: bool, optional
-    :return super_summary: Given a list of mth5s, a dataframe of all available runs.
-    :rtype super_summary: pd.DataFrame
+        "run" returns concatenated run summary,. By default, "run".
+    deduplicate:, defaults to True. : bool, optional
+
+    Returns
+    -------
+    super_summary : pd.DataFrame
+        Given a list of mth5s, a dataframe of all available runs.
     """
     dfs = len(mth5_list) * [None]
 

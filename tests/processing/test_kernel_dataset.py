@@ -178,9 +178,9 @@ class TestKernelDataset(unittest.TestCase):
     def test_num_sample_rates(self):
         self.assertEqual(1, self.kd.num_sample_rates)
 
-    # @classmethod
-    # def tearDownClass(self):
-    #     self.mth5_path.unlink()
+    @classmethod
+    def tearDownClass(self):
+        self.mth5_path.unlink()
 
 
 class TestOverlapFunctions(unittest.TestCase):
