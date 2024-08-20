@@ -32,6 +32,10 @@ class TestSimpeg2DData(unittest.TestCase):
         self.profile = self.md.get_profile(
             149.15, -22.3257, 149.20, -22.3257, 1000
         )
+        self.new_periods = np.logspace(-5, 1, 10)
+        self.profile.interpolate(
+            self.new_periods, inplace=True, bounds_error=False
+        )
 
         self.mt_df = self.profile.to_dataframe()
 
@@ -100,6 +104,11 @@ class TestSimpeg2DData(unittest.TestCase):
                     np.zeros((6)),
                 )
             )
+
+    def test_frequencies(self):
+        self.assertTrue(
+            np.allclose(1.0 / self.new_periods, self.simpeg_data.frequencies)
+        )
 
 
 # =============================================================================
