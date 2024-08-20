@@ -332,7 +332,7 @@ class AuroraProcessing(BaseProcessing):
                 combined_tf = self.merge_transfer_functions(processed)
                 combined_tf_id = self.local_station_id
                 if self.remote_station_id:
-                    combined_tf_id += f"_{self.remote_rr_station_id}"
+                    combined_tf_id += f"_rr_{self.remote_station_id}"
                 combined_tf_id += "_combined"
                 combined_tf.tf_id = combined_tf_id
                 processed["combined"] = {"processed": True, "tf": combined_tf}

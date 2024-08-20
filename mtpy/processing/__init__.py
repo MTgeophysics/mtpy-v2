@@ -25,8 +25,6 @@ MINI_SUMMARY_COLUMNS = [
 
 from .run_summary import RunSummary
 from .kernel_dataset import KernelDataset
+from .aurora.process_aurora import AuroraProcessing
 
-__all__ = [
-    "RunSummary",
-    "KernelDataset",
-]
+__all__ = ["RunSummary", "KernelDataset", "AuroraProcessing"]
