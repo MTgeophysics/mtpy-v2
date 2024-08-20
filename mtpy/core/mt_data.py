@@ -588,7 +588,14 @@ class MTData(OrderedDict, MTStations):
 
         return gdf
 
-    def interpolate(self, new_periods, f_type="period", inplace=True, **kwargs):
+    def interpolate(
+        self,
+        new_periods,
+        f_type="period",
+        inplace=True,
+        bounds_error=True,
+        **kwargs,
+    ):
         """
         Interpolate onto common period range
 
@@ -613,15 +620,21 @@ class MTData(OrderedDict, MTStations):
             mt_data = self.clone_empty()
 
         for mt_obj in self.values():
-            interp_periods = new_periods[
-                np.where(
-                    (new_periods <= mt_obj.period.max())
-                    & (new_periods >= mt_obj.period.min())
-                )
-            ]
+            if bounds_error:
+                interp_periods = new_periods[
+                    np.where(
+                        (new_periods <= mt_obj.period.max())
+                        & (new_periods >= mt_obj.period.min())
+                    )
+                ]
+            else:
+                interp_periods = new_periods
 
             new_mt_obj = mt_obj.interpolate(
-                interp_periods, f_type=f_type, **kwargs
+                interp_periods,
+                f_type=f_type,
+                bounds_error=bounds_error,
+                **kwargs,
             )
 
             if inplace:

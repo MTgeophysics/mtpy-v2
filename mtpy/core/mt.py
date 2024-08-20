@@ -99,6 +99,7 @@ class MT(TF, MTLocation):
         new_mt_obj.model_north = self.model_north
         new_mt_obj.model_elevation = self.model_elevation
         new_mt_obj._rotation_angle = self._rotation_angle
+        new_mt_obj.profile_offset = self.profile_offset
 
         return new_mt_obj
 
