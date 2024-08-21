@@ -152,6 +152,41 @@ class TestSimpeg2DRecipe(unittest.TestCase):
         self.assertEqual(4, len(self.simpeg_inversion.directives))
 
 
+class TestSimpeg2DRecipeRun(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.md = MTData()
+        self.md.add_station(
+            [fn for fn in PROFILE_LIST if fn.name.startswith("16")]
+        )
+        # australian epsg
+        self.md.utm_epsg = 4462
+
+        # extract profile
+        self.profile = self.md.get_profile(
+            149.15, -22.3257, 149.20, -22.3257, 1000
+        )
+        # interpolate onto a common period range
+        self.new_periods = np.logspace(-3, 0, 4)
+        self.profile.interpolate(
+            self.new_periods, inplace=True, bounds_error=False
+        )
+        self.profile.compute_model_errors()
+
+        self.mt_df = self.profile.to_dataframe()
+
+        self.n_iterations = 5
+
+        self.simpeg_inversion = Simpeg2D(
+            self.mt_df, max_iterations=self.n_iterations
+        )
+
+        self.inv_output = self.simpeg_inversion.run_inversion()
+
+    def test_output_dict(self):
+        self.assertEqual(len(self.iterations.keys()), self.n_iterations)
+
+
 # =============================================================================
 # run
 # =============================================================================

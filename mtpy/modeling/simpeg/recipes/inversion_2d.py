@@ -82,8 +82,8 @@ class Simpeg2D:
 
         self.target_misfit_chi_factor = 1
 
-        self.save_dictionary = directives.SaveOutputDictEveryIteration()
-        self.save_dictionary.outDict = {}
+        self.saved_model_outputs = directives.SaveOutputDictEveryIteration()
+        self.saved_model_outputs.outDict = {}
 
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -332,3 +332,11 @@ class Simpeg2D:
         )
 
         return mt_inversion.run(self.reference_model)
+
+    @property
+    def model_outputs(self):
+        """
+        return dictionary of model outputs
+        """
+
+        return self.saved_model_outputs.outDict
