@@ -102,7 +102,7 @@ class Simpeg2DData:
         return nsem.Survey(src_list)
 
     @property
-    def survey_te(self):
+    def te_survey(self):
         """
         survey for TE mode (simpeg = "yx")
 
@@ -114,7 +114,7 @@ class Simpeg2DData:
         return self._get_mode_sources(self.component_map["te"]["simpeg"])
 
     @property
-    def survey_tm(self):
+    def tm_survey(self):
         """
         survey for TM mode (simpeg = "xy")
 
@@ -123,7 +123,7 @@ class Simpeg2DData:
 
         """
 
-        return self._get_mode_sources(self.component_map["te"]["simpeg"])
+        return self._get_mode_sources(self.component_map["tm"]["simpeg"])
 
     def _get_data_observations(self, mode):
         """
@@ -193,22 +193,6 @@ class Simpeg2DData:
     def tm_data_errors(self):
         return self._get_data_errors("tm")
 
-    def _get_data(self):
-        """
-        We are assuming that the dataframe provide has a data point for each
-        period.  This can be achieved by using
-
-         >>> MTData.interpolate(new_period, bounds_error=False)
-
-        This will place Nans where there are no data and can be handeled later.
-
-
-        :return: DESCRIPTION
-        :rtype: TYPE
-
-        """
-        pass
-
     @property
     def te_data(self):
         """
@@ -220,7 +204,7 @@ class Simpeg2DData:
         """
 
         return data.Data(
-            self.survey_te,
+            self.te_survey,
             dobs=self.te_observations,
             standard_deviations=self.te_data_errors,
         )
@@ -236,7 +220,7 @@ class Simpeg2DData:
         """
 
         return data.Data(
-            self.survey_tm,
+            self.tm_survey,
             dobs=self.tm_observations,
             standard_deviations=self.tm_data_errors,
         )

@@ -9,13 +9,12 @@ Created on Tue Aug 20 13:09:02 2024
 # Imports
 # =============================================================================
 import unittest
-import pandas as pd
 import numpy as np
-from mtpy.core import MTDataFrame
 from mtpy import MTData
 
 from mtpy_data import PROFILE_LIST
 from mtpy.modeling.simpeg.data import Simpeg2DData
+from mtpy.modeling.simpeg.recipes.inversion_2d import Simpeg2D
 
 # =============================================================================
 
@@ -167,6 +166,31 @@ class TestSimpeg2DData(unittest.TestCase):
                 * self.simpeg_data.n_frequencies
                 * self.simpeg_data.n_stations,
             )
+
+
+class TestSimpeg2DRecipe(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.md = MTData()
+        self.md.add_station(
+            [fn for fn in PROFILE_LIST if fn.name.startswith("16")]
+        )
+        # australian epsg
+        self.md.utm_epsg = 4462
+
+        # extract profile
+        self.profile = self.md.get_profile(
+            149.15, -22.3257, 149.20, -22.3257, 1000
+        )
+        # interpolate onto a common period range
+        self.new_periods = np.logspace(-3, 0, 4)
+        self.profile.interpolate(
+            self.new_periods, inplace=True, bounds_error=False
+        )
+
+        self.mt_df = self.profile.to_dataframe()
+
+        self.simpeg_inversion = Simpeg2D(self.mt_df)
 
 
 # =============================================================================

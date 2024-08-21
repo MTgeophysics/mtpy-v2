@@ -3,53 +3,327 @@
 Created on Tue Aug 20 17:17:41 2024
 
 @author: jpeacock
+
+A vanilla recipe to invert 2D MT data.  
+
+- For now the default is a quad tree mesh
+- Optimization: Inexact Gauss Newton 
 """
 
 # =============================================================================
 # Imports
 # =============================================================================
-import matplotlib.pyplot as plt
-import scipy.sparse as sp
+import warnings
 import numpy as np
-import unittest
-from scipy.constants import mu_0
-from discretize.tests import check_derivative
-import discretize
-import matplotlib.patheffects as pe
+
 from simpeg.electromagnetics import natural_source as nsem
-from simpeg.electromagnetics.static import utils as sutils
 from simpeg import (
     maps,
-    utils,
     optimization,
-    objective_function,
     inversion,
     inverse_problem,
     directives,
     data_misfit,
     regularization,
-    data,
 )
-from discretize import TensorMesh
 from pymatsolver import Pardiso
-from scipy.spatial import cKDTree
-from scipy.stats import norm
 
 # from dask.distributed import Client, LocalCluster
-import dill
-from geoana.em.fdem import skin_depth
-import discretize.utils as dis_utils
-import warnings
+from mtpy.modeling.simpeg.data import Simpeg2DData
+from mtpy.modeling.simpeg.make_2d_mesh import QuadTreeMesh
 
 warnings.filterwarnings("ignore")
 
-from mtpy.modeling.simpeg.data import Simpeg2DData
-from mtpy.modeling.simpeg.make_2d_mesh import QuadTreeMesh
 
 # =============================================================================
 
 
-class Simpe2D:
+class Simpeg2D:
+    """
+    A vanilla recipe to invert 2D MT data.
 
-    def __init__(self, **kwargs):
-        self.data = Simpeg2DData()
+    - For now the default is a quad tree mesh
+    - Optimization: Inexact Gauss Newton
+    - Regularization: Sparse
+    """
+
+    def __init__(self, dataframe, data_kwargs={}, mesh_kwargs={}, **kwargs):
+        self.data = Simpeg2DData(dataframe, **data_kwargs)
+        self.quad_tree = QuadTreeMesh(
+            self.data.station_locations, self.data.frequencies, **mesh_kwargs
+        )
+        self.ax = self.make_mesh()
+        self.air_conductivity = 1e-8
+        self.initial_conductivity = 1e-2
+        self.solver = "pardiso"
+
+        self._solvers_dict = {"pardiso": Pardiso}
+
+        # regularization parameters
+        self.alpha_s = 1e-5
+        self.alpha_y = 1 / 5.0
+        self.alpha_z = 1.0
+
+        # optimization parameters
+        self.max_iterations = 30
+        self.max_iterations_cg = 30
+        self.max_iterations_irls = 40
+        self.minimum_gauss_newton_iterations = 1
+        self.f_min_change = 1e-5
+
+        # inversion parameters
+        self.use_irls = False
+        self.p_s = 0
+        self.p_y = 0
+        self.p_z = 0
+        self.beta_starting_ratio = 1
+        self.beta_cooling_factor = 2
+        self.beta_cooling_rate = 1
+
+        self.target_misfit_chi_factor = 1
+
+        self.save_dictionary = directives.SaveOutputDictEveryIteration()
+        self.save_dictionary.outDict = {}
+
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    def make_mesh(self, **kwargs):
+        """
+        make QuadTree Mesh
+        """
+        ax = self.quad_tree.make_mesh(**kwargs)
+        return ax
+
+    @property
+    def active_map(self):
+        """
+        Active cells mapping
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        return maps.InjectActiveCells(
+            self.quad_tree.mesh,
+            self.quad_tree.active_cell_index,
+            np.log(self.air_conductivity),
+        )
+
+    @property
+    def exponent_map(self):
+        """
+        compute fields on an exponential mapping
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        return maps.ExpMap(mesh=self.quad_tree.mesh)
+
+    @property
+    def conductivity_map(self):
+        """
+        conductivity mapping
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        return self.exponent_map * self.active_map
+
+    @property
+    def tm_simulation(self):
+        """
+        Simulation for TE Mode
+        """
+
+        return nsem.simulation.Simulation2DElectricField(
+            self.quad_tree.mesh,
+            survey=self.data.tm_survey,
+            sigmaMap=self.conductivity_map,
+            solver=self._solvers_dict[self.solver],
+        )
+
+    @property
+    def te_simulation(self):
+        """
+        Simulation for TE Mode
+        """
+
+        return nsem.simulation.Simulation2DMagneticField(
+            self.quad_tree.mesh,
+            survey=self.data.te_survey,
+            sigmaMap=self.conductivity_map,
+            solver=self._solvers_dict[self.solver],
+        )
+
+    @property
+    def te_data_misfit(self):
+        """
+        data misfit of TE mode
+        """
+
+        return data_misfit.L2DataMisfit(
+            data=self.data.te_data, simulation=self.te_simulation
+        )
+
+    @property
+    def tm_data_misfit(self):
+        """
+        data misfit of TM mode
+        """
+
+        return data_misfit.L2DataMisfit(
+            data=self.data.tm_data, simulation=self.tm_simulation
+        )
+
+    @property
+    def reference_model(self):
+        """
+        reference model
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        return np.ones(self.quad_tree.number_of_active_cells) * np.log(
+            self.initial_conductivity
+        )
+
+    @property
+    def regularization(self):
+        """
+        Create sparse regularization using paramaters
+
+         - alpha_s = smallness parameter
+         - alpha_y = smoothing in y direction
+         - alpha_z = smoothing in z direction
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        reg = regularization.Sparse(
+            self.quad_tree.mesh,
+            indActive=self.quad_tree.active_cell_index,
+            mref=self.reference_model,
+            alpha_s=self.alpha_s,
+            alpha_x=self.alpha_y,
+            alpha_z=self.alpha_z,
+            mappings=maps.IdentityMap(
+                nP=self.quad_tree.number_of_active_cells
+            ),
+        )
+
+        if self.use_irls:
+            reg.norms = np.c_[self.p_s, self.p_y, self.p_z]
+
+        return reg
+
+    @property
+    def optimization(self):
+        """
+        optimization algorithm
+
+        default is InexactGaussNewton
+        """
+
+        return optimization.InexactGaussNewton(
+            maxIter=self.max_iterations, maxIterCG=self.max_iterations_cg
+        )
+
+    @property
+    def inverse_problem(self):
+        """
+        setup the inverse problem
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        return inverse_problem.BaseInvProblem(
+            self.data.data_misfit, self.regularization, self.optimization
+        )
+
+    @property
+    def starting_beta(self):
+        """
+        set up the starting beta value
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        return directives.BetaEstimate_ByEig(
+            beta0_ratio=self.beta_starting_ratio
+        )
+
+    @property
+    def beta_schedule(self):
+        """
+        how quickly beta is reduced
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        return directives.BetaSchedule(
+            coolingFactor=self.beta_cooling_factor,
+            coolingRate=self.beta_cooling_rate,
+        )
+
+    @property
+    def target_misfit(self):
+        """
+        target misfit
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        return directives.TargetMisfit(chifact=self.target_misfit_chi_factor)
+
+    @property
+    def directives(self):
+        """
+        list of directives to supply to the inversion
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        if self.use_irls:
+            IRLS = directives.Update_IRLS(
+                max_irls_iterations=self.max_iteration_irls,
+                minGNiter=self.minimum_gauss_newton_iterations,
+                f_min_change=self.f_min_change,
+            )
+            return [
+                IRLS,
+                self.starting_beta,
+                self.save_dictionary,
+            ]
+        else:
+            return [
+                self.starting_beta,
+                self.beta_schedule,
+                self.save_dictionary,
+                self.target_misfit,
+            ]
+
+    def run_inversion(self):
+        """
+        run the inversion using the attributes as input.
+        """
+
+        mt_inversion = inversion.BaseInversion(
+            self.inverse_problem, directiveList=self.directives
+        )
+
+        return mt_inversion.run(self.reference_model)

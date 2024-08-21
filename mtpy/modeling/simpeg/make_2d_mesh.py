@@ -144,6 +144,7 @@ class QuadTreeMesh:
         self.update_from_topography = True
 
         self.origin = "CC"
+        self.mesh = None
         for key, value in kwargs.items():
             setattr(self, key, value)
 
@@ -251,63 +252,55 @@ class QuadTreeMesh:
 
         mesh.finalize()
 
-        return mesh
+        self.mesh = mesh
+        return self.plot_mesh()
 
-        # f_min = self.frequencies.min()
-        # f_max = self.frequencies.max()
+    def plot_mesh(self, **kwargs):
+        """
+        plot the mesh
+        """
 
-        # # estimate total dimensions of grid
-        # # number of skin depths to pad to in x, z+, z-, z-core
-        # lx_pad = skin_depth(f_min, self.sigma_background) * self.factor_x_pad
-        # lz_pad_down = (
-        #     skin_depth(f_min, self.sigma_background) * self.factor_z_pad_down
-        # )
-        # lz_core = skin_depth(f_min, self.sigma_background) * self.factor_z_core
-        # lz_pad_up = (
-        #     skin_depth(f_min, self.sigma_background) * self.factor_z_pad_up
-        # )
+        if self.mesh is not None:
+            ax = self.mesh.plot_grid(**kwargs)
+            ax.scatter(
+                self.station_locations[:, 0],
+                self.station_locations[:, 1],
+                marker=kwargs.get("marker", "v"),
+                s=kwargs.get("s", 35),
+                c=kwargs.get("c", (0, 0, 0)),
+                zorder=1000,
+            )
+            ax.set_xlim(
+                self.station_locations[:, 0].min() - (2 * self.dx),
+                self.station_locations[:, 0].max() + (2 * self.dx),
+            )
+            ax.set_ylim(kwargs.get("ylim", (-10000, 1000)))
+            return ax
 
-        # # estimate the total size of the core
-        # lx_core = self.station_locations.max() - self.station_locations.min()
+    @property
+    def active_cell_index(self):
+        """
+        return active cell mask
 
-        # # estimate total size of the grid
-        # lx = lx_pad + lx_core + lx_pad
-        # lz = lz_pad_down + lz_core + lz_pad_up
+        TODO: include topographic surface
 
-        # # estimate factors in x, z
-        # dx = self.station_locations / self.factor_spacing
-        # dz = np.round(skin_depth(f_max, self.sigma_background) / 4, decimals=-1)
+        :return: DESCRIPTION
+        :rtype: TYPE
 
-        # # Compute number of base mesh cells required in x and y factor of 2
-        # nbcx = 2 ** int(np.ceil(np.log(lx / dx) / np.log(2.0)))
-        # nbcz = 2 ** int(np.ceil(np.log(lz / dz) / np.log(2.0)))
+        """
 
-        # # build the mesh using discretize helpers
-        # mesh = dis_utils.mesh_builder_xyz(
-        #     rx_loc,
-        #     [dx, dz],
-        #     padding_distance=[
-        #         [lx_pad, lx_pad],
-        #         [lz_pad_down, lz_pad_up],
-        #     ],
-        #     depth_core=lz_core,
-        #     mesh_type="tree",
-        # )
-        # X, Y = np.meshgrid(mesh.nodes_x, mesh.nodes_y)
-        # topo = np.c_[X.flatten(), Y.flatten(), np.zeros(X.size)]
-        # # refine around topography
-        # mesh.refine_surface(
-        #     topo,
-        #     level=-1,
-        #     padding_cells_by_level=[[0, 0, 2], [0, 0, 3]],
-        #     finalize=False,
-        # )
+        if self.topography is None:
+            return self.mesh.cell_centers[:, 1] < 0
 
-        # # refine around the stations
-        # mesh.refine_points(
-        #     rx_loc, level=-1, padding_cells_by_level=[1, 2, 1], finalize=True
-        # )
-        return mesh
+        else:
+            raise NotImplementedError("Have not included topography yet.")
+
+    @property
+    def number_of_active_cells(self):
+        """
+        number of active cells
+        """
+        return int(self.active_cell_index.sum())
 
 
 # =============================================================================
