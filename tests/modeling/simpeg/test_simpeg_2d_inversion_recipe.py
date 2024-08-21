@@ -184,7 +184,9 @@ class TestSimpeg2DRecipeRun(unittest.TestCase):
         self.inv_output = self.simpeg_inversion.run_inversion()
 
     def test_output_dict(self):
-        self.assertEqual(len(self.iterations.keys()), self.n_iterations)
+        self.assertEqual(
+            len(self.simpeg_inversion.iterations.keys()), self.n_iterations
+        )
 
 
 # =============================================================================

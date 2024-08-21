@@ -312,13 +312,13 @@ class Simpeg2D:
             return [
                 IRLS,
                 self.starting_beta,
-                self.save_dictionary,
+                self.saved_model_outputs,
             ]
         else:
             return [
                 self.starting_beta,
                 self.beta_schedule,
-                self.save_dictionary,
+                self.saved_model_outputs,
                 self.target_misfit,
             ]
 
@@ -334,7 +334,7 @@ class Simpeg2D:
         return mt_inversion.run(self.reference_model)
 
     @property
-    def model_outputs(self):
+    def iterations(self):
         """
         return dictionary of model outputs
         """
