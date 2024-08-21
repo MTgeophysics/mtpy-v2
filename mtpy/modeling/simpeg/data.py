@@ -10,20 +10,8 @@ Created on Fri Aug  9 12:11:57 2024
 # =============================================================================
 import numpy as np
 
-from SimPEG.electromagnetics import natural_source as nsem
-from SimPEG.electromagnetics.static import utils as sutils
-from SimPEG import (
-    maps,
-    utils,
-    optimization,
-    objective_function,
-    inversion,
-    inverse_problem,
-    directives,
-    data_misfit,
-    regularization,
-    data,
-)
+from simpeg.electromagnetics import natural_source as nsem
+from SimPEG import data
 
 
 # =============================================================================
@@ -79,6 +67,14 @@ class Simpeg2DData:
         """
         return 1.0 / self.dataframe.period.unique()
 
+    @property
+    def n_frequencies(self):
+        return self.frequencies.size
+
+    @property
+    def n_stations(self):
+        return self.dataframe.station.unique().size
+
     def _get_mode_sources(self, simpeg_mode):
         """
         get mode  objects
@@ -132,6 +128,10 @@ class Simpeg2DData:
     def _get_data_observations(self, mode):
         """
         get data
+
+        the output format needs to be [frequency 1 res, frequency 1 phase, ...]
+        and frequency is in order of smallest to largest.
+
         :param mode: [ 'te' | 'tm' ]
         :type simpeg_mode: TYPE
         :return: DESCRIPTION
@@ -140,10 +140,15 @@ class Simpeg2DData:
         """
 
         mode = self.component_map[mode]["z+"]
+        # there is probably a more efficient method here using pandas
+        obs = []
+        for ff in np.sort(self.frequencies):
+            f_df = self.dataframe[self.dataframe.period == 1.0 / ff]
+            obs.append(f_df[f"res_{mode}"])
+            obs.append(f_df[f"phase_{mode}"])
 
-        return np.hstack(
-            (self.dataframe[f"res_{mode}"], self.dataframe[f"phase_{mode}"])
-        )
+        obs = np.array(obs)
+        return obs.flatten()
 
     @property
     def te_observations(self):
@@ -170,13 +175,15 @@ class Simpeg2DData:
         """
 
         mode = self.component_map[mode]["z+"]
+        # there is probably a more efficient method here using pandas
+        obs = []
+        for ff in np.sort(self.frequencies):
+            f_df = self.dataframe[self.dataframe.period == 1.0 / ff]
+            obs.append(f_df[f"res_{mode}_model_error"])
+            obs.append(f_df[f"phase_{mode}_model_error"])
 
-        return np.hstack(
-            (
-                self.dataframe[f"res_{mode}_model_error"],
-                self.dataframe[f"phase_{mode}_model_error"],
-            )
-        )
+        obs = np.array(obs)
+        return obs.flatten()
 
     @property
     def te_data_errors(self):
@@ -200,3 +207,36 @@ class Simpeg2DData:
         :rtype: TYPE
 
         """
+        pass
+
+    @property
+    def te_data(self):
+        """
+        simpeg Data object
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        return data.Data(
+            self.survey_te,
+            dobs=self.te_observations,
+            standard_deviations=self.te_data_errors,
+        )
+
+    @property
+    def tm_data(self):
+        """
+        simpeg Data object
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        return data.Data(
+            self.survey_tm,
+            dobs=self.tm_observations,
+            standard_deviations=self.tm_data_errors,
+        )

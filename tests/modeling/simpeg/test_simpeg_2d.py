@@ -27,11 +27,14 @@ class TestSimpeg2DData(unittest.TestCase):
         self.md.add_station(
             [fn for fn in PROFILE_LIST if fn.name.startswith("16")]
         )
+        # australian epsg
         self.md.utm_epsg = 4462
 
+        # extract profile
         self.profile = self.md.get_profile(
             149.15, -22.3257, 149.20, -22.3257, 1000
         )
+        # interpolate onto a common period range
         self.new_periods = np.logspace(-5, 1, 10)
         self.profile.interpolate(
             self.new_periods, inplace=True, bounds_error=False
@@ -109,6 +112,61 @@ class TestSimpeg2DData(unittest.TestCase):
         self.assertTrue(
             np.allclose(1.0 / self.new_periods, self.simpeg_data.frequencies)
         )
+
+    def test_survey_te(self):
+        # simpeg sorts in order of lowest frequency to highest
+        with self.subTest("frequencies"):
+            self.assertTrue(
+                np.allclose(
+                    1.0 / self.new_periods[::-1],
+                    self.simpeg_data.survey_te.frequencies,
+                )
+            )
+
+    def test_survey_tm(self):
+        with self.subTest("frequencies"):
+            self.assertTrue(
+                np.allclose(
+                    1.0 / self.new_periods[::-1],
+                    self.simpeg_data.survey_tm.frequencies,
+                )
+            )
+
+    def test_te_observations(self):
+        with self.subTest("size"):
+            self.assertEqual(
+                self.simpeg_data.te_observations.size,
+                2
+                * self.simpeg_data.n_frequencies
+                * self.simpeg_data.n_stations,
+            )
+
+    def test_tm_observations(self):
+        with self.subTest("size"):
+            self.assertEqual(
+                self.simpeg_data.tm_observations.size,
+                2
+                * self.simpeg_data.n_frequencies
+                * self.simpeg_data.n_stations,
+            )
+
+    def test_te_data_errors(self):
+        with self.subTest("size"):
+            self.assertEqual(
+                self.simpeg_data.te_data_errors.size,
+                2
+                * self.simpeg_data.n_frequencies
+                * self.simpeg_data.n_stations,
+            )
+
+    def test_tm_data_errors(self):
+        with self.subTest("size"):
+            self.assertEqual(
+                self.simpeg_data.tm_data_errors.size,
+                2
+                * self.simpeg_data.n_frequencies
+                * self.simpeg_data.n_stations,
+            )
 
 
 # =============================================================================
