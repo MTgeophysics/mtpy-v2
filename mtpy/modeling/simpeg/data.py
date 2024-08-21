@@ -206,7 +206,7 @@ class Simpeg2DData:
         return data.Data(
             self.te_survey,
             dobs=self.te_observations,
-            standard_deviations=self.te_data_errors,
+            standard_deviation=self.te_data_errors,
         )
 
     @property
@@ -222,5 +222,5 @@ class Simpeg2DData:
         return data.Data(
             self.tm_survey,
             dobs=self.tm_observations,
-            standard_deviations=self.tm_data_errors,
+            standard_deviation=self.tm_data_errors,
         )

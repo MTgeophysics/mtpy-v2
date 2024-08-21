@@ -149,7 +149,7 @@ class TestSimpeg2DRecipe(unittest.TestCase):
             )
 
     def test_directives(self):
-        self.assertEqual(4, len(self.simpeg_inversions.directives))
+        self.assertEqual(4, len(self.simpeg_inversion.directives))
 
 
 # =============================================================================

@@ -179,6 +179,13 @@ class Simpeg2D:
         )
 
     @property
+    def data_misfit(self):
+        """
+        data misfit of all components TE + TM
+        """
+        return self.te_data_misfit + self.tm_data_misfit
+
+    @property
     def reference_model(self):
         """
         reference model
@@ -207,14 +214,12 @@ class Simpeg2D:
 
         reg = regularization.Sparse(
             self.quad_tree.mesh,
-            indActive=self.quad_tree.active_cell_index,
-            mref=self.reference_model,
+            active_cells=self.quad_tree.active_cell_index,
+            reference_model=self.reference_model,
             alpha_s=self.alpha_s,
             alpha_x=self.alpha_y,
             alpha_z=self.alpha_z,
-            mappings=maps.IdentityMap(
-                nP=self.quad_tree.number_of_active_cells
-            ),
+            mapping=maps.IdentityMap(nP=self.quad_tree.number_of_active_cells),
         )
 
         if self.use_irls:
@@ -244,7 +249,7 @@ class Simpeg2D:
 
         """
         return inverse_problem.BaseInvProblem(
-            self.data.data_misfit, self.regularization, self.optimization
+            self.data_misfit, self.regularization, self.optimization
         )
 
     @property
