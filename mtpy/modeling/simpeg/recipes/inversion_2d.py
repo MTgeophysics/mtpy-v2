@@ -16,6 +16,9 @@ A vanilla recipe to invert 2D MT data.
 import warnings
 import numpy as np
 
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
+
 from simpeg.electromagnetics import natural_source as nsem
 from simpeg import (
     maps,
@@ -340,3 +343,50 @@ class Simpeg2D:
         """
 
         return self.saved_model_outputs.outDict
+
+    def plot_iteration(self, iteration_number, resistivity=True, **kwargs):
+        """ """
+
+        fig, ax = plt.subplots(1, 1, figsize=(10, 6))
+        m = self.iterations[iteration_number]["m"]
+
+        sigma = np.ones(self.quad_tree.mesh.nC) * self.air_conductivity
+        sigma[self.quad_tree.active_cell_index] = np.exp(m)
+        if resistivity:
+            sigma = 1.0 / sigma
+            vmin = kwargs.get("vmin", 0.3)
+            vmax = kwargs.get("vmax", 3000)
+        else:
+            vmin = kwargs.get("vmin", 1e-3)
+            vmax = kwargs.get("vmax", 1)
+        out = self.quad_tree.mesh.plot_image(
+            sigma,
+            grid=False,
+            ax=ax,
+            pcolor_opts={
+                "norm": LogNorm(vmin=vmin, vmax=vmax),
+                "cmap": "turbo",
+            },
+            range_x=(
+                self.data.station_locations[:, 0].min()
+                - 5 * self.quad_tree.dx,
+                self.data.station_locations[:, 0].max()
+                + 5 * self.quad_tree.dx,
+            ),
+            range_y=kwargs.get("z_limits", (-30000, 500)),
+        )
+        cb = plt.colorbar(out[0], fraction=0.01, ax=ax)
+        if resistivity:
+            cb.set_label("Resistivity ($\Omega \cdot m$)")
+        else:
+            cb.set_label("Conductivity (S/m)")
+        ax.set_aspect(1)
+        ax.set_xlabel("Offset (m)")
+        ax.set_ylabel("Elevation (m)")
+        ax.scatter(
+            self.data.station_locations[:, 0],
+            self.data.station_locations[:, 1],
+            marker="v",
+            s=30,
+            color="k",
+        )
