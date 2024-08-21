@@ -347,7 +347,8 @@ class Simpeg2D:
     def plot_iteration(self, iteration_number, resistivity=True, **kwargs):
         """ """
 
-        fig, ax = plt.subplots(1, 1, figsize=(10, 6))
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
         m = self.iterations[iteration_number]["m"]
 
         sigma = np.ones(self.quad_tree.mesh.nC) * self.air_conductivity
@@ -356,16 +357,18 @@ class Simpeg2D:
             sigma = 1.0 / sigma
             vmin = kwargs.get("vmin", 0.3)
             vmax = kwargs.get("vmax", 3000)
+            cmap = kwargs.get("cmap", "turbo_r")
         else:
             vmin = kwargs.get("vmin", 1e-3)
             vmax = kwargs.get("vmax", 1)
+            cmap = kwargs.get("cmap", "turbo")
         out = self.quad_tree.mesh.plot_image(
             sigma,
             grid=False,
             ax=ax,
             pcolor_opts={
                 "norm": LogNorm(vmin=vmin, vmax=vmax),
-                "cmap": "turbo",
+                "cmap": cmap,
             },
             range_x=(
                 self.data.station_locations[:, 0].min()
