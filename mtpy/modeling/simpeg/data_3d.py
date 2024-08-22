@@ -95,6 +95,36 @@ class Simpeg3DData:
         )
 
         return [source_real, source_imag]
+    
+    @property
+    def source_xx(self):
+        """ xx source [simpeg xx -> nez+ yy]"""
+        return self._get_mode_sources("xx")  
+      
+    @property
+    def source_xx(self):
+        """ xx source [simpeg xx -> nez+ yy]"""
+        return self._get_mode_sources("xx") 
+       
+    @property
+    def source_xx(self):
+        """ xx source [simpeg xx -> nez+ yy]"""
+        return self._get_mode_sources("xx") 
+      
+    @property
+    def source_xx(self):
+        """ xx source [simpeg xx -> nez+ yy]"""
+        return self._get_mode_sources("xx")
+        
+    @property
+    def source_xx(self):
+        """ xx source [simpeg xx -> nez+ yy]"""
+        return self._get_mode_sources("xx") 
+       
+    @property
+    def source_xx(self):
+        """ xx source [simpeg xx -> nez+ yy]"""
+        return self._get_mode_sources("xx")
         
     
 
