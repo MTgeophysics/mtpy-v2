@@ -376,7 +376,10 @@ class Simpeg2D:
                 self.data.station_locations[:, 0].max()
                 + 5 * self.quad_tree.dx,
             ),
-            range_y=kwargs.get("z_limits", (-30000, 500)),
+            range_y=kwargs.get(
+                "z_limits",
+                (-self.simpeg_inversion.quad_tree.mesh.h[1].sum() / 2, 500),
+            ),
         )
         cb = plt.colorbar(out[0], fraction=0.01, ax=ax)
         if resistivity:
@@ -386,10 +389,19 @@ class Simpeg2D:
         ax.set_aspect(1)
         ax.set_xlabel("Offset (m)")
         ax.set_ylabel("Elevation (m)")
-        ax.scatter(
-            self.data.station_locations[:, 0],
-            self.data.station_locations[:, 1],
-            marker="v",
-            s=30,
-            color="k",
-        )
+        if self.quad_tree.topography:
+            ax.scatter(
+                self.data.station_locations[:, 0],
+                self.data.station_locations[:, 1],
+                marker="v",
+                s=30,
+                color="k",
+            )
+        else:
+            ax.scatter(
+                self.data.station_locations[:, 0],
+                np.zeros_like(self.data.station_locations[:, 1]),
+                marker="v",
+                s=30,
+                color="k",
+            )
