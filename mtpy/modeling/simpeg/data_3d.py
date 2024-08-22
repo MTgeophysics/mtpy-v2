@@ -58,9 +58,17 @@ class Simpeg3DData:
             station_df = self.dataframe.groupby("station").nth(0)
 
             if self.include_elevation:
-                return np.c_[station_df.east, station_df.north, station_df.elevation]
+                return np.c_[
+                    station_df.east,
+                    station_df.north,
+                    station_df.elevation
+                    ]
             else:
-                return np.c_[station_df.east, station_df.north, np.zeros(station_df.elevation.size)]
+                return np.c_[
+                    station_df.east,
+                    station_df.north,
+                    np.zeros(station_df.elevation.size)
+                    ]
 
     def frequecies(self):
         """unique frequencies from the dataframe
@@ -76,4 +84,18 @@ class Simpeg3DData:
     def n_stations(self):
         return self.dataframe.station.unique().size
     
+    def _get_mode_sources(self, orientation):
+        """Get the source for each mode
+        """
+        source_real = nsem.receivers.PointNaturalSource(
+            self.station_locations, orientation=orientation, component="real"
+        )
+        source_imag = nsem.receivers.PointNaturalSource(
+            self.station_locations, orientation=orientation, component="imag"
+        )
+
+        return [source_real, source_imag]
+        
+    
+
     
