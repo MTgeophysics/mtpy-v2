@@ -371,10 +371,8 @@ class Simpeg2D:
                 "cmap": cmap,
             },
             range_x=(
-                self.data.station_locations[:, 0].min()
-                - 5 * self.quad_tree.dx,
-                self.data.station_locations[:, 0].max()
-                + 5 * self.quad_tree.dx,
+                self.data.station_locations[:, 0].min() - 5 * self.quad_tree.dx,
+                self.data.station_locations[:, 0].max() + 5 * self.quad_tree.dx,
             ),
             range_y=kwargs.get(
                 "z_limits",
@@ -405,3 +403,39 @@ class Simpeg2D:
                 s=30,
                 color="k",
             )
+
+    def plot_tikhonov_curve(self):
+        """
+        plot L-like curve
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.plot(
+            [
+                self.iterations[iteration]["phi_m"]
+                for iteration in self.iterations.keys()
+            ],
+            [
+                self.iterations[iteration]["phi_d"]
+                for iteration in self.iterations.keys()
+            ],
+        )
+
+        ax.set_xlabel("$\phi_m$ [model smallness]")
+        ax.set_ylabel("$\phi_d$ [data fit]")
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        xlim = ax.get_xlim()
+        ax.plot(
+            xlim,
+            np.ones(2)
+            * (self.data.te_observations.size + self.data.tm_observations.size),
+            "--",
+        )
+        ax.set_xlim(xlim)
+        plt.tight_layout()
+        plt.show()
