@@ -28,6 +28,7 @@ warnings.filterwarnings("ignore")
 
 # =============================================================================
 
+
 class Simpeg3DData:
     """ """
 
@@ -36,17 +37,25 @@ class Simpeg3DData:
 
         # nez+ as keys then enz- as values
         self.component_map = {
-            "xx": {"simpeg": "yy", "z+": "xx"},
-            "xy": {"simpeg": "yx", "z+": "xy"},
-            "yx": {"simpeg": "xy", "z+": "yx"},
-            "yy": {"simpeg": "xx", "z+": "yy"},
-            "zx": {"simpeg": "zy", "z+": "zx"},
-            "zy": {"simpeg": "zx", "z+": "zy"},
+            "z_xx": {"simpeg": "zyy", "z+": "z_xx"},
+            "z_xy": {"simpeg": "zyx", "z+": "z_xy"},
+            "z_yx": {"simpeg": "zxy", "z+": "z_yx"},
+            "z_yy": {"simpeg": "zxx", "z+": "z_yy"},
+            "t_zx": {"simpeg": "zzy", "z+": "z_zx"},
+            "t_zy": {"simpeg": "zzx", "z+": "z_zy"},
         }
 
         self.include_elevation = False
-        self.topography = None # should be a geotiff or asc file
+        self.topography = None  # should be a geotiff or asc file
         self.geographic_coordinates = True
+        self.invert_z_xx = True
+        self.invert_z_xy = True
+        self.invert_z_yx = True
+        self.invert_z_yy = True
+        self.invert_t_zx = True
+        self.invert_t_zy = True
+
+        self._component_list = list(self.component_map.keys())
 
     @property
     def station_locations(self):
@@ -59,23 +68,20 @@ class Simpeg3DData:
 
             if self.include_elevation:
                 return np.c_[
-                    station_df.east,
-                    station_df.north,
-                    station_df.elevation
-                    ]
+                    station_df.east, station_df.north, station_df.elevation
+                ]
             else:
                 return np.c_[
                     station_df.east,
                     station_df.north,
-                    np.zeros(station_df.elevation.size)
-                    ]
+                    np.zeros(station_df.elevation.size),
+                ]
 
     def frequecies(self):
-        """unique frequencies from the dataframe
-        """
+        """unique frequencies from the dataframe"""
 
-        return 1./self.dataframe.period.unique()
-    
+        return 1.0 / self.dataframe.period.unique()
+
     @property
     def n_frequencies(self):
         return self.frequencies.size
@@ -83,10 +89,9 @@ class Simpeg3DData:
     @property
     def n_stations(self):
         return self.dataframe.station.unique().size
-    
-    def _get_mode_sources(self, orientation):
-        """Get the source for each mode
-        """
+
+    def _get_z_mode_sources(self, orientation):
+        """Get the source for each mode"""
         source_real = nsem.receivers.PointNaturalSource(
             self.station_locations, orientation=orientation, component="real"
         )
@@ -95,37 +100,101 @@ class Simpeg3DData:
         )
 
         return [source_real, source_imag]
-    
-    @property
-    def source_xx(self):
-        """ xx source [simpeg xx -> nez+ yy]"""
-        return self._get_mode_sources("xx")  
-      
-    @property
-    def source_xx(self):
-        """ xx source [simpeg xx -> nez+ yy]"""
-        return self._get_mode_sources("xx") 
-       
-    @property
-    def source_xx(self):
-        """ xx source [simpeg xx -> nez+ yy]"""
-        return self._get_mode_sources("xx") 
-      
-    @property
-    def source_xx(self):
-        """ xx source [simpeg xx -> nez+ yy]"""
-        return self._get_mode_sources("xx")
-        
-    @property
-    def source_xx(self):
-        """ xx source [simpeg xx -> nez+ yy]"""
-        return self._get_mode_sources("xx") 
-       
-    @property
-    def source_xx(self):
-        """ xx source [simpeg xx -> nez+ yy]"""
-        return self._get_mode_sources("xx")
-        
-    
 
-    
+    def _get_t_mode_sources(self, orientation):
+        """Get the source for each mode"""
+        source_real = nsem.receivers.Point3DTipper(
+            self.station_locations, orientation=orientation, component="real"
+        )
+        source_imag = nsem.receivers.Point3DTipper(
+            self.station_locations, orientation=orientation, component="imag"
+        )
+
+        return [source_real, source_imag]
+
+    @property
+    def source_z_xx(self):
+        """xx source [simpeg xx -> nez+ yy]"""
+        return self._get_z_mode_sources("xx")
+
+    @property
+    def source_z_xy(self):
+        """xy source [simpeg xy -> nez+ yx]"""
+        return self._get_z_mode_sources("xy")
+
+    @property
+    def source_z_yx(self):
+        """yx source [simpeg yx -> nez+ xy]"""
+        return self._get_z_mode_sources("yx")
+
+    @property
+    def source_z_yy(self):
+        """yy source [simpeg yy -> nez+ xx]"""
+        return self._get_z_mode_sources("yy")
+
+    @property
+    def source_t_zx(self):
+        """zx source [simpeg zx -> nez+ zy]"""
+        return self._get_t_mode_sources("zx")
+
+    @property
+    def source_t_zy(self):
+        """zy source [simpeg zy -> nez+ zx]"""
+        return self._get_t_mode_sources("zy")
+
+    @property
+    def _sources_list(self):
+        rx_list = []
+
+        for comp in self._component_list:
+            if getattr(self, f"invert_{comp}"):
+                rx_list += getattr(self, f"source_{comp}")
+
+        return rx_list
+
+    @property
+    def sources(self):
+        rx_list = self.rx_list
+        return [
+            nsem.sources.PlanewaveXYPrimary(rx_list, frequency=f)
+            for f in self.frequencies
+        ]
+
+    @property
+    def survey(self):
+        """returns a survey object with the requested components"""
+        return nsem.Survey(self.sources)
+
+    def get_survey(self, index):
+        """get a survey object for a particular frequency index
+
+        Useful for using `MetaClass`
+
+        :param index: _description_
+        :type index: _type_
+        :return: _description_
+        :rtype: _type_
+        """
+        return nsem.Survey(self.sources[index])
+
+    def to_rec_array(self):
+
+        df = self.dataframe[
+            ["period", "east", "north", "elevation"] + self.component_map
+        ]
+
+        df["freq"] = 1.0 / df.period
+        df = df.drop(columns="period")
+
+        df.rename(
+            columns={"east": "x", "north": "y", "elevation": "z"}.update(
+                dict(
+                    [
+                        (key, self.component_map[key]["simpeg"])
+                        for key in self._component_list
+                    ]
+                )
+            )
+        )
+
+        return df.to_recarray()
