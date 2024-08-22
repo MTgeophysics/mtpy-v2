@@ -13,7 +13,7 @@ import numpy as np
 from mtpy import MTData
 
 from mtpy_data import PROFILE_LIST
-from mtpy.modeling.simpeg.data import Simpeg2DData
+from mtpy.modeling.simpeg.data_2d import Simpeg2DData
 from mtpy.modeling.simpeg.recipes.inversion_2d import Simpeg2D
 
 # =============================================================================

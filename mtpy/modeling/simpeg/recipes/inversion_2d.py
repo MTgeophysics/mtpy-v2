@@ -32,7 +32,7 @@ from simpeg import (
 from pymatsolver import Pardiso
 
 # from dask.distributed import Client, LocalCluster
-from mtpy.modeling.simpeg.data import Simpeg2DData
+from mtpy.modeling.simpeg.data_2d import Simpeg2DData
 from mtpy.modeling.simpeg.make_2d_mesh import QuadTreeMesh
 
 warnings.filterwarnings("ignore")
