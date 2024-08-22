@@ -61,3 +61,19 @@ class Simpeg3DData:
                 return np.c_[station_df.east, station_df.north, station_df.elevation]
             else:
                 return np.c_[station_df.east, station_df.north, np.zeros(station_df.elevation.size)]
+
+    def frequecies(self):
+        """unique frequencies from the dataframe
+        """
+
+        return 1./self.dataframe.period.unique()
+    
+    @property
+    def n_frequencies(self):
+        return self.frequencies.size
+
+    @property
+    def n_stations(self):
+        return self.dataframe.station.unique().size
+    
+    
