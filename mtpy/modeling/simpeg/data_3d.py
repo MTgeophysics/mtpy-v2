@@ -41,9 +41,39 @@ class Simpeg3DData:
             "z_xy": {"simpeg": "zyx", "z+": "z_xy"},
             "z_yx": {"simpeg": "zxy", "z+": "z_yx"},
             "z_yy": {"simpeg": "zxx", "z+": "z_yy"},
-            "t_zx": {"simpeg": "zzy", "z+": "z_zx"},
-            "t_zy": {"simpeg": "zzx", "z+": "z_zy"},
+            "t_zx": {"simpeg": "tzy", "z+": "t_zx"},
+            "t_zy": {"simpeg": "tzx", "z+": "t_zy"},
         }
+
+        self._component_list = list(self.component_map.keys())
+
+        self._rec_columns = {
+            "frequency": "freq",
+            "east": "x",
+            "north": "y",
+            "elevation": "z",
+        }
+        self._rec_columns.update(
+            dict(
+                [
+                    (key, self.component_map[key]["simpeg"])
+                    for key in self._component_list
+                ]
+            )
+        )
+
+        self._rec_dtypes = [
+            ("freq", float),
+            ("x", float),
+            ("y", float),
+            ("z", float),
+            ("zxx", complex),
+            ("zxy", complex),
+            ("zyx", complex),
+            ("zyy", complex),
+            ("tzx", complex),
+            ("tzy", complex),
+        ]
 
         self.include_elevation = False
         self.topography = None  # should be a geotiff or asc file
@@ -54,8 +84,6 @@ class Simpeg3DData:
         self.invert_z_yy = True
         self.invert_t_zx = True
         self.invert_t_zy = True
-
-        self._component_list = list(self.component_map.keys())
 
     @property
     def station_locations(self):
@@ -77,7 +105,7 @@ class Simpeg3DData:
                     np.zeros(station_df.elevation.size),
                 ]
 
-    def frequecies(self):
+    def frequencies(self):
         """unique frequencies from the dataframe"""
 
         return 1.0 / self.dataframe.period.unique()
@@ -180,21 +208,13 @@ class Simpeg3DData:
     def to_rec_array(self):
 
         df = self.dataframe[
-            ["period", "east", "north", "elevation"] + self.component_map
+            ["period", "east", "north", "elevation"] + self._component_list
         ]
 
-        df["freq"] = 1.0 / df.period
+        df.loc[:, "frequency"] = 1.0 / df.period.to_numpy()
         df = df.drop(columns="period")
+        new_column_names = [self._rec_columns[col] for col in df.columns]
+        df.columns = new_column_names
+        df = df[[col[0] for col in self._rec_dtypes]]
 
-        df.rename(
-            columns={"east": "x", "north": "y", "elevation": "z"}.update(
-                dict(
-                    [
-                        (key, self.component_map[key]["simpeg"])
-                        for key in self._component_list
-                    ]
-                )
-            )
-        )
-
-        return df.to_recarray()
+        return df.to_records(index=False, column_dtypes=dict(self._rec_dtypes))

@@ -14,7 +14,7 @@ from mtpy import MTData
 
 from mtpy_data import PROFILE_LIST
 from mtpy.modeling.simpeg.data_3d import Simpeg3DData
-from mtpy.modeling.simpeg.recipes.inversion_2d import Simpeg2D
+from simpeg.electromagnetics.natural_source.survey import Data
 
 # =============================================================================
 
@@ -55,6 +55,9 @@ class TestSimpeg3DData(unittest.TestCase):
                     np.array([210.0, 213.0, 212.0, 219.0, 214.0, 220.0]),
                 )
             )
+
+    def test_to_rec_array(self):
+        survey_data = Data.fromRecArray(self.simpeg_data.to_rec_array())
 
     # def test_station_locations_no_elevation(self):
     #     self.simpeg_data.include_elevation = False
