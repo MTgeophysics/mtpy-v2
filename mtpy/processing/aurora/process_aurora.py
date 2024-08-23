@@ -200,9 +200,19 @@ class AuroraProcessing(BaseProcessing):
     def process_single_sample_rate(
         self, sample_rate, config=None, kernel_dataset=None
     ):
-        """Process data.
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        """
+        Process a single sample rate
+
+        :param sample_rate: sample rate of time series data
+        :type sample_rate: float
+        :param config: configuration file, defaults to None
+        :type config: aurora.config, optional
+        :param kernel_dataset: Kerenel dataset to define what data to process,
+          defaults to None
+        :type kernel_dataset: mtpy.processing.KernelDataset, optional
+        :return: transfer function
+        :rtype: mtpy.MT
+
         """
 
         if kernel_dataset is None:
@@ -235,35 +245,52 @@ class AuroraProcessing(BaseProcessing):
         merge=True,
         save_to_mth5=True,
     ):
-        """If you provide just the sample rates, then at each sample rate a
+        """
+        Need to either provide a list of sample rates to process or
+        a processing dictionary.
+
+        If you provide just the sample rates, then at each sample rate a
         KernelDataset will be created as well as a subsequent config object
         which are then used to process the data.
 
         If processing_dict is set then the processing will loop through the
         dictionary and use the provided config and kernel datasets.
 
-        process all runs for all sample rates and the combine the transfer
-        function according to merge_dict.
+        The processing dict has the following form
 
-        Need to figure out a way to adjust the config per sample rate.  Maybe
-        A dictionary of configs keyed by sample rate.
+        .. code_block:: python
 
-        processing_dict = {sample_rate: {
-            "config": config object,
-            "kernel_dataset": KernelDataset object,
-            }
-        :param processing_dict:
-            Defaults to None.
-        :param sample_rates:
-            Defaults to None.
-        :param config: Dictionary of configuration keyed by sample rates.
-        :type config: dictionary
-        :param merge: DESCRIPTION, defaults to True.
-        :type merge: TYPE, optional
-        :param save_to_mth5: DESCRIPTION, defaults to True.
+            processing_dict = {sample_rate: {
+                "config": config object,
+                "kernel_dataset": KernelDataset object,
+                }
+
+        If merge is True then all runs for all sample rates are combined into
+        a single function according to merge_dict.
+
+        If `save_to_mth5` is True then the transfer functions are saved to
+        the local MTH5.
+
+
+        :param sample_rates: list of sample rates to process, defaults to None
+        :type sample_rates: float or list, optional
+        :param processing_dict: processing dictionary as described above,
+         defaults to None
+        :type processing_dict: dict, optional
+        :param merge: [ True | False ] True merges all sample rates into a
+         single transfer function according to the merge_dict, defaults to True
+        :type merge: bool, optional
+        :param save_to_mth5: [ True | False ] save transfer functions to the
+         local MTH5, defaults to True
         :type save_to_mth5: TYPE, optional
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        :raises ValueError: If neither sample rates nor processing dict are
+         provided
+        :raises TypeError: If the provided processing dictionary is not
+         the correct format
+        :return: dictionary of each sample rate processed in the form of
+         {sample_rate: {'processed': bool, 'tf': MT}}
+        :rtype: dict
+
         """
 
         if sample_rates is None and processing_dict is None:
@@ -328,12 +355,7 @@ class AuroraProcessing(BaseProcessing):
         return processed
 
     def _validate_config(self, config):
-        """Validate config.
-        :param config: DESCRIPTION.
-        :type config: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
-        """
+        """Validate config."""
         if not isinstance(config, Processing):
             raise TypeError(
                 "Config must be a aurora.config.metadata.Processing object. "
@@ -341,13 +363,7 @@ class AuroraProcessing(BaseProcessing):
             )
 
     def _validate_kernel_dataset(self, kernel_dataset):
-        """Validate kernel dataset.
-        :param kernel_dataset:
-        :param config: DESCRIPTION.
-        :type config: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
-        """
+        """Validate kernel dataset."""
         if not isinstance(kernel_dataset, KernelDataset):
             raise TypeError(
                 "Config must be a mtpy.processing.KernelDataset object. "
@@ -356,10 +372,9 @@ class AuroraProcessing(BaseProcessing):
 
     def _validate_processing_dict(self, processing_dict):
         """Validate the processing dict to make sure it is in the correct format.
-        :param processing_dict: DESCRIPTION.
-        :type processing_dict: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+
+        :param processing_dict: processing dictionary
+        :type processing_dict: dict
         """
         error_msg = "Format is {sample_rate: {'config': config object, "
         "'kernel_dataset': KernelDataset object}"
@@ -388,10 +403,11 @@ class AuroraProcessing(BaseProcessing):
         """Pick out processed transfer functions from a given processed dict,
         which may have some sample rates that did not process for whatever
         reason.
-        :param tf_dict: DESCRIPTION.
-        :type tf_dict: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+
+        :param tf_dict: dictionary of processed transfer functions.
+        :type tf_dict: dict
+        :return: dicionary of trasnfer functions for which processed=True
+        :rtype: dict
         """
 
         new_dict = {}
@@ -405,10 +421,9 @@ class AuroraProcessing(BaseProcessing):
 
     def _add_tf_to_local_mth5(self, tf_dict):
         """Add transfer function to MTH5.
-        :param tf_dict: DESCRIPTION.
-        :type tf_dict: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+
+        :param tf_dict: dictionary of transfer functions
+        :type tf_dict: dict
         """
 
         with MTH5() as m:
@@ -418,10 +433,12 @@ class AuroraProcessing(BaseProcessing):
 
     def _get_merge_tf_list(self, tf_dict):
         """Merge transfer functions according to merge dict.
-        :param tf_dict: DESCRIPTION.
-        :type tf_dict: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+
+        :param tf_dict: dictionary of transfer functions.
+        :type tf_dict: dict
+        :return: list of transfer functions with appropriate min/max period
+         to merge
+        :rtype: list
         """
 
         merge_df = self._get_merge_df()
@@ -446,11 +463,12 @@ class AuroraProcessing(BaseProcessing):
         return merge_list
 
     def merge_transfer_functions(self, tf_dict):
-        """Merge transfer functions.
-        :param tf_dict: DESCRIPTION.
-        :type tf_dict: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        """Merge transfer functions according to AuroraProcessing.merge_dict
+
+        :param tf_dict: dictionary of transfer functions
+        :type tf_dict: dict
+        :return: merged transfer function.
+        :rtype: mtpy.MT
         """
 
         merge_list = self._get_merge_tf_list(tf_dict)
