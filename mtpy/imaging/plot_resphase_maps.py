@@ -31,50 +31,48 @@ from mtpy.imaging.mtplot_tools import PlotBaseMaps
 
 
 class PlotResPhaseMaps(PlotBaseMaps):
-    """
-    Plots apparent resistivity and phase in map view from a list of edi files
+    """Plots apparent resistivity and phase in map view from a list of edi files.
 
-    Arguments:
-    -------------
+    Arguments::
 
-        **fn_list** : list of strings
-                          full paths to .edi files to plot
+            **fn_list** : list of strings
+                              full paths to .edi files to plot
 
-        **fig_size** : tuple or list (x, y) in inches
-                      dimensions of the figure box in inches, this is a default
-                      unit of matplotlib.  You can use this so make the plot
-                      fit the figure box to minimize spaces from the plot axes
-                      to the figure box.  *default* is [8, 8]
+            **fig_size** : tuple or list (x, y) in inches
+                          dimensions of the figure box in inches, this is a default
+                          unit of matplotlib.  You can use this so make the plot
+                          fit the figure box to minimize spaces from the plot axes
+                          to the figure box.  *default* is [8, 8]
 
-        **mapscale** : [ 'deg' | 'm' | 'km' ]
-                       Scale of the map coordinates.
+            **mapscale** : [ 'deg' | 'm' | 'km' ]
+                           Scale of the map coordinates.
 
-                       * 'deg' --> degrees in latitude and longitude
+                           * 'deg' --> degrees in latitude and longitude
 
-                       * 'm' --> meters for easting and northing
+                           * 'm' --> meters for easting and northing
 
-                       * 'km' --> kilometers for easting and northing
+                           * 'km' --> kilometers for easting and northing
 
-        **plot_yn** : [ 'y' | 'n' ]
-                      *'y' to plot on creating an instance
+            **plot_yn** : [ 'y' | 'n' ]
+                          *'y' to plot on creating an instance
 
-                      *'n' to not plot on creating an instance
+                          *'n' to not plot on creating an instance
 
-        **title** : string
-                    figure title
+            **title** : string
+                        figure title
 
-        **dpi** : int
-                  dots per inch of the resolution. *default* is 300
+            **dpi** : int
+                      dots per inch of the resolution. *default* is 300
 
-        **font_size** : float
-                        size of the font that labels the plot, 2 will be added
-                        to this number for the axis labels.
+            **font_size** : float
+                            size of the font that labels the plot, 2 will be added
+                            to this number for the axis labels.
     """
 
     def __init__(self, mt_data, **kwargs):
-        """
-        Initialise the object
-        :param kwargs: keyword-value pairs
+        """Initialise the object.
+        :param mt_data:
+        :param **kwargs: Keyword-value pairs.
         """
         super().__init__(**kwargs)
 
@@ -134,10 +132,12 @@ class PlotResPhaseMaps(PlotBaseMaps):
 
     @property
     def map_units(self):
+        """Map units."""
         return self._map_units
 
     @map_units.setter
     def map_units(self, value):
+        """Map units."""
         self._map_units = value
         if value in ["km"]:
             self.scale = 1.0 / 1000
@@ -149,12 +149,9 @@ class PlotResPhaseMaps(PlotBaseMaps):
             self.scale = 1.0
 
     def _get_n_rows(self):
-        """
-        Get the number of rows in the subplot
-
-        :return: DESCRIPTION
+        """Get the number of rows in the subplot.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         n = 0
         if self.plot_resistivity:
@@ -164,7 +161,7 @@ class PlotResPhaseMaps(PlotBaseMaps):
         return n
 
     def _get_n_columns(self):
-        """get the number of columns in the subplot"""
+        """Get the number of columns in the subplot."""
         n = 0
 
         for cc in ["xx", "xy", "yx", "yy", "det"]:
@@ -173,9 +170,7 @@ class PlotResPhaseMaps(PlotBaseMaps):
         return n
 
     def _get_n_subplots(self):
-        """
-        Get the subplot indices
-        """
+        """Get the subplot indices."""
         nr = self._get_n_rows()
         nc = self._get_n_columns()
 
@@ -206,12 +201,9 @@ class PlotResPhaseMaps(PlotBaseMaps):
         return subplot_dict
 
     def _get_subplots(self):
-        """
-        get the subplots
-
-        :return: DESCRIPTION
+        """Get the subplots.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         subplot_dict = self._get_n_subplots()
         ax_dict = {}
@@ -238,9 +230,7 @@ class PlotResPhaseMaps(PlotBaseMaps):
         return ax_dict
 
     def _get_data_array(self):
-        """
-        make a data array to plot
-        """
+        """Make a data array to plot."""
 
         plot_array = np.zeros(
             self.mt_data.n_stations,
@@ -292,9 +282,7 @@ class PlotResPhaseMaps(PlotBaseMaps):
         return plot_array
 
     def _get_cmap(self, component):
-        """
-        get color map with proper limits
-        """
+        """Get color map with proper limits."""
         if "res" in component:
             cmap = self.res_cmap
         elif "phase" in component:
@@ -302,13 +290,13 @@ class PlotResPhaseMaps(PlotBaseMaps):
         return cmap
 
     def _get_colorbar(self, ax, im_mappable, component):
-        """
-
-        :param component: DESCRIPTION
+        """Get colorbar.
+        :param im_mappable:
+        :param ax:
+        :param component: DESCRIPTION.
         :type component: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if "res" in component:
@@ -347,7 +335,7 @@ class PlotResPhaseMaps(PlotBaseMaps):
     # The main plot method for this module
     # -------------------------------------------------
     def plot(self):
-        """ """
+        """Plot function."""
 
         # set position properties for the plot
         self._set_subplot_params()

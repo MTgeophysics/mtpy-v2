@@ -15,8 +15,7 @@ from mtpy.core import MTDataFrame
 
 
 class WSData:
-    """
-    Includes tools for reading and writing data files intended to be used with
+    """Includes tools for reading and writing data files intended to be used with
     ws3dinv.
 
     :Example: ::
@@ -107,7 +106,6 @@ class WSData:
                            and rewrite.
     read_data_file         reads in a ws3dinv data file
     ====================== ====================================================
-
     """
 
     def __init__(self, mt_dataframe=None, **kwargs):
@@ -155,17 +153,16 @@ class WSData:
 
     @property
     def dataframe(self):
+        """Dataframe function."""
         return self._mt_dataframe.dataframe
 
     @dataframe.setter
     def dataframe(self, df):
-        """
-        Set dataframe to an MTDataframe
-        :param df: DESCRIPTION
+        """Set dataframe to an MTDataframe.
+        :param df: DESCRIPTION.
         :type df: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if df is None:
@@ -183,15 +180,18 @@ class WSData:
 
     @property
     def period(self):
+        """Period function."""
         if self.dataframe is not None:
             return np.sort(self.dataframe.period.unique())
 
     @property
     def data_filename(self):
+        """Data filename."""
         return self.save_path.joinpath(self.fn_basename)
 
     @data_filename.setter
     def data_filename(self, value):
+        """Data filename."""
         if value is not None:
             value = Path(value)
             if value.parent == Path("."):
@@ -201,6 +201,7 @@ class WSData:
                 self.fn_basename = value.name
 
     def get_n_stations(self):
+        """Get n stations."""
         if self.dataframe is not None:
             return (
                 self.dataframe.loc[
@@ -215,6 +216,7 @@ class WSData:
             )
 
     def get_period_df(self, period):
+        """Get period df."""
         return (
             self.dataframe.loc[self.dataframe.period == period]
             .groupby("station")
@@ -223,24 +225,22 @@ class WSData:
         )
 
     def write_data_file(self, **kwargs):
-        """
-        Writes a data file based on the attribute data
+        """Writes a data file based on the attribute data.
 
-        Key Word Arguments:
-        ---------------------
-            **data_fn** : string
-                          full path to data file name
+        Key Word Arguments::
+                **data_fn** : string
+                              full path to data file name
 
-            **save_path** : string
-                            directory path to save data file, will be written
-                            as save_path/data_basename
-            **data_basename** : string
-                                basename of data file to be saved as
-                                save_path/data_basename
-                                *default* is WSDataFile.dat
+                **save_path** : string
+                                directory path to save data file, will be written
+                                as save_path/data_basename
+                **data_basename** : string
+                                    basename of data file to be saved as
+                                    save_path/data_basename
+                                    *default* is WSDataFile.dat
 
-        .. note:: if any of the data attributes have been reset, be sure
-                  to call build_data() before write_data_file.
+            .. note:: if any of the data attributes have been reset, be sure
+                      to call build_data() before write_data_file.
         """
         # get units correctly
         zconv = 1
@@ -336,28 +336,25 @@ class WSData:
         return self.data_filename
 
     def read_data_file(self, data_filename):
-        """
-        read in data file
+        """Read in data file.
 
-        Arguments:
-        -----------
-            **data_fn** : string
-                          full path to data file
-            **wl_sites_fn** : string
-                              full path to sites file output by winglink.
-                              This is to match the station name with station
-                              number.
-            **station_fn** : string
-                             full path to station location file written by
-                             WSStation
+        Arguments::
+                **data_fn** : string
+                              full path to data file
+                **wl_sites_fn** : string
+                                  full path to sites file output by winglink.
+                                  This is to match the station name with station
+                                  number.
+                **station_fn** : string
+                                 full path to station location file written by
+                                 WSStation
 
-        Fills Attributes:
-        ------------------
-            **data** : structure np.ndarray
-                      fills the attribute WSData.data with values
+        Fills Attributes::
+                **data** : structure np.ndarray
+                          fills the attribute WSData.data with values
 
-            **period_list** : np.ndarray()
-                             fills the period list with values.
+                **period_list** : np.ndarray()
+                                 fills the period list with values.
         """
 
         if self.units == "mv":

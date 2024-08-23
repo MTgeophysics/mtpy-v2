@@ -9,6 +9,7 @@ Subpackages
 
    mtpy.analysis
    mtpy.core
+   mtpy.gis
    mtpy.imaging
    mtpy.modeling
    mtpy.processing

@@ -26,6 +26,7 @@ requirements = [
     "contextily",
     "pyevtk",
     "simpeg",
+    "aurora",
 ]
 
 setup_requirements = [

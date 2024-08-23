@@ -297,24 +297,21 @@ MT_CMAP_DICT = {
 
 
 def register_cmaps(cmap_dict):
+    """Register cmaps."""
     for key, value in cmap_dict.items():
         if key not in plt.colormaps.keys():
             colormaps.register(value, name=key)
 
 
 def get_color(cvar, cmap):
-    """
-    gets the color to plot for the given color map
-
-    """
+    """Gets the color to plot for the given color map."""
     return plt.get_cmap(cmap)(cvar)
 
 
 def get_plot_color(colorx, comp, cmap, ckmin=None, ckmax=None, bounds=None):
-    """
-    gets the color for the given compnent, color array and cmap
+    """Gets the color for the given compnent, color array and cmap
 
-    Note: we now use the linearSegmentedColorMap objects, instead of the get_color function
+    Note: we now use the linearSegmentedColorMap objects, instead of the get_color function.
     """
 
     # get face color info
@@ -418,8 +415,7 @@ def cmap_discretize(cmap, N):
 
 
 class FixPointNormalize(colors.Normalize):
-    """
-    Inspired by https://stackoverflow.com/questions/20144529/shifted-colorbar-matplotlib
+    """Inspired by https://stackoverflow.com/questions/20144529/shifted-colorbar-matplotlib
     Subclassing Normalize to obtain a colormap with a fixpoint
     somewhere in the middle of the colormap.
     This may be useful for a `terrain` map, to set the "sea level"
@@ -436,5 +432,6 @@ class FixPointNormalize(colors.Normalize):
         colors.Normalize.__init__(self, vmin, vmax, clip)
 
     def __call__(self, value, clip=None):
+        """Call function."""
         x, y = [self.vmin, self.sealevel, self.vmax], [0, self.col_val, 1]
         return np.ma.masked_array(np.interp(value, x, y))

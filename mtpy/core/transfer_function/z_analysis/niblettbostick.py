@@ -36,53 +36,44 @@ NB_SCALE_PARAMETER = 2.0 * np.pi * MU0
 
 
 def calculate_niblett_bostick_depth(resistivity, period):
-    """
-    Use the Niblett-Bostick approximation for depth of penetration in meters
-
-    :param resistivity: DESCRIPTION
+    """Use the Niblett-Bostick approximation for depth of penetration in meters.
+    :param period:
+    :param resistivity: DESCRIPTION.
     :type resistivity: TYPE
-    :return: DESCRIPTION
+    :return: DESCRIPTION.
     :rtype: TYPE
-
     """
 
     return np.sqrt(resistivity * period / NB_SCALE_PARAMETER)
 
 
 def calculate_niblett_bostick_resistivity_weidelt(resistivity, phase):
-    """
-    Convert a period-dependent pair of resistivity/phase (Ohm meters/rad)
+    """Convert a period-dependent pair of resistivity/phase (Ohm meters/rad)
     into resistivity/depth (Ohm meters/meters)
 
     The conversion uses the simplified transformation without derivatives.
-
-    :param resistivity: DESCRIPTION
+    :param resistivity: DESCRIPTION.
     :type resistivity: TYPE
-    :param phase: DESCRIPTION
+    :param phase: DESCRIPTION.
     :type phase: TYPE
-    :return: DESCRIPTION
+    :return: DESCRIPTION.
     :rtype: TYPE
-
     """
 
     return resistivity * ((np.pi / 2) * np.deg2rad(phase % 90) - 1)
 
 
 def calculate_niblett_bostick_resistivity_derivatives(resistivity, period):
-    """
-
-    Convert a period-dependent pair of resistivity/phase (Ohm meters/rad)
+    """Convert a period-dependent pair of resistivity/phase (Ohm meters/rad)
     into resistivity/depth (Ohm meters/meters)
 
     The conversion uses derivatives.
-
-    :param resistivity: DESCRIPTION
+    :param resistivity: DESCRIPTION.
     :type resistivity: TYPE
-    :param period: DESCRIPTION
+    :param period: DESCRIPTION.
     :type period: TYPE
-    :return: DESCRIPTION
+    :return: DESCRIPTION.
     :rtype: TYPE
-
     """
 
     log_period = np.log10(period)
@@ -97,13 +88,17 @@ def calculate_niblett_bostick_resistivity_derivatives(resistivity, period):
 
 
 def calculate_depth_sensitivity(depth, period, rho=100):
-    """
-    compute sensitivty S(z,sigma, omega)= -kz*exp(-2*kz).
+    """Compute sensitivty S(z,sigma, omega)= -kz*exp(-2*kz).
+
     The result is independent of sigma and freq.
+    :param rho:
+        Defaults to 100.
+    :param period:
+    :param depth:
     :param z:
     :param sigma_conduct:
     :param freq:
-    :return: the sensitivity vslue
+    :return: The sensitivity vslue.
     """
 
     omega = 2 * np.pi / period
@@ -120,8 +115,7 @@ def calculate_depth_sensitivity(depth, period, rho=100):
 
 
 def calculate_depth_of_investigation(z_object):
-    """
-    Determine an array of Z_nb (depth dependent Niblett-Bostick transformed Z)
+    """Determine an array of Z_nb (depth dependent Niblett-Bostick transformed Z)
     from the 1D and 2D parts of an impedance tensor array Z.
 
     The calculation of the Z_nb needs 6 steps:
@@ -144,35 +138,19 @@ def calculate_depth_of_investigation(z_object):
     Note:
         No propagation of errors implemented yet!
 
-    Arguments
-    -------------
-        *z_object* : mtpy.core.z object
+    Arguments:
+            *z_object* : mtpy.core.z object
 
-
-    Returns
-    ------------------
-        *depth_array* : np.ndarray(num_periods,
-                                   dtype=['period', 'depth_min', 'depth_max',
-                                          'resistivity_min', 'resistivity_max'])
-                        numpy structured array with keywords.
-                            - period    --> period in s
-                            - depth_min --> minimum depth estimated (m)
-                            - depth_max --> maximum depth estimated (m)
-                            - resistivity_min --> minimum resistivity estimated (Ohm-m)
-                            - resistivity_max --> maximum resistivity estimated (Ohm-m)
-
-    Example
-    ------------
-        >>> import mtpy.analysis.niblettbostick as nb
-        >>> depth_array = nb.calculate_znb(z_object=z1)
-        >>> # plot the results
-        >>> import matplotlib.pyplot as plt
-        >>> fig = plt.figure()
-        >>> ax = fig.add_subplot(1,1,1)
-        >>> ax.semilogy(depth_array['depth_min'], depth_array['period'])
-        >>> ax.semilogy(depth_array['depth_max'], depth_array['period'])
-        >>> plt.show()
-
+    Example:
+            >>> import mtpy.analysis.niblettbostick as nb
+            >>> depth_array = nb.calculate_znb(z_object=z1)
+            >>> # plot the results
+            >>> import matplotlib.pyplot as plt
+            >>> fig = plt.figure()
+            >>> ax = fig.add_subplot(1,1,1)
+            >>> ax.semilogy(depth_array['depth_min'], depth_array['period'])
+            >>> ax.semilogy(depth_array['depth_max'], depth_array['period'])
+            >>> plt.show()
     """
 
     if z_object.z.shape[0] > 1:

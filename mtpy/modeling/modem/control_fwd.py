@@ -21,28 +21,27 @@ from mtpy.utils import exceptions as mtex
 
 
 class ControlFwd:
-    """
-    Reads and writes control files for ModEM to control how the forward solver 
+    """Reads and writes control files for ModEM to control how the forward solver
     starts and how it is run.
 
     ==================== ======================================================
     Attributes           Description
     ==================== ======================================================
-    num_qmr_iter         Number of QMR iterations per divergence correction. 
-                         int, *default* is 40 
-    max_num_div_calls    Maximum number of divergence correction calls. int, 
+    num_qmr_iter         Number of QMR iterations per divergence correction.
+                         int, *default* is 40
+    max_num_div_calls    Maximum number of divergence correction calls. int,
                          *default* is 20
-    max_num_div_iters    Maximum number of divergence correction iterations. 
+    max_num_div_iters    Maximum number of divergence correction iterations.
                          int, *default* is 100
-    misfit_tol_fwd       Misfit tolerance for EM forward solver. float, 
+    misfit_tol_fwd       Misfit tolerance for EM forward solver. float,
                          *default* is 1e-07
-    misfit_tol_adj       Misfit tolerance for EM adjoint solver. float, 
+    misfit_tol_adj       Misfit tolerance for EM adjoint solver. float,
                          *default* is 1e-07
-    misfit_tol_div       Misfit tolerance for divergence correction. float, 
+    misfit_tol_div       Misfit tolerance for divergence correction. float,
                          *default*  is 1e-05
-    save_path            Path at which to save the control file. PosixPath, 
+    save_path            Path at which to save the control file. PosixPath,
                          *default* is current working directory.
-    fn_basename          Name of the control file. str, *default* is 
+    fn_basename          Name of the control file. str, *default* is
                          'control.fwd',
     """
 
@@ -98,10 +97,12 @@ class ControlFwd:
 
     @property
     def control_fn(self):
+        """Control fn."""
         return self.save_path.joinpath(self.fn_basename)
 
     @control_fn.setter
     def control_fn(self, value):
+        """Control fn."""
         if value is not None:
             value = Path(value)
             self.save_path = value.parent
@@ -110,23 +111,20 @@ class ControlFwd:
     def write_control_file(
         self, control_fn=None, save_path=None, fn_basename=None
     ):
-        """
-        write control file
+        """Write control file.
 
-        Arguments:
-        ------------
-            **control_fn** : string
-                             full path to save control file to
-                             *default* is save_path/fn_basename
+        Arguments::
+                **control_fn** : string
+                                 full path to save control file to
+                                 *default* is save_path/fn_basename
 
-            **save_path** : string
-                            directory path to save control file to
-                            *default* is cwd
+                **save_path** : string
+                                directory path to save control file to
+                                *default* is cwd
 
-            **fn_basename** : string
-                              basename of control file
-                              *default* is control.inv
-
+                **fn_basename** : string
+                                  basename of control file
+                                  *default* is control.inv
         """
 
         if control_fn is not None:
@@ -167,9 +165,7 @@ class ControlFwd:
         print("Wrote ModEM control file to {0}".format(self.control_fn))
 
     def read_control_file(self, control_fn=None):
-        """
-        read in a control file
-        """
+        """Read in a control file."""
 
         if control_fn is not None:
             self.control_fn = control_fn

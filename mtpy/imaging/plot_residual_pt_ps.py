@@ -28,9 +28,10 @@ from mtpy.analysis.residual_phase_tensor import ResidualPhaseTensor
 
 
 class PlotResidualPTPseudoSection(PlotBaseProfile):
-    """
-    This will plot residual phase tensors in a pseudo section.  The data is
-    read in and stored in 2 ways, one as a list ResidualPhaseTensor object for
+    """This will plot residual phase tensors in a pseudo section.
+
+    The data is
+read in and stored in 2 ways, one as a list ResidualPhaseTensor object for
     each matching station and the other in a structured array with all the
     important information.  The structured array is the one that is used for
     plotting.  It is computed each time plot() is called so if it is
@@ -90,7 +91,6 @@ class PlotResidualPTPseudoSection(PlotBaseProfile):
     :Example: ::
         >>> pt1.save_figure(r"/home/PTFigures", file_format='pdf', dpi=300)
         File saved to '/home/PTFigures/PTPseudoSection.pdf'
-
     """
 
     def __init__(
@@ -139,25 +139,21 @@ class PlotResidualPTPseudoSection(PlotBaseProfile):
 
     @property
     def rotation_angle(self):
+        """Rotation angle."""
         return self._rotation_angle
 
     # ---need to rotate data on setting rotz
     @rotation_angle.setter
     def rotation_angle(self, rot_z):
-        """
-        need to rotate data when setting z
-        """
+        """Need to rotate data when setting z."""
 
         for tf_obj in self.mt_data_01 + self.mt_data_02:
             tf_obj.rotation_angle = rot_z
 
     def _match_lists(self, one, two):
-        """
-        Match the input lists by transfer function id
-
-        :return: DESCRIPTION
+        """Match the input lists by transfer function id.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         matches = []
@@ -191,8 +187,7 @@ class PlotResidualPTPseudoSection(PlotBaseProfile):
 
     # ------------------------------------------------------------------
     def _compute_residual_pt(self):
-        """
-        compute residual phase tensor so the result is something useful to
+        """Compute residual phase tensor so the result is something useful to
         plot
         """
 
@@ -305,11 +300,9 @@ class PlotResidualPTPseudoSection(PlotBaseProfile):
     # -------------------------------------------------------------------
 
     def _apply_median_filter(self, kernel=(3, 3)):
-        """
-        apply a median filter to the data to remove extreme outliers
+        """Apply a median filter to the data to remove extreme outliers
 
-        kernel is (station, frequency)
-
+        kernel is (station, frequency).
         """
 
         filt_phimin_arr = sps.medfilt2d(
@@ -336,9 +329,7 @@ class PlotResidualPTPseudoSection(PlotBaseProfile):
         self.logger.info(f"Applying Median Filter with kernel {kernel}")
 
     def get_pt_color_array(self, rpt_array):
-        """
-        Get the appropriat color by array
-        """
+        """Get the appropriat color by array."""
 
         # get the properties to color the ellipses by
         if (
@@ -368,20 +359,19 @@ class PlotResidualPTPseudoSection(PlotBaseProfile):
         return color_array
 
     def _get_ellipse_max(self):
+        """Get ellipse max."""
         if self.ellipse_scale is None:
             return np.nanmax(self.rpt_array["phimax"])
         else:
             return self.ellipse_scale
 
     def _get_patch(self, rpt):
-        """
-        Get ellipse patch
-
-        :param tf: DESCRIPTION
+        """Get ellipse patch.
+        :param rpt:
+        :param tf: DESCRIPTION.
         :type tf: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         # --> get size of largest ellipse for this frequency for
         #    normalization to give an indication of the size of
@@ -445,12 +435,9 @@ class PlotResidualPTPseudoSection(PlotBaseProfile):
             self.ax.add_artist(ellipd)
 
     def _add_colorbar(self):
-        """
-        Add phase tensor color bar
-
-        :return: DESCRIPTION
+        """Add phase tensor color bar.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if self.cb_position is None:
@@ -501,9 +488,7 @@ class PlotResidualPTPseudoSection(PlotBaseProfile):
 
     # --------------------------------------------------------------------------
     def plot(self):
-        """
-        plot residual phase tensor
-        """
+        """Plot residual phase tensor."""
 
         self._set_subplot_params()
 

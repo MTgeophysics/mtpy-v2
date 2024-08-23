@@ -24,9 +24,7 @@ import mtpy.imaging.mtcolors as mtcl
 # Plot settings
 # ==============================================================================
 class PlotSettings(MTArrows, MTEllipse):
-    """
-    Hold all the plot settings that one might need
-    """
+    """Hold all the plot settings that one might need."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -139,23 +137,17 @@ class PlotSettings(MTArrows, MTEllipse):
 
     @property
     def period_label_dict(self):
-        """
-        log 10 labels
-
-        :return: DESCRIPTION
+        """Log 10 labels.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         return dict([(ii, "$10^{" + str(ii) + "}$") for ii in range(-20, 21)])
 
     def set_period_limits(self, period):
-        """
-        set period limits
-
-        :return: DESCRIPTION
+        """Set period limits.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         return (
@@ -164,50 +156,49 @@ class PlotSettings(MTArrows, MTEllipse):
         )
 
     def _estimate_resistivity_min(self, res_array):
-        """
-        estimate resistivity minimum
-        """
+        """Estimate resistivity minimum."""
 
         nz = np.nonzero(res_array)
         return np.nanmin(res_array[nz])
 
     def _estimate_resistivity_max(self, res_array):
-        """
-        estimate resistivity maximum
-        """
+        """Estimate resistivity maximum."""
 
         nz = np.nonzero(res_array)
         return np.nanmax(res_array[nz])
 
     def _compute_power_ten_min(self, value):
+        """Compute power ten min."""
         return 10 ** (np.floor(np.log10(value)))
 
     def _compute_power_ten_max(self, value):
+        """Compute power ten max."""
         return 10 ** (np.ceil(np.log10(value)))
 
     def _estimate_resistivity_limits_min(self, res_list):
+        """Estimate resistivity limits min."""
 
         return self._compute_power_ten_min(
             min([self._estimate_resistivity_min(rr) for rr in res_list])
         )
 
     def _estimate_resistivity_limits_max(self, res_list):
+        """Estimate resistivity limits max."""
 
         return self._compute_power_ten_max(
             max([self._estimate_resistivity_max(rr) for rr in res_list])
         )
 
     def set_resistivity_limits(self, resistivity, mode="od", scale="log"):
-        """
-        set resistivity limits
-
-        :param resistivity: DESCRIPTION
+        """Set resistivity limits.
+        :param scale:
+            Defaults to "log".
+        :param resistivity: DESCRIPTION.
         :type resistivity: TYPE
-        :param mode: DESCRIPTION, defaults to "od"
+        :param mode: DESCRIPTION, defaults to "od".
         :type mode: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if mode in ["od"]:
@@ -237,6 +228,7 @@ class PlotSettings(MTArrows, MTEllipse):
         return limits
 
     def set_phase_limits(self, phase, mode="od"):
+        """Set phase limits."""
         if mode in ["od"]:
             try:
                 nz_xy = np.nonzero(phase[:, 0, 1])
@@ -288,11 +280,9 @@ class PlotSettings(MTArrows, MTEllipse):
 
     @property
     def xy_error_bar_properties(self):
-        """
-        xy error bar properties for xy mode
-        :return: DESCRIPTION
+        """Xy error bar properties for xy mode.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         return {
             "marker": self.xy_marker,
@@ -309,11 +299,9 @@ class PlotSettings(MTArrows, MTEllipse):
 
     @property
     def yx_error_bar_properties(self):
-        """
-        xy error bar properties for xy mode
-        :return: DESCRIPTION
+        """Xy error bar properties for xy mode.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         return {
             "marker": self.yx_marker,
@@ -330,11 +318,9 @@ class PlotSettings(MTArrows, MTEllipse):
 
     @property
     def det_error_bar_properties(self):
-        """
-        xy error bar properties for xy mode
-        :return: DESCRIPTION
+        """Xy error bar properties for xy mode.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         return {
             "marker": self.det_marker,
@@ -360,6 +346,7 @@ class PlotSettings(MTArrows, MTEllipse):
             }
 
     def make_pt_cb(self, ax):
+        """Make pt cb."""
         cmap = mtcl.cmapdict[self.ellipse_cmap]
         if "seg" in self.ellipse_cmap:
             # normalize the colors
@@ -403,6 +390,7 @@ class PlotSettings(MTArrows, MTEllipse):
 
     @property
     def arrow_real_properties(self):
+        """Arrow real properties."""
         return {
             "lw": self.arrow_lw,
             "facecolor": self.arrow_color_real,
@@ -414,6 +402,7 @@ class PlotSettings(MTArrows, MTEllipse):
 
     @property
     def arrow_imag_properties(self):
+        """Arrow imag properties."""
         return {
             "lw": self.arrow_lw,
             "facecolor": self.arrow_color_imag,
@@ -425,6 +414,7 @@ class PlotSettings(MTArrows, MTEllipse):
 
     @property
     def text_dict(self):
+        """Text dict."""
         return {
             "size": self.text_size,
             "weight": self.text_weight,

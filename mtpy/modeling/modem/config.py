@@ -24,9 +24,7 @@ from .convariance import Covariance
 
 
 class ModEMConfig(object):
-    """
-    read and write configuration files for how each inversion is run
-    """
+    """Read and write configuration files for how each inversion is run."""
 
     def __init__(self, **kwargs):
         self.cfg_dict = {"ModEM_Inversion_Parameters": {}}
@@ -37,9 +35,7 @@ class ModEMConfig(object):
     def write_config_file(
         self, save_dir=None, config_fn_basename="ModEM_inv.cfg"
     ):
-        """
-        write a config file based on provided information
-        """
+        """Write a config file based on provided information."""
 
         if save_dir is None:
             save_dir = Path().cwd()
@@ -52,9 +48,7 @@ class ModEMConfig(object):
             mtcfg.write_dict_to_configfile(self.cfg_dict, cfg_fn)
 
     def add_dict(self, fn=None, obj=None):
-        """
-        add dictionary based on file name or object
-        """
+        """Add dictionary based on file name or object."""
 
         if fn is not None:
             if fn.endswith(".rho"):

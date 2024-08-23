@@ -10,36 +10,33 @@ Created on Sun Sep 25 15:16:31 2022
 # Arrows properties for induction vectors
 # ==============================================================================
 class MTArrows:
-    """
-    Helper class to read a dictionary of arrow properties
+    """Helper class to read a dictionary of arrow properties.
 
-    Arguments:
-    -----------
-    * 'size' : float
-              multiplier to scale the arrow. *default* is 5
-    * 'head_length' : float
-                     length of the arrow head *default* is
-                     1.5
-    * 'head_width' : float
-                    width of the arrow head *default* is
-                    1.5
-    * 'lw' : float
-            line width of the arrow *default* is .5
+    Arguments::
+        * 'size' : float
+                  multiplier to scale the arrow. *default* is 5
+        * 'head_length' : float
+                         length of the arrow head *default* is
+                         1.5
+        * 'head_width' : float
+                        width of the arrow head *default* is
+                        1.5
+        * 'lw' : float
+                line width of the arrow *default* is .5
 
-    * 'color' : tuple (real, imaginary)
-               color of the arrows for real and imaginary
+        * 'color' : tuple (real, imaginary)
+                   color of the arrows for real and imaginary
 
-    * 'threshold': float
-                  threshold of which any arrow larger than
-                  this number will not be plotted, helps
-                  clean up if the data is not good.
-                  *default* is 1, note this is before
-                  scaling by 'size'
+        * 'threshold': float
+                      threshold of which any arrow larger than
+                      this number will not be plotted, helps
+                      clean up if the data is not good.
+                      *default* is 1, note this is before
+                      scaling by 'size'
 
-    * 'direction : [ 0 | 1 ]
-                 - 0 for arrows to point away a conductor
-                 - 1 for arrow to point toward from conductor
-
+        * 'direction : [ 0 | 1 ]
+                     - 0 for arrows to point away a conductor
+                     - 1 for arrow to point toward from conductor
     """
 
     def __init__(self, **kwargs):

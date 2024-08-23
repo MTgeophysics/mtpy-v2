@@ -17,11 +17,7 @@ from mtpy.imaging.mtplot_tools import PlotBaseMaps
 
 
 class PlotPenetrationDepthMap(PlotBaseMaps):
-    """
-    Plot the depth of penetration based on the Niblett-Bostick approximation.
-
-
-    """
+    """Plot the depth of penetration based on the Niblett-Bostick approximation."""
 
     def __init__(self, mt_data, **kwargs):
 
@@ -59,10 +55,12 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
 
     @property
     def depth_units(self):
+        """Depth units."""
         return self._depth_units
 
     @depth_units.setter
     def depth_units(self, value):
+        """Depth units."""
         self._depth_units = value
         if value in ["km"]:
             self.depth_scale = 1.0 / 1000
@@ -70,22 +68,17 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
             self.depth_scale = 1
 
     def _get_nb_estimation(self, z_object):
-        """
-        get the depth of investigation estimation
-
-        """
+        """Get the depth of investigation estimation."""
 
         return z_object.estimate_depth_of_investigation()
 
     def _filter_depth_array(self, depth_array, comp):
-        """
-        Filter out some bad data points
-
-        :param depth_array: DESCRIPTION
+        """Filter out some bad data points.
+        :param comp:
+        :param depth_array: DESCRIPTION.
         :type depth_array: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         depth_array = depth_array[np.nonzero(depth_array)]
@@ -99,12 +92,9 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
         return depth_array[good_index]
 
     def _get_depth_array(self):
-        """
-        get a depth array with xyz values
-
-        :return: DESCRIPTION
+        """Get a depth array with xyz values.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         depth_array = np.zeros(
@@ -147,12 +137,9 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
         return depth_array
 
     def _get_n_subplots(self):
-        """
-        get the number of subplots
-
-        :return: DESCRIPTION
+        """Get the number of subplots.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         n = 0
         if self.plot_det:
@@ -165,9 +152,7 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
         return n
 
     def _get_subplots(self):
-        """
-        get subplots
-        """
+        """Get subplots."""
         n = self._get_n_subplots()
         ax_det = None
         ax_xy = None
@@ -193,9 +178,7 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
         return ax_det, ax_xy, ax_yx
 
     def _get_plot_component_dict(self):
-        """
-        Get all the components to plot
-        """
+        """Get all the components to plot."""
         ax_det, ax_xy, ax_yx = self._get_subplots()
 
         components = {}
@@ -215,13 +198,10 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
         return components
 
     def plot(self):
-        """
-        plot the depth of investigation as a 1d plot with period on the y-axis
+        """Plot the depth of investigation as a 1d plot with period on the y-axis
         and depth on the x axis
-
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         self._set_subplot_params()
 

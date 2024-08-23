@@ -37,8 +37,7 @@ from pyevtk.hl import gridToVTK
 
 
 class StructuredGrid3D:
-    """
-    make and read a FE mesh grid
+    """Make and read a FE mesh grid
 
     The mesh assumes the coordinate system where:
         x == North
@@ -50,119 +49,115 @@ class StructuredGrid3D:
     The mesh is created by first making a regular grid around the station area,
     then padding cells are added that exponentially increase to the given
     extensions.  Depth cell increase on a log10 scale to the desired depth,
-    then padding cells are added that increase exponentially.
+    then padding cells are added that increase exponentially..
 
-    Arguments
-    -------------
-        **station_object** : mtpy.modeling.modem.Stations object
-                            .. seealso:: mtpy.modeling.modem.Stations
+    Arguments:
+            **station_object** : mtpy.modeling.modem.Stations object
+                                .. seealso:: mtpy.modeling.modem.Stations
 
-    Examples
-    -------------
+    Examples:
 
-    :Example 1 --> create mesh first then data file: ::
+        :Example 1 --> create mesh first then data file: ::
 
-        >>> import mtpy.modeling.modem as modem
-        >>> import os
-        >>> # 1) make a list of all .edi files that will be inverted for
-        >>> edi_path = r"/home/EDI_Files"
-        >>> edi_list = [os.path.join(edi_path, edi)
-                        for edi in os.listdir(edi_path)
-        >>> ...         if edi.find('.edi') > 0]
-        >>> # 2) Make a Stations object
-        >>> stations_obj = modem.Stations()
-        >>> stations_obj.get_station_locations_from_edi(edi_list)
-        >>> # 3) make a grid from the stations themselves with 200m cell spacing
-        >>> mmesh = modem.Model(station_obj)
-        >>> # change cell sizes
-        >>> mmesh.cell_size_east = 200,
-        >>> mmesh.cell_size_north = 200
-        >>> mmesh.ns_ext = 300000 # north-south extension
-        >>> mmesh.ew_ext = 200000 # east-west extension of model
-        >>> mmesh.make_mesh()
-        >>> # check to see if the mesh is what you think it should be
-        >>> msmesh.plot_mesh()
-        >>> # all is good write the mesh file
-        >>> msmesh.write_model_file(save_path=r"/home/modem/Inv1")
-        >>> # create data file
-        >>> md = modem.Data(edi_list, station_locations=mmesh.station_locations)
-        >>> md.write_data_file(save_path=r"/home/modem/Inv1")
+            >>> import mtpy.modeling.modem as modem
+            >>> import os
+            >>> # 1) make a list of all .edi files that will be inverted for
+            >>> edi_path = r"/home/EDI_Files"
+            >>> edi_list = [os.path.join(edi_path, edi)
+                            for edi in os.listdir(edi_path)
+            >>> ...         if edi.find('.edi') > 0]
+            >>> # 2) Make a Stations object
+            >>> stations_obj = modem.Stations()
+            >>> stations_obj.get_station_locations_from_edi(edi_list)
+            >>> # 3) make a grid from the stations themselves with 200m cell spacing
+            >>> mmesh = modem.Model(station_obj)
+            >>> # change cell sizes
+            >>> mmesh.cell_size_east = 200,
+            >>> mmesh.cell_size_north = 200
+            >>> mmesh.ns_ext = 300000 # north-south extension
+            >>> mmesh.ew_ext = 200000 # east-west extension of model
+            >>> mmesh.make_mesh()
+            >>> # check to see if the mesh is what you think it should be
+            >>> msmesh.plot_mesh()
+            >>> # all is good write the mesh file
+            >>> msmesh.write_model_file(save_path=r"/home/modem/Inv1")
+            >>> # create data file
+            >>> md = modem.Data(edi_list, station_locations=mmesh.station_locations)
+            >>> md.write_data_file(save_path=r"/home/modem/Inv1")
 
-    :Example 2 --> Rotate Mesh: ::
+        :Example 2 --> Rotate Mesh: ::
 
-        >>> mmesh.mesh_rotation_angle = 60
-        >>> mmesh.make_mesh()
+            >>> mmesh.mesh_rotation_angle = 60
+            >>> mmesh.make_mesh()
 
-    .. note:: ModEM assumes all coordinates are relative to North and East, and
-             does not accommodate mesh rotations, therefore, here the rotation
-             is of the stations, which essentially does the same thing.  You
-             will need to rotate you data to align with the 'new' coordinate
-             system.
+        .. note:: ModEM assumes all coordinates are relative to North and East, and
+                 does not accommodate mesh rotations, therefore, here the rotation
+                 is of the stations, which essentially does the same thing.  You
+                 will need to rotate you data to align with the 'new' coordinate
+                 system.
 
-    ==================== ======================================================
-    Attributes           Description
-    ==================== ======================================================
-    _logger              python logging object that put messages in logging
-                         format defined in logging configure file, see MtPyLog
-                         more information
-    cell_number_ew       optional for user to specify the total number of sells
-                         on the east-west direction. *default* is None
-    cell_number_ns       optional for user to specify the total number of sells
-                         on the north-south direction. *default* is None
-    cell_size_east       mesh block width in east direction
-                         *default* is 500
-    cell_size_north      mesh block width in north direction
-                         *default* is 500
-    grid_center          center of the mesh grid
-    grid_east            overall distance of grid nodes in east direction
-    grid_north           overall distance of grid nodes in north direction
-    grid_z               overall distance of grid nodes in z direction
-    model_fn             full path to initial file name
-    model_fn_basename    default name for the model file name
-    n_air_layers         number of air layers in the model. *default* is 0
-    n_layers             total number of vertical layers in model
-    nodes_east           relative distance between nodes in east direction
-    nodes_north          relative distance between nodes in north direction
-    nodes_z              relative distance between nodes in east direction
-    pad_east             number of cells for padding on E and W sides
-                         *default* is 7
-    pad_north            number of cells for padding on S and N sides
-                         *default* is 7
-    pad_num              number of cells with cell_size with outside of
-                         station area.  *default* is 3
-    pad_method           method to use to create padding:
-                         extent1, extent2 - calculate based on ew_ext and
-                         ns_ext
-                         stretch - calculate based on pad_stretch factors
-    pad_stretch_h        multiplicative number for padding in horizontal
-                         direction.
-    pad_stretch_v        padding cells N & S will be pad_root_north**(x)
-    pad_z                number of cells for padding at bottom
-                         *default* is 4
-    ew_ext               E-W extension of model in meters
-    ns_ext               N-S extension of model in meters
-    res_scale            scaling method of res, supports
-                           'loge' - for log e format
-                           'log' or 'log10' - for log with base 10
-                           'linear' - linear scale
-                         *default* is 'loge'
-    res_list             list of resistivity values for starting model
-    res_model            starting resistivity model
-    res_initial_value    resistivity initial value for the resistivity model
-                         *default* is 100
-    mesh_rotation_angle  Angle to rotate the grid to. Angle is measured
-                         positve clockwise assuming North is 0 and east is 90.
-                         *default* is None
-    save_path            path to save file to
-    sea_level            sea level in grid_z coordinates. *default* is 0
-    station_locations    location of stations
-    title                title in initial file
-    z1_layer             first layer thickness
-    z_bottom             absolute bottom of the model *default* is 300,000
-    z_target_depth       Depth of deepest target, *default* is 50,000
-    ==================== ======================================================
-
-
+        ==================== ======================================================
+        Attributes           Description
+        ==================== ======================================================
+        _logger              python logging object that put messages in logging
+                             format defined in logging configure file, see MtPyLog
+                             more information
+        cell_number_ew       optional for user to specify the total number of sells
+                             on the east-west direction. *default* is None
+        cell_number_ns       optional for user to specify the total number of sells
+                             on the north-south direction. *default* is None
+        cell_size_east       mesh block width in east direction
+                             *default* is 500
+        cell_size_north      mesh block width in north direction
+                             *default* is 500
+        grid_center          center of the mesh grid
+        grid_east            overall distance of grid nodes in east direction
+        grid_north           overall distance of grid nodes in north direction
+        grid_z               overall distance of grid nodes in z direction
+        model_fn             full path to initial file name
+        model_fn_basename    default name for the model file name
+        n_air_layers         number of air layers in the model. *default* is 0
+        n_layers             total number of vertical layers in model
+        nodes_east           relative distance between nodes in east direction
+        nodes_north          relative distance between nodes in north direction
+        nodes_z              relative distance between nodes in east direction
+        pad_east             number of cells for padding on E and W sides
+                             *default* is 7
+        pad_north            number of cells for padding on S and N sides
+                             *default* is 7
+        pad_num              number of cells with cell_size with outside of
+                             station area.  *default* is 3
+        pad_method           method to use to create padding:
+                             extent1, extent2 - calculate based on ew_ext and
+                             ns_ext
+                             stretch - calculate based on pad_stretch factors
+        pad_stretch_h        multiplicative number for padding in horizontal
+                             direction.
+        pad_stretch_v        padding cells N & S will be pad_root_north**(x)
+        pad_z                number of cells for padding at bottom
+                             *default* is 4
+        ew_ext               E-W extension of model in meters
+        ns_ext               N-S extension of model in meters
+        res_scale            scaling method of res, supports
+                               'loge' - for log e format
+                               'log' or 'log10' - for log with base 10
+                               'linear' - linear scale
+                             *default* is 'loge'
+        res_list             list of resistivity values for starting model
+        res_model            starting resistivity model
+        res_initial_value    resistivity initial value for the resistivity model
+                             *default* is 100
+        mesh_rotation_angle  Angle to rotate the grid to. Angle is measured
+                             positve clockwise assuming North is 0 and east is 90.
+                             *default* is None
+        save_path            path to save file to
+        sea_level            sea level in grid_z coordinates. *default* is 0
+        station_locations    location of stations
+        title                title in initial file
+        z1_layer             first layer thickness
+        z_bottom             absolute bottom of the model *default* is 300,000
+        z_target_depth       Depth of deepest target, *default* is 50,000
+        ==================== ======================================================
     """
 
     def __init__(self, station_locations=None, center_point=None, **kwargs):
@@ -260,6 +255,7 @@ class StructuredGrid3D:
                 )
 
     def __str__(self):
+        """Str function."""
         lines = ["Structured3DMesh Model Object:", "-" * 20]
         # --> print out useful information
         try:
@@ -305,14 +301,17 @@ class StructuredGrid3D:
         return "\n".join(lines)
 
     def __repr__(self):
+        """Repr function."""
         return self.__str__()
 
     @property
     def save_path(self):
+        """Save path."""
         return self._save_path
 
     @save_path.setter
     def save_path(self, save_path):
+        """Save path."""
         if save_path is None:
             self._save_path = Path().cwd()
         else:
@@ -323,10 +322,12 @@ class StructuredGrid3D:
 
     @property
     def model_fn(self):
+        """Model fn."""
         return self.save_path.joinpath(self.model_fn_basename)
 
     @model_fn.setter
     def model_fn(self, filename):
+        """Model fn."""
         if filename is not None:
             filename = Path(filename)
             self.save_path = filename.parent
@@ -334,10 +335,12 @@ class StructuredGrid3D:
 
     @property
     def model_epsg(self):
+        """Model epsg."""
         return self.center_point.utm_epsg
 
     @model_epsg.setter
     def model_epsg(self, value):
+        """Model epsg."""
         self.center_point.utm_epsg = value
 
     # --> make nodes and grid symbiotic so if you set one the other one
@@ -345,6 +348,7 @@ class StructuredGrid3D:
     # Nodes East
     @property
     def nodes_east(self):
+        """Nodes east."""
         if self.grid_east is not None:
             self._nodes_east = np.array(
                 [
@@ -356,6 +360,7 @@ class StructuredGrid3D:
 
     @nodes_east.setter
     def nodes_east(self, nodes):
+        """Nodes east."""
         nodes = np.array(nodes)
         self._nodes_east = nodes
         self.grid_east = np.array(
@@ -367,6 +372,7 @@ class StructuredGrid3D:
     # Nodes North
     @property
     def nodes_north(self):
+        """Nodes north."""
         if self.grid_north is not None:
             self._nodes_north = np.array(
                 [
@@ -378,6 +384,7 @@ class StructuredGrid3D:
 
     @nodes_north.setter
     def nodes_north(self, nodes):
+        """Nodes north."""
         nodes = np.array(nodes)
         self._nodes_north = nodes
         self.grid_north = np.array(
@@ -388,6 +395,7 @@ class StructuredGrid3D:
 
     @property
     def nodes_z(self):
+        """Nodes z."""
         if self.grid_z is not None:
             self._nodes_z = np.array(
                 [
@@ -400,6 +408,7 @@ class StructuredGrid3D:
 
     @nodes_z.setter
     def nodes_z(self, nodes):
+        """Nodes z."""
         nodes = np.array(nodes)
         self._nodes_z = nodes
         self.grid_z = np.array(
@@ -410,6 +419,7 @@ class StructuredGrid3D:
     # resistivity model
     @property
     def plot_east(self):
+        """Plot east."""
         plot_east = np.array(
             [self.nodes_east[0:ii].sum() for ii in range(self.nodes_east.size)]
         )
@@ -417,6 +427,7 @@ class StructuredGrid3D:
 
     @property
     def plot_north(self):
+        """Plot north."""
         plot_north = np.array(
             [
                 self.nodes_north[0:ii].sum()
@@ -427,13 +438,13 @@ class StructuredGrid3D:
 
     @property
     def plot_z(self):
+        """Plot z."""
         return np.array(
             [self.nodes_z[0:ii].sum() for ii in range(self.nodes_z.size)]
         )
 
     def make_mesh(self, verbose=True):
-        """
-        create finite element mesh according to user-input parameters.
+        """Create finite element mesh according to user-input parameters.
 
         The mesh is built by:
 
@@ -456,7 +467,6 @@ class StructuredGrid3D:
             5. Add vertical padding cells to desired extension.
             6. Check to make sure none of the stations lie on a node.
                If they do then move the node by .02*cell_width
-
         """
 
         # --> find the edges of the grid
@@ -624,9 +634,7 @@ class StructuredGrid3D:
             print(self.__str__())
 
     def make_z_mesh(self, n_layers=None):
-        """
-        new version of make_z_mesh. make_z_mesh and M
-        """
+        """New version of make_z_mesh. make_z_mesh and M."""
         n_layers = self.n_layers if n_layers is None else n_layers
 
         # --> make depth grid
@@ -670,19 +678,16 @@ class StructuredGrid3D:
     def add_layers_to_mesh(
         self, n_add_layers=None, layer_thickness=None, where="top"
     ):
-        """
-        Function to add constant thickness layers to the top or bottom of mesh.
+        """Function to add constant thickness layers to the top or bottom of mesh.
+
         Note: It is assumed these layers are added before the topography. If
         you want to add topography layers, use function add_topography_to_model
-
-        :param n_add_layers: integer, number of layers to add
-        :param layer_thickness: real value or list/array. Thickness of layers,
-                                defaults to z1 layer. Can provide a single value
-                                or a list/array containing multiple layer
-                                thicknesses.
-        :param where: where to add, top or bottom
-
-
+        :param n_add_layers: Integer, number of layers to add, defaults to None.
+        :param layer_thickness: Real value or list/array. Thickness of layers,
+             Can provide a single value
+            or a list/array containing multiple layer
+            thicknesses, defaults to None.
+        :param where: Where to add, top or bottom, defaults to "top".
         """
         # create array containing layers to add
         if layer_thickness is None:
@@ -717,8 +722,7 @@ class StructuredGrid3D:
     def assign_resistivity_from_surface_data(
         self, top_surface, bottom_surface, resistivity_value
     ):
-        """
-        assign resistivity value to all points above or below a surface
+        """Assign resistivity value to all points above or below a surface
         requires the surface_dict attribute to exist and contain data for
         surface key (can get this information from ascii file using
         project_surface)
@@ -747,8 +751,7 @@ class StructuredGrid3D:
                 self.res_model[j, i, ii] = resistivity_value
 
     def to_modem(self, model_fn=None, **kwargs):
-        """
-        will write an initial file for ModEM.
+        """Will write an initial file for ModEM.
 
         Note that x is assumed to be S --> N, y is assumed to be W --> E and
         z is positive downwards.  This means that index [0, 0, 0] is the
@@ -760,29 +763,27 @@ class StructuredGrid3D:
         builds the  model from the bottom SW corner assuming the cell width
         from the init file.
 
-        Key Word Arguments:
-        ----------------------
+        Key Word Arguments::
 
 
-            **model_fn_basename** : string
-                                    basename to save file to
-                                    *default* is ModEM_Model.ws
-                                    file is saved at save_path/model_fn_basename
+                **model_fn_basename** : string
+                                        basename to save file to
+                                        *default* is ModEM_Model.ws
+                                        file is saved at save_path/model_fn_basename
 
-            **title** : string
-                        Title that goes into the first line
-                        *default* is Model File written by MTpy.modeling.modem
+                **title** : string
+                            Title that goes into the first line
+                            *default* is Model File written by MTpy.modeling.modem
 
-            **res_starting_value** : float
-                                     starting model resistivity value,
-                                     assumes a half space in Ohm-m
-                                     *default* is 100 Ohm-m
+                **res_starting_value** : float
+                                         starting model resistivity value,
+                                         assumes a half space in Ohm-m
+                                         *default* is 100 Ohm-m
 
-            **res_scale** : [ 'loge' | 'log' | 'log10' | 'linear' ]
-                            scale of resistivity.  In the ModEM code it
-                            converts everything to Loge,
-                            *default* is 'loge'
-
+                **res_scale** : [ 'loge' | 'log' | 'log10' | 'linear' ]
+                                scale of resistivity.  In the ModEM code it
+                                converts everything to Loge,
+                                *default* is 'loge'
         """
         for key in list(kwargs.keys()):
             setattr(self, key, kwargs[key])
@@ -872,49 +873,43 @@ class StructuredGrid3D:
         self._logger.info(f"Wrote file to: {self.model_fn}")
 
     def from_modem(self, model_fn=None):
-        """
-        read an initial file and return the pertinent information including
+        """Read an initial file and return the pertinent information including
         grid positions in coordinates relative to the center point (0,0) and
         starting model.
 
         Note that the way the model file is output, it seems is that the
         blocks are setup as
 
-        ModEM:                           WS:
-        ----------                      -----
-        0-----> N_north                 0-------->N_east
-        |                               |
-        |                               |
-        V                               V
-        N_east                          N_north
+        ModEM:                           WS::
+            0-----> N_north                 0-------->N_east
+            |                               |
+            |                               |
+            V                               V
+            N_east                          N_north
 
+        Arguments::
 
-        Arguments:
-        ----------
+                **model_fn** : full path to initializing file.
 
-            **model_fn** : full path to initializing file.
+        Outputs::
 
-        Outputs:
-        --------
+                **nodes_north** : np.array(nx)
+                            array of nodes in S --> N direction
 
-            **nodes_north** : np.array(nx)
-                        array of nodes in S --> N direction
+                **nodes_east** : np.array(ny)
+                            array of nodes in the W --> E direction
 
-            **nodes_east** : np.array(ny)
-                        array of nodes in the W --> E direction
+                **nodes_z** : np.array(nz)
+                            array of nodes in vertical direction positive downwards
 
-            **nodes_z** : np.array(nz)
-                        array of nodes in vertical direction positive downwards
+                **res_model** : dictionary
+                            dictionary of the starting model with keys as layers
 
-            **res_model** : dictionary
-                        dictionary of the starting model with keys as layers
+                **res_list** : list
+                            list of resistivity values in the model
 
-            **res_list** : list
-                        list of resistivity values in the model
-
-            **title** : string
-                         title string
-
+                **title** : string
+                             title string
         """
 
         if model_fn is not None:
@@ -1055,12 +1050,9 @@ class StructuredGrid3D:
         self.n_layers = self.nodes_z.size - self.n_air_layers
 
     def _get_topography_from_model(self):
-        """
-        Get topography from an input model if air layers are found
-
-        :return: DESCRIPTION
+        """Get topography from an input model if air layers are found.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         topo = np.zeros((self.res_model.shape[0], self.res_model.shape[1]))
         if np.any(self.res_model[:, :, 0] > 1e7):
@@ -1078,14 +1070,12 @@ class StructuredGrid3D:
             return topo
 
     def plot_mesh(self, **kwargs):
-        """
-        Plot model mesh
-
-        :param plot_topography: DESCRIPTION, defaults to False
+        """Plot model mesh.
+        :param **kwargs:
+        :param plot_topography: DESCRIPTION, defaults to False.
         :type plot_topography: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if "topography" in self.surface_dict.keys():
@@ -1094,11 +1084,8 @@ class StructuredGrid3D:
 
     @property
     def model_parameters(self):
-        """
-        get important model parameters to write to a file for documentation
+        """Get important model parameters to write to a file for documentation
         later.
-
-
         """
 
         parameter_list = [
@@ -1128,9 +1115,7 @@ class StructuredGrid3D:
         return parameter_dict
 
     def to_xarray(self, **kwargs):
-        """
-        put model in xarray format
-        """
+        """Put model in xarray format."""
 
         return xr.DataArray(
             self.res_model,
@@ -1155,11 +1140,9 @@ class StructuredGrid3D:
         )
 
     def to_netcdf(self, fn, pad_east=None, pad_north=None, metadata={}):
-        """
-        create a netCDF file to read into GIS software
+        """Create a netCDF file to read into GIS software
 
-        works about 50% of the time.
-
+        works about 50% of the time..
         """
         if self.center_point.utm_epsg is None:
             raise ValueError("Must input UTM CRS or EPSG")
@@ -1262,8 +1245,7 @@ class StructuredGrid3D:
     def to_gocad_sgrid(
         self, fn=None, origin=[0, 0, 0], clip=0, no_data_value=-99999
     ):
-        """
-        write a model to gocad sgrid
+        """Write a model to gocad sgrid
 
         optional inputs:
 
@@ -1272,8 +1254,7 @@ class StructuredGrid3D:
         origin = real world [x,y,z] location of zero point in model grid
         clip = how much padding to clip off the edge of the model for export,
                provide one integer value or list of 3 integers for x,y,z directions
-        no_data_value = no data value to put in sgrid
-
+        no_data_value = no data value to put in sgrid.
         """
         if not np.iterable(clip):
             clip = [clip, clip, clip]
@@ -1338,11 +1319,10 @@ class StructuredGrid3D:
         sea_resistivity=0.3,
         sgrid_positive_up=True,
     ):
-        """
-        read a gocad sgrid file and put this info into a ModEM file.
+        """Read a gocad sgrid file and put this info into a ModEM file.
+
         Note: can only deal with grids oriented N-S or E-W at this stage,
         with orthogonal coordinates
-
         """
         # read sgrid file
         sg_obj = mtgocad.Sgrid()
@@ -1428,8 +1408,7 @@ class StructuredGrid3D:
         shift_north=0,
         shift_east=0,
     ):
-        """
-        project a surface to the model grid and add resulting elevation data
+        """Project a surface to the model grid and add resulting elevation data
         to a dictionary called surface_dict. Assumes the surface is in lat/long
         coordinates (wgs84)
 
@@ -1468,7 +1447,6 @@ class StructuredGrid3D:
         surface_epsg = epsg number of input surface, default is 4326 for lat/lon(wgs84)
         method = interpolation method. Default is 'nearest', if model grid is
         dense compared to surface points then choose 'linear' or 'cubic'
-
         """
         # initialise a dictionary to contain the surfaces
         if not hasattr(self, "surface_dict"):
@@ -1537,8 +1515,7 @@ class StructuredGrid3D:
         topography_buffer=None,
         airlayer_type="log_up",
     ):
-        """
-        Wrapper around add_topography_to_model that allows creating
+        """Wrapper around add_topography_to_model that allows creating
         a surface model from EDI data. The Data grid and station
         elevations will be used to make a 'surface' tuple that will
         be passed to add_topography_to_model so a surface model
@@ -1546,18 +1523,21 @@ class StructuredGrid3D:
 
         The surface tuple is of format (lon, lat, elev) containing
         station locations.
-
-        Args:
-            data_object (mtpy.modeling.ModEM.data.Data): A ModEm data
-                object that has been filled with data from EDI files.
-            interp_method (str, optional): Same as
-                add_topography_to_model.
-            air_resistivity (float, optional): Same as
-                add_topography_to_model.
-            topography_buffer (float): Same as
-                add_topography_to_model.
-            airlayer_type (str, optional): Same as
-                add_topography_to_model.
+        :param data_object: A ModEm data
+            object that has been filled with data from EDI files.
+        :type data_object: mtpy.modeling.ModEM.data.Data
+        :param interp_method: Same as
+            add_topography_to_model, defaults to "nearest".
+        :type interp_method: str, optional
+        :param air_resistivity: Same as
+            add_topography_to_model, defaults to 1e12.
+        :type air_resistivity: float, optional
+        :param topography_buffer: Same as
+            add_topography_to_model, defaults to None.
+        :type topography_buffer: float, optional
+        :param airlayer_type: Same as
+            add_topography_to_model, defaults to "log_up".
+        :type airlayer_type: str, optional
         """
         lon = self.station_locations.longitude.to_numpy()
         lat = self.station_locations.latitude.to_numpy()
@@ -1584,28 +1564,34 @@ class StructuredGrid3D:
         shift_east=0,
         shift_north=0,
     ):
-        """
-        if air_layers is non-zero, will add topo: read in topograph file,
+        """If air_layers is non-zero, will add topo: read in topograph file,
         make a surface model.
 
         Call project_stations_on_topography in the end, which will re-write
         the .dat file.
 
         If n_airlayers is zero, then cannot add topo data, only bathymetry is needed.
-
-        :param topography_file: file containing topography (arcgis ascii grid)
-        :param topography_array: alternative to topography_file - array of
-                                elevation values on model grid
-        :param interp_method: interpolation method for topography,
-                              'nearest', 'linear', or 'cubic'
-        :param air_resistivity: resistivity value to assign to air
-        :param topography_buffer: buffer around stations to calculate minimum
-                                  and maximum topography value to use for
-                                  meshing
-        :param airlayer_type: how to set air layer thickness - options are
-                             'constant' for constant air layer thickness,
-                             or 'log', for logarithmically increasing air
-                             layer thickness upward
+        :param shift_north:
+            Defaults to 0.
+        :param shift_east:
+            Defaults to 0.
+        :param max_elev:
+            Defaults to None.
+        :param surface:
+            Defaults to None.
+        :param topography_file: File containing topography (arcgis ascii grid), defaults to None.
+        :param topography_array: Alternative to topography_file - array of
+            elevation values on model grid, defaults to None.
+        :param interp_method: Interpolation method for topography,
+            'nearest', 'linear', or 'cubic', defaults to "nearest".
+        :param air_resistivity: Resistivity value to assign to air, defaults to 1e12.
+        :param topography_buffer: Buffer around stations to calculate minimum
+            and maximum topography value to use for
+            meshing, defaults to None.
+        :param airlayer_type: How to set air layer thickness - options are
+            'constant' for constant air layer thickness,
+            or 'log', for logarithmically increasing air
+            layer thickness upward, defaults to "log_up".
         """
         # first, get surface data
         if topography_file:
@@ -1750,11 +1736,9 @@ class StructuredGrid3D:
         return
 
     def _validate_extent(self, east, west, south, north, extent_ratio=2.0):
-        """
-        validate the provided ew_ext and ns_ext to make sure the model fits
+        """Validate the provided ew_ext and ns_ext to make sure the model fits
         within these extents and allows enough space for padding according to
         the extent ratio provided. If not, then update ew_ext and ns_ext parameters
-
         """
         inner_ew_ext = west - east
         inner_ns_ext = north - south
@@ -1774,19 +1758,16 @@ class StructuredGrid3D:
     def interpolate_to_even_grid(
         self, cell_size, pad_north=None, pad_east=None
     ):
-        """
-        Interpolate the model onto an even grid for plotting as a raster or
+        """Interpolate the model onto an even grid for plotting as a raster or
         netCDF.
-
-        :param cell_size: DESCRIPTION
+        :param cell_size: DESCRIPTION.
         :type cell_size: TYPE
-        :param pad_north: DESCRIPTION, defaults to None
+        :param pad_north: DESCRIPTION, defaults to None.
         :type pad_north: TYPE, optional
-        :param pad_east: DESCRIPTION, defaults to None
+        :param pad_east: DESCRIPTION, defaults to None.
         :type pad_east: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         pad_east = self._validate_pad_east(pad_east)
@@ -1828,16 +1809,17 @@ class StructuredGrid3D:
     def get_lower_left_corner(
         self, pad_east, pad_north, shift_east=0, shift_north=0
     ):
-        """
-        get the lower left corner in UTM coordinates for raster.
-
-        :param pad_east: number of padding cells to skip from outside in.
+        """Get the lower left corner in UTM coordinates for raster.
+        :param shift_north:
+            Defaults to 0.
+        :param shift_east:
+            Defaults to 0.
+        :param pad_east: Number of padding cells to skip from outside in.
         :type pad_east: integer
-        :param pad_north: number of padding cells to skip from outside in.
+        :param pad_north: Number of padding cells to skip from outside in.
         :type pad_north: integer
-        :return: Lower left hand corner
+        :return: Lower left hand corner.
         :rtype: :class:`mtpy.core.MTLocation`
-
         """
 
         if self.center_point.utm_crs is None:
@@ -1856,15 +1838,12 @@ class StructuredGrid3D:
         return lower_left
 
     def _get_depth_min_index(self, depth_min):
-        """
-        get index of minimum depth, if None, return None.
-
-        :param depth_min: DESCRIPTION
+        """Get index of minimum depth, if None, return None.
+        :param depth_min: DESCRIPTION.
         :type depth_min: TYPE
-        :raises IndexError: DESCRIPTION
-        :return: DESCRIPTION
+        :raises IndexError: DESCRIPTION.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if depth_min is not None:
             try:
@@ -1876,15 +1855,12 @@ class StructuredGrid3D:
         return depth_min
 
     def _get_depth_max_index(self, depth_max):
-        """
-        get index of minimum depth, if None, return None.
-
-        :param depth_max: DESCRIPTION
+        """Get index of minimum depth, if None, return None.
+        :param depth_max: DESCRIPTION.
         :type depth_max: TYPE
-        :raises IndexError: DESCRIPTION
-        :return: DESCRIPTION
+        :raises IndexError: DESCRIPTION.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if depth_max is not None:
             try:
@@ -1896,52 +1872,56 @@ class StructuredGrid3D:
         return depth_max
 
     def _get_pad_slice(self, pad):
-        """
-        get padding slice
-
-        :param pad: DESCRIPTION
+        """Get padding slice.
+        :param pad: DESCRIPTION.
         :type pad: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
-        if pad is not None:
-            return slice(pad, -pad)
+        if pad in [None, 0]:
+            return slice(None, None)
         else:
-            return slice(pad, pad)
+            return slice(pad, -pad)
 
     def _validate_pad_east(self, pad_east):
-        """
-        pad east if None, return self.pad_east
-        """
+        """Pad east if None, return self.pad_east."""
         if pad_east is None:
             return self.pad_east
+        elif pad_east == 0:
+            return None
         return pad_east
 
     def _validate_pad_north(self, pad_north):
-        """
-        pad north if None, return self.pad_north
-        """
+        """Pad north if None, return self.pad_north."""
         if pad_north is None:
             return self.pad_north
         return pad_north
 
+    def _validate_pad_z(self, pad_z):
+        """Validate pad north."""
+
+        if pad_z is None:
+            return self.pad_z
+        elif pad_z == 0:
+            return None
+        return pad_z
+
     def _clip_model(self, pad_east, pad_north, pad_z):
-        """
-        clip model based on excluding the number of padding cells.
-
-        :param pad_east: DESCRIPTION
+        """Clip model based on excluding the number of padding cells.
+        :param pad_z:
+        :param pad_east: DESCRIPTION.
         :type pad_east: TYPE
-        :param pad_north: DESCRIPTION
+        :param pad_north: DESCRIPTION.
         :type pad_north: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         return self.res_model[
-            pad_north:-pad_north, pad_east:-pad_east, 0:pad_z
+            self._get_pad_slice(pad_north),
+            self._get_pad_slice(pad_east),
+            0:pad_z,
         ]
 
     def to_raster(
@@ -1958,40 +1938,39 @@ class StructuredGrid3D:
         log10=True,
         verbose=True,
     ):
-        """
-        write out each depth slice as a raster in UTM coordinates.  Expecting
-        a grid that is interoplated onto a regular grid of square cells with
-        size `cell_size`.
+        """Write out each depth slice as a raster in UTM coordinates.
 
-        :param cell_size: square cell size (cell_size x cell_size) in meters.
+        Expecting
+a grid that is interoplated onto a regular grid of square cells with
+        size `cell_size`.
+        :param verbose:
+            Defaults to True.
+        :param log10:
+            Defaults to True.
+        :param shift_east:
+            Defaults to 0.
+        :param shift_north:
+            Defaults to 0.
+        :param cell_size: Square cell size (cell_size x cell_size) in meters.
         :type cell_size: float
-        :param pad_north: number of padding cells to skip from outside in,
-         if None defaults to self.pad_north, defaults to None
+        :param pad_north: Number of padding cells to skip from outside in,
+            if None defaults to self.pad_north, defaults to None.
         :type pad_north: integer, optional
-        :param pad_east: number of padding cells to skip from outside in
-         if None defaults to self.pad_east, defaults to None
+        :param pad_east: Number of padding cells to skip from outside in
+            if None defaults to self.pad_east, defaults to None.
         :type pad_east: integer, optional
-        :param save_path: Path to save files to. If None use self.save_path,
-         defaults to None
+        :param save_path: Path to save files to. If None use self.save_path,, defaults to None.
         :type save_path: string or Path, optional
-        :param depth_min: minimum depth to make raster for in meters,
-         defaults to None which will use shallowest depth.
+        :param depth_min: Minimum depth to make raster for in meters,, defaults to None.
         :type depth_min: float, optional
-        :param depth_max: maximum depth to make raster for in meters,
-         defaults to None which will use deepest depth.
+        :param depth_max: Maximum depth to make raster for in meters,, defaults to None.
         :type depth_max: float, optional
         :param rotation_angle: Angle (degrees) to rotate the raster assuming
-         clockwise positive rotation where North = 0, East = 90, defaults to 0
+            clockwise positive rotation where North = 0, East = 90, defaults to 0.
         :type rotation_angle: float, optional
         :raises ValueError: If utm_epsg is not input.
-        :param shift_north: shift north in meters
-        :type shift_north: float
-        :param shift_east: shift east in meters
-        :type shift_east: float
-        :param dict conductance_dict: Dictionary of conductance layers to
-        :return: list of file paths to rasters.
+        :return: List of file paths to rasters.
         :rtype: TYPE
-
         """
 
         if self.center_point.utm_crs is None:
@@ -2069,50 +2048,44 @@ class StructuredGrid3D:
         log10=True,
         verbose=True,
     ):
-        """
-        write out a raster in UTM coordinates for conductance sections.
+        """Write out a raster in UTM coordinates for conductance sections.
+
         Expecting a grid that is interoplated onto a regular grid of square
         cells with size `cell_size`.
 
         `conductance_dict = {"layer_name": (min_depth, max_depth)}
 
         if "layer_name" is "surface" then topography is included
-
-        :param cell_size: square cell size (cell_size x cell_size) in meters.
+        :param verbose:
+            Defaults to True.
+        :param log10:
+            Defaults to True.
+        :param shift_east:
+            Defaults to 0.
+        :param shift_north:
+            Defaults to 0.
+        :param cell_size: Square cell size (cell_size x cell_size) in meters.
         :type cell_size: float
-        :param conductance_dict: DESCRIPTION
+        :param conductance_dict: DESCRIPTION.
         :type conductance_dict: TYPE
-        :param pad_north: number of padding cells to skip from outside in,
-         if None defaults to self.pad_north, defaults to None
+        :param pad_north: Number of padding cells to skip from outside in,
+            if None defaults to self.pad_north, defaults to None.
         :type pad_north: integer, optional
-        :param pad_east: number of padding cells to skip from outside in
-         if None defaults to self.pad_east, defaults to None
+        :param pad_east: Number of padding cells to skip from outside in
+            if None defaults to self.pad_east, defaults to None.
         :type pad_east: integer, optional
-        :param save_path: Path to save files to. If None use self.save_path,
-         defaults to None
+        :param save_path: Path to save files to. If None use self.save_path,, defaults to None.
         :type save_path: string or Path, optional
-        :param depth_min: minimum depth to make raster for in meters,
-         defaults to None which will use shallowest depth.
+        :param depth_min: Minimum depth to make raster for in meters,, defaults to None which will use shallowest depth.
         :type depth_min: float, optional
-        :param depth_max: maximum depth to make raster for in meters,
-         defaults to None which will use deepest depth.
+        :param depth_max: Maximum depth to make raster for in meters,, defaults to None which will use deepest depth.
         :type depth_max: float, optional
         :param rotation_angle: Angle (degrees) to rotate the raster assuming
-         clockwise positive rotation where North = 0, East = 90, defaults to 0
+            clockwise positive rotation where North = 0, East = 90, defaults to 0.
         :type rotation_angle: float, optional
         :raises ValueError: If utm_epsg is not input.
-        :param shift_north: shift north in meters
-        :type shift_north: float
-        :param shift_east: shift east in meters
-        :type shift_east: float
-        :param dict conductance_dict: Dictionary of conductance layers to
-        :param log10: DESCRIPTION, defaults to True
-        :type log10: TYPE, optional
-        :param verbose: DESCRIPTION, defaults to True
-        :type verbose: TYPE, optional
-        :return: list of file paths to rasters.
+        :return: List of file paths to rasters.
         :rtype: TYPE
-
         """
 
         if self.center_point.utm_crs is None:
@@ -2183,20 +2156,21 @@ class StructuredGrid3D:
         return raster_fn_list
 
     def _get_xyzres(self, location_type, pad_east=None, pad_north=None):
-        """
-        Get xyz resistivity
-
-        :param location_type: 'll' or 'utm'
+        """Get xyz resistivity.
+        :param pad_north:
+            Defaults to None.
+        :param pad_east:
+            Defaults to None.
+        :param location_type: 'll' or 'utm'.
         :type location_type: TYPE
-        :param origin: DESCRIPTION
+        :param origin: DESCRIPTION.
         :type origin: TYPE
-        :param model_epsg: DESCRIPTION
+        :param model_epsg: DESCRIPTION.
         :type model_epsg: TYPE
-        :param clip: DESCRIPTION
+        :param clip: DESCRIPTION.
         :type clip: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         # reshape the data and get grid centres
@@ -2242,10 +2216,7 @@ class StructuredGrid3D:
         pad_east=None,
         pad_north=None,
     ):
-        """
-        save a model file as a space delimited x y z res file
-
-        """
+        """Save a model file as a space delimited x y z res file."""
         xp, yp, z, resvals, fmt = self._get_xyzres(
             location_type, pad_east=pad_east, pad_north=pad_north
         )
@@ -2269,8 +2240,7 @@ class StructuredGrid3D:
         pad_east=None,
         pad_north=None,
     ):
-        """
-        write files containing depth slice data (x, y, res for each depth)
+        """Write files containing depth slice data (x, y, res for each depth)
 
         origin = x,y coordinate of zero point of ModEM_grid, or name of file
                  containing this info (full path or relative to model files)
@@ -2281,8 +2251,7 @@ class StructuredGrid3D:
         outfile_basename = string for basename for saving the depth slices.
         log_res = True/False - option to save resistivity values as log10
                                instead of linear
-        clip = number of cells to clip on each of the east/west and north/south edges
-
+        clip = number of cells to clip on each of the east/west and north/south edges.
         """
         if save_path is None:
             save_path = Path(self.save_path)
@@ -2323,14 +2292,11 @@ class StructuredGrid3D:
             np.savetxt(fname, data, fmt=fmt)
 
     def _rotate_res_model(self):
-        """
-        Rotate `res_model` for some reason when you do rot90 the flags of
+        """Rotate `res_model` for some reason when you do rot90 the flags of
         the numpy array get set to False and causes an error in pyevtk.  Need
         a little trick to keep the C_CONTIGUOUS = True.
-
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         rotated = np.swapaxes(self.res_model, 0, 1)
@@ -2344,41 +2310,27 @@ class StructuredGrid3D:
         vtk_fn_basename="ModEM_model_res",
         **kwargs,
     ):
-        """
-        Write a VTK file to plot in 3D rendering programs like Paraview
-
-        :param vtk_fn: full path to VKT file to be written
-        :type vtk_fn: string or Path
-        :param vtk_save_path: directory to save vtk file to, defaults to None
+        """Write a VTK file to plot in 3D rendering programs like Paraview.
+        :param **kwargs:
+        :param vtk_fn: Full path to VKT file to be written, defaults to None.
+        :type vtk_fn: string or Path, optional
+        :param vtk_save_path: Directory to save vtk file to, defaults to None.
         :type vtk_save_path: string or Path, optional
-        :param vtk_fn_basename: filename basename of vtk file, note that .vtr
-         extension is automatically added, defaults to "ModEM_stations"
+        :param vtk_fn_basename: Filename basename of vtk file, note that .vtr
+            extension is automatically added, defaults to "ModEM_model_res".
         :type vtk_fn_basename: string, optional
         :param geographic_coordinates: [ True | False ] True for geographic
-         coordinates.
+            coordinates.
         :type geographic_coordinates: boolean, optional
-        :param units: Units of the spatial grid [ km | m | ft ], defaults to "km"
+        :param units: Units of the spatial grid [ km | m | ft ], defaults to "km".
         :type units: string, optional
-        :type : string
-        :param coordinate_system: coordinate system for the station, either the
-         normal MT right-hand coordinate system with z+ down or the sinister
-         z- down [ nez+ | enz- ], defaults to nez+
-        :return: full path to VTK file
+        :type: string
+        :param coordinate_system: Coordinate system for the station, either the
+            normal MT right-hand coordinate system with z+ down or the sinister
+            z- down [ nez+ | enz- ], defaults to nez+.
+        :return: Full path to VTK file.
         :rtype: Path
-
-        Write VTK file
-        >>> model.to_vtk(vtk_fn="modem_model")
-
-        Write VTK file in geographic coordinates with z+ up
-        >>> model.to_vtk(vtk_fn="modem_model", coordinate_system='enz-')
         """
-
-        vtk_x, vtk_y, vtk_z, res = self._to_output_coordinates(**kwargs)
-
-        try:
-            cell_data = {kwargs["model_units"]: res}
-        except KeyError:
-            cell_data = {"resistivity": res}
 
         if vtk_fn is None:
             if vtk_save_path is None:
@@ -2389,6 +2341,13 @@ class StructuredGrid3D:
 
         if vtk_fn.suffix != "":
             vtk_fn = vtk_fn.parent.joinpath(vtk_fn.stem)
+
+        vtk_x, vtk_y, vtk_z, resistivity = self._to_output_coordinates(
+            **kwargs
+        )
+
+        label = kwargs.get("model_units", "resistivity")
+        cell_data = {label: resistivity}
 
         gridToVTK(vtk_fn.as_posix(), vtk_x, vtk_y, vtk_z, cellData=cell_data)
 
@@ -2408,43 +2367,35 @@ class StructuredGrid3D:
         shift_z=0,
         model_units="resistivity",
     ):
-        """
-        Create x, y, z, res outputs in requested coordinate system and units
+        """Create x, y, z, res outputs in requested coordinate system and units
 
-        Parameters are
-
+        Parameters are.
         :param geographic: [ True | False ] true for output in geographic
-         coordinates, False for relative model coordinates, defaults to False
+            coordinates, False for relative model coordinates, defaults to False.
         :type geographic: bool, optional
-        :param units: [ 'm' | 'km' | 'ft' ], defaults to "km"
+        :param units: [ 'm' | 'km' | 'ft' ], defaults to "km".
         :type units: str, optional
-        :param coordinate_system: [ 'nez+' | 'enz-'], defaults to "nez+"
+        :param coordinate_system: [ 'nez+' | 'enz-'], defaults to "nez+".
         :type coordinate_system: str, optional
-        :param output_epsg: output EPSG number, if None uses
-         center_point.utm_epsg if geographic is True, defaults to None
+        :param output_epsg: Output EPSG number, if None uses
+            center_point.utm_epsg if geographic is True, defaults to None.
         :type output_epsg: int, optional
-        :param pad_east: number of cells to discard on each side in the east,
-         defaults to 0
+        :param pad_east: Number of cells to discard on each side in the east,, defaults to 0.
         :type pad_east: int, optional
-        :param pad_north: number of cells to discard on each side in the east,
-         defaults to 0
+        :param pad_north: Number of cells to discard on each side in the east,, defaults to 0.
         :type pad_north: int, optional
-        :param pad_z: number of cells to discard at bottom of model,
-         defaults to 0
+        :param pad_z: Number of cells to discard at bottom of model,, defaults to 0.
         :type pad_z: int, optional
-        :param shift_east: shift model east [in units], defaults to 0
+        :param shift_east: Shift model east [in units], defaults to 0.
         :type shift_east: float, optional
-        :param shift_north: shift model north [in units], defaults to 0
+        :param shift_north: Shift model north [in units], defaults to 0.
         :type shift_north: float, optional
-        :param shift_z: shift model vertically [in units], defaults to 0
+        :param shift_z: Shift model vertically [in units], defaults to 0.
         :type shift_z: float, optional
-        :param model_units: ["resistivity" | "conductivity" ],
-         defaults to "resistivity"
+        :param model_units: ["resistivity" | "conductivity" ],, defaults to "resistivity".
         :type model_units: string, optional
-
-        :return: x, y, z, res
+        :return: X, y, z, res.
         :rtype: float
-
         """
 
         if isinstance(units, str):
@@ -2457,6 +2408,15 @@ class StructuredGrid3D:
         elif isinstance(units, (int, float)):
             scale = units
 
+        pad_z = self._validate_pad_z(pad_z)
+
+        east_slice = self._get_pad_slice(self._validate_pad_east(pad_east))
+        north_slice = self._get_pad_slice(self._validate_pad_north(pad_north))
+        if pad_z is None:
+            z_slice = slice(0, None)
+        else:
+            z_slice = slice(0, -pad_z)
+
         if output_epsg is not None:
             cp = self.center_point.copy()
             cp.utm_epsg = output_epsg
@@ -2464,90 +2424,62 @@ class StructuredGrid3D:
             cp = self.center_point
 
         if geographic:
-            shift_north = cp.north + shift_north
-            shift_east = cp.east + shift_east
+            shift_north = self.center_point.north
+            shift_east = self.center_point.east
             if self.grid_z[0] == self.center_point.elevation:
-                shift_z = 0 + shift_z
+                shift_z = 0
             else:
-                shift_z = self.center_point.elevation + shift_z
+                shift_z = self.center_point.elevation
 
-            x = (self.grid_east[pad_east:-pad_east] + shift_east) * scale
-            y = (self.grid_north[pad_north:-pad_north] + shift_north) * scale
             if "+" in coordinate_system:
-                depth = (self.grid_z[0:-pad_z] + shift_z) * scale
+                y = (self.grid_east[east_slice] + shift_east) * scale
+                x = (self.grid_north[north_slice] + shift_north) * scale
+                depth = (self.grid_z[z_slice] + shift_z) * scale
             elif "-" in coordinate_system:
-                depth = -1 * (self.grid_z[0:-pad_z] - shift_z) * scale
+                x = (self.grid_east[east_slice] + shift_east) * scale
+                y = (self.grid_north[north_slice] + shift_north) * scale
+                depth = -1 * (self.grid_z[z_slice] - shift_z) * scale
 
             resistivity = self._rotate_res_model()[
-                pad_east:-pad_east, pad_north:-pad_north, 0:-pad_z
+                east_slice, north_slice, z_slice
             ]
 
         # use cellData, this makes the grid properly as grid is n+1
         else:
             if coordinate_system == "nez+":
-                x = (
-                    self.grid_north[pad_north:-pad_north] + shift_north
-                ) * scale
-                y = (self.grid_east[pad_east:-pad_east] + shift_east) * scale
-                depth = (self.grid_z[0:-pad_z] + shift_z) * scale
-                resistivity = self.res_model[
-                    pad_north:-pad_north, pad_east:-pad_east, 0:-pad_z
-                ]
+                x = (self.grid_north[north_slice] + shift_north) * scale
+                y = (self.grid_east[east_slice] + shift_east) * scale
+                depth = (self.grid_z[z_slice] + shift_z) * scale
+                resistivity = self._clip_model(pad_east, pad_north, pad_z)
 
             elif coordinate_system == "enz-":
-                y = (
-                    self.grid_north[pad_north:-pad_north] + shift_north
-                ) * scale
-                x = (self.grid_east[pad_east:-pad_east] + shift_east) * scale
-                depth = -1 * (self.grid_z[0:-pad_z] - shift_z) * scale
+                y = (self.grid_north[north_slice] + shift_north) * scale
+                x = (self.grid_east[east_slice] + shift_east) * scale
+                depth = -1 * (self.grid_z[z_slice] - shift_z) * scale
                 resistivity = self._rotate_res_model()[
-                    pad_east:-pad_east, pad_north:-pad_north, 0:-pad_z
+                    east_slice, north_slice, z_slice
                 ]
-
-        if model_units in ["conductivity"]:
-            resistivity = 1.0 / resistivity
 
         return x, y, depth, resistivity
 
-    def to_geosoft_xyz(self, save_fn, **kwargs):
-        """
-        Write an XYZ file readable by Geosoft
+    def to_geosoft_xyz(
+        self,
+        save_fn,
+        pad_north=0,
+        pad_east=0,
+        pad_z=0,
+    ):
+        """Write an XYZ file readable by Geosoft
 
-        All input units are in meters.
-
-        :param save_fn: full path to save file to
+        All input units are in meters..
+        :param save_fn: Full path to save file to.
         :type save_fn: string or Path
-
-        :param geographic: [ True | False ] true for output in geographic
-         coordinates, False for relative model coordinates, defaults to False
-        :type geographic: bool, optional
-        :param units: [ 'm' | 'km' | 'ft' ], defaults to "km"
-        :type units: str, optional
-        :param coordinate_system: [ 'nez+' | 'enz-'], defaults to "nez+"
-        :type coordinate_system: str, optional
-        :param output_epsg: output EPSG number, if None uses
-         center_point.utm_epsg if geographic is True, defaults to None
-        :type output_epsg: int, optional
-        :param pad_east: number of cells to discard on each side in the east,
-         defaults to 0
-        :type pad_east: int, optional
-        :param pad_north: number of cells to discard on each side in the east,
-         defaults to 0
+        :param pad_north: Number of cells to cut from the north-south edges, defaults to 0.
         :type pad_north: int, optional
-        :param pad_z: number of cells to discard at bottom of model,
-         defaults to 0
+        :param pad_east: Number of cells to cut from the east-west edges, defaults to 0.
+        :type pad_east: int, optional
+        :param pad_z: Number of cells to cut from the bottom, defaults to 0.
         :type pad_z: int, optional
-        :param shift_east: shift model east [in units], defaults to 0
-        :type shift_east: float, optional
-        :param shift_north: shift model north [in units], defaults to 0
-        :type shift_north: float, optional
-        :param shift_z: shift model vertically [in units], defaults to 0
-        :type shift_z: float, optional
-        :param model_units: ["resistivity" | "conductivity" ],
-         defaults to "resistivity"
-        :type model_units: string, optional
-
-
         """
         lines = [
             r"/ ------------------------------------------------------------------------------",
@@ -2557,14 +2489,15 @@ class StructuredGrid3D:
             r"/ X,Y,Z,Data",
         ]
 
-        x, y, z, res = self._to_output_coordinates(**kwargs)
-
         # --> write model xyz file
-        for kk, zz in enumerate(z[0:-1]):
-            for jj, yy in enumerate(y[0:-1]):
-                for ii, xx in enumerate(x[0:-1]):
+        for kk, zz in enumerate(self.grid_z[0:-pad_z]):
+            for jj, yy in enumerate(self.grid_east[pad_east:-pad_east]):
+                for ii, xx in enumerate(self.grid_north[pad_north:-pad_north]):
                     lines.append(
-                        f"{xx:.3f} {yy:.3f} {zz:.3f} {res[ii, jj, kk]:.3f}"
+                        f"{yy + self.center_point.east:.3f} "
+                        f"{xx + self.center_point.north:.3f} "
+                        f"{-(zz + self.center_point.elevation):.3f} "
+                        f"{self.res_model[ii, jj, kk]:.3f}"
                     )
 
         with open(save_fn, "w") as fid:
@@ -2574,18 +2507,15 @@ class StructuredGrid3D:
         self,
         save_fn,
     ):
-        """
-        will write an .out file for LeapFrog.
+        """Will write an .out file for LeapFrog.
 
         Note that y is assumed to be S --> N, e is assumed to be W --> E and
         z is positive upwards.  This means that index [0, 0, 0] is the
         southwest corner of the first layer.
-
-        :param save_fn: full path to save file to
+        :param save_fn: Full path to save file to.
         :type save_fn: string or Path
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         # get resistivity model
@@ -2686,16 +2616,12 @@ class StructuredGrid3D:
         self._logger.info(f"Wrote file to: {save_fn}")
 
     def to_ubc(self, basename):
-        """
-        Write a UBC .msh and .mod file
-
-        :param save_fn: DESCRIPTION
+        """Write a UBC .msh and .mod file.
+        :param basename:
+        :param save_fn: DESCRIPTION.
         :type save_fn: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
-
-        .. note:: not complete yet.
         """
 
         # write mesh first
@@ -2725,14 +2651,11 @@ class StructuredGrid3D:
             fid.write("\n".join(lines))
 
     def convert_model_to_int(self, res_list=None):
-        """
-        convert resistivity values to integers according to resistivity list
-
-        :param res_list: resistivity values in Ohm-m.
-        :type res_list: list of floats
-        :return: array of integers corresponding to the res_list
+        """Convert resistivity values to integers according to resistivity list.
+        :param res_list: Resistivity values in Ohm-m, defaults to None.
+        :type res_list: list of floats, optional
+        :return: Array of integers corresponding to the res_list.
         :rtype: np.ndarray(dtype=int)
-
         """
 
         res_model_int = np.ones_like(self.res_model)
@@ -2764,9 +2687,7 @@ class StructuredGrid3D:
         return res_model_int
 
     def to_ws3dinv_intial(self, initial_fn, res_list=None):
-        """
-        write a WS3DINV inital model file.
-        """
+        """Write a WS3DINV inital model file."""
 
         # check to see what resistivity in input
         if res_list is None:
@@ -2859,37 +2780,33 @@ class StructuredGrid3D:
         return initial_fn
 
     def from_ws3dinv_initial(self, initial_fn):
-        """
-        read an initial file and return the pertinent information including
+        """Read an initial file and return the pertinent information including
         grid positions in coordinates relative to the center point (0,0) and
         starting model.
 
-        Arguments:
-        ----------
+        Arguments::
 
-            **initial_fn** : full path to initializing file.
+                **initial_fn** : full path to initializing file.
 
-        Outputs:
-        --------
+        Outputs::
 
-            **nodes_north** : np.array(nx)
-                        array of nodes in S --> N direction
+                **nodes_north** : np.array(nx)
+                            array of nodes in S --> N direction
 
-            **nodes_east** : np.array(ny)
-                        array of nodes in the W --> E direction
+                **nodes_east** : np.array(ny)
+                            array of nodes in the W --> E direction
 
-            **nodes_z** : np.array(nz)
-                        array of nodes in vertical direction positive downwards
+                **nodes_z** : np.array(nz)
+                            array of nodes in vertical direction positive downwards
 
-            **res_model** : dictionary
-                        dictionary of the starting model with keys as layers
+                **res_model** : dictionary
+                            dictionary of the starting model with keys as layers
 
-            **res_list** : list
-                        list of resistivity values in the model
+                **res_list** : list
+                            list of resistivity values in the model
 
-            **title** : string
-                         title string
-
+                **title** : string
+                             title string
         """
 
         with open(initial_fn, "r") as ifid:
@@ -2939,6 +2856,7 @@ class StructuredGrid3D:
         while count_z < n_z:
             iline = ilines[line_index].strip().split()
             for z_node in iline:
+                print(z_node)
                 self._nodes_z[count_z] = float(z_node)
                 count_z += 1
             line_index += 1
@@ -2996,14 +2914,11 @@ class StructuredGrid3D:
         return res_list
 
     def from_ws3dinv(self, model_fn):
-        """
-        read WS3DINV iteration model file.
-
-        :param model_fn: DESCRIPTION
+        """Read WS3DINV iteration model file.
+        :param model_fn: DESCRIPTION.
         :type model_fn: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         with open(model_fn, "r") as mfid:
@@ -3086,18 +3001,15 @@ class StructuredGrid3D:
         }
 
     def estimate_skin_depth(self, apparent_resistivity, period, scale="km"):
-        """
-        Estimate skin depth from apparent resistivity and period
-
-        :param apparent_resistivity: DESCRIPTION
+        """Estimate skin depth from apparent resistivity and period.
+        :param apparent_resistivity: DESCRIPTION.
         :type apparent_resistivity: TYPE
-        :param period: DESCRIPTION
+        :param period: DESCRIPTION.
         :type period: TYPE
-        :param scale: DESCRIPTION, defaults to "km"
+        :param scale: DESCRIPTION, defaults to "km".
         :type scale: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if scale in ["km", "kilometers"]:
             dscale = 1000

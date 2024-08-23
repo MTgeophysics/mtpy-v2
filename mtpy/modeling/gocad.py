@@ -14,16 +14,14 @@ import os
 
 
 class Sgrid:
-    """
-    class to read and write gocad sgrid files
+    """Class to read and write gocad sgrid files
 
     need to provide:
     workdir = working directory
     fn = filename for the sgrid
     resistivity = 3d numpy array containing resistivity values, shape (ny,nx,nz)
     grid_xyz = tuple containing x,y,z locations of edges of cells for each
-               resistivity value. Each item in tuple has shape (ny+1,nx+1,nz+1)
-
+               resistivity value. Each item in tuple has shape (ny+1,nx+1,nz+1).
     """
 
     def __init__(self, **kwargs):
@@ -48,11 +46,9 @@ class Sgrid:
         self.no_data_value = -99999
 
     def _read_header(self, headerfn=None):
-        """
-        read header, get the following attributes and store in object
+        """Read header, get the following attributes and store in object
         - ascii data file name
         - number of cells in x, y and z direction
-
         """
         if headerfn is not None:
             self.workdir = op.dirname(headerfn)
@@ -71,6 +67,7 @@ class Sgrid:
                         setattr(self, str.lower(param), line.strip().split()[1])
 
     def _read_ascii_data(self, ascii_data_file=None):
+        """Read ascii data."""
 
         if self.ascii_data_file is None:
             self._read_header()
@@ -90,10 +87,12 @@ class Sgrid:
         )
 
     def read_sgrid_file(self, headerfn=None):
+        """Read sgrid file."""
         self._read_header(headerfn=headerfn)
         self._read_ascii_data()
 
     def _write_header(self):
+        """Write header."""
 
         ny, nx, nz = np.array(self.resistivity.shape) + 1
 
@@ -147,6 +146,7 @@ class Sgrid:
             hdrfile.writelines(headerlines)
 
     def _write_data(self):
+        """Write data."""
 
         resmodel = np.ones(np.array(self.resistivity.shape) + 1) * self.no_data_value
         resmodel[:-1, :-1, :-1] = self.resistivity
@@ -175,5 +175,6 @@ class Sgrid:
         )
 
     def write_sgrid_file(self):
+        """Write sgrid file."""
         self._write_header()
         self._write_data()

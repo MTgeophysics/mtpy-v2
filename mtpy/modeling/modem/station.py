@@ -27,10 +27,7 @@ __all__ = ["Stations"]
 
 
 class Stations(object):
-    """
-    station locations class
-
-    """
+    """Station locations class."""
 
     def __init__(self, **kwargs):
 
@@ -60,6 +57,7 @@ class Stations(object):
                 setattr(self, key, kwargs[key])
 
     def __str__(self):
+        """Str function."""
         fmt_dict = dict(
             [
                 ("station", "<8"),
@@ -104,58 +102,68 @@ class Stations(object):
         return "\n".join(lines)
 
     def __repr__(self):
+        """Repr function."""
         return self.__str__()
 
     ## --> define properties that can only be returned and not set
     @property
     def lat(self):
+        """Lat function."""
         return self.station_locations["lat"]
 
     @property
     def lon(self):
+        """Lon function."""
         return self.station_locations["lon"]
 
     @property
     def east(self):
+        """East function."""
         return self.station_locations["east"]
 
     @property
     def north(self):
+        """North function."""
         return self.station_locations["north"]
 
     @property
     def elev(self):
+        """Elev function."""
         return self.station_locations["elev"]
 
     @property
     def rel_east(self):
+        """Rel east."""
         return self.station_locations["rel_east"]
 
     @property
     def rel_north(self):
+        """Rel north."""
         return self.station_locations["rel_north"]
 
     @property
     def rel_elev(self):
+        """Rel elev."""
         return self.station_locations["rel_elev"]
 
     @property
     def utm_zone(self):
+        """Utm zone."""
         return self.station_locations["zone"]
 
     @property
     def station(self):
+        """Station function."""
         return self.station_locations["station"]
 
     @property
     def model_epsg(self):
+        """Model epsg."""
         return self._model_epsg
 
     @model_epsg.setter
     def model_epsg(self, value):
-        """
-        set the model epsg number an project east, north
-        """
+        """Set the model epsg number an project east, north."""
         self._model_epsg = value
         if self.station_locations.size < 2:
             for ss, ii in enumerate(self.station_locations):
@@ -170,13 +178,12 @@ class Stations(object):
 
     @property
     def model_utm_zone(self):
+        """Model utm zone."""
         return self._model_utm_zone
 
     @model_utm_zone.setter
     def model_utm_zone(self, value):
-        """
-        set the model epsg number an project east, north
-        """
+        """Set the model epsg number an project east, north."""
         if value is None:
             return
 
@@ -195,9 +202,7 @@ class Stations(object):
                 self.station_locations[ii]["zone"] = utm_zone
 
     def _get_mt_objs_from_list(self, input_list):
-        """
-        get mt_objects from a list of files or mt_objects
-        """
+        """Get mt_objects from a list of files or mt_objects."""
         if isinstance(input_list, (list, np.ndarray)):
             if isinstance(input_list[0], mt.MT):
                 return input_list
@@ -208,19 +213,11 @@ class Stations(object):
             raise ValueError(f"type {type(input_list)} is not supported yet")
 
     def get_station_locations(self, input_list):
-        """
-        get station locations from a list of edi files
+        """Get station locations from a list of edi files.
 
-        Arguments
-        -------------
-            **input_list** : list
-                             list of edi file names, or mt_objects
-
-
-        Returns
-        ------------
-            * fills station_locations array
-
+        Arguments:
+                **input_list** : list
+                                 list of edi file names, or mt_objects
         """
         # self.logger.debug input_list
         mt_obj_list = self._get_mt_objs_from_list(input_list)
@@ -269,12 +266,10 @@ class Stations(object):
         self.calculate_rel_locations()
 
     def calculate_rel_locations(self, shift_east=0, shift_north=0):
-        """
-        put station in a coordinate system relative to
+        """Put station in a coordinate system relative to
         (shift_east, shift_north)
         (+) shift right or up
         (-) shift left or down
-
         """
 
         # translate the stations so they are relative to 0,0
@@ -301,15 +296,7 @@ class Stations(object):
     # make center point a get method, can't set it.
     @property
     def center_point(self):
-        """
-        calculate the center point from the given station locations
-
-        Returns
-        -------------
-            **center_location** : np.ndarray
-                                  structured array of length 1
-                                  dtype includes (east, north, zone, lat, lon)
-        """
+        """Calculate the center point from the given station locations."""
         dtype = [
             ("lat", float),
             ("lon", float),
@@ -415,20 +402,11 @@ class Stations(object):
         return center_location
 
     def rotate_stations(self, rotation_angle):
-        """
-        Rotate stations assuming N is 0
+        """Rotate stations assuming N is 0.
 
-        Arguments
-        -------------
-            **rotation_angle** : float
-                                 angle in degrees assuming N is 0
-
-        Returns
-        -------------
-            * refils rel_east and rel_north in station_locations.  Does this
-              because you will still need the original locations for plotting
-              later.
-
+        Arguments:
+                **rotation_angle** : float
+                                     angle in degrees assuming N is 0
         """
 
         cos_ang = np.cos(np.deg2rad(rotation_angle))
@@ -453,15 +431,10 @@ class Stations(object):
         )
 
     def to_geopd(self, epsg=None, default_epsg=4326):
-        """
-        create a geopandas dataframe
-
-        :param epsg: EPSG number to project to
-        :type epsg: integer, defaults to None
-        :param default_epsg: the default EPSG number that the stations are
-        referenced to
-        :type default_epsg: integer, defaults to 4326
-
+        """Create a geopandas dataframe.
+        :param epsg: EPSG number to project to, defaults to None.
+        :type epsg: integer, defaults to None, optional
+        :param default_epsg: The default EPSG number that the stations are, defaults to 4326.
         """
 
         default_crs = {"init": f"epsg:{default_epsg}"}
@@ -491,36 +464,29 @@ class Stations(object):
         return sdf
 
     def to_shp(self, shp_fn, epsg=None, default_epsg=4326):
-        """
-        Write a shape file of the station locations using geopandas which only takes
+        """Write a shape file of the station locations using geopandas which only takes
         in epsg numbers
-
-        :param shp_fn: full path to new shapefile
+        :param shp_fn: Full path to new shapefile.
         :type shp_fn: string
-        :param epsg: EPSG number to project to
-        :type epsg: integer, defaults to None
-        :param default_epsg: the default EPSG number that the stations are
-        referenced to
-        :type default_epsg: integer, defaults to 4326
-
+        :param epsg: EPSG number to project to, defaults to None.
+        :type epsg: integer, defaults to None, optional
+        :param default_epsg: The default EPSG number that the stations are, defaults to 4326.
         """
         sdf = self.to_geopd(epsg=epsg, default_epsg=default_epsg)
 
         sdf.to_file(shp_fn)
 
     def to_csv(self, csv_fn, epsg=None, default_epsg=4326, geometry=False):
-        """
-        Write a shape file of the station locations using geopandas which only takes
+        """Write a shape file of the station locations using geopandas which only takes
         in epsg numbers
-
-        :param shp_fn: full path to new shapefile
+        :param geometry:
+            Defaults to False.
+        :param csv_fn:
+        :param shp_fn: Full path to new shapefile.
         :type shp_fn: string
-        :param epsg: EPSG number to project to
-        :type epsg: integer, defaults to None
-        :param default_epsg: the default EPSG number that the stations are
-        referenced to
-        :type default_epsg: integer, defaults to 4326
-
+        :param epsg: EPSG number to project to, defaults to None.
+        :type epsg: integer, defaults to None, optional
+        :param default_epsg: The default EPSG number that the stations are, defaults to 4326.
         """
         sdf = self.to_geopd(epsg=epsg, default_epsg=default_epsg)
         use_columns = list(sdf.columns)

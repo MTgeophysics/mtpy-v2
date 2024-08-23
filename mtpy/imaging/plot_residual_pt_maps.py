@@ -37,8 +37,8 @@ except ModuleNotFoundError:
 
 
 class PlotResidualPTMaps(PlotBase):
-    """
-    This will plot residual phase tensors in a map for a single frequency.
+    """This will plot residual phase tensors in a map for a single frequency.
+
     The data is read in and stored in 2 ways, one as a list ResidualPhaseTensor
     object for each matching station and the other in a structured array with
     all the important information.  The structured array is the one that is
@@ -96,7 +96,6 @@ class PlotResidualPTMaps(PlotBase):
         >>> # plot seismic hypocenters from a file
         >>> lat, lon, depth = np.loadtxt(r"/home/seismic_hypocenter.txt")
         >>> ptmap.ax.scatter(lon, lat, marker='o')
-
     """
 
     def __init__(
@@ -170,10 +169,12 @@ class PlotResidualPTMaps(PlotBase):
 
     @property
     def map_scale(self):
+        """Map scale."""
         return self._map_scale
 
     @map_scale.setter
     def map_scale(self, map_scale):
+        """Map scale."""
         self._map_scale = map_scale
 
         if self._map_scale == "deg":
@@ -205,25 +206,21 @@ class PlotResidualPTMaps(PlotBase):
 
     @property
     def rotation_angle(self):
+        """Rotation angle."""
         return self._rotation_angle
 
     # ---need to rotate data on setting rotz
     @rotation_angle.setter
     def rotation_angle(self, rot_z):
-        """
-        need to rotate data when setting z
-        """
+        """Need to rotate data when setting z."""
 
         for tf_obj in self.mt_data_01 + self.mt_data_02:
             tf_obj.rotation_angle = rot_z
 
     def _match_lists(self, one, two):
-        """
-        Match the input lists by transfer function id
-
-        :return: DESCRIPTION
+        """Match the input lists by transfer function id.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         matches = []
@@ -259,8 +256,7 @@ class PlotResidualPTMaps(PlotBase):
 
     # ------------------------------------------------------------------
     def _compute_residual_pt(self):
-        """
-        compute residual phase tensor so the result is something useful to
+        """Compute residual phase tensor so the result is something useful to
         plot
         """
 
@@ -337,11 +333,9 @@ class PlotResidualPTMaps(PlotBase):
 
     # -------------------------------------------------------------------
     def _apply_median_filter(self, kernel=(3, 3)):
-        """
-        apply a median filter to the data to remove extreme outliers
+        """Apply a median filter to the data to remove extreme outliers
 
-        kernel is (station, frequency)
-
+        kernel is (station, frequency).
         """
 
         filt_phimin_arr = sps.medfilt2d(
@@ -369,8 +363,7 @@ class PlotResidualPTMaps(PlotBase):
 
     # -------------------------------------------------------------------------
     def _get_relative_position(self):
-        """
-        get the relative positions for each station in the plotting
+        """Get the relative positions for each station in the plotting
         coordinates
         """
         # if map scale is lat lon set parameters
@@ -405,27 +398,28 @@ class PlotResidualPTMaps(PlotBase):
             rpt["ploty"] = ploty
 
     def _get_plot_freq_index(self):
-        """
-        get frequency to plot
-        """
+        """Get frequency to plot."""
 
         array = np.asarray(self.freq_list)
         self.plot_freq_index = np.abs(array - self.plot_freq).argmin()
         print(f"--> Plotting {self.freq_list[self.plot_freq_index]:.6g} Hz")
 
     def _get_title(self):
+        """Get title."""
         if self.tscale == "period":
             return f"{(1.0 / self.plot_freq):.5g} (s)"
         else:
             return f"{self.plot_freq:.5g} (Hz)"
 
     def _get_ellipse_max(self):
+        """Get ellipse max."""
         if self.ellipse_scale is None:
             return np.nanmax(self.rpt_array["phimax"])
         else:
             return self.ellipse_scale
 
     def _make_reference_ellipse(self):
+        """Make reference ellipse."""
         ref_ellip = patches.Ellipse(
             (0, 0.0),
             width=self.ellipse_size,
@@ -452,9 +446,7 @@ class PlotResidualPTMaps(PlotBase):
 
     # ------------------------------------------------------------------------
     def plot(self):
-        """
-        plot residual phase tensor
-        """
+        """Plot residual phase tensor."""
         self._set_subplot_params()
 
         # get residual phase tensor for plotting

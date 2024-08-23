@@ -31,8 +31,7 @@ from mtpy.modeling.simpeg.recipes.inversion_1d import Simpeg1D
 
 # =============================================================================
 class MT(TF, MTLocation):
-    """
-    Basic MT container to hold all information necessary for a MT station
+    """Basic MT container to hold all information necessary for a MT station
     including the following parameters.
 
     Impedance and Tipper element nomenclature is E/H therefore the first
@@ -41,8 +40,6 @@ class MT(TF, MTLocation):
 
     For exampe for an input of Hx and an output of Ey the impedance tensor
     element is Zyx.
-
-
     """
 
     def __init__(self, fn=None, **kwargs):
@@ -83,9 +80,7 @@ class MT(TF, MTLocation):
             setattr(self, key, value)
 
     def clone_empty(self):
-        """
-        copy metadata but not the transfer function estimates
-        """
+        """Copy metadata but not the transfer function estimates."""
 
         new_mt_obj = MT()
         new_mt_obj.survey_metadata.update(self.survey_metadata)
@@ -104,6 +99,7 @@ class MT(TF, MTLocation):
         return new_mt_obj
 
     def __deepcopy__(self, memo):
+        """Deepcopy function."""
         cls = self.__class__
         result = cls.__new__(cls)
         memo[id(self)] = result
@@ -116,17 +112,17 @@ class MT(TF, MTLocation):
         return result
 
     def copy(self):
+        """Copy function."""
         return deepcopy(self)
 
     @property
     def rotation_angle(self):
-        """rotation angle in degrees from north"""
+        """Rotation angle in degrees from north."""
         return self._rotation_angle
 
     @rotation_angle.setter
     def rotation_angle(self, theta_r):
-        """
-        set rotation angle in degrees assuming North is 0 measuring clockwise
+        """Set rotation angle in degrees assuming North is 0 measuring clockwise
         positive to East as 90.
 
         upon setting rotates Z and Tipper
@@ -138,17 +134,14 @@ class MT(TF, MTLocation):
         self._rotation_angle += theta_r
 
     def rotate(self, theta_r, inplace=True):
-        """
-        Rotate the data in degrees assuming North is 0 measuring clockwise
+        """Rotate the data in degrees assuming North is 0 measuring clockwise
         positive to East as 90.
-
-        :param theta_r: DESCRIPTION
+        :param theta_r: DESCRIPTION.
         :type theta_r: TYPE
-        :param inplace: DESCRIPTION, defaults to True
+        :param inplace: DESCRIPTION, defaults to True.
         :type inplace: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if inplace:
@@ -173,7 +166,7 @@ class MT(TF, MTLocation):
 
     @property
     def Z(self):
-        """mtpy.core.z.Z object to hold impedance tensor"""
+        r"""Mtpy.core.z.Z object to hold impedance tenso."""
 
         if self.has_impedance():
             return Z(
@@ -186,11 +179,10 @@ class MT(TF, MTLocation):
 
     @Z.setter
     def Z(self, z_object):
-        """
-        set z_object
+        """Set z_object
 
         recalculate phase tensor and invariants, which shouldn't change except
-        for strike angle
+        for strike angle.
         """
         if not isinstance(z_object.frequency, type(None)):
             if self.frequency.size != z_object.frequency.size:
@@ -204,7 +196,7 @@ class MT(TF, MTLocation):
 
     @property
     def Tipper(self):
-        """mtpy.core.z.Tipper object to hold tipper information"""
+        """Mtpy.core.z.Tipper object to hold tipper information."""
 
         if self.has_tipper():
             return Tipper(
@@ -216,10 +208,9 @@ class MT(TF, MTLocation):
 
     @Tipper.setter
     def Tipper(self, t_object):
-        """
-        set tipper object
+        """Set tipper object
 
-        recalculate tipper angle and magnitude
+        recalculate tipper angle and magnitude.
         """
 
         if t_object is None:
@@ -234,67 +225,67 @@ class MT(TF, MTLocation):
 
     @property
     def pt(self):
-        """mtpy.analysis.pt.PhaseTensor object to hold phase tensor"""
+        r"""Mtpy.analysis.pt.PhaseTensor object to hold phase tenso."""
         return self.Z.phase_tensor
 
     @property
     def ex_metadata(self):
-        """EX metadata"""
+        """EX metadata."""
         return self.station_metadata.runs[0].ex
 
     @ex_metadata.setter
     def ex_metadata(self, value):
-        """set EX metadata"""
+        """Set EX metadata."""
         self.station_metadata.runs[0].ex = value
 
     @property
     def ey_metadata(self):
-        """EY metadata"""
+        """EY metadata."""
         return self.station_metadata.runs[0].ey
 
     @ey_metadata.setter
     def ey_metadata(self, value):
-        """set EY metadata"""
+        """Set EY metadata."""
         self.station_metadata.runs[0].ey = value
 
     @property
     def hx_metadata(self):
-        """HX metadata"""
+        """HX metadata."""
         return self.station_metadata.runs[0].hx
 
     @hx_metadata.setter
     def hx_metadata(self, value):
-        """set hx metadata"""
+        """Set hx metadata."""
         self.station_metadata.runs[0].hx = value
 
     @property
     def hy_metadata(self):
-        """HY metadata"""
+        """HY metadata."""
         return self.station_metadata.runs[0].hy
 
     @hy_metadata.setter
     def hy_metadata(self, value):
-        """set hy metadata"""
+        """Set hy metadata."""
         self.station_metadata.runs[0].hy = value
 
     @property
     def hz_metadata(self):
-        """HZ metadata"""
+        """HZ metadata."""
         return self.station_metadata.runs[0].hz
 
     @hz_metadata.setter
     def hz_metadata(self, value):
-        """set hz metadata"""
+        """Set hz metadata."""
         self.station_metadata.runs[0].hz = value
 
     @property
     def rrhx_metadata(self):
-        """RRHX metadata"""
+        """RRHX metadata."""
         return self.station_metadata.runs[0].rrhx
 
     @property
     def rrhy_metadata(self):
-        """RRHY metadata"""
+        """RRHY metadata."""
         return self.station_metadata.runs[0].rrhy
 
     def estimate_tf_quality(
@@ -308,23 +299,20 @@ class MT(TF, MTLocation):
         },
         round_qf=False,
     ):
-        """
-        Estimate tranfer function quality factor 0-5, 5 being the best
-
+        """Estimate tranfer function quality factor 0-5, 5 being the best.
         :param weights: DESCRIPTION, defaults to
-         {
+            {
             "bad": 0.35,
             "corr": 0.2,
             "diff": 0.2,
             "std": 0.2,
             "fit": 0.05,
-         }
+            }.
         :type weights: TYPE, optional
-        :param : DESCRIPTION
-        :type : TYPE
-        :return: DESCRIPTION
+        :param: DESCRIPTION.
+        :type: TYPE
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if self.has_impedance():
             if self.has_tipper():
@@ -339,27 +327,20 @@ class MT(TF, MTLocation):
     def remove_distortion(
         self, n_frequencies=None, comp="det", only_2d=False, inplace=False
     ):
-        """
-        remove distortion following Bibby et al. [2005].
-
-        :param n_frequencies: number of frequencies to look for distortion from the
-                         highest frequency
-        :type n_frequencies: int
-
-        :returns: Distortion matrix
-        :rtype: np.ndarray(2, 2, dtype=real)
-
-        :returns: Z with distortion removed
-        :rtype: mtpy.core.z.Z
-
-        :Remove distortion and write new .edi file: ::
-
-            >>> import mtpy.core.mt as mt
-            >>> mt1 = mt.MT(fn=r"/home/mt/edi_files/mt01.edi")
-            >>> D, new_z = mt1.remove_distortion()
-            >>> mt1.write_mt_file(new_fn=r"/home/mt/edi_files/mt01_dr.edi",\
-            >>>                    new_Z=new_z)
-
+        """Remove distortion following Bibby et al. [2005].
+        :param inplace:
+            Defaults to False.
+        :param only_2d:
+            Defaults to False.
+        :param comp:
+            Defaults to "det".
+        :param n_frequencies: Number of frequencies to look for distortion from the
+            highest frequency, defaults to None.
+        :type n_frequencies: int, optional
+        :return s: Distortion matrix.
+        :rtype s: np.ndarray(2, 2, dtype=real)
+        :return s: Z with distortion removed.
+        :rtype s: mtpy.core.z.Z
         """
         if inplace:
             self.Z = self.Z.remove_distortion(
@@ -380,8 +361,7 @@ class MT(TF, MTLocation):
             return new_mt
 
     def remove_static_shift(self, ss_x=1.0, ss_y=1.0, inplace=False):
-        """
-        Remove static shift from the apparent resistivity
+        """Remove static shift from the apparent resistivity
 
         Assume the original observed tensor Z is built by a static shift S
         and an unperturbated "correct" Z0 :
@@ -389,29 +369,15 @@ class MT(TF, MTLocation):
              * Z = S * Z0
 
         therefore the correct Z will be :
-            * Z0 = S^(-1) * Z
-
-
-        :param ss_x: correction factor for x component
-        :type ss_x: float
-
-        :param ss_y: correction factor for y component
-        :type ss_y: float
-
-        :returns: new Z object with static shift removed
-        :rtype: mtpy.core.z.Z
-
-        .. note:: The factors are in resistivity scale, so the
-                  entries of  the matrix "S" need to be given by their
-                  square-roots!
-
-        :Remove Static Shift: ::
-
-            >>> import mtpy.core.mt as mt
-            >>> mt_obj = mt.MT(r"/home/mt/mt01.edi")
-            >>> new_z_obj = mt.remove_static_shift(ss_x=.5, ss_y=1.2)
-            >>> mt_obj.write_mt_file(new_fn=r"/home/mt/mt01_ss.edi",
-            >>> ...                   new_Z_obj=new_z_obj)
+            * Z0 = S^(-1) * Z.
+        :param inplace:
+            Defaults to False.
+        :param ss_x: Correction factor for x component, defaults to 1.0.
+        :type ss_x: float, optional
+        :param ss_y: Correction factor for y component, defaults to 1.0.
+        :type ss_y: float, optional
+        :return s: New Z object with static shift removed.
+        :rtype s: mtpy.core.z.Z
         """
 
         if inplace:
@@ -440,36 +406,25 @@ class MT(TF, MTLocation):
         z_log_space=False,
         **kwargs,
     ):
-        """
-        Interpolate the impedance tensor onto different frequencies
-
-        :param new_period: a 1-d array of frequencies to interpolate on
-         to.  Must be with in the bounds of the existing frequency range,
-         anything outside and an error will occur.
+        """Interpolate the impedance tensor onto different frequencies.
+        :param z_log_space:
+            Defaults to False.
+        :param new_period: A 1-d array of frequencies to interpolate on
+            to.  Must be with in the bounds of the existing frequency range,
+            anything outside and an error will occur.
         :type new_period: np.ndarray
-        :param method: method to interpolate by, defaults to "cubic"
+        :param method: Method to interpolate by, defaults to "slinear".
         :type method: string, optional
-        :param bounds_error: check for if input frequencies are within the
-         original frequencies, defaults to True
+        :param bounds_error: Check for if input frequencies are within the
+            original frequencies, defaults to True.
         :type bounds_error: boolean, optional
-        :param f_type: frequency type can be [ 'frequency' | 'period' ]
-        :type f_type: string, defaults to 'period'
-        :param **kwargs: key word arguments for `interp`
+        :param f_type: Frequency type can be [ 'frequency' | 'period' ], defaults to "period".
+        :type f_type: string, defaults to 'period', optional
+        :param **kwargs: Key word arguments for `interp`.
         :type **kwargs: dictionary
-        :raises ValueError: If input frequencies are out of bounds
+        :raises ValueError: If input frequencies are out of bounds.
         :return: New MT object with interpolated values.
         :rtype: :class:`mtpy.core.MT`
-
-
-        .. note:: 'cubic' seems to work the best, the 'slinear' seems to do
-         the same as 'linear' when using the `interp` in xarray.
-
-        :Interpolate over frequency: ::
-
-            >>> mt_obj = MT()
-            >>> new_frequency = np.logspace(-3, 3, 20)
-            >>> new_mt_obj = mt_obj.interpolate(new_frequency, f_type="frequency")
-
         """
 
         if f_type not in ["frequency", "freq", "period", "per"]:
@@ -528,16 +483,14 @@ class MT(TF, MTLocation):
         return new_m
 
     def plot_mt_response(self, **kwargs):
-        """
-        Returns a mtpy.imaging.plotresponse.PlotResponse object
+        """Returns a mtpy.imaging.plotresponse.PlotResponse object
 
         :Plot Response: ::
 
             >>> mt_obj = mt.MT(edi_file)
             >>> pr = mt.plot_mt_response()
             >>> # if you need more info on plot_mt_response
-            >>> help(pr)
-
+            >>> help(pr).
         """
 
         plot_obj = PlotMTResponse(
@@ -551,37 +504,33 @@ class MT(TF, MTLocation):
         return plot_obj
 
     def plot_phase_tensor(self, **kwargs):
-        """
-
-        :return: DESCRIPTION
+        """Plot phase tensor.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         kwargs["ellipse_size"] = 0.5
         return PlotPhaseTensor(self.pt, station=self.station, **kwargs)
 
     def plot_depth_of_penetration(self, **kwargs):
-        """
-        Plot Depth of Penetration estimated from Niblett-Bostick estimation
-
-        :param **kwargs: DESCRIPTION
+        """Plot Depth of Penetration estimated from Niblett-Bostick estimation.
+        :param **kwargs: DESCRIPTION.
         :type **kwargs: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         return PlotPenetrationDepth1D(self, **kwargs)
 
     def to_dataframe(self, utm_crs=None, cols=None):
-        """
-        Create a dataframe from the transfer function for use with plotting
+        """Create a dataframe from the transfer function for use with plotting
         and modeling.
-
-        :parameter utm_crs: the utm zone to project station to, could be a
-         name, pyproj.CRS, EPSG number, or anything that pyproj.CRS can intake.
-        :type utm_crs: string, int, :class:`pyproj.CRS`
-
+        :param cols:
+            Defaults to None.
+        :param utm_crs:
+            Defaults to None.
+        :param eter utm_crs: The utm zone to project station to, could be a
+            name, pyproj.CRS, EPSG number, or anything that pyproj.CRS can intake.
+        :type eter utm_crs: string, int, :class:`pyproj.CRS`
         """
         if utm_crs is not None:
             self.utm_crs = utm_crs
@@ -612,14 +561,12 @@ class MT(TF, MTLocation):
         return mt_df
 
     def from_dataframe(self, mt_df):
-        """
-        fill transfer function attributes from a dataframe for a single station
-
-        :param df: DESCRIPTION
+        """Fill transfer function attributes from a dataframe for a single station.
+        :param mt_df:
+        :param df: DESCRIPTION.
         :type df: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if not isinstance(mt_df, MTDataFrame):
@@ -663,8 +610,7 @@ class MT(TF, MTLocation):
     def compute_model_z_errors(
         self, error_value=5, error_type="geometric_mean", floor=True
     ):
-        """
-        Compute mode errors based on the error type
+        """Compute mode errors based on the error type
 
         ========================== ===========================================
         key                        definition
@@ -678,17 +624,15 @@ class MT(TF, MTLocation):
         eigen                      error_value * mean(eigen(z))
         percent                    error_value * z
         absolute                   error_value
-        ========================== ===========================================
-
-        :param error_value: DESCRIPTION, defaults to 5
+        ========================== ===========================================.
+        :param error_value: DESCRIPTION, defaults to 5.
         :type error_value: TYPE, optional
-        :param error_type: DESCRIPTION, defaults to "geometric_mean"
+        :param error_type: DESCRIPTION, defaults to "geometric_mean".
         :type error_type: TYPE, optional
-        :param floor: DESCRIPTION, defaults to True
+        :param floor: DESCRIPTION, defaults to True.
         :type floor: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if not self.has_impedance():
@@ -723,25 +667,22 @@ class MT(TF, MTLocation):
     def compute_model_t_errors(
         self, error_value=0.02, error_type="absolute", floor=False
     ):
-        """
-        Compute mode errors based on the error type
+        """Compute mode errors based on the error type
 
         ========================== ===========================================
         key                        definition
         ========================== ===========================================
         percent                    error_value * t
         absolute                   error_value
-        ========================== ===========================================
-
-        :param error_value: DESCRIPTION, defaults to .02
+        ========================== ===========================================.
+        :param error_value: DESCRIPTION02, defaults to 0.02.
         :type error_value: TYPE, optional
-        :param error_type: DESCRIPTION, defaults to "absolute"
+        :param error_type: DESCRIPTION, defaults to "absolute".
         :type error_type: TYPE, optional
-        :param floor: DESCRIPTION, defaults to True
+        :param floor: DESCRIPTION, defaults to False.
         :type floor: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if not self.has_tipper():
             self.logger.warning(
@@ -772,25 +713,18 @@ class MT(TF, MTLocation):
         self.tipper_model_error = t_error
 
     def add_model_error(self, comp=[], z_value=5, t_value=0.05, periods=None):
-        """
-
-        Add error to a station's components for given period range
-
-        :param station: name of station(s) to add error to
+        """Add error to a station's components for given period range.
+        :param periods:
+            Defaults to None.
+        :param t_value:
+            Defaults to 0.05.
+        :param z_value:
+            Defaults to 5.
+        :param station: Name of station(s) to add error to.
         :type station: string or list of strings
-        :param comp: list of components to add data to, valid components are
-        zxx, zxy, zyx, zyy, tx, ty
-        :type comp: string or list of strings
-        :param periods: the period range to add to, if None all periods, otherwise
-        enter as a tuple as (minimum, maximum) period in seconds
-        :type periods: tuple (minimum, maxmum)
-        :return: data array with added errors
+        :param comp: List of components to add data to, valid components are, defaults to [].
+        :return: Data array with added errors.
         :rtype: np.ndarray
-
-        >>> d = Data()
-        >>> d.read_data_file(r"example/data.dat")
-        >>> d.data = d.add_error("mt01", comp=["zxx", "zxy", "tx"], z_value=7, t_value=.05)
-
         """
         c_dict = {
             "zxx": (0, 0),
@@ -840,15 +774,12 @@ class MT(TF, MTLocation):
             self.tipper_model_error = t_model_error
 
     def find_flipped_phase(self):
-        """
-        identify if the off-diagonal components are flipped from traditional
+        """Identify if the off-diagonal components are flipped from traditional
         quadrants.  xy should be in the 1st quadarant (0-90 deg) and yx
         should be in the 3rd quadrant (-180 to -90 deg)
-
-        :return: a dictionary of components with a bool for flipped or not
-         if flipped return value is True
+        :return: A dictionary of components with a bool for flipped or not
+            if flipped return value is True.
         :rtype: dict
-
         """
 
         flip_dict = {"zxy": False, "zyx": False}
@@ -871,30 +802,33 @@ class MT(TF, MTLocation):
         tzy=False,
         inplace=False,
     ):
-        """
-        Flip the phase of a station in case its plotting in the wrong quadrant
-
-        :param station: name(s) of station to flip phase
+        """Flip the phase of a station in case its plotting in the wrong quadrant.
+        :param inplace:
+            Defaults to False.
+        :param tzy:
+            Defaults to False.
+        :param tzx:
+            Defaults to False.
+        :param station: Name(s) of station to flip phase.
         :type station: string or list of strings
-        :param station: station name or list of station names
+        :param station: Station name or list of station names.
         :type station: string or list
-        :param zxx: Z_xx, defaults to False
+        :param zxx: Z_xx, defaults to False.
         :type zxx: TYPE, optional
-        :param zxy: Z_xy, defaults to False
+        :param zxy: Z_xy, defaults to False.
         :type zxy: TYPE, optional
-        :param zyy: Z_yx, defaults to False
+        :param zyy: Z_yx, defaults to False.
         :type zyy: TYPE, optional
-        :param zyx: Z_yy, defaults to False
+        :param zyx: Z_yy, defaults to False.
         :type zyx: TYPE, optional
-        :param tx: T_zx, defaults to False
+        :param tx: T_zx, defaults to False.
         :type tx: TYPE, optional
-        :param ty: T_zy, defaults to False
+        :param ty: T_zy, defaults to False.
         :type ty: TYPE, optional
-        :return: new_data
+        :return: New_data.
         :rtype: np.ndarray
-        :return: new mt_dict with components removed
+        :return: New mt_dict with components removed.
         :rtype: dictionary
-
         """
 
         c_dict = {
@@ -933,32 +867,31 @@ class MT(TF, MTLocation):
         tzy=False,
         inplace=False,
     ):
-        """
-        Remove a component for a given station(s)
-
-        :param station: station name or list of station names
+        """Remove a component for a given station(s).
+        :param inplace:
+            Defaults to False.
+        :param tzy:
+            Defaults to False.
+        :param tzx:
+            Defaults to False.
+        :param station: Station name or list of station names.
         :type station: string or list
-        :param zxx: Z_xx, defaults to False
+        :param zxx: Z_xx, defaults to False.
         :type zxx: TYPE, optional
-        :param zxy: Z_xy, defaults to False
+        :param zxy: Z_xy, defaults to False.
         :type zxy: TYPE, optional
-        :param zyy: Z_yx, defaults to False
+        :param zyy: Z_yx, defaults to False.
         :type zyy: TYPE, optional
-        :param zyx: Z_yy, defaults to False
+        :param zyx: Z_yy, defaults to False.
         :type zyx: TYPE, optional
-        :param tx: T_zx, defaults to False
+        :param tx: T_zx, defaults to False.
         :type tx: TYPE, optional
-        :param ty: T_zy, defaults to False
+        :param ty: T_zy, defaults to False.
         :type ty: TYPE, optional
-        :return: new data array with components removed
+        :return: New data array with components removed.
         :rtype: np.ndarray
-        :return: new mt_dict with components removed
+        :return: New mt_dict with components removed.
         :rtype: dictionary
-
-        >>> d = Data()
-        >>> d.read_data_file(r"example/data.dat")
-        >>> d.data, d.mt_dict = d.remove_component("mt01", zxx=True, tx=True)
-
         """
         c_dict = {
             "zxx": zxx,
@@ -998,16 +931,13 @@ class MT(TF, MTLocation):
             return mt_obj
 
     def add_white_noise(self, value, inplace=True):
-        """
-        Add white noise to the data, useful for synthetic tests.
-
-        :param value: DESCRIPTION
+        """Add white noise to the data, useful for synthetic tests.
+        :param value: DESCRIPTION.
         :type value: TYPE
-        :param inplace: DESCRIPTION, defaults to True
+        :param inplace: DESCRIPTION, defaults to True.
         :type inplace: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if value > 1:
             value = value / 100.0
@@ -1058,26 +988,14 @@ class MT(TF, MTLocation):
         """
 
     def to_occam1d(self, data_filename=None, mode="det"):
-        """
-        write an Occam1DData data file
-
-        :param data_filename: path to write file, if None returns Occam1DData
-         object.
-        :type data_filename: string or Path
-        :param mode: [ 'te', 'tm', 'det', 'tez', 'tmz', 'detz'], defaults to "det"
+        """Write an Occam1DData data file.
+        :param data_filename: Path to write file, if None returns Occam1DData
+            object, defaults to None.
+        :type data_filename: string or Path, optional
+        :param mode: [ 'te', 'tm', 'det', 'tez', 'tmz', 'detz'], defaults to "det".
         :type mode: string, optional
-        :return: Occam1DData object
+        :return: Occam1DData object.
         :rtype: :class:`mtpy.modeling.occam1d.Occam1DData`
-
-
-        :Example:
-
-            >>> mt_object = MT()
-            >>> mt_object.read(r"/path/to/tranfer_function/file")
-            >>> mt_object.compute_model_z_error()
-            >>> occam_data = mt_object.to_occam1d(data_filename=r"/path/to/data_file.dat")
-
-
         """
 
         occam_data = Occam1DData(self.to_dataframe(), mode=mode)
@@ -1087,8 +1005,7 @@ class MT(TF, MTLocation):
         return occam_data
 
     def to_simpeg_1d(self, mode="det", **kwargs):
-        """
-        helper method to run a 1D inversion using Simpeg
+        """Helper method to run a 1D inversion using Simpeg
 
         default is smooth parameters
 
@@ -1098,14 +1015,13 @@ class MT(TF, MTLocation):
 
         :To run sharp inversion adn compact:
 
-        >>> mt_object.to_simpeg_1d({"p_s": 0, "p_z": 0, "use_irls": True})
-
-
-        :param **kwargs: DESCRIPTION
+        >>> mt_object.to_simpeg_1d({"p_s": 0, "p_z": 0, "use_irls": True}).
+        :param mode:
+            Defaults to "det".
+        :param **kwargs: DESCRIPTION.
         :type **kwargs: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if not self.Z._has_tf_model_error():
             self.compute_model_z_errors()

@@ -37,10 +37,7 @@ import matplotlib.gridspec as gridspec
 
 
 class Simpeg1D:
-    """
-    Run a 1D simpeg inversion
-
-    """
+    """Run a 1D simpeg inversion."""
 
     def __init__(self, mt_dataframe=None, **kwargs):
         self._acceptable_modes = ["te", "tm", "det"]
@@ -62,10 +59,12 @@ class Simpeg1D:
 
     @property
     def mode(self):
+        """Mode function."""
         return self._mode
 
     @mode.setter
     def mode(self, mode):
+        """Mode function."""
         if mode not in self._acceptable_modes:
             raise ValueError(
                 f"Mode {mode} not in accetable modes {self._acceptable_modes}"
@@ -75,23 +74,28 @@ class Simpeg1D:
 
     @property
     def thicknesses(self):
+        """Thicknesses function."""
         return self.dz * self.z_factor ** np.arange(self.n_layers)[::-1]
 
     @property
     def mesh(self):
+        """Mesh function."""
         return TensorMesh(
             [(np.r_[self.thicknesses, self.thicknesses[-1]])], "N"
         )
 
     @property
     def frequencies(self):
+        """Frequencies function."""
         return self._sub_df.frequency
 
     @property
     def periods(self):
+        """Periods function."""
         return 1.0 / self.frequencies
 
     def _get_sub_dataframe(self):
+        """Get sub dataframe."""
         if self._mode == "te":
             sub_df = pd.DataFrame(
                 {
@@ -135,31 +139,24 @@ class Simpeg1D:
         return sub_df
 
     def _remove_outofquadrant_phase(self, sub_df):
-        """
-        remove out of quadrant phase from data
-        """
+        """Remove out of quadrant phase from data."""
 
         sub_df.loc[(sub_df.phase % 180 < 0), "phase"] = 0
 
         return sub_df
 
     def _remove_nan_in_errors(self, sub_df, large_error=1e2):
-        """
-        remove nans in error
-        """
+        """Remove nans in error."""
         sub_df["res_error"] = sub_df.res_error.fillna(large_error)
         sub_df["phase_error"] = sub_df.phase_error.fillna(large_error)
         return sub_df
 
     def _remove_zeros(self, sub_df):
-        """
-        remove zeros from the data frame
-
-        :param sub_df: DESCRIPTION
+        """Remove zeros from the data frame.
+        :param sub_df: DESCRIPTION.
         :type sub_df: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         return sub_df.loc[(sub_df != 0).all(axis=1)]
 
@@ -169,15 +166,14 @@ class Simpeg1D:
 
         uses np.diff
 
-        res difference is in log space
-
-        :param max_diff_res: DESCRIPTION, defaults to 1
+        res difference is in log space.
+        :param sub_df:
+        :param max_diff_res: DESCRIPTION, defaults to 1.0.
         :type max_diff_res: TYPE, optional
-        :param max_diff_phase: DESCRIPTION, defaults to 10
+        :param max_diff_phase: DESCRIPTION, defaults to 10.
         :type max_diff_phase: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         sub_df.phase[
@@ -224,14 +220,11 @@ class Simpeg1D:
         )
 
     def cull_from_model(self, iteration):
-        """
-        remove bad point based on initial run
-
-        :param iteration: DESCRIPTION
+        """Remove bad point based on initial run.
+        :param iteration: DESCRIPTION.
         :type iteration: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if self.output_dict is None:
@@ -240,11 +233,15 @@ class Simpeg1D:
 
     @property
     def data(self):
+        """Data function."""
         return np.c_[self._sub_df.res, self._sub_df.phase].flatten()
 
     @property
     def data_error(self):
-        return np.c_[self._sub_df.res_error, self._sub_df.phase_error].flatten()
+        """Data error."""
+        return np.c_[
+            self._sub_df.res_error, self._sub_df.phase_error
+        ].flatten()
 
     def run_fixed_layer_inversion(
         self,
@@ -261,6 +258,7 @@ class Simpeg1D:
         p_s=2,
         p_z=2,
     ):
+        """Run fixed layer inversion."""
         receivers_list = [
             nsem.receivers.PointNaturalSource(component="app_res"),
             nsem.receivers.PointNaturalSource(component="phase"),
@@ -376,12 +374,9 @@ class Simpeg1D:
         self.output_dict = save_dictionary.outDict
 
     def plot_model_fitting(self, scale="log", fig_num=1):
-        """
-        plot predicted vs model
-
-        :return: DESCRIPTION
+        """Plot predicted vs model.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         target_misfit = self.data.size
@@ -420,18 +415,18 @@ class Simpeg1D:
 
     @property
     def _plot_z(self):
+        """Plot z."""
         z_grid = np.r_[0.0, np.cumsum(self.thicknesses[::-1])]
         return z_grid / 1000
 
     def plot_response(self, iteration=None, fig_num=2):
-        """
-        plot response
-
-        :param iteration: DESCRIPTION, defaults to None
+        """Plot response.
+        :param fig_num:
+            Defaults to 2.
+        :param iteration: DESCRIPTION, defaults to None.
         :type iteration: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if iteration is None:
             iteration = sorted(list(self.output_dict.keys()))[-1]
