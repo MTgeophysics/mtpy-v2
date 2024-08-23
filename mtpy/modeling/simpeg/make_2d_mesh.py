@@ -35,38 +35,35 @@ def generate_2d_mesh_structured(
     pfx=1.5,
     n_max=1000,
 ):
-    """
-    creat a 2D structured mesh, the typical way to model the data with uniform
+    """Creat a 2D structured mesh, the typical way to model the data with uniform
     horizontal cells in the station area and geometrically increasing down and
     padding cells.
-
-    :param rx_locs: DESCRIPTION
+    :param rx_locs: DESCRIPTION.
     :type rx_locs: TYPE
-    :param frequencies: DESCRIPTION
+    :param frequencies: DESCRIPTION.
     :type frequencies: TYPE
-    :param sigma_background: DESCRIPTION
+    :param sigma_background: DESCRIPTION.
     :type sigma_background: TYPE
-    :param z_factor_max: DESCRIPTION, defaults to 5
+    :param z_factor_max: DESCRIPTION, defaults to 5.
     :type z_factor_max: TYPE, optional
-    :param z_factor_min: DESCRIPTION, defaults to 5
+    :param z_factor_min: DESCRIPTION, defaults to 5.
     :type z_factor_min: TYPE, optional
-    :param pfz_down: DESCRIPTION, defaults to 1.2
+    :param pfz_down: DESCRIPTION2, defaults to 1.2.
     :type pfz_down: TYPE, optional
-    :param pfz_up: DESCRIPTION, defaults to 1.5
+    :param pfz_up: DESCRIPTION5, defaults to 1.5.
     :type pfz_up: TYPE, optional
-    :param npadz_up: DESCRIPTION, defaults to 5
+    :param npadz_up: DESCRIPTION, defaults to 5.
     :type npadz_up: TYPE, optional
-    :param x_factor_max: DESCRIPTION, defaults to 2
+    :param x_factor_max: DESCRIPTION, defaults to 2.
     :type x_factor_max: TYPE, optional
-    :param spacing_factor: DESCRIPTION, defaults to 4
+    :param spacing_factor: DESCRIPTION, defaults to 4.
     :type spacing_factor: TYPE, optional
-    :param pfx: DESCRIPTION, defaults to 1.5
+    :param pfx: DESCRIPTION5, defaults to 1.5.
     :type pfx: TYPE, optional
-    :param n_max: DESCRIPTION, defaults to 1000
+    :param n_max: DESCRIPTION, defaults to 1000.
     :type n_max: TYPE, optional
-    :return: DESCRIPTION
+    :return: DESCRIPTION.
     :rtype: TYPE
-
     """
     # Setting the cells in depth dimension
     f_min = frequencies.min()

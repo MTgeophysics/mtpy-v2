@@ -27,11 +27,7 @@ import mtpy.utils.exceptions as mtex
 
 
 class PlotTF(object):
-    """
-    class to plot Time-Frequency
-
-
-    """
+    """Class to plot Time-Frequency."""
 
     def __init__(self, time_series, tf_type="smethod", **kwargs):
 
@@ -113,9 +109,7 @@ class PlotTF(object):
             self.plot()
 
     def _get_tf(self):
-        """
-        get the specified time frequency distribution
-        """
+        """Get the specified time frequency distribution."""
         # --> short time fourier transform
         if self.tf_type == "stft":
             if self.tf_nh == None:
@@ -381,10 +375,7 @@ class PlotTF(object):
             print("{0}{1} = {2}".format(" " * 4, kw, kwargs[kw]))
 
     def plot(self):
-        """
-        plot the time frequency distribution
-
-        """
+        """Plot the time frequency distribution."""
         # get the requested time-frequency distribution
         self._get_tf()
 
@@ -573,8 +564,7 @@ class PlotTF(object):
         plt.show()
 
     def update_plot(self):
-        """
-        update any parameters that where changed using the built-in draw from
+        """Update any parameters that where changed using the built-in draw from
         canvas.
 
         Use this if you change an of the .fig or axes properties
@@ -584,14 +574,12 @@ class PlotTF(object):
             >>> # to change the grid lines to be on the major ticks and gray
             >>> tf1.ax.grid(True, which='major', color=(.5,.5,.5))
             >>> tf1.update_plot()
-
         """
 
         self.fig.canvas.draw()
 
     def redraw_plot(self):
-        """
-        use this function if you updated some attributes and want to re-plot.
+        """Use this function if you updated some attributes and want to re-plot.
 
         :Example: ::
             >>> tf1.plot_type = 'tf'
@@ -602,9 +590,7 @@ class PlotTF(object):
         self.plot()
 
     def __str__(self):
-        """
-        rewrite the string builtin to give a useful message
-        """
+        """Rewrite the string builtin to give a useful message."""
 
         return "Plots time frequency distribution"
 
@@ -616,43 +602,40 @@ class PlotTF(object):
         fig_dpi=None,
         close_plot="y",
     ):
-        """
-        save_plot will save the figure to save_fn.
+        """Save_plot will save the figure to save_fn.
 
-        Arguments:
-        -----------
+        Arguments::
 
-            **save_fn** : string
-                          full path to save figure to, can be input as
-                          * directory path -> the directory path to save to
-                            in which the file will be saved as
-                            save_fn/TF_tftype.file_format
+                **save_fn** : string
+                              full path to save figure to, can be input as
+                              * directory path -> the directory path to save to
+                                in which the file will be saved as
+                                save_fn/TF_tftype.file_format
 
-                          * full path -> file will be save to the given
-                            path.  If you use this option then the format
-                            will be assumed to be provided by the path
+                              * full path -> file will be save to the given
+                                path.  If you use this option then the format
+                                will be assumed to be provided by the path
 
-            **file_format** : [ pdf | eps | jpg | png | svg ]
-                              file type of saved figure pdf,svg,eps...
+                **file_format** : [ pdf | eps | jpg | png | svg ]
+                                  file type of saved figure pdf,svg,eps...
 
-            **orientation** : [ landscape | portrait ]
-                              orientation in which the file will be saved
-                              *default* is portrait
+                **orientation** : [ landscape | portrait ]
+                                  orientation in which the file will be saved
+                                  *default* is portrait
 
-            **fig_dpi** : int
-                          The resolution in dots-per-inch the file will be
-                          saved.  If None then the dpi will be that at
-                          which the figure was made.  I don't think that
-                          it can be larger than dpi of the figure.
+                **fig_dpi** : int
+                              The resolution in dots-per-inch the file will be
+                              saved.  If None then the dpi will be that at
+                              which the figure was made.  I don't think that
+                              it can be larger than dpi of the figure.
 
-            **close_plot** : [ y | n ]
-                             * 'y' will close the plot after saving.
-                             * 'n' will leave plot open
+                **close_plot** : [ y | n ]
+                                 * 'y' will close the plot after saving.
+                                 * 'n' will leave plot open
 
-        :Example: ::
-            >>> # save plot as a jpg
-            >>> tf1.save_plot(r'/home/MT/figures', file_format='jpg')
-
+            :Example: ::
+                >>> # save plot as a jpg
+                >>> tf1.save_plot(r'/home/MT/figures', file_format='jpg')
         """
 
         if fig_dpi == None:

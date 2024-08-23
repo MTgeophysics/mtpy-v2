@@ -26,18 +26,13 @@ from mtpy.imaging.mtplot_tools import (
 
 
 class PlotResPhasePseudoSection(PlotBaseProfile):
-    """
-    plot a resistivity and phase pseudo section for different components
+    """Plot a resistivity and phase pseudo section for different components
 
-    Need to input one of the following lists:
-
-
+    Need to input one of the following lists:.
     """
 
     def __init__(self, mt_data, **kwargs):
-        """
-        Initialize parameters
-        """
+        """Initialize parameters."""
 
         super().__init__(mt_data, **kwargs)
 
@@ -108,9 +103,7 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
             self.plot()
 
     def _get_period_array(self, df):
-        """
-        Get the period array to interpolate on to
-        """
+        """Get the period array to interpolate on to."""
 
         p_min = df.period.min() * self.y_stretch
         p_max = df.period.max() * self.y_stretch
@@ -118,12 +111,9 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
         return np.linspace(p_min, p_max, self.n_periods)
 
     def _get_n_rows(self):
-        """
-        Get the number of rows in the subplot
-
-        :return: DESCRIPTION
+        """Get the number of rows in the subplot.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         n = 0
         if self.plot_resistivity:
@@ -133,7 +123,7 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
         return n
 
     def _get_n_columns(self):
-        """get the number of columns in the subplot"""
+        """Get the number of columns in the subplot."""
         n = 0
 
         for cc in ["xx", "xy", "yx", "yy", "det"]:
@@ -143,9 +133,7 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
         return n
 
     def _get_n_subplots(self):
-        """
-        Get the subplot indices
-        """
+        """Get the subplot indices."""
         nr = self._get_n_rows()
         nc = self._get_n_columns()
 
@@ -178,12 +166,9 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
         return subplot_dict
 
     def _get_subplots(self):
-        """
-        get the subplots
-
-        :return: DESCRIPTION
+        """Get the subplots.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         subplot_dict = self._get_n_subplots()
         ax_dict = {}
@@ -213,10 +198,8 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
         return ax_dict
 
     def _get_data_df(self):
-        """
-        get resistivity and phase values in the correct order according to
+        """Get resistivity and phase values in the correct order according to
         offsets and periods.
-
         """
 
         self._get_profile_line()
@@ -251,12 +234,9 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
         return pd.DataFrame(entries)
 
     def _get_offset_station(self, df):
-        """
-        get the plotting offset and station name for labels
-
-        :return: DESCRIPTION
+        """Get the plotting offset and station name for labels.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         plot_dict = {"station": [], "offset": []}
@@ -280,9 +260,7 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
         return plot_dict
 
     def _get_cmap(self, component):
-        """
-        get color map with proper limits
-        """
+        """Get color map with proper limits."""
         if "res" in component:
             cmap = self.res_cmap
         elif "phase" in component:
@@ -291,13 +269,13 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
         return cmap
 
     def _get_colorbar(self, ax, im_mappable, component):
-        """
-
-        :param component: DESCRIPTION
+        """Get colorbar.
+        :param im_mappable:
+        :param ax:
+        :param component: DESCRIPTION.
         :type component: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if "res" in component:
@@ -342,11 +320,9 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
         return cb
 
     def plot(self):
-        """
-
-        :return: DESCRIPTION
+        """Plot function.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if self.data_df is None:

@@ -36,6 +36,7 @@ from mtpy.imaging.mtplot_tools import PlotBaseMaps
 
 class PlotRMS(PlotBaseMaps):
     def __init__(self, dataframe, **kwargs):
+        """Init function."""
         super().__init__(**kwargs)
 
         self.dataframe = dataframe
@@ -105,17 +106,16 @@ class PlotRMS(PlotBaseMaps):
 
     @property
     def dataframe(self):
+        """Dataframe function."""
         return self._mt_dataframe.dataframe
 
     @dataframe.setter
     def dataframe(self, df):
-        """
-        Set dataframe to an MTDataframe
-        :param df: DESCRIPTION
+        """Set dataframe to an MTDataframe.
+        :param df: DESCRIPTION.
         :type df: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if df is None:
@@ -131,10 +131,12 @@ class PlotRMS(PlotBaseMaps):
 
     @property
     def rms_cmap(self):
+        """Rms cmap."""
         return self._rms_cmap
 
     @rms_cmap.setter
     def rms_cmap(self, value):
+        """Rms cmap."""
         if isinstance(value, str):
             self._rms_cmap = cm.get_cmap(value)
 
@@ -145,12 +147,9 @@ class PlotRMS(PlotBaseMaps):
             self._rms_cmap = cm.get_cmap("jet")
 
     def _plot_rms_map(self):
-        """
-        plot rms map
-
-        :return: DESCRIPTION
+        """Plot rms map.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         cb_norm = colors.BoundaryNorm(
@@ -205,9 +204,7 @@ class PlotRMS(PlotBaseMaps):
 
     @property
     def rms_per_period_all(self):
-        """
-        RMS per period
-        """
+        """RMS per period."""
 
         if self.dataframe is not None:
             rms_list = []
@@ -238,9 +235,7 @@ class PlotRMS(PlotBaseMaps):
 
     @property
     def rms_per_station(self):
-        """
-        RMS per period
-        """
+        """RMS per period."""
 
         if self.dataframe is not None:
             rms_list = []
@@ -269,12 +264,9 @@ class PlotRMS(PlotBaseMaps):
 
     @property
     def rms_array(self):
-        """
-        arrays for color maps
-
-        :return: DESCRIPTION
+        """Arrays for color maps.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         period_dict = dict(
@@ -308,12 +300,9 @@ class PlotRMS(PlotBaseMaps):
         return rms_array
 
     def _plot_colormesh(self):
-        """
-        plot as color maps
-
-        :return: DESCRIPTION
+        """Plot as color maps.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         x = self.dataframe.period.unique()
@@ -355,11 +344,9 @@ class PlotRMS(PlotBaseMaps):
         return fig, ax_list
 
     def print_suspect_stations(self, rms_threshold=4):
-        """
-        print stations that are suspect
-        :return: DESCRIPTION
+        """Print stations that are suspect.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         red_begin = "\033[1;31;48m"
         red_end = "\033[1;37;0m"
@@ -381,12 +368,9 @@ class PlotRMS(PlotBaseMaps):
                 print(f"{row.Index:<{max_len}} {z_value} {t_value}")
 
     def _plot_by_period(self):
-        """
-        plot by period
-
-        :return: DESCRIPTION
+        """Plot by period.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         df = self.rms_per_period_all.copy()
@@ -418,12 +402,9 @@ class PlotRMS(PlotBaseMaps):
         return ax
 
     def _plot_by_station(self):
-        """
-        plot by station
-
-        :return: DESCRIPTION
+        """Plot by station.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         df = self.rms_per_station.copy()
@@ -453,6 +434,7 @@ class PlotRMS(PlotBaseMaps):
         return ax
 
     def _get_subplots(self, fig):
+        """Get subplots."""
 
         if self.stack_bottom:
             gs1 = gridspec.GridSpec(2, 2, hspace=0.25, wspace=0.075)
@@ -468,13 +450,11 @@ class PlotRMS(PlotBaseMaps):
             self.ax3 = fig.add_subplot(gs1[1, 1])
 
     def plot(self, **kwargs):
-        """
-
-        :param **kwargs: DESCRIPTION
+        """Plot function.
+        :param **kwargs: DESCRIPTION.
         :type **kwargs: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         self._set_subplot_params()
 

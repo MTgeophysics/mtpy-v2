@@ -14,8 +14,7 @@ import numpy as np
 
 # =============================================================================
 class Startup(object):
-    """
-    Reads and writes the startup file for Occam2D.
+    """Reads and writes the startup file for Occam2D.
 
     .. note:: Be sure to look at the Occam 2D documentation for description
               of all parameters
@@ -109,21 +108,19 @@ class Startup(object):
     def write_startup_file(
         self, startup_fn=None, save_path=None, startup_basename=None
     ):
-        """
-        Write a startup file based on the parameters of startup class.
+        """Write a startup file based on the parameters of startup class.
+
         Default file name is save_path/startup_basename
 
-        Arguments:
-        -----------
-            **startup_fn** : string
-                             full path to startup file. *default* is None
+        Arguments::
+                **startup_fn** : string
+                                 full path to startup file. *default* is None
 
-            **save_path** : string
-                            directory to save startup file. *default* is None
+                **save_path** : string
+                                directory to save startup file. *default* is None
 
-            **startup_basename** : string
-                                   basename of starup file. *default* is None
-
+                **startup_basename** : string
+                                       basename of starup file. *default* is None
         """
         if save_path is not None:
             self.save_path = Path(save_path)

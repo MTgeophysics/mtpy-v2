@@ -26,8 +26,7 @@ from mtpy.modeling.errors import ModelErrors
 
 # =============================================================================
 class Data:
-    """
-    Data will read and write .dat files for ModEM and convert a WS data file
+    """Data will read and write .dat files for ModEM and convert a WS data file
     to ModEM format.
 
     ..note: :: the data is interpolated onto the given periods such that all
@@ -35,170 +34,12 @@ class Data:
                a linear interpolation of each of the real and imaginary parts
                of the impedance tensor and induction tensor.
                See mtpy.core.mt.MT.interpolate for more details
-    
-    :param edi_list: list of edi files to read
-
-    ====================== ====================================================
-    Attributes              Description
-    ====================== ====================================================
-    _dtype                 internal variable defining the data type of
-                           data_array
-    _logger                python logging object that put messages in logging
-                           format defined in logging configure file, see MtPyLog
-                           for more information
-    _t_shape               internal variable defining shape of tipper array in
-                           _dtype
-    _z_shape               internal variable defining shape of Z array in
-                           _dtype
-    center_position        (east, north, evel) for center point of station
-                           array.  All stations are relative to this location
-                           for plotting purposes.
-    comp_index_dict        dictionary for index values of component of Z and T
-    station_locations      Stations object
-    data_array             numpy.ndarray (num_stations) structured to store
-                           data.  keys are:
-                               * station --> station name
-                               * lat --> latitude in decimal degrees
-                               * lon --> longitude in decimal degrees
-                               * elev --> elevation (m)
-                               * rel_east -- > relative east location to
-                                               center_position (m)
-                               * rel_north --> relative north location to
-                                               center_position (m)
-                               * east --> UTM east (m)
-                               * north --> UTM north (m)
-                               * zone --> UTM zone
-                               * z --> impedance tensor array with shape
-                                       (num_freq, 2, 2)
-                               * z_err --> impedance tensor error array with
-                                       shape (num_freq, 2, 2)
-                               * tip --> Tipper array with shape
-                                       (num_freq, 1, 2)
-                               * tipperr --> Tipper array with shape
-                                       (num_freq, 1, 2)
-    data_fn                full path to data file
-    data_period_list       period list from all the data
-    edi_list               list of full paths to edi files
-    error_type_tipper      [ 'abs' | 'floor' ]
-                           *default* is 'abs'
-    error_type_z           [ 'egbert' | 'mean_od' | 'eigen' | 'median']
-                           *default* is 'egbert_floor'
-                                * add '_floor' to any of the above to set the
-                                  error as an error floor, otherwise all
-                                  components are give weighted the same
-
-                                * 'egbert'  sets error to
-                                            error_value_z * sqrt(abs(zxy*zyx))
-                                * 'mean_od' sets error to
-                                            error_value_z * mean([Zxy, Zyx])
-                                            (non zeros)
-                                * 'eigen'   sets error to
-                                            error_value_z * eigenvalues(Z[ii])
-                                * 'median'  sets error to
-                                            error_value_z * median([Zxx, Zxy, Zyx, Zyy])
-                                            (non zeros)
-                           A 2x2 numpy array of error_type_z can be specified to
-                           explicitly set the error_type_z for each component.
-
-    error_value_z          percentage to multiply Z by to set error
-                           *default* is 5 for 5% of Z as error
-                           A 2x2 numpy array of values can be specified to
-                           explicitly set the error_value_z for each component.
-
-    error_value_tipper     absolute error between 0 and 1.
-    fn_basename            basename of data file. *default* is 'ModEM_Data.dat'
-    formatting             ['1' | '2'], format of the output data file, *default* is '1'
-    header_strings         strings for header of data file following the format
-                           outlined in the ModEM documentation
-    inv_comp_dict          dictionary of inversion components
-    inv_mode               inversion mode, options are: *default* is '1'
-                               * '1' --> for 'Full_Impedance' and
-                                             'Full_Vertical_Components'
-                               * '2' --> 'Full_Impedance'
-                               * '3' --> 'Off_Diagonal_Impedance' and
-                                         'Full_Vertical_Components'
-                               * '4' --> 'Off_Diagonal_Impedance'
-                               * '5' --> 'Full_Vertical_Components'
-                               * '6' --> 'Full_Interstation_TF'
-                               * '7' --> 'Off_Diagonal_Rho_Phase'
-
-    inv_mode_dict          dictionary for inversion modes
-    max_num_periods        maximum number of periods
-    model_epsg             epsg code for model projection, provide this to
-                           project model to non-utm coordinates. Find the epsg
-                           code for your projection on
-                           http://spatialreference.org/ref/ or google search
-                           epsg "your projection"
-    model_utm_zone         alternative to model_epsg, choose a utm zone to
-                           project all sites to (e.g. '55S')
-    mt_dict                dictionary of mtpy.core.mt.MT objects with keys
-                           being station names
-    period_buffer          float or int
-                           if specified, apply a buffer so that interpolation doesn't
-                           stretch too far over periods
-    period_dict            dictionary of period index for period_list
-    period_list            list of periods to invert for
-    period_max             maximum value of period to invert for
-    period_min             minimum value of period to invert for
-    period_buffer          buffer so that interpolation doesn't stretch too far
-                              over periods. Provide a float or integer factor, 
-                              greater than which interpolation will not stretch.
-                              e.g. 1.5 means only interpolate to a maximum of
-                              1.5 times each side of each frequency value
-    rotate_angle           Angle to rotate data to assuming 0 is N and E is 90
-    save_path              path to save data file to
-    units                  [ [V/m]/[T] | [mV/km]/[nT] | Ohm ] units of Z
-                           *default* is [mV/km]/[nT]
-    wave_sign_impedance    [ + | - ] sign of time dependent wave.
-                           *default* is '+' as positive downwards.
-    wave_sign_tipper       [ + | - ] sign of time dependent wave.
-                           *default* is '+' as positive downwards.
-    ====================== ====================================================
-
-
-    :Example 1 --> create inversion period list: ::
-
-        >>> from pathlib import Path
-        >>> import mtpy.modeling.modem as modem
-        >>> edi_path = Path(r"/home/mt/edi_files")
-        >>> edi_list = list(edi_path.glob("*.edi"))
-        >>> md = modem.Data(edi_list, period_min=.1, period_max=300,\
-        >>> ...             max_num_periods=12)
-        >>> md.write_data_file(save_path=r"/home/modem/inv1")
-        >>> md
-        
-
-    :Example 2 --> set inverions period list from data: ::
-
-        >>> md = modem.Data(edi_list)
-        >>> #get period list from an .edi file
-        >>> inv_period_list = 1./md.mt_dict["mt01"].Z.freq
-        >>> #invert for every third period in inv_period_list
-        >>> inv_period_list = inv_period_list[np.arange(0, len(inv_period_list, 3))]
-        >>> md.period_list = inv_period_list
-        >>> md.write_data_file(save_path=r"/home/modem/inv1")
-
-    :Example 3 --> change error values: ::
-
-        >>> mdr.error_type = 'floor'
-        >>> mdr.error_floor = 10
-        >>> mdr.error_tipper = .03
-        >>> mdr.write_data_file(save_path=r"/home/modem/inv2")
-
-    :Example 4 --> change inversion type: ::
-
-        >>> mdr.inv_mode = '3'
-        >>> mdr.write_data_file(save_path=r"/home/modem/inv2")
-
-    :Example 5 --> rotate data: ::
-
-        >>> md.rotation_angle = 60
-        >>> md.write_data_file(save_path=r"/home/modem/Inv1")
-        >>> # or
-        >>> md.write_data_file(save_path=r"/home/modem/Inv1", \
-                               rotation_angle=60)
-
-
+    :param **kwargs:
+    :param center_point:
+        Defaults to None.
+    :param dataframe:
+        Defaults to None.
+    :param edi_list: List of edi files to read.
     """
 
     def __init__(self, dataframe=None, center_point=None, **kwargs):
@@ -288,6 +129,7 @@ class Data:
             setattr(self, key, value)
 
     def __str__(self):
+        """Str function."""
         lines = ["ModEM Data Object:"]
         if self.dataframe is not None:
             lines += [
@@ -332,21 +174,21 @@ class Data:
         return "\n".join(lines)
 
     def __repr__(self):
+        """Repr function."""
         return self.__str__()
 
     @property
     def dataframe(self):
+        """Dataframe function."""
         return self._mt_dataframe.dataframe
 
     @dataframe.setter
     def dataframe(self, df):
-        """
-        Set dataframe to an MTDataframe
-        :param df: DESCRIPTION
+        """Set dataframe to an MTDataframe.
+        :param df: DESCRIPTION.
         :type df: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if df is None:
@@ -364,6 +206,7 @@ class Data:
 
     @property
     def model_parameters(self):
+        """Model parameters."""
         params = {
             "wave_sign_impedance": self.wave_sign_impedance,
             "wave_sign_tipper": self.wave_sign_tipper,
@@ -390,10 +233,12 @@ class Data:
 
     @property
     def data_filename(self):
+        """Data filename."""
         return self.save_path.joinpath(self.fn_basename)
 
     @data_filename.setter
     def data_filename(self, value):
+        """Data filename."""
         if value is not None:
             value = Path(value)
             if value.parent == Path("."):
@@ -404,10 +249,12 @@ class Data:
 
     @property
     def period(self):
+        """Period function."""
         if self.dataframe is not None:
             return np.sort(self.dataframe.period.unique())
 
     def get_n_stations(self, mode):
+        """Get n stations."""
         if self.dataframe is not None:
             if "impedance" in mode.lower():
                 return (
@@ -446,12 +293,11 @@ class Data:
 
     @property
     def n_periods(self):
+        """N periods."""
         return self.period.size
 
     def _get_components(self):
-        """
-        get components to write out
-        """
+        """Get components to write out."""
 
         comps = []
         for inv_modes in self.inv_mode_dict[self.inv_mode]:
@@ -460,19 +306,16 @@ class Data:
         return comps
 
     def _get_header_string(self, error_type, error_value):
-        """
-        Create the header strings
+        """Create the header strings
 
         # Created using MTpy calculated egbert_floor error of 5% data rotated 0.0_deg
-        clockwise from N
-
-        :param error_type: The method to calculate the errors
+        clockwise from N.
+        :param error_type: The method to calculate the errors.
         :type error_type: string
-        :param error_value: value of error or error floor
+        :param error_value: Value of error or error floor.
         :type error_value: float
-        :param rotation_angle: angle data have been rotated by
+        :param rotation_angle: Angle data have been rotated by.
         :type rotation_angle: float
-
         """
 
         h_str = []
@@ -511,7 +354,7 @@ class Data:
         return h_str
 
     def _write_header(self, mode):
-        """ """
+        """Write header."""
         d_lines = []
         if "impedance" in mode.lower():
             d_lines.append(
@@ -558,16 +401,13 @@ class Data:
         return d_lines
 
     def _write_comp(self, row, comp):
-        """
-        write a single row
-
-        :param row: DESCRIPTION
+        """Write a single row.
+        :param row: DESCRIPTION.
         :type row: TYPE
-        :param comp: DESCRIPTION
+        :param comp: DESCRIPTION.
         :type comp: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         # need zxx instead of z_xx
         inv_comp = comp.replace("_", "", 1)
@@ -661,13 +501,10 @@ class Data:
             )
 
     def _check_for_errors_of_zero(self):
-        """
-        Need to check for any zeros in the error values which can prevent
+        """Need to check for any zeros in the error values which can prevent
         ModEM from running.
-
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         ## check for zeros in model error
@@ -699,9 +536,7 @@ class Data:
                 )
 
     def _check_for_too_small_errors(self, tol=0.02):
-        """
-        Check for too small of errors relative to the error floor
-        """
+        """Check for too small of errors relative to the error floor."""
 
         for comp in ["z_xx", "z_xy", "z_yx", "z_yy", "t_zx", "t_zy"]:
             find_small = np.where(
@@ -728,9 +563,7 @@ class Data:
                 )
 
     def _check_for_too_big_values(self, tol=1e10):
-        """
-        Check for too small of errors relative to the error floor
-        """
+        """Check for too small of errors relative to the error floor."""
 
         for comp in ["z_xx", "z_xy", "z_yx", "z_yy", "t_zx", "t_zy"]:
             find_big = np.where(np.abs(self.dataframe[comp]) > tol)[0]
@@ -747,9 +580,7 @@ class Data:
                 ] = np.nan
 
     def _check_for_too_small_values(self, tol=1e-10):
-        """
-        Check for too small of errors relative to the error floor
-        """
+        """Check for too small of errors relative to the error floor."""
 
         for comp in ["z_xx", "z_xy", "z_yx", "z_yy", "t_zx", "t_zy"]:
             find_small = np.where(np.abs(self.dataframe[comp]) < tol)[0]
@@ -777,34 +608,20 @@ class Data:
         fn_basename=None,
         elevation=False,
     ):
-        """
-        
-        :param save_path: full directory to save file to, defaults to None
+        """Write data file.
+        :param file_name:
+            Defaults to None.
+        :param save_path: Full directory to save file to, defaults to None.
         :type save_path: string or Path, optional
-        :param fn_basename: Basename of the saved file, defaults to None
+        :param fn_basename: Basename of the saved file, defaults to None.
         :type fn_basename: string, optional
         :param elevation: If True adds in elevation from 'rel_elev' column in data
-         array, defaults to False
+            array, defaults to False.
         :type elevation: boolean, optional
-
-        :raises NotImplementedError: If the inversion mode is not supported
-        :raises ValueError: :class:`mtpy.utils.exceptions.ValueError` if a parameter
-        is missing
-        :return: full path to data file
+        :raises NotImplementedError: If the inversion mode is not supported.
+        :raises ValueError: :class:`mtpy.utils.exceptions.ValueError` if a parameter.
+        :return: Full path to data file.
         :rtype: Path
-
-        .. code-block::
-            :linenos:
-
-            >>> from pathlib import Path
-            >>> import mtpy.modeling.modem as modem
-            >>> edi_path = Path(r"/home/mt/edi_files")
-            >>> edi_list = list(edi_path.glob("*.ed"))
-            >>> md = modem.Data(edi_list, period_min=.1, period_max=300,\
-            >>> ...             max_num_periods=12)
-            >>> md.write_data_file(save_path=r"/home/modem/inv1")
-            /home/modem/inv1/ModemDataFile.dat
-            
         """
 
         if self.dataframe is None:
@@ -866,14 +683,11 @@ class Data:
         return self.data_filename
 
     def _read_header(self, header_lines):
-        """
-        Read header lines
-
-        :param header_lines: DESCRIPTION
+        """Read header lines.
+        :param header_lines: DESCRIPTION.
         :type header_lines: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         mode = None
@@ -949,10 +763,7 @@ class Data:
         return n_periods, n_stations
 
     def _parse_header_line(self, header_line, mode):
-        """
-        Parse header line
-
-        """
+        """Parse header line."""
 
         if header_line == self.header_string:
             return
@@ -1023,6 +834,7 @@ class Data:
                     )
 
     def _get_rotation_angle(self, header_line):
+        """Get rotation angle."""
         # try to find rotation angle
         h_list = header_line.split()
         for hh, h_str in enumerate(h_list):
@@ -1033,6 +845,7 @@ class Data:
                     pass
 
     def _get_inv_mode(self, inv_list):
+        """Get inv mode."""
         # find inversion mode
         for inv_key in list(self.inv_mode_dict.keys()):
             inv_mode_list = self.inv_mode_dict[inv_key]
@@ -1050,16 +863,11 @@ class Data:
                     break
 
     def _read_line(self, line):
-        """
-        read a single line
-        :param line: DESCRIPTION
+        """Read a single line.
+        :param line: DESCRIPTION.
         :type line: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
-        .. note:: Pandas Groupby does not play nice with complex numbers so
-         we will be keeping the real and imaginary part separate for now.
-
         """
 
         line_dict = dict(
@@ -1091,7 +899,7 @@ class Data:
         return line_dict
 
     def _change_comp(self, comp):
-        """change to z_, t_, pt_"""
+        """Change to z_, t_, pt_."""
         if comp.startswith("z"):
             comp = comp.replace("z", "z_")
         elif comp.startswith("t"):
@@ -1101,42 +909,10 @@ class Data:
         return comp
 
     def read_data_file(self, data_fn):
-        """
-
-        :param data_fn: full path to data file name
+        """Read data file.
+        :param data_fn: Full path to data file name.
         :type data_fn: string or Path
-        :raises ValueError: If cannot compute component
-
-        Fills attributes:
-            * data_array
-            * period_list
-            * mt_dict
-
-        .. code-block::
-
-            >>> md = Data()
-            >>> md.read_data_file(r"/home/modem_data.dat")
-            >>> md
-            ModEM Data Object:
-                Number of stations: 169
-                Number of periods:  22
-                Period range:
-                        Min: 0.01 s
-                        Max: 15230.2 s
-                Rotation angle:     0.0
-                Data center:
-                         latitude:  39.6351 deg
-                         longitude: -119.8039 deg
-                         Elevation: 0.0 m
-                         Easting:   259368.9746 m
-                         Northing:  4391021.1981 m
-                         UTM zone:  11S
-                Model EPSG:         None
-                Model UTM zone:     None
-                Impedance data:     True
-                Tipper data:        True
-
-
+        :raises ValueError: If cannot compute component.
         """
 
         self.data_filename = Path(data_fn)
@@ -1193,7 +969,7 @@ class Data:
         return MTDataFrame(combined_df)
 
     def _rename_columns(self, df):
-        """need to rename columns to z_, t_, pt_"""
+        """Need to rename columns to z_, t_, pt_."""
 
         col_dict = {}
         for col in df.columns:
@@ -1210,17 +986,14 @@ class Data:
         return df
 
     def fix_data_file(self, fn=None, n=3):
-        """
-        A newer compiled version of Modem outputs slightly different headers
+        """A newer compiled version of Modem outputs slightly different headers
         This aims to convert that into the older format
-
-        :param fn: DESCRIPTION, defaults to None
+        :param fn: DESCRIPTION, defaults to None.
         :type fn: TYPE, optional
-        :param n: DESCRIPTION, defaults to 3
+        :param n: DESCRIPTION, defaults to 3.
         :type n: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if fn:
             self.data_filename = Path(fn)
@@ -1228,6 +1001,7 @@ class Data:
             lines = fid.readlines()
 
         def fix_line(line_list):
+            """Fix line."""
             return (
                 " ".join("".join(line_list).replace("\n", "").split()) + "\n"
             )

@@ -17,10 +17,7 @@ import mtpy.core.edi as mtedi
 
 
 class Model:
-    """
-    class for creating and reading model files
-
-    """
+    """Class for creating and reading model files."""
 
     def __init__(self, working_directory, **input_parameters):
         self.working_directory = working_directory
@@ -118,9 +115,7 @@ class Model:
                     pass
 
     def build_model(self):
-        """
-        build model file string
-        """
+        """Build model file string."""
         # build the mesh
         self.build_mesh()
         self.build_aircells()
@@ -139,12 +134,14 @@ class Model:
         self.get_station_meshblock_numbers()
 
     def write_modelfile(self):
+        """Write modelfile."""
         self.build_modelfilestring()
         outfile = open(op.join(self.working_directory, self.modelfile), "w")
         outfile.write(self.modelfilestring)
         outfile.close()
 
     def read_model(self):
+        """Read model."""
 
         # read model file
         modelf = open(op.join(self.working_directory, self.modelfile))
@@ -218,6 +215,7 @@ class Model:
         self.station_indices = station_indices
 
     def build_modelfilestring(self):
+        """Build modelfilestring."""
         # initialise a list containing info for model file
         modelfilestring = []
         # number of periods
@@ -290,9 +288,7 @@ class Model:
         self.modelfilestring = "\n".join(modelfilestring)
 
     def build_mesh(self):
-        """
-        create a mesh using occam2d
-        """
+        """Create a mesh using occam2d."""
 
         # create an occam2d setup object
         so = o2d.Setup(
@@ -361,6 +357,7 @@ class Model:
     #        self.meshlocations_x = np.array([sum(mbw[:i]) for i in range(len(mbw)+1)])
 
     def build_aircells(self):
+        """Build aircells."""
         flt = np.log10(self.parameters_model["firstlayer_thickness"] / 1000.0)
         md = np.log10(self.parameters_model["model_depth"])
         mz = np.logspace(flt, md, self.n_airlayers + 1)[::-1]
@@ -368,9 +365,7 @@ class Model:
         self.meshlocations_zair = mz
 
     def get_station_meshblock_numbers(self):
-        """
-
-        """
+        """Get station meshblock numbers."""
 
         #        try:
         ivals = []
@@ -386,10 +381,7 @@ class Model:
     #            print "no stationlocations, please build mesh first"
 
     def get_1d_results(self, split="_"):
-        """
-        get 1d inversion results to apply to inputs of 2d model
-
-        """
+        """Get 1d inversion results to apply to inputs of 2d model."""
         if not hasattr(self, "Data"):
             self.build_mesh()
         elif self.Data is None:
@@ -414,10 +406,7 @@ class Model:
         self.models1d = models1d
 
     def interpolate_1d_results(self):
-        """
-        interpolate 1d inversion results onto grid
-
-        """
+        """Interpolate 1d inversion results onto grid."""
 
         if not hasattr(self, "models1d"):
             self.get_1d_results()
@@ -487,10 +476,10 @@ class Model:
         self.resistivity[:, :, -1] = self.resistivity[:, :, -1] % 180
 
     def force_isotropy(self):
-        """
-        force isotropy at depths shallower than anisotropy_min_depth. Clears
-        up some bins for resistivity - these are limited
+        """Force isotropy at depths shallower than anisotropy_min_depth.
 
+        Clears
+up some bins for resistivity - these are limited
         """
 
         rnew = 1.0 * self.resistivity
@@ -505,6 +494,7 @@ class Model:
         self.resistivity = rnew
 
     def bin_resistivity_values(self):
+        """Bin resistivity values."""
 
         rdict, rmap, rbinned = p2d.bin_results(
             np.log10(self.resistivity[:, :, :-1]), self.binsize_resistivitylog10
@@ -521,9 +511,7 @@ class Model:
 
 
 def bin_results(in_array, binsize):
-    """
-    binsize can be a float or numpy array of length shape(in_array)[-1]
-    """
+    """Binsize can be a float or numpy array of length shape(in_array)[-1]."""
 
     paramdict = {}
     keys = []
@@ -556,6 +544,7 @@ def bin_results(in_array, binsize):
 
 
 def create_multiple_line_string(inlist, linelength, sformat):
+    """Create multiple line string."""
     linestring = ""
     for i in range(len(inlist)):
         if (i % linelength == 0) and (i > 0):
@@ -565,10 +554,7 @@ def create_multiple_line_string(inlist, linelength, sformat):
 
 
 class Response:
-    """
-    class to contain outputs of forward modelling
-
-    """
+    """Class to contain outputs of forward modelling."""
 
     def __init__(self, working_directory, **input_parameters):
         self.working_directory = working_directory
@@ -581,8 +567,7 @@ class Response:
             setattr(self, key, input_parameters[key])
 
     def read_response(self):
-        """
-        """
+        """Read response."""
 
         output = np.genfromtxt(op.join(self.working_directory, self.datafile))
         self.station_numbers = np.unique(output[:, 0])
@@ -610,8 +595,7 @@ class Response:
         self.phase = np.rad2deg(np.arctan(np.imag(z) / np.real(z)))
 
     def find_edifiles(self):
-        """
-        """
+        """Find edifiles."""
         search_stringlist = list(self.station_dict.keys())
         self.edifiles = fh.get_pathlist(
             self.edi_directory,
@@ -622,8 +606,7 @@ class Response:
         print(list(self.edifiles.keys()))
 
     def read_edifiles(self):
-        """
-        """
+        """Read edifiles."""
 
         self.find_edifiles()
 

@@ -15,11 +15,7 @@ from mtpy.imaging.mtplot_tools import PlotBase
 
 
 class PlotPenetrationDepth1D(PlotBase):
-    """
-    Plot the depth of penetration based on the Niblett-Bostick approximation.
-
-
-    """
+    """Plot the depth of penetration based on the Niblett-Bostick approximation."""
 
     def __init__(self, tf, **kwargs):
 
@@ -37,10 +33,12 @@ class PlotPenetrationDepth1D(PlotBase):
 
     @property
     def depth_units(self):
+        """Depth units."""
         return self._depth_units
 
     @depth_units.setter
     def depth_units(self, value):
+        """Depth units."""
         self._depth_units = value
         if value in ["km"]:
             self.depth_scale = 1.0 / 1000
@@ -48,21 +46,15 @@ class PlotPenetrationDepth1D(PlotBase):
             self.depth_scale = 1
 
     def _get_nb_estimation(self):
-        """
-        get the depth of investigation estimation
-
-        """
+        """Get the depth of investigation estimation."""
 
         return self.tf.Z.estimate_depth_of_investigation()
 
     def plot(self):
-        """
-        plot the depth of investigation as a 1d plot with period on the y-axis
+        """Plot the depth of investigation as a 1d plot with period on the y-axis
         and depth on the x axis
-
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         depth_array = self._get_nb_estimation()

@@ -21,32 +21,31 @@ from mtpy.utils import exceptions as mtex
 
 
 class ControlInv(object):
-    """
-    Reads and writes control files for ModEM to control how the inversion 
+    """Reads and writes control files for ModEM to control how the inversion
     starts and how it is run.
 
     ==================== ======================================================
     Attributes           Description
     ==================== ======================================================
-    output_fn            Model and data output file name "prefix phrase", i.e. 
-                         written to the front of ModEM output file names before 
-                         the iteration number and file extension. str, 
+    output_fn            Model and data output file name "prefix phrase", i.e.
+                         written to the front of ModEM output file names before
+                         the iteration number and file extension. str,
                          *default* is 'MODULAR_NLCG'
     lambda_initial       Initial damping factor lambda. int, *default* is 10
-    lambda_step          To update lambda, divide by this value. int, *default* 
+    lambda_step          To update lambda, divide by this value. int, *default*
                          is 10
-    model_search_step    Initial search step in model units. int, *default* is 
+    model_search_step    Initial search step in model units. int, *default* is
                          1
-    rms_reset_search     Restart when rms diff is less than this value. float, 
+    rms_reset_search     Restart when rms diff is less than this value. float,
                          *default* is 0.002
-    rms_target           Exit search when rms is less than this value. float, 
+    rms_target           Exit search when rms is less than this value. float,
                          *default* is 1.05
-    lambda_exit          Exit when lambda is less than this value. float, 
+    lambda_exit          Exit when lambda is less than this value. float,
                          *default* is 0.0001
     max_iterations       Maximum number of iterations. int, *default* is 100
-    save_path            Path at which to save the control file. PosixPath, 
+    save_path            Path at which to save the control file. PosixPath,
                          *default* is current working directory
-    fn_basename          Name of the control file. str, *default* is 
+    fn_basename          Name of the control file. str, *default* is
                          'control.inv'
     """
 
@@ -115,10 +114,12 @@ class ControlInv(object):
 
     @property
     def control_fn(self):
+        """Control fn."""
         return self.save_path.joinpath(self.fn_basename)
 
     @control_fn.setter
     def control_fn(self, value):
+        """Control fn."""
         if value is not None:
             value = Path(value)
             self.save_path = value.parent
@@ -127,23 +128,20 @@ class ControlInv(object):
     def write_control_file(
         self, control_fn=None, save_path=None, fn_basename=None
     ):
-        """
-        write control file
+        """Write control file.
 
-        Arguments:
-        ------------
-            **control_fn** : string
-                             full path to save control file to
-                             *default* is save_path/fn_basename
+        Arguments::
+                **control_fn** : string
+                                 full path to save control file to
+                                 *default* is save_path/fn_basename
 
-            **save_path** : string
-                            directory path to save control file to
-                            *default* is cwd
+                **save_path** : string
+                                directory path to save control file to
+                                *default* is cwd
 
-            **fn_basename** : string
-                              basename of control file
-                              *default* is control.inv
-
+                **fn_basename** : string
+                                  basename of control file
+                                  *default* is control.inv
         """
 
         if control_fn is not None:
@@ -186,9 +184,7 @@ class ControlInv(object):
         print("Wrote ModEM control file to {0}".format(self.control_fn))
 
     def read_control_file(self, control_fn=None):
-        """
-        read in a control file
-        """
+        """Read in a control file."""
 
         if control_fn is not None:
             self.control_fn = control_fn

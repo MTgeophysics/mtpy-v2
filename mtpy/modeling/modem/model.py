@@ -35,8 +35,7 @@ from pyevtk.hl import gridToVTK
 
 
 class Model:
-    """
-    make and read a FE mesh grid
+    """Make and read a FE mesh grid
 
     The mesh assumes the coordinate system where:
         x == North
@@ -48,119 +47,115 @@ class Model:
     The mesh is created by first making a regular grid around the station area,
     then padding cells are added that exponentially increase to the given
     extensions.  Depth cell increase on a log10 scale to the desired depth,
-    then padding cells are added that increase exponentially.
+    then padding cells are added that increase exponentially..
 
-    Arguments
-    -------------
-        **station_object** : mtpy.modeling.modem.Stations object
-                            .. seealso:: mtpy.modeling.modem.Stations
+    Arguments:
+            **station_object** : mtpy.modeling.modem.Stations object
+                                .. seealso:: mtpy.modeling.modem.Stations
 
-    Examples
-    -------------
+    Examples:
 
-    :Example 1 --> create mesh first then data file: ::
+        :Example 1 --> create mesh first then data file: ::
 
-        >>> import mtpy.modeling.modem as modem
-        >>> import os
-        >>> # 1) make a list of all .edi files that will be inverted for
-        >>> edi_path = r"/home/EDI_Files"
-        >>> edi_list = [os.path.join(edi_path, edi)
-                        for edi in os.listdir(edi_path)
-        >>> ...         if edi.find('.edi') > 0]
-        >>> # 2) Make a Stations object
-        >>> stations_obj = modem.Stations()
-        >>> stations_obj.get_station_locations_from_edi(edi_list)
-        >>> # 3) make a grid from the stations themselves with 200m cell spacing
-        >>> mmesh = modem.Model(station_obj)
-        >>> # change cell sizes
-        >>> mmesh.cell_size_east = 200,
-        >>> mmesh.cell_size_north = 200
-        >>> mmesh.ns_ext = 300000 # north-south extension
-        >>> mmesh.ew_ext = 200000 # east-west extension of model
-        >>> mmesh.make_mesh()
-        >>> # check to see if the mesh is what you think it should be
-        >>> msmesh.plot_mesh()
-        >>> # all is good write the mesh file
-        >>> msmesh.write_model_file(save_path=r"/home/modem/Inv1")
-        >>> # create data file
-        >>> md = modem.Data(edi_list, station_locations=mmesh.station_locations)
-        >>> md.write_data_file(save_path=r"/home/modem/Inv1")
+            >>> import mtpy.modeling.modem as modem
+            >>> import os
+            >>> # 1) make a list of all .edi files that will be inverted for
+            >>> edi_path = r"/home/EDI_Files"
+            >>> edi_list = [os.path.join(edi_path, edi)
+                            for edi in os.listdir(edi_path)
+            >>> ...         if edi.find('.edi') > 0]
+            >>> # 2) Make a Stations object
+            >>> stations_obj = modem.Stations()
+            >>> stations_obj.get_station_locations_from_edi(edi_list)
+            >>> # 3) make a grid from the stations themselves with 200m cell spacing
+            >>> mmesh = modem.Model(station_obj)
+            >>> # change cell sizes
+            >>> mmesh.cell_size_east = 200,
+            >>> mmesh.cell_size_north = 200
+            >>> mmesh.ns_ext = 300000 # north-south extension
+            >>> mmesh.ew_ext = 200000 # east-west extension of model
+            >>> mmesh.make_mesh()
+            >>> # check to see if the mesh is what you think it should be
+            >>> msmesh.plot_mesh()
+            >>> # all is good write the mesh file
+            >>> msmesh.write_model_file(save_path=r"/home/modem/Inv1")
+            >>> # create data file
+            >>> md = modem.Data(edi_list, station_locations=mmesh.station_locations)
+            >>> md.write_data_file(save_path=r"/home/modem/Inv1")
 
-    :Example 2 --> Rotate Mesh: ::
+        :Example 2 --> Rotate Mesh: ::
 
-        >>> mmesh.mesh_rotation_angle = 60
-        >>> mmesh.make_mesh()
+            >>> mmesh.mesh_rotation_angle = 60
+            >>> mmesh.make_mesh()
 
-    .. note:: ModEM assumes all coordinates are relative to North and East, and
-             does not accommodate mesh rotations, therefore, here the rotation
-             is of the stations, which essentially does the same thing.  You
-             will need to rotate you data to align with the 'new' coordinate
-             system.
+        .. note:: ModEM assumes all coordinates are relative to North and East, and
+                 does not accommodate mesh rotations, therefore, here the rotation
+                 is of the stations, which essentially does the same thing.  You
+                 will need to rotate you data to align with the 'new' coordinate
+                 system.
 
-    ==================== ======================================================
-    Attributes           Description
-    ==================== ======================================================
-    _logger              python logging object that put messages in logging
-                         format defined in logging configure file, see MtPyLog
-                         more information
-    cell_number_ew       optional for user to specify the total number of sells
-                         on the east-west direction. *default* is None
-    cell_number_ns       optional for user to specify the total number of sells
-                         on the north-south direction. *default* is None
-    cell_size_east       mesh block width in east direction
-                         *default* is 500
-    cell_size_north      mesh block width in north direction
-                         *default* is 500
-    grid_center          center of the mesh grid
-    grid_east            overall distance of grid nodes in east direction
-    grid_north           overall distance of grid nodes in north direction
-    grid_z               overall distance of grid nodes in z direction
-    model_fn             full path to initial file name
-    model_fn_basename    default name for the model file name
-    n_air_layers         number of air layers in the model. *default* is 0
-    n_layers             total number of vertical layers in model
-    nodes_east           relative distance between nodes in east direction
-    nodes_north          relative distance between nodes in north direction
-    nodes_z              relative distance between nodes in east direction
-    pad_east             number of cells for padding on E and W sides
-                         *default* is 7
-    pad_north            number of cells for padding on S and N sides
-                         *default* is 7
-    pad_num              number of cells with cell_size with outside of
-                         station area.  *default* is 3
-    pad_method           method to use to create padding:
-                         extent1, extent2 - calculate based on ew_ext and
-                         ns_ext
-                         stretch - calculate based on pad_stretch factors
-    pad_stretch_h        multiplicative number for padding in horizontal
-                         direction.
-    pad_stretch_v        padding cells N & S will be pad_root_north**(x)
-    pad_z                number of cells for padding at bottom
-                         *default* is 4
-    ew_ext               E-W extension of model in meters
-    ns_ext               N-S extension of model in meters
-    res_scale            scaling method of res, supports
-                           'loge' - for log e format
-                           'log' or 'log10' - for log with base 10
-                           'linear' - linear scale
-                         *default* is 'loge'
-    res_list             list of resistivity values for starting model
-    res_model            starting resistivity model
-    res_initial_value    resistivity initial value for the resistivity model
-                         *default* is 100
-    mesh_rotation_angle  Angle to rotate the grid to. Angle is measured
-                         positve clockwise assuming North is 0 and east is 90.
-                         *default* is None
-    save_path            path to save file to
-    sea_level            sea level in grid_z coordinates. *default* is 0
-    station_locations    location of stations
-    title                title in initial file
-    z1_layer             first layer thickness
-    z_bottom             absolute bottom of the model *default* is 300,000
-    z_target_depth       Depth of deepest target, *default* is 50,000
-    ==================== ======================================================
-
-
+        ==================== ======================================================
+        Attributes           Description
+        ==================== ======================================================
+        _logger              python logging object that put messages in logging
+                             format defined in logging configure file, see MtPyLog
+                             more information
+        cell_number_ew       optional for user to specify the total number of sells
+                             on the east-west direction. *default* is None
+        cell_number_ns       optional for user to specify the total number of sells
+                             on the north-south direction. *default* is None
+        cell_size_east       mesh block width in east direction
+                             *default* is 500
+        cell_size_north      mesh block width in north direction
+                             *default* is 500
+        grid_center          center of the mesh grid
+        grid_east            overall distance of grid nodes in east direction
+        grid_north           overall distance of grid nodes in north direction
+        grid_z               overall distance of grid nodes in z direction
+        model_fn             full path to initial file name
+        model_fn_basename    default name for the model file name
+        n_air_layers         number of air layers in the model. *default* is 0
+        n_layers             total number of vertical layers in model
+        nodes_east           relative distance between nodes in east direction
+        nodes_north          relative distance between nodes in north direction
+        nodes_z              relative distance between nodes in east direction
+        pad_east             number of cells for padding on E and W sides
+                             *default* is 7
+        pad_north            number of cells for padding on S and N sides
+                             *default* is 7
+        pad_num              number of cells with cell_size with outside of
+                             station area.  *default* is 3
+        pad_method           method to use to create padding:
+                             extent1, extent2 - calculate based on ew_ext and
+                             ns_ext
+                             stretch - calculate based on pad_stretch factors
+        pad_stretch_h        multiplicative number for padding in horizontal
+                             direction.
+        pad_stretch_v        padding cells N & S will be pad_root_north**(x)
+        pad_z                number of cells for padding at bottom
+                             *default* is 4
+        ew_ext               E-W extension of model in meters
+        ns_ext               N-S extension of model in meters
+        res_scale            scaling method of res, supports
+                               'loge' - for log e format
+                               'log' or 'log10' - for log with base 10
+                               'linear' - linear scale
+                             *default* is 'loge'
+        res_list             list of resistivity values for starting model
+        res_model            starting resistivity model
+        res_initial_value    resistivity initial value for the resistivity model
+                             *default* is 100
+        mesh_rotation_angle  Angle to rotate the grid to. Angle is measured
+                             positve clockwise assuming North is 0 and east is 90.
+                             *default* is None
+        save_path            path to save file to
+        sea_level            sea level in grid_z coordinates. *default* is 0
+        station_locations    location of stations
+        title                title in initial file
+        z1_layer             first layer thickness
+        z_bottom             absolute bottom of the model *default* is 300,000
+        z_target_depth       Depth of deepest target, *default* is 50,000
+        ==================== ======================================================
     """
 
     def __init__(self, station_locations=None, center_point=None, **kwargs):
@@ -258,6 +253,7 @@ class Model:
                 )
 
     def __str__(self):
+        """Str function."""
         lines = ["ModEM Model Object:", "-" * 20]
         # --> print out useful information
         try:
@@ -302,14 +298,17 @@ class Model:
         return "\n".join(lines)
 
     def __repr__(self):
+        """Repr function."""
         return self.__str__()
 
     @property
     def save_path(self):
+        """Save path."""
         return self._save_path
 
     @save_path.setter
     def save_path(self, save_path):
+        """Save path."""
         if save_path is None:
             self._save_path = Path().cwd()
         else:
@@ -320,10 +319,12 @@ class Model:
 
     @property
     def model_fn(self):
+        """Model fn."""
         return self.save_path.joinpath(self.model_fn_basename)
 
     @model_fn.setter
     def model_fn(self, filename):
+        """Model fn."""
         if filename is not None:
             filename = Path(filename)
             self.save_path = filename.parent
@@ -331,10 +332,12 @@ class Model:
 
     @property
     def model_epsg(self):
+        """Model epsg."""
         return self.center_point.utm_epsg
 
     @model_epsg.setter
     def model_epsg(self, value):
+        """Model epsg."""
         self.center_point.utm_epsg = value
 
     # --> make nodes and grid symbiotic so if you set one the other one
@@ -342,6 +345,7 @@ class Model:
     # Nodes East
     @property
     def nodes_east(self):
+        """Nodes east."""
         if self.grid_east is not None:
             self._nodes_east = np.array(
                 [
@@ -353,6 +357,7 @@ class Model:
 
     @nodes_east.setter
     def nodes_east(self, nodes):
+        """Nodes east."""
         nodes = np.array(nodes)
         self._nodes_east = nodes
         self.grid_east = np.array(
@@ -364,6 +369,7 @@ class Model:
     # Nodes North
     @property
     def nodes_north(self):
+        """Nodes north."""
         if self.grid_north is not None:
             self._nodes_north = np.array(
                 [
@@ -375,6 +381,7 @@ class Model:
 
     @nodes_north.setter
     def nodes_north(self, nodes):
+        """Nodes north."""
         nodes = np.array(nodes)
         self._nodes_north = nodes
         self.grid_north = np.array(
@@ -385,6 +392,7 @@ class Model:
 
     @property
     def nodes_z(self):
+        """Nodes z."""
         if self.grid_z is not None:
             self._nodes_z = np.array(
                 [
@@ -397,6 +405,7 @@ class Model:
 
     @nodes_z.setter
     def nodes_z(self, nodes):
+        """Nodes z."""
         nodes = np.array(nodes)
         self._nodes_z = nodes
         self.grid_z = np.array(
@@ -407,6 +416,7 @@ class Model:
     # resistivity model
     @property
     def plot_east(self):
+        """Plot east."""
         plot_east = np.array(
             [self.nodes_east[0:ii].sum() for ii in range(self.nodes_east.size)]
         )
@@ -414,6 +424,7 @@ class Model:
 
     @property
     def plot_north(self):
+        """Plot north."""
         plot_north = np.array(
             [
                 self.nodes_north[0:ii].sum()
@@ -424,13 +435,13 @@ class Model:
 
     @property
     def plot_z(self):
+        """Plot z."""
         return np.array(
             [self.nodes_z[0:ii].sum() for ii in range(self.nodes_z.size)]
         )
 
     def make_mesh(self, verbose=True):
-        """
-        create finite element mesh according to user-input parameters.
+        """Create finite element mesh according to user-input parameters.
 
         The mesh is built by:
             1. Making a regular grid within the station area.
@@ -442,7 +453,6 @@ class Model:
             5. Add vertical padding cells to desired extension.
             6. Check to make sure none of the stations lie on a node.
                If they do then move the node by .02*cell_width
-
         """
 
         # --> find the edges of the grid
@@ -612,9 +622,7 @@ class Model:
             print(self.__str__())
 
     def make_z_mesh(self, n_layers=None):
-        """
-        new version of make_z_mesh. make_z_mesh and M
-        """
+        """New version of make_z_mesh. make_z_mesh and M."""
         n_layers = self.n_layers if n_layers is None else n_layers
 
         # --> make depth grid
@@ -658,19 +666,16 @@ class Model:
     def add_layers_to_mesh(
         self, n_add_layers=None, layer_thickness=None, where="top"
     ):
-        """
-        Function to add constant thickness layers to the top or bottom of mesh.
+        """Function to add constant thickness layers to the top or bottom of mesh.
+
         Note: It is assumed these layers are added before the topography. If
         you want to add topography layers, use function add_topography_to_model
-
-        :param n_add_layers: integer, number of layers to add
-        :param layer_thickness: real value or list/array. Thickness of layers,
-                                defaults to z1 layer. Can provide a single value
-                                or a list/array containing multiple layer
-                                thicknesses.
-        :param where: where to add, top or bottom
-
-
+        :param n_add_layers: Integer, number of layers to add, defaults to None.
+        :param layer_thickness: Real value or list/array. Thickness of layers,
+             Can provide a single value
+            or a list/array containing multiple layer
+            thicknesses, defaults to None.
+        :param where: Where to add, top or bottom, defaults to "top".
         """
         # create array containing layers to add
         if layer_thickness is None:
@@ -705,8 +710,7 @@ class Model:
     def assign_resistivity_from_surface_data(
         self, top_surface, bottom_surface, resistivity_value
     ):
-        """
-        assign resistivity value to all points above or below a surface
+        """Assign resistivity value to all points above or below a surface
         requires the surface_dict attribute to exist and contain data for
         surface key (can get this information from ascii file using
         project_surface)
@@ -735,8 +739,7 @@ class Model:
                 self.res_model[j, i, ii] = resistivity_value
 
     def write_model_file(self, **kwargs):
-        """
-        will write an initial file for ModEM.
+        """Will write an initial file for ModEM.
 
         Note that x is assumed to be S --> N, y is assumed to be W --> E and
         z is positive downwards.  This means that index [0, 0, 0] is the
@@ -748,55 +751,53 @@ class Model:
         builds the  model from the bottom SW corner assuming the cell width
         from the init file.
 
-        Key Word Arguments:
-        ----------------------
+        Key Word Arguments::
 
-            **nodes_north** : np.array(nx)
-                        block dimensions (m) in the N-S direction.
-                        **Note** that the code reads the grid assuming that
-                        index=0 is the southern most point.
+                **nodes_north** : np.array(nx)
+                            block dimensions (m) in the N-S direction.
+                            **Note** that the code reads the grid assuming that
+                            index=0 is the southern most point.
 
-            **nodes_east** : np.array(ny)
-                        block dimensions (m) in the E-W direction.
-                        **Note** that the code reads in the grid assuming that
-                        index=0 is the western most point.
+                **nodes_east** : np.array(ny)
+                            block dimensions (m) in the E-W direction.
+                            **Note** that the code reads in the grid assuming that
+                            index=0 is the western most point.
 
-            **nodes_z** : np.array(nz)
-                        block dimensions (m) in the vertical direction.
-                        This is positive downwards.
+                **nodes_z** : np.array(nz)
+                            block dimensions (m) in the vertical direction.
+                            This is positive downwards.
 
-            **save_path** : string
-                          Path to where the initial file will be saved
-                          to save_path/model_fn_basename
+                **save_path** : string
+                              Path to where the initial file will be saved
+                              to save_path/model_fn_basename
 
-            **model_fn_basename** : string
-                                    basename to save file to
-                                    *default* is ModEM_Model.ws
-                                    file is saved at save_path/model_fn_basename
+                **model_fn_basename** : string
+                                        basename to save file to
+                                        *default* is ModEM_Model.ws
+                                        file is saved at save_path/model_fn_basename
 
-            **title** : string
-                        Title that goes into the first line
-                        *default* is Model File written by MTpy.modeling.modem
+                **title** : string
+                            Title that goes into the first line
+                            *default* is Model File written by MTpy.modeling.modem
 
-            **res_model** : np.array((nx,ny,nz))
-                        Prior resistivity model.
+                **res_model** : np.array((nx,ny,nz))
+                            Prior resistivity model.
 
-                        .. note:: again that the modeling code
-                        assumes that the first row it reads in is the southern
-                        most row and the first column it reads in is the
-                        western most column.  Similarly, the first plane it
-                        reads in is the Earth's surface.
+                            .. note:: again that the modeling code
+                            assumes that the first row it reads in is the southern
+                            most row and the first column it reads in is the
+                            western most column.  Similarly, the first plane it
+                            reads in is the Earth's surface.
 
-            **res_starting_value** : float
-                                     starting model resistivity value,
-                                     assumes a half space in Ohm-m
-                                     *default* is 100 Ohm-m
+                **res_starting_value** : float
+                                         starting model resistivity value,
+                                         assumes a half space in Ohm-m
+                                         *default* is 100 Ohm-m
 
-            **res_scale** : [ 'loge' | 'log' | 'log10' | 'linear' ]
-                            scale of resistivity.  In the ModEM code it
-                            converts everything to Loge,
-                            *default* is 'loge'
-
+                **res_scale** : [ 'loge' | 'log' | 'log10' | 'linear' ]
+                                scale of resistivity.  In the ModEM code it
+                                converts everything to Loge,
+                                *default* is 'loge'
         """
         for key in list(kwargs.keys()):
             setattr(self, key, kwargs[key])
@@ -906,49 +907,43 @@ class Model:
         self._logger.info("Wrote file to: {0}".format(self.model_fn))
 
     def read_model_file(self, model_fn=None):
-        """
-        read an initial file and return the pertinent information including
+        """Read an initial file and return the pertinent information including
         grid positions in coordinates relative to the center point (0,0) and
         starting model.
 
         Note that the way the model file is output, it seems is that the
         blocks are setup as
 
-        ModEM:                           WS:
-        ----------                      -----
-        0-----> N_north                 0-------->N_east
-        |                               |
-        |                               |
-        V                               V
-        N_east                          N_north
+        ModEM:                           WS::
+            0-----> N_north                 0-------->N_east
+            |                               |
+            |                               |
+            V                               V
+            N_east                          N_north
 
+        Arguments::
 
-        Arguments:
-        ----------
+                **model_fn** : full path to initializing file.
 
-            **model_fn** : full path to initializing file.
+        Outputs::
 
-        Outputs:
-        --------
+                **nodes_north** : np.array(nx)
+                            array of nodes in S --> N direction
 
-            **nodes_north** : np.array(nx)
-                        array of nodes in S --> N direction
+                **nodes_east** : np.array(ny)
+                            array of nodes in the W --> E direction
 
-            **nodes_east** : np.array(ny)
-                        array of nodes in the W --> E direction
+                **nodes_z** : np.array(nz)
+                            array of nodes in vertical direction positive downwards
 
-            **nodes_z** : np.array(nz)
-                        array of nodes in vertical direction positive downwards
+                **res_model** : dictionary
+                            dictionary of the starting model with keys as layers
 
-            **res_model** : dictionary
-                        dictionary of the starting model with keys as layers
+                **res_list** : list
+                            list of resistivity values in the model
 
-            **res_list** : list
-                        list of resistivity values in the model
-
-            **title** : string
-                         title string
-
+                **title** : string
+                             title string
         """
 
         if model_fn is not None:
@@ -1066,14 +1061,12 @@ class Model:
         )[0].size
 
     def plot_mesh(self, **kwargs):
-        """
-        Plot model mesh
-
-        :param plot_topography: DESCRIPTION, defaults to False
+        """Plot model mesh.
+        :param **kwargs:
+        :param plot_topography: DESCRIPTION, defaults to False.
         :type plot_topography: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if "topography" in self.surface_dict.keys():
@@ -1082,11 +1075,8 @@ class Model:
 
     @property
     def model_parameters(self):
-        """
-        get important model parameters to write to a file for documentation
+        """Get important model parameters to write to a file for documentation
         later.
-
-
         """
 
         parameter_list = [
@@ -1118,8 +1108,7 @@ class Model:
     def write_gocad_sgrid_file(
         self, fn=None, origin=[0, 0, 0], clip=0, no_data_value=-99999
     ):
-        """
-        write a model to gocad sgrid
+        """Write a model to gocad sgrid
 
         optional inputs:
 
@@ -1128,8 +1117,7 @@ class Model:
         origin = real world [x,y,z] location of zero point in model grid
         clip = how much padding to clip off the edge of the model for export,
                provide one integer value or list of 3 integers for x,y,z directions
-        no_data_value = no data value to put in sgrid
-
+        no_data_value = no data value to put in sgrid.
         """
         if not np.iterable(clip):
             clip = [clip, clip, clip]
@@ -1194,11 +1182,10 @@ class Model:
         sea_resistivity=0.3,
         sgrid_positive_up=True,
     ):
-        """
-        read a gocad sgrid file and put this info into a ModEM file.
+        """Read a gocad sgrid file and put this info into a ModEM file.
+
         Note: can only deal with grids oriented N-S or E-W at this stage,
         with orthogonal coordinates
-
         """
         # read sgrid file
         sg_obj = mtgocad.Sgrid()
@@ -1284,8 +1271,7 @@ class Model:
         shift_north=0,
         shift_east=0,
     ):
-        """
-        project a surface to the model grid and add resulting elevation data
+        """Project a surface to the model grid and add resulting elevation data
         to a dictionary called surface_dict. Assumes the surface is in lat/long
         coordinates (wgs84)
 
@@ -1324,7 +1310,6 @@ class Model:
         surface_epsg = epsg number of input surface, default is 4326 for lat/lon(wgs84)
         method = interpolation method. Default is 'nearest', if model grid is
         dense compared to surface points then choose 'linear' or 'cubic'
-
         """
         # initialise a dictionary to contain the surfaces
         if not hasattr(self, "surface_dict"):
@@ -1393,8 +1378,7 @@ class Model:
         topography_buffer=None,
         airlayer_type="log_up",
     ):
-        """
-        Wrapper around add_topography_to_model that allows creating
+        """Wrapper around add_topography_to_model that allows creating
         a surface model from EDI data. The Data grid and station
         elevations will be used to make a 'surface' tuple that will
         be passed to add_topography_to_model so a surface model
@@ -1402,18 +1386,21 @@ class Model:
 
         The surface tuple is of format (lon, lat, elev) containing
         station locations.
-
-        Args:
-            data_object (mtpy.modeling.ModEM.data.Data): A ModEm data
-                object that has been filled with data from EDI files.
-            interp_method (str, optional): Same as
-                add_topography_to_model.
-            air_resistivity (float, optional): Same as
-                add_topography_to_model.
-            topography_buffer (float): Same as
-                add_topography_to_model.
-            airlayer_type (str, optional): Same as
-                add_topography_to_model.
+        :param data_object: A ModEm data
+            object that has been filled with data from EDI files.
+        :type data_object: mtpy.modeling.ModEM.data.Data
+        :param interp_method: Same as
+            add_topography_to_model, defaults to "nearest".
+        :type interp_method: str, optional
+        :param air_resistivity: Same as
+            add_topography_to_model, defaults to 1e12.
+        :type air_resistivity: float, optional
+        :param topography_buffer: Same as
+            add_topography_to_model, defaults to None.
+        :type topography_buffer: float, optional
+        :param airlayer_type: Same as
+            add_topography_to_model, defaults to "log_up".
+        :type airlayer_type: str, optional
         """
         lon = self.station_locations.longitude.to_numpy()
         lat = self.station_locations.latitude.to_numpy()
@@ -1440,28 +1427,34 @@ class Model:
         shift_east=0,
         shift_north=0,
     ):
-        """
-        if air_layers is non-zero, will add topo: read in topograph file,
+        """If air_layers is non-zero, will add topo: read in topograph file,
         make a surface model.
 
         Call project_stations_on_topography in the end, which will re-write
         the .dat file.
 
         If n_airlayers is zero, then cannot add topo data, only bathymetry is needed.
-
-        :param topography_file: file containing topography (arcgis ascii grid)
-        :param topography_array: alternative to topography_file - array of
-                                elevation values on model grid
-        :param interp_method: interpolation method for topography,
-                              'nearest', 'linear', or 'cubic'
-        :param air_resistivity: resistivity value to assign to air
-        :param topography_buffer: buffer around stations to calculate minimum
-                                  and maximum topography value to use for
-                                  meshing
-        :param airlayer_type: how to set air layer thickness - options are
-                             'constant' for constant air layer thickness,
-                             or 'log', for logarithmically increasing air
-                             layer thickness upward
+        :param shift_north:
+            Defaults to 0.
+        :param shift_east:
+            Defaults to 0.
+        :param max_elev:
+            Defaults to None.
+        :param surface:
+            Defaults to None.
+        :param topography_file: File containing topography (arcgis ascii grid), defaults to None.
+        :param topography_array: Alternative to topography_file - array of
+            elevation values on model grid, defaults to None.
+        :param interp_method: Interpolation method for topography,
+            'nearest', 'linear', or 'cubic', defaults to "nearest".
+        :param air_resistivity: Resistivity value to assign to air, defaults to 1e12.
+        :param topography_buffer: Buffer around stations to calculate minimum
+            and maximum topography value to use for
+            meshing, defaults to None.
+        :param airlayer_type: How to set air layer thickness - options are
+            'constant' for constant air layer thickness,
+            or 'log', for logarithmically increasing air
+            layer thickness upward, defaults to "log_up".
         """
         # first, get surface data
         if topography_file:
@@ -1607,11 +1600,9 @@ class Model:
         return
 
     def _validate_extent(self, east, west, south, north, extent_ratio=2.0):
-        """
-        validate the provided ew_ext and ns_ext to make sure the model fits
+        """Validate the provided ew_ext and ns_ext to make sure the model fits
         within these extents and allows enough space for padding according to
         the extent ratio provided. If not, then update ew_ext and ns_ext parameters
-
         """
         inner_ew_ext = west - east
         inner_ns_ext = north - south
@@ -1629,6 +1620,7 @@ class Model:
             self.ns_ext = np.ceil(extent_ratio * inner_ns_ext)
 
     def _get_xyzres(self, location_type, origin, model_epsg, clip):
+        """Get xyzres."""
         # try getting centre location info from file
         if type(origin) == str:
             try:
@@ -1687,10 +1679,7 @@ class Model:
         model_utm_zone=None,
         clip=[0, 0],
     ):
-        """
-        save a model file as a space delimited x y z res file
-
-        """
+        """Save a model file as a space delimited x y z res file."""
         xp, yp, z, resvals, fmt = self._get_xyzres(
             location_type, origin, model_epsg, clip
         )
@@ -1715,8 +1704,7 @@ class Model:
         log_res=False,
         clip=[0, 0],
     ):
-        """
-        write files containing depth slice data (x, y, res for each depth)
+        """Write files containing depth slice data (x, y, res for each depth)
 
         origin = x,y coordinate of zero point of ModEM_grid, or name of file
                  containing this info (full path or relative to model files)
@@ -1727,8 +1715,7 @@ class Model:
         outfile_basename = string for basename for saving the depth slices.
         log_res = True/False - option to save resistivity values as log10
                                instead of linear
-        clip = number of cells to clip on each of the east/west and north/south edges
-
+        clip = number of cells to clip on each of the east/west and north/south edges.
         """
         if save_path is None:
             save_path = Path(self.save_path)
@@ -1779,36 +1766,24 @@ class Model:
         coordinate_system="nez+",
         label="resistivity",
     ):
-        """
-        Write a VTK file to plot in 3D rendering programs like Paraview
-
-        :param vtk_save_path: directory to save vtk file to, defaults to None
+        """Write a VTK file to plot in 3D rendering programs like Paraview.
+        :param label:
+            Defaults to "resistivity".
+        :param coordinate_system:
+            Defaults to "nez+".
+        :param units:
+            Defaults to "km".
+        :param shift_z:
+            Defaults to 0.
+        :param shift_north:
+            Defaults to 0.
+        :param shift_east:
+            Defaults to 0.
+        :param vtk_save_path: Directory to save vtk file to, defaults to None.
         :type vtk_save_path: string or Path, optional
-        :param vtk_fn_basename: filename basename of vtk file, note that .vtr
-        extension is automatically added, defaults to "ModEM_stations"
-        :type vtk_fn_basename: string, optional
-        :type geographic: boolean, optional
-        :param shift_east: shift in east directions in meters, defaults to 0
-        :type shift_east: float, optional
-        :param shift_north: shift in north direction in meters, defaults to 0
-        :type shift_north: float, optional
-        :param shift_z: shift in elevation + down in meters, defaults to 0
-        :type shift_z: float, optional
-        :param units: Units of the spatial grid [ km | m | ft ], defaults to "km"
-        :type units: string, optional
-        :type : string
-        :param coordinate_system: coordinate system for the station, either the
-        normal MT right-hand coordinate system with z+ down or the sinister
-        z- down [ nez+ | enz- ], defaults to nez+
-        :return: full path to VTK file
+        :param vtk_fn_basename: Filename basename of vtk file, note that .vtr, defaults to "ModEM_model_res".
+        :return: Full path to VTK file.
         :rtype: Path
-
-        Write VTK file
-        >>> model.write_vtk_file(vtk_fn_basename="modem_model")
-
-        Write VTK file in geographic coordinates with z+ up
-        >>> model.write_vtk_station_file(vtk_fn_basename="modem_model",
-        >>> ...                          coordinate_system='enz-')
         """
 
         if isinstance(units, str):
@@ -1853,27 +1828,23 @@ class Model:
         pad_east=0,
         pad_z=0,
     ):
-        """
-        Write an XYZ file readable by Geosoft
+        """Write an XYZ file readable by Geosoft
 
-        All input units are in meters.
-
-        :param save_fn: full path to save file to
+        All input units are in meters..
+        :param save_fn: Full path to save file to.
         :type save_fn: string or Path
-        :param c_east: center point in the east direction, defaults to 0
+        :param c_east: Center point in the east direction, defaults to 0.
         :type c_east: float, optional
-        :param c_north: center point in the north direction, defaults to 0
+        :param c_north: Center point in the north direction, defaults to 0.
         :type c_north: float, optional
-        :param c_z: center point elevation, defaults to 0
+        :param c_z: Center point elevation, defaults to 0.
         :type c_z: float, optional
-        :param pad_north: number of cells to cut from the north-south edges, defaults to 0
+        :param pad_north: Number of cells to cut from the north-south edges, defaults to 0.
         :type pad_north: int, optional
-        :param pad_east: number of cells to cut from the east-west edges, defaults to 0
+        :param pad_east: Number of cells to cut from the east-west edges, defaults to 0.
         :type pad_east: int, optional
-        :param pad_z: number of cells to cut from the bottom, defaults to 0
+        :param pad_z: Number of cells to cut from the bottom, defaults to 0.
         :type pad_z: int, optional
-
-
         """
         lines = [
             r"/ ------------------------------------------------------------------------------",
@@ -1897,24 +1868,21 @@ class Model:
     def write_out_file(
         self, save_fn, geographic_east, geographic_north, geographic_elevation
     ):
-        """
-        will write an .out file for LeapFrog.
+        """Will write an .out file for LeapFrog.
 
         Note that y is assumed to be S --> N, e is assumed to be W --> E and
         z is positive upwards.  This means that index [0, 0, 0] is the
         southwest corner of the first layer.
-
-        :param save_fn: full path to save file to
+        :param save_fn: Full path to save file to.
         :type save_fn: string or Path
-        :param geographic_east: geographic center in easting (meters)
+        :param geographic_east: Geographic center in easting (meters).
         :type geographic_east: float
-        :param geographic_north: geographic center in northing (meters)
+        :param geographic_north: Geographic center in northing (meters).
         :type geographic_north: float
-        :param geographic_elevation: elevation of geographic center (meters)
+        :param geographic_elevation: Elevation of geographic center (meters).
         :type geographic_elevation: float
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         # get resistivity model
@@ -2017,22 +1985,18 @@ class Model:
         self._logger.info("Wrote file to: {0}".format(save_fn))
 
     def write_ubc_files(self, basename, c_east=0, c_north=0, c_z=0):
-        """
-        Write a UBC .msh and .mod file
-
-        :param save_fn: DESCRIPTION
+        """Write a UBC .msh and .mod file.
+        :param basename:
+        :param save_fn: DESCRIPTION.
         :type save_fn: TYPE
-        :param c_east: DESCRIPTION, defaults to 0
+        :param c_east: DESCRIPTION, defaults to 0.
         :type c_east: TYPE, optional
-        :param c_north: DESCRIPTION, defaults to 0
+        :param c_north: DESCRIPTION, defaults to 0.
         :type c_north: TYPE, optional
-        :param c_z: DESCRIPTION, defaults to 0
+        :param c_z: DESCRIPTION, defaults to 0.
         :type c_z: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
-
-        .. note:: not complete yet.
         """
 
         # write mesh first

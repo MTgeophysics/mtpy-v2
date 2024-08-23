@@ -35,10 +35,7 @@ from mtpy.core import MTDataFrame
 
 
 class ShapefileCreator:
-    """
-    Create phase tensor and tipper shape files using geopandas and shapely tools
-
-    """
+    """Create phase tensor and tipper shape files using geopandas and shapely tools."""
 
     def __init__(
         self,
@@ -46,19 +43,17 @@ class ShapefileCreator:
         output_crs,
         save_dir=None,
     ):
-        """
-
-        :param mt_dataframe: DESCRIPTION
+        """Init function.
+        :param mt_dataframe: DESCRIPTION.
         :type mt_dataframe: TYPE
-        :param output_crs: DESCRIPTION
+        :param output_crs: DESCRIPTION.
         :type output_crs: TYPE
-        :param save_dir: DESCRIPTION, defaults to None
+        :param save_dir: DESCRIPTION, defaults to None.
         :type save_dir: TYPE, optional
-        :param : DESCRIPTION
-        :type : TYPE
-        :return: DESCRIPTION
+        :param: DESCRIPTION.
+        :type: TYPE
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         self.logger = logger
         self.mt_dataframe = mt_dataframe
@@ -149,13 +144,13 @@ class ShapefileCreator:
 
     @property
     def mt_dataframe(self):
-        """MTDataFrame object"""
+        """MTDataFrame object."""
 
         return self._mt_dataframe
 
     @mt_dataframe.setter
     def mt_dataframe(self, df):
-        """make sure input is a MTDataFrame or converted to one"""
+        """Make sure input is a MTDataFrame or converted to one."""
 
         if isinstance(df, MTDataFrame):
             self._mt_dataframe = df
@@ -164,10 +159,12 @@ class ShapefileCreator:
 
     @property
     def save_dir(self):
+        """Save dir."""
         return self._save_dir
 
     @save_dir.setter
     def save_dir(self, value):
+        """Save dir."""
         if value is not None:
             self._save_dir = Path(value)
             if not self._save_dir.exists():
@@ -177,10 +174,12 @@ class ShapefileCreator:
 
     @property
     def output_crs(self):
+        """Output crs."""
         return self._output_crs
 
     @output_crs.setter
     def output_crs(self, value):
+        """Output crs."""
         if value is None:
             self._output_crs = None
         else:
@@ -188,6 +187,7 @@ class ShapefileCreator:
 
     @property
     def x_key(self):
+        """X key."""
         if self.utm:
             return "east"
         else:
@@ -195,50 +195,40 @@ class ShapefileCreator:
 
     @property
     def y_key(self):
+        """Y key."""
         if self.utm:
             return "north"
         else:
             return "latitude"
 
     def estimate_ellipse_size(self, quantile=0.015):
-        """
-        estimate ellipse size from station distances
-        """
+        """Estimate ellipse size from station distances."""
 
         return self.mt_dataframe.get_station_distances(utm=self.utm).quantile(
             quantile
         )
 
     def estimate_arrow_size(self, quantile=0.03):
-        """
-        arrow size from station distances
-        """
+        """Arrow size from station distances."""
 
         return self.mt_dataframe.get_station_distances(utm=self.utm).quantile(
             quantile
         )
 
     def _export_shapefiles(self, gpdf, element_type, period):
-        """
-        Convenience function for saving shapefiles.
-
-        Parameters
-        ----------
-        gpdf : geopandas.GeoDataFrame
-            Dataframe containg shapefile data.
-        element_type : str
-            Name of the element type, e.g. 'Phase_Tensor'.
-        epsg_code : int
-            EPSG code for CRS of the shapefile.
-        period : float
-            The period of the data.
-        export_fig : bool
-            Whether or not to export the shapefile as an image.
-
-        Returns
-        -------
-        str
-            Path to the shapefile.
+        """Convenience function for saving shapefiles.
+        :param gpdf: Dataframe containg shapefile data.
+        :type gpdf: geopandas.GeoDataFrame
+        :param element_type: Name of the element type, e.g. 'Phase_Tensor'.
+        :type element_type: str
+        :param epsg_code: EPSG code for CRS of the shapefile.
+        :type epsg_code: int
+        :param period: The period of the data.
+        :type period: float
+        :param export_fig: Whether or not to export the shapefile as an image.
+        :type export_fig: bool
+        :return: Path to the shapefile.
+        :rtype: str
         """
 
         if self.output_crs is not None:
@@ -253,18 +243,17 @@ class ShapefileCreator:
         return out_path
 
     def _get_period_geodf(self, period, comp, tol=None):
-        """
-        get a period geodf for given component
-
-        :param df: DESCRIPTION
+        """Get a period geodf for given component.
+        :param tol:
+            Defaults to None.
+        :param df: DESCRIPTION.
         :type df: TYPE
-        :param period: DESCRIPTION
+        :param period: DESCRIPTION.
         :type period: TYPE
-        :param comp: DESCRIPTION
+        :param comp: DESCRIPTION.
         :type comp: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         # get period
@@ -292,9 +281,8 @@ class ShapefileCreator:
         return crs, gpd.GeoDataFrame(pt_df, crs=crs, geometry=points)
 
     def _create_phase_tensor_shp(self, period, tol=None):
-        """
-        create phase tensor ellipses shape file correspond to a MT period
-        :return: (geopdf_obj, path_to_shapefile)
+        """Create phase tensor ellipses shape file correspond to a MT period.
+        :return: (geopdf_obj, path_to_shapefile).
         """
 
         crs, geopdf = self._get_period_geodf(period, "pt", tol=tol)
@@ -350,8 +338,7 @@ class ShapefileCreator:
         return shp_fn
 
     def _create_tipper_real_shp(self, period, tol=None):
-        """
-        create real tipper lines shapefile from a csv file
+        """Create real tipper lines shapefile from a csv file
         The shapefile consists of lines without arrow.
         User can use GIS software such as ArcGIS to display and add an arrow at each line's end
         line_length is how long will be the line, auto-calculatable
@@ -394,12 +381,11 @@ class ShapefileCreator:
         return shp_fn
 
     def _create_tipper_imag_shp(self, period, tol=None):
-        """
-        create imagery tipper lines shapefile from a csv file
+        """Create imagery tipper lines shapefile from a csv file
         The shapefile consists of lines without arrow.
         User can use GIS software such as ArcGIS to display and add an arrow at each line's end
         line_length is how long will be the line, auto-calculatable
-        :return:(geopdf_obj, path_to_shapefile)
+        :return :(geopdf_obj, path_to_shapefile):
         """
 
         crs, tdf = self._get_period_geodf(period, "tip", tol=tol)
@@ -440,19 +426,20 @@ class ShapefileCreator:
     def make_shp_files(
         self, pt=True, tipper=True, periods=None, period_tol=None
     ):
-        """
-        If you want all stations on the same period map need to interpolate
+        """If you want all stations on the same period map need to interpolate
         before converting to an MTDataFrame
 
         md.interpolate(new_periods)
-
-        :param pt: DESCRIPTION, defaults to True
+        :param period_tol:
+            Defaults to None.
+        :param periods:
+            Defaults to None.
+        :param pt: DESCRIPTION, defaults to True.
         :type pt: TYPE, optional
-        :param tipper: DESCRIPTION, defaults to True
+        :param tipper: DESCRIPTION, defaults to True.
         :type tipper: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if periods is None:

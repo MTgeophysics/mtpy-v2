@@ -29,13 +29,11 @@ import mtpy.utils.exceptions as mtex
 
 
 class PlotStations(PlotBase):
-    """
-    plot station locations in map view.
+    """Plot station locations in map view.
 
     Uses contextily to get the basemap.
     See https://contextily.readthedocs.io/en/latest/index.html for more
     information about options.
-
     """
 
     def __init__(self, geo_df, **kwargs):
@@ -78,6 +76,7 @@ class PlotStations(PlotBase):
             self.plot()
 
     def _set_subplot_parameters(self):
+        """Set subplot parameters."""
         plt.rcParams["font.size"] = self.font_size
         plt.rcParams["figure.subplot.left"] = self.subplot_left
         plt.rcParams["figure.subplot.right"] = self.subplot_right
@@ -85,6 +84,7 @@ class PlotStations(PlotBase):
         plt.rcParams["figure.subplot.top"] = self.subplot_top
 
     def _get_pad(self):
+        """Get pad."""
         return max(
             [
                 np.abs(self.gdf.geometry.x.min() - self.gdf.geometry.x.max())
@@ -95,21 +95,21 @@ class PlotStations(PlotBase):
         )
 
     def _get_xlimits(self, x):
+        """Get xlimits."""
         return (x.min() - self.pad, x.max() + self.pad)
 
     def _get_ylimits(self, y):
+        """Get ylimits."""
         return (y.min() - self.pad, y.max() + self.pad)
 
     def plot(self):
-        """
-
-        :param cx_source: DESCRIPTION, defaults to cx.providers.USGS.USTopo
+        """Plot function.
+        :param cx_source: DESCRIPTIONproviders.USGS.USTopo, defaults to cx.
         :type cx_source: TYPE, optional
-        :param cx_zoom: DESCRIPTION, defaults to None
+        :param cx_zoom: DESCRIPTION, defaults to None.
         :type cx_zoom: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         # make a figure instance

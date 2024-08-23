@@ -54,18 +54,15 @@ lo_headerelements = [
 
 
 def get_filename(fn, save_path, fn_basename):
-    """
-    Get file name from inputs
-
-    :param fn: DESCRIPTION
+    """Get file name from inputs.
+    :param fn: DESCRIPTION.
     :type fn: TYPE
-    :param save_path: DESCRIPTION
+    :param save_path: DESCRIPTION.
     :type save_path: TYPE
-    :param fn_basename: DESCRIPTION
+    :param fn_basename: DESCRIPTION.
     :type fn_basename: TYPE
-    :return: DESCRIPTION
+    :return: DESCRIPTION.
     :rtype: TYPE
-
     """
 
     if fn is not None:
@@ -85,8 +82,7 @@ def get_filename(fn, save_path, fn_basename):
 
 
 def read_surface_ascii(ascii_fn):
-    """
-    read in surface which is ascii format ()
+    """Read in surface which is ascii format ()
     unlike original function, returns numpy array of lon, lat, elev (no projections)
 
     The ascii format is assumed to be:
@@ -139,16 +135,15 @@ def read_surface_ascii(ascii_fn):
 
 
 def read_geotiff(filename, target_epsg=None, bounds=None):
-    """
-    read in a geotiff
-
-    :param filename: DESCRIPTION
+    """Read in a geotiff.
+    :param bounds:
+        Defaults to None.
+    :param filename: DESCRIPTION.
     :type filename: TYPE
-    :param target_epsg: DESCRIPTION, defaults to None
+    :param target_epsg: DESCRIPTION, defaults to None.
     :type target_epsg: TYPE, optional
-    :return: DESCRIPTION
+    :return: DESCRIPTION.
     :rtype: TYPE
-
     """
 
     dataset = rasterio.open(filename)
@@ -160,15 +155,12 @@ def read_geotiff(filename, target_epsg=None, bounds=None):
 
 
 def read1columntext(textfile):
-    """
-    read a list from a one column text file
-    """
+    """Read a list from a one column text file."""
     return [ff.strip() for ff in open(textfile).readlines()]
 
 
 def read_stationdatafile(textfile, read_duplicates=True):
-    """
-    read a space delimited file containing station info of any sort -
+    """Read a space delimited file containing station info of any sort -
     3 columns: station x, y, ... - to a dictionary - station:[x,y,...]
     textfile = full path to text file
     read_duplicates = True/False - if stations are listed more than once do you
@@ -178,8 +170,6 @@ def read_stationdatafile(textfile, read_duplicates=True):
     example:
     import mtpy.utils.filehandling as fh
     stationdict = fh.read_stationxyfile(textfile)
-
-
     """
     stationdict = {}
     for line in open(textfile).readlines():
@@ -204,6 +194,7 @@ def read_stationdatafile(textfile, read_duplicates=True):
 
 
 def make_unique_filename(infn):
+    """Make unique filename."""
     fn = op.abspath(infn)
     outfn = fn
     i = 1
@@ -216,9 +207,7 @@ def make_unique_filename(infn):
 
 
 def make_unique_folder(wd, basename="run"):
-    """
-    make a folder that doesn't exist already.
-    """
+    """Make a folder that doesn't exist already."""
 
     # define savepath. need to choose a name that doesn't already exist
     i = 1
@@ -237,18 +226,17 @@ def make_unique_folder(wd, basename="run"):
 def validate_save_file(
     savepath=None, savefile=None, basename=None, prioritise_savefile=False
 ):
-    """
-    Return savepath, savefile and basename, ensuring they are internally
+    """Return savepath, savefile and basename, ensuring they are internally
     consistent and populating missing fields from the others or using defaults.
 
     Prioritises savepath and basename. I.e. if savepath, savefile and basename
     are all valid but inconsistent, savefile will be updated to reflect
     savepath and basename
-
-    :param savepath: directory to save to
-    :param savefile: full file path to save to
-    :param basename: base file name to save to
-
+    :param prioritise_savefile:
+        Defaults to False.
+    :param savepath: Directory to save to, defaults to None.
+    :param savefile: Full file path to save to, defaults to None.
+    :param basename: Base file name to save to, defaults to None.
     """
 
     if prioritise_savefile:
@@ -290,8 +278,7 @@ def validate_save_file(
 
 
 def sort_folder_list(wkdir, order_file, indices=[0, 9999], delimiter=""):
-    """
-    sort subfolders in wkdir according to order in order_file
+    """Sort subfolders in wkdir according to order in order_file
 
     wkdir = working directory containing subfolders
     order = full path to text file containing order.
@@ -299,8 +286,7 @@ def sort_folder_list(wkdir, order_file, indices=[0, 9999], delimiter=""):
             for each item in the list
     indices = indices to search on; default take the whole string
 
-    returns a list of directories, in order.
-
+    returns a list of directories, in order..
     """
     order = read1columntext(order_file)
 
@@ -330,8 +316,7 @@ def get_pathlist(
     extension="",
     folder=False,
 ):
-    """
-    get a list of files or folders by searching on a string contained in
+    """Get a list of files or folders by searching on a string contained in
     search_stringlist or alternatively search_stringfile
 
     returns:
@@ -349,8 +334,6 @@ def get_pathlist(
             character, useful when matching up edi's to inversion directories
             that both contain additional characters
     extension = file extension, e.g. '.edi'
-
-
     """
 
     if search_stringfile is not None:
@@ -389,8 +372,7 @@ def get_pathlist(
 
 
 def get_sampling_interval_fromdatafile(filename, length=3600):
-    """
-    Find sampling interval from data file.
+    """Find sampling interval from data file.
 
     Provide data file (purely numerical content) and total
     data length in seconds (default 3600). Data are read in by
@@ -398,7 +380,6 @@ def get_sampling_interval_fromdatafile(filename, length=3600):
     the sampling interval.
 
     Lines beginning with # are ignored.
-
     """
 
     fn = op.abspath(op.realpath(filename))
@@ -411,8 +392,7 @@ def get_sampling_interval_fromdatafile(filename, length=3600):
 def EDL_make_Nhour_files(
     n_hours, inputdir, sampling, stationname=None, outputdir=None
 ):
-    """
-    See 'EDL_make_dayfiles' for description and syntax.
+    """See 'EDL_make_dayfiles' for description and syntax.
 
     Only difference: output files are blocks of (max) N hours, starting to count
     at midnight (00:00h) each day.
@@ -423,7 +403,6 @@ def EDL_make_Nhour_files(
     2.   input data files start on the hour marks
 
     Not working yet!!
-
     """
     # print '\n\tnot working yet - code under development !!\n'
     # return
@@ -809,9 +788,7 @@ def EDL_make_Nhour_files(
 
 
 def EDL_make_dayfiles(inputdir, sampling, stationname=None, outputdir=None):
-    """
-
-    Concatenate ascii time series to dayfiles (calendar day, UTC reference).
+    """Concatenate ascii time series to dayfiles (calendar day, UTC reference).
 
     Data can be within a single directory or a list of directories.
     However, the files in the directory(ies) 'inputdir' have to be for
@@ -833,7 +810,6 @@ def EDL_make_dayfiles(inputdir, sampling, stationname=None, outputdir=None):
     Note:
     Midnight cannot be in the middle of a file, because only file starts are
     checked for a new day!!
-
     """
     try:
         if type(inputdir) == str:
@@ -1163,13 +1139,10 @@ def EDL_make_dayfiles(inputdir, sampling, stationname=None, outputdir=None):
 
 
 def EDL_get_starttime_fromfilename(filename):
-    """
-    Return starttime of data file in epoch seconds.
+    """Return starttime of data file in epoch seconds.
 
     Starting time is determined by the filename. This has to be of the form
     'somthing/*.stationname.ddmmyyHHMMSS.??'
-
-
     """
     # clip parent paths and structure
     bn = op.basename(filename)
@@ -1199,6 +1172,7 @@ def EDL_get_starttime_fromfilename(filename):
 
 
 def EDL_get_stationname_fromfilename(filename):
+    """Edl get stationname fromfilename."""
     bn = op.basename(filename)
     parts_of_bn = bn.split(".")
     stationtime = parts_of_bn[-2]
@@ -1212,8 +1186,7 @@ def EDL_get_stationname_fromfilename(filename):
 
 
 def read_data_header(fn_raw):
-    """
-    Deprecated!!!
+    """Deprecated!!!
     USE
               read_ts_header
 
@@ -1222,16 +1195,13 @@ def read_data_header(fn_raw):
 
         Read the header line of MTpy TS data files.
 
-    input
-    -----
-    MTpy TS data file name
+    input:
+        MTpy TS data file name
 
-    output
-    -------
-    list of header elements:
-    stationname, channel, sampling rate, starttime first sample,
-    starttime last sample, unit, lat, lon, elevation
-
+    output:
+        list of header elements:
+        stationname, channel, sampling rate, starttime first sample,
+        starttime last sample, unit, lat, lon, elevation
     """
 
     fn = op.abspath(op.realpath(fn_raw))
@@ -1274,11 +1244,9 @@ def read_data_header(fn_raw):
 
 
 def read_2c2_file(filename):
-    """
-    Read in BIRRP 2c2 coherence files and return 4 lists
+    """Read in BIRRP 2c2 coherence files and return 4 lists
     containing [period],[freq],[coh],[zcoh]. Note if any of the coherences are
     negative a value of 0 will be given to them.
-
     """
 
     period = []
@@ -1320,10 +1288,8 @@ def read_2c2_file(filename):
 
 
 def validate_ts_file(tsfile):
-    """
-    Validate MTpy timeseries (TS) data file
+    """Validate MTpy timeseries (TS) data file
     Return Boolean value True/False .
-
     """
     tsfile = op.abspath(tsfile)
 
@@ -1424,10 +1390,7 @@ def read_ts_header(tsfile):
 
 
 def get_ts_header_string(header_dictionary):
-    """
-    Return a MTpy time series data file header string from a dictionary.
-
-    """
+    """Return a MTpy time series data file header string from a dictionary."""
 
     header_string = "# "
     for headerelement in lo_headerelements:
@@ -1444,14 +1407,12 @@ def get_ts_header_string(header_dictionary):
 
 
 def write_ts_file_from_tuple(outfile, ts_tuple, fmt="%.8e"):
-    """
-    Write an MTpy TS data file, where the content is provided as tuple:
+    """Write an MTpy TS data file, where the content is provided as tuple:
 
     (station, channel,samplingrate,t_min,nsamples,unit,lat,lon,elev, data)
 
     todo:
-    needs tuple-validation
-
+    needs tuple-validation.
     """
 
     header_dict = {}
@@ -1479,12 +1440,10 @@ def write_ts_file_from_tuple(outfile, ts_tuple, fmt="%.8e"):
 
 
 def read_ts_file(mtdatafile):
-    """
-    Read an MTpy TS data file and provide the content as tuple:
+    """Read an MTpy TS data file and provide the content as tuple:
 
     (station, channel,samplingrate,t_min,nsamples,unit,lat,lon,elev, data)
-    If header information is incomplete, the tuple is filled up with 'None'
-
+    If header information is incomplete, the tuple is filled up with 'None'.
     """
 
     infile = op.abspath(mtdatafile)
@@ -1524,6 +1483,7 @@ def read_ts_file(mtdatafile):
 
 
 def reorient_files(lo_files, configfile, lo_stations=None, outdir=None):
+    """Reorient files."""
     # read config file
     try:
         config_dict = MTcf.read_survey_configfile(configfile)

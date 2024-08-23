@@ -21,6 +21,7 @@ import math
 
 class Control:
     def __init__(self, **input_parameters):
+        """Init function."""
 
         self.run_input = [1, 0, 0.1, 40, 1.05, 1, 0]
         # define control file parameters
@@ -40,9 +41,7 @@ class Control:
             os.mkdir(self.working_directory)
 
     def write_ctlfile(self):
-        """
-        write control file
-        """
+        """Write control file."""
 
         # create control file
         # control file name is hardcoded into software!
@@ -67,9 +66,7 @@ class Control:
 
 
 class Inmodel:
-    """
-    **inmodel_
-    """
+    """**inmodel_."""
 
     def __init__(self, **input_parameters):
         self.working_directory = "."
@@ -83,8 +80,7 @@ class Inmodel:
             setattr(self, key, input_parameters[key])
 
     def build_inmodel(self):
-        """
-        build an inmodel file to be used as a constraint
+        """Build an inmodel file to be used as a constraint
         need to give it a dictionary containing values (list of rmin,rmax and strike) and bottom depths
         depths are the keys, resistivities are the values
         and a modeldir - needs to have the same steps as
@@ -125,8 +121,7 @@ class Inmodel:
         self.inmodel = np.vstack([mi, mthick, mvals.T]).T
 
     def write_inmodel(self, wd=None):
-        """
-        """
+        """Write inmodel."""
 
         if wd is not None:
             self.working_directory = wd
@@ -142,9 +137,7 @@ class Inmodel:
         print("written inmodel file to {}".format(self.working_directory))
 
     def read_inmodel(self):
-        """
-        read the inmodel file
-        """
+        """Read the inmodel file."""
 
         # read in file
         inmodel = np.loadtxt(os.path.join(self.working_directory, self.inmodelfile))
@@ -168,10 +161,7 @@ class Inmodel:
         ).T
 
     def get_boundaries(self):
-        """
-        get points at which the resistivity changes in the inmodel file
-
-        """
+        """Get points at which the resistivity changes in the inmodel file."""
 
         if not hasattr(self, "inmodel"):
             try:
@@ -194,10 +184,8 @@ class Inmodel:
 
 
 class Data:
-    """
-    deals with input data from 1d inversions, including creating a data file
+    """Deals with input data from 1d inversions, including creating a data file
     and reading a data file afterwards to compare with inversion responses
-
     """
 
     def __init__(self, working_directory, **input_parameters):
@@ -222,10 +210,7 @@ class Data:
                 self.working_directory = "."
 
     def build_data(self):
-        """
-        create data to write to an input file
-
-        """
+        """Create data to write to an input file."""
 
         # read edi file to edi object
         self.edi_object = mtedi.Edi(self.edipath)
@@ -283,10 +268,7 @@ class Data:
         self.z_err = ze
 
     def write_datafile(self, wd=None):
-        """
-        write data to file
-
-        """
+        """Write data to file."""
 
         if wd is not None:
             self.working_directory = wd
@@ -304,10 +286,9 @@ class Data:
         np.savetxt(fname, self.data, fmt=fmt, header=self.header, comments="")
 
     def read_datafile(self):
-        """
-        read data file into the data object.
-        calculate resistivity and phase
+        """Read data file into the data object.
 
+        calculate resistivity and phase
         """
         if self.datafile is None:
 
@@ -409,10 +390,7 @@ class Data:
             self.phase_err = phs_err.T.reshape(len(phs_err[0]), 2, 2)
 
     def rotate(self, rotation_angle):
-        """
-        use mtpy.analysis.geometry to rotate a z array and recalculate res and phase
-
-        """
+        """Use mtpy.analysis.geometry to rotate a z array and recalculate res and phase."""
         from . import pek1dclasses as pek1dc
 
         if not hasattr(self, "z"):
@@ -438,9 +416,7 @@ class Data:
 
 
 class Response:
-    """
-    deals with responses from 1d inversions
-    """
+    """Deals with responses from 1d inversions."""
 
     def __init__(self, wkdir, **input_parameters):
 
@@ -456,9 +432,7 @@ class Response:
         self.read_respfile()
 
     def read_respfile(self):
-        """
-        read respfile into a data object
-        """
+        """Read respfile into a data object."""
 
         # define path to file
         respfpath = os.path.join(self.working_directory, self.respfile)
@@ -493,10 +467,7 @@ class Response:
         self.phase = -self._phase
 
     def rotate(self, rotation_angle):
-        """
-        use mtpy.analysis.geometry to rotate a z array and recalculate res and phase
-
-        """
+        """Use mtpy.analysis.geometry to rotate a z array and recalculate res and phase."""
         from . import pek1dclasses as pek1dc
 
         if not hasattr(self, "z"):
@@ -524,9 +495,7 @@ class Response:
 
 
 class Fit:
-    """
-    deals with outputs from 1d inversions
-    """
+    """Deals with outputs from 1d inversions."""
 
     def __init__(self, wkdir, **input_parameters):
 
@@ -543,9 +512,7 @@ class Fit:
         self.read_fit()
 
     def find_nperiods(self):
-        """
-        find number of periods used in inversion
-        """
+        """Find number of periods used in inversion."""
 
         # find out number of periods
         respfpath = os.path.join(self.working_directory, self.respfile)
@@ -560,9 +527,7 @@ class Fit:
         self.n_periods = n - 1
 
     def read_fit(self):
-        """
-        read fit file to give structure and anisotropy penalties and penalty weights
-        """
+        """Read fit file to give structure and anisotropy penalties and penalty weights."""
         # load the file with fit values in it
         fit = np.loadtxt(os.path.join(self.working_directory, self.fitfile))
         #        print os.path.join(self.working_directory,self.fitfile)
@@ -582,9 +547,7 @@ class Fit:
         self.fit = fit
 
     def find_bestmodel(self):
-        """
-        find the smoothest model that fits the data within self.misfit_threshold
-        """
+        """Find the smoothest model that fits the data within self.misfit_threshold."""
 
         self.read_fit()
         fit = self.fit
@@ -605,9 +568,7 @@ class Fit:
 
 
 class Model:
-    """
-    deals with outputs from 1d inversions
-    """
+    """Deals with outputs from 1d inversions."""
 
     def __init__(self, wkdir, **input_parameters):
 
@@ -642,9 +603,7 @@ class Model:
         self._calculate_fit_vs_freq()
 
     def read_model(self):
-        """
-        read all models into an array
-        """
+        """Read all models into an array."""
 
         fpath = os.path.join(self.working_directory, self.modelfile)
         #        print fpath
@@ -663,14 +622,17 @@ class Model:
         self.models = models.reshape(0.5 * len(models) / nlayers, 2 * nlayers, 5)
 
     def read_fit(self):
+        """Read fit."""
         if self.Fit is None:
             self.Fit = Fit(self.working_directory, **self.input_parameters)
 
     def read_response(self):
+        """Read response."""
         if self.Resp is None:
             self.Resp = Response(self.working_directory, **self.input_parameters)
 
     def read_datafile(self):
+        """Read datafile."""
         if self.Data is None:
 
             self.Data = Data(
@@ -679,6 +641,7 @@ class Model:
             self.Data.read_datafile()
 
     def _calculate_fit_vs_freq(self):
+        """Calculate fit vs freq."""
 
         misfit_real = (
             (np.real(self.Resp.z[self.modelno - 1]) - np.real(self.Data.z))
@@ -692,10 +655,8 @@ class Model:
         self.Fit.misfit = misfit_real + 1j * misfit_imag
 
     def check_consistent_strike(self, depth, window=5, threshold=15.0):
-        """
-        check if a particular depth point corresponds to a consistent 
+        """Check if a particular depth point corresponds to a consistent
         strike direction
-
         """
 
         if self.models is None:
@@ -720,10 +681,8 @@ class Model:
     def find_max_anisotropy(
         self, min_depth=0.0, max_depth=None, strike_window=5, strike_threshold=10.0
     ):
-        """
-        find the point of maximum anisotropy in a model result within a given
+        """Find the point of maximum anisotropy in a model result within a given
         depth range. Check that the strike is stable below defined threshold
-
         """
         if self.models is None:
             self.read_model()
@@ -761,19 +720,16 @@ class Model:
         self.anisotropy_max_parameters = params
 
     def update_location_from_file(self, xyfile, indices=[0, 999]):
-        """
-        updates x and y location from an xy file with format
+        """Updates x and y location from an xy file with format
         station x y
         can give indices to search on if the station name in the file
         is not exactly the same as defined in the model.
-
         """
         return
 
 
 class Model_suite:
-    """
-    """
+    """Init function."""
 
     def __init__(self, working_directory, **input_parameters):
         self.working_directory = working_directory
@@ -841,15 +797,13 @@ class Model_suite:
     def get_aniso_peak_depth(
         self, min_depth=0, max_depth=None, strike_threshold=10.0, strike_window=5
     ):
-        """
-        get the min and max resistivities, depth and strike at point of maximum
+        """Get the min and max resistivities, depth and strike at point of maximum
         anisotropy between min and max depth.
 
         min and max depth can be float, integer or numpy array
 
         the depth is only selected if the strike is stable within parameters
         given by strike threshold and strike window.
-
         """
 
         model_params = np.zeros([len(self.model_list), 6])
@@ -886,12 +840,10 @@ class Model_suite:
         )
 
     def update_multiple_locations_from_file(self):
-        """
-        updates multiple x and y locations from an xy file with format
+        """Updates multiple x and y locations from an xy file with format
         station x y
         can give indices to search on if the station name in the file
         is not exactly the same as defined in the model.
-
         """
         xy = {}
         i1, i2 = self.station_search_indices
@@ -907,8 +859,7 @@ class Model_suite:
         self.y = np.array([m.y for m in self.model_list])
 
     def get_median_misfit(self):
-        """
-        """
+        """Get median misfit."""
 
         n = len(self.model_list)
         model_misfits = np.zeros(n)
@@ -924,11 +875,9 @@ class Model_suite:
 
 
 def _compute_res_phase(z, z_err, freq):
-    """
-    calculates *resistivity*, *phase*, *resistivity_err*, *phase_err*
+    """Calculates *resistivity*, *phase*, *resistivity_err*, *phase_err*
 
-    values for resistivity are in in Ohm m and phase in degrees.
-
+    values for resistivity are in in Ohm m and phase in degrees..
     """
 
     resistivity_err = np.zeros_like(z_err)

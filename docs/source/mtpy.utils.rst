@@ -60,6 +60,14 @@ mtpy.utils.edi\_folders module
    :undoc-members:
    :show-inheritance:
 
+mtpy.utils.estimate\_tf\_quality\_factor module
+-----------------------------------------------
+
+.. automodule:: mtpy.utils.estimate_tf_quality_factor
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 mtpy.utils.exceptions module
 ----------------------------
 
@@ -120,14 +128,6 @@ mtpy.utils.shapefiles module
 ----------------------------
 
 .. automodule:: mtpy.utils.shapefiles
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mtpy.utils.shapefiles\_creator module
--------------------------------------
-
-.. automodule:: mtpy.utils.shapefiles_creator
    :members:
    :undoc-members:
    :show-inheritance:

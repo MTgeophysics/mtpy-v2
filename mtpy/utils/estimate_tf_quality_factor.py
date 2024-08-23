@@ -26,23 +26,14 @@ from loguru import logger
 #
 # =============================================================================
 class EMTFStats:
-    """
-    Class to estimate data quality of EM transfer functions
-
-    :param tf_dir: transfer function directory
+    """Class to estimate data quality of EM transfer functions.
+    :param **kwargs:
+    :param t_object:
+    :param z_object:
+    :param tf_dir: Transfer function directory.
     :type tf_dir: string
-
-    :param stat_limits: criteria for statistics based on a 0-5 rating scale
+    :param stat_limits: Criteria for statistics based on a 0-5 rating scale.
     :type stat_limits: dictionary
-
-    :Example: ::
-
-        >>> from usgs_archive import estimate_tf_quality_factor as tfq
-        >>> edi_dir = r"/home/edi_folders/survey_01"
-        >>> q = EMTFStats()
-        >>> stat_df = q.compute_statistics(edi_dir)
-        >>> q_df = q.estimate_data_quality(stat_df=stat_df)
-        >>> s_df = q.summarize_data_quality(q_df)
     """
 
     def __init__(self, z_object, t_object, **kwargs):
@@ -117,35 +108,27 @@ class EMTFStats:
         )
 
     def locate_bad_res_points(self, res):
-        """
-        try to locate bad points to remove
-        """
+        """Try to locate bad points to remove."""
         return self._locate_bad_points(res, 0, factor=np.cos(np.pi / 4))
 
     def locate_bad_phase_points(self, phase, test=5):
-        """
-        try to locate bad points to remove
-        """
+        """Try to locate bad points to remove."""
         return self._locate_bad_points(phase, test)
 
     def locate_bad_tipper_points(self, tipper, test=0.2):
-        """
-        try to locate bad points to remove
-        """
+        """Try to locate bad points to remove."""
         return self._locate_bad_points(tipper, test)
 
     def _locate_bad_points(self, array, test, factor=None):
-        """
-        locat bad points within an array
-
-
-        :param array: DESCRIPTION
+        """Locat bad points within an array.
+        :param factor:
+            Defaults to None.
+        :param array: DESCRIPTION.
         :type array: TYPE
-        :param test: DESCRIPTION
+        :param test: DESCRIPTION.
         :type test: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         ### estimate levearge points, or outliers
@@ -195,8 +178,7 @@ class EMTFStats:
         return np.array(sorted(bad_points))
 
     def compute_statistics(self):
-        """
-        Compute statistics of the transfer functions in a given directory.
+        """Compute statistics of the transfer functions in a given directory.
 
         Statistics are:
 
@@ -205,14 +187,10 @@ class EMTFStats:
             * fit to a least-squres smooth curve
             * normalized standard deviation of the first derivative, another
               smoothness estimator
-
-        :param tf_dir: path to directory of transfer functions
+        :param tf_dir: Path to directory of transfer functions.
         :type tf_dir: string
-
-        :returns: data frame of all the statistics estimated
-        :rtype: pandas.DataFrame
-
-        .. note:: Writes a file to the tf_dir named tf_quality_statistics.csv
+        :return s: Data frame of all the statistics estimated.
+        :rtype s: pandas.DataFrame
         """
 
         stat_array = np.zeros(
@@ -403,22 +381,16 @@ class EMTFStats:
         return df
 
     def estimate_data_quality(self, stat_df):
-        """
-        Convert the statistical estimates into the rating between 0-5 given
+        """Convert the statistical estimates into the rating between 0-5 given
         a certain criteria.
 
         .. note:: To change the criteria change self.stat_limits
-
-        :param stat_df: Dataframe of the statistics
+        :param stat_df: Dataframe of the statistics.
         :type stat_df: pandas.DataFrame
-
-        :param stat_fn: name of .csv file of statistics
+        :param stat_fn: Name of .csv file of statistics.
         :type stat_fn: string
-
-        :returns: a dataframe of the converted statistics
-        :rtype: pandas.DataFrame
-
-        .. note:: Writes a file to the tf_dir named tf_quality_estimate.csv
+        :return s: A dataframe of the converted statistics.
+        :rtype s: pandas.DataFrame
         """
         if stat_df is None:
             raise ValueError("No DataFrame to analyze")
@@ -457,19 +429,13 @@ class EMTFStats:
             "fit": 0.05,
         },
     ):
-        """
-        Summarize the data quality into a single number for each station.
-
-        :param quality_df: Dataframe of the quality factors
+        """Summarize the data quality into a single number for each station.
+        :param quality_df: Dataframe of the quality factors.
         :type quality_df: pandas.DataFrame
-
-        :param quality_fn: name of .csv file of quality factors
+        :param quality_fn: Name of .csv file of quality factors.
         :type quality_fn: string
-
-        :returns: a dataframe of the  summarized quality factors
-        :rtype: pandas.DataFrame
-
-        .. note:: Writes a file to the tf_dir named tf_quality.csv
+        :return s: A dataframe of the  summarized quality factors.
+        :rtype s: pandas.DataFrame
         """
         if quality_df is None:
             raise ValueError("No DataFrame to analyze")
@@ -522,9 +488,7 @@ class EMTFStats:
         },
         round_qf=False,
     ):
-        """
-        Convenience function doing all the steps to estimate quality factor
-        """
+        """Convenience function doing all the steps to estimate quality factor."""
 
         qualities_df = self.estimate_data_quality(self.compute_statistics())
         if round_qf:

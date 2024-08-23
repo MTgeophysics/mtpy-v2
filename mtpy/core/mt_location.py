@@ -25,10 +25,7 @@ from mt_metadata.transfer_functions.io.tools import get_nm_elev
 
 
 class MTLocation:
-    """
-    Location for a MT site or point measurement
-
-    """
+    """Location for a MT site or point measurement."""
 
     def __init__(self, survey_metadata=None, **kwargs):
         self.logger = logger
@@ -74,6 +71,7 @@ class MTLocation:
                 )
 
     def _initiate_metadata(self):
+        """Initiate metadata."""
         survey_metadata = Survey(id=0)
         survey_metadata.add_station(Station(id=0))
         survey_metadata.stations[0].add_run(Run(id=0))
@@ -81,6 +79,7 @@ class MTLocation:
         return survey_metadata
 
     def _validate_metadata(self, survey_metadata):
+        """Validate metadata."""
         if not isinstance(survey_metadata, Survey):
             raise TypeError(
                 "Input metadata must be type "
@@ -96,6 +95,7 @@ class MTLocation:
         return survey_metadata
 
     def __str__(self):
+        """Str function."""
         lines = ["MT Location: ", "-" * 20]
         lines.append(f"  Latitude (deg):   {self.latitude:.6f}")
         lines.append(f"  Longitude (deg):  {self.longitude:.6f}")
@@ -114,16 +114,15 @@ class MTLocation:
         return "\n".join(lines)
 
     def __repr__(self):
+        """Repr function."""
         return self.__str__()
 
     def __eq__(self, other):
-        """
-        equals
-        :param other: DESCRIPTION
+        """Equals.
+        :param other: DESCRIPTION.
         :type other: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if not isinstance(other, MTLocation):
@@ -148,6 +147,7 @@ class MTLocation:
         return True
 
     def copy(self):
+        """Copy function."""
         copied = type(self)()
         copied._survey_metadata = self._survey_metadata.copy()
         # not sure why this is needed, survey metadata copies fine, but here
@@ -163,26 +163,31 @@ class MTLocation:
 
     @property
     def datum_crs(self):
+        """Datum crs."""
         if self._datum_crs is not None:
             return self._datum_crs
 
     @property
     def datum_name(self):
+        """Datum name."""
         if self._datum_crs is not None:
             return self._datum_crs.name
 
     @property
     def datum_epsg(self):
+        """Datum epsg."""
         if self._datum_crs is not None:
             return self._datum_crs.to_epsg()
 
     @datum_epsg.setter
     def datum_epsg(self, value):
+        """Datum epsg."""
         if value not in ["", None, "None"]:
             self.datum_crs = value
 
     @datum_crs.setter
     def datum_crs(self, value):
+        """Datum crs."""
         if value in [None, "None", "none", "null", ""]:
             return
 
@@ -225,31 +230,37 @@ class MTLocation:
 
     @property
     def utm_crs(self):
+        """Utm crs."""
         if self._utm_crs is not None:
             return self._utm_crs
 
     @property
     def utm_name(self):
+        """Utm name."""
         if self._utm_crs is not None:
             return self._utm_crs.name
 
     @property
     def utm_epsg(self):
+        """Utm epsg."""
         if self._utm_crs is not None:
             return self._utm_crs.to_epsg()
 
     @utm_epsg.setter
     def utm_epsg(self, value):
+        """Utm epsg."""
         if value not in ["", None, "None"]:
             self.utm_crs = value
 
     @property
     def utm_zone(self):
+        """Utm zone."""
         if self._utm_crs is not None:
             return self._utm_crs.utm_zone
 
     @utm_crs.setter
     def utm_crs(self, value):
+        """Utm crs."""
         if value in [None, "None", "none", "null", ""]:
             return
 
@@ -296,12 +307,12 @@ class MTLocation:
 
     @property
     def east(self):
-        """easting"""
+        """Easting."""
         return self._east
 
     @east.setter
     def east(self, value):
-        """set east"""
+        """Set east."""
         self._east = value
         if (
             self.datum_crs is not None
@@ -317,12 +328,12 @@ class MTLocation:
 
     @property
     def north(self):
-        """northing"""
+        """Northing."""
         return self._north
 
     @north.setter
     def north(self, value):
-        """set north"""
+        """Set north."""
         self._north = value
         if (
             self.datum_crs is not None
@@ -338,10 +349,12 @@ class MTLocation:
 
     @property
     def latitude(self):
+        """Latitude function."""
         return self._survey_metadata.stations[0].location.latitude
 
     @latitude.setter
     def latitude(self, lat):
+        """Latitude function."""
         self._survey_metadata.stations[0].location.latitude = lat
         if (
             self.utm_crs is not None
@@ -357,10 +370,12 @@ class MTLocation:
 
     @property
     def longitude(self):
+        """Longitude function."""
         return self._survey_metadata.stations[0].location.longitude
 
     @longitude.setter
     def longitude(self, lon):
+        """Longitude function."""
         self._survey_metadata.stations[0].location.longitude = lon
         if (
             self.utm_crs is not None
@@ -376,18 +391,22 @@ class MTLocation:
 
     @property
     def elevation(self):
+        """Elevation function."""
         return self._survey_metadata.stations[0].location.elevation
 
     @elevation.setter
     def elevation(self, elev):
+        """Elevation function."""
         self._survey_metadata.stations[0].location.elevation = elev
 
     @property
     def model_east(self):
+        """Model east."""
         return self._model_east
 
     @model_east.setter
     def model_east(self, value):
+        """Model east."""
         try:
             self._model_east = float(value)
         except (TypeError, ValueError):
@@ -395,10 +414,12 @@ class MTLocation:
 
     @property
     def model_north(self):
+        """Model north."""
         return self._model_north
 
     @model_north.setter
     def model_north(self, value):
+        """Model north."""
         try:
             self._model_north = float(value)
         except (TypeError, ValueError):
@@ -406,24 +427,24 @@ class MTLocation:
 
     @property
     def model_elevation(self):
+        """Model elevation."""
         return self._model_elevation
 
     @model_elevation.setter
     def model_elevation(self, value):
+        """Model elevation."""
         try:
             self._model_elevation = float(value)
         except (TypeError, ValueError):
             raise ValueError(f"Input should be a float not type {type(value)}")
 
     def compute_model_location(self, center_location):
-        """
-        compute model location based on model center and model epsg
-
-        :param model_center: DESCRIPTION
+        """Compute model location based on model center and model epsg.
+        :param center_location:
+        :param model_center: DESCRIPTION.
         :type model_center: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         self.model_east = self.east - center_location.model_east
@@ -431,17 +452,15 @@ class MTLocation:
         self.model_elevation = self.elevation - center_location.model_elevation
 
     def project_onto_profile_line(self, profile_slope, profile_intersection):
-        """
-
-        :param profile_slope: DESCRIPTION
+        """Project onto profile line.
+        :param profile_slope: DESCRIPTION.
         :type profile_slope: TYPE
-        :param profile_intersection: DESCRIPTION
+        :param profile_intersection: DESCRIPTION.
         :type profile_intersection: TYPE
-        :param units: DESCRIPTION, defaults to "deg"
+        :param units: DESCRIPTION, defaults to "deg".
         :type units: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if self.utm_crs is None:
@@ -461,15 +480,14 @@ class MTLocation:
         )
 
     def get_elevation_from_national_map(self):
-        """
-        Get elevation from DEM data of the US National Map.  Plan to extend
-        this to the globe.
+        """Get elevation from DEM data of the US National Map.
+
+        Plan to extend
+this to the globe.
 
         Pulls data from the USGS national map DEM
-
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         elev = get_nm_elev(self.latitude, self.longitude)
@@ -481,14 +499,11 @@ class MTLocation:
             )
 
     def to_json(self, filename):
-        """
-        write out information to a json file
-
-        :param filename: DESCRIPTION
+        """Write out information to a json file.
+        :param filename: DESCRIPTION.
         :type filename: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         js_dict = {
@@ -507,14 +522,11 @@ class MTLocation:
             json.dump(js_dict, fid)
 
     def from_json(self, filename):
-        """
-        read in json formatted location
-
-        :param filename: DESCRIPTION
+        """Read in json formatted location.
+        :param filename: DESCRIPTION.
         :type filename: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         with open(filename, "r") as fid:

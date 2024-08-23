@@ -47,7 +47,16 @@ list_of_efield_keywords = [
     "E_Yaxis_length",
 ]
 
-list_of_keyword_defaults_efield = ["edl", 1, "electrodes", 1.0, 0.0, 50.0, 90.0, 50.0]
+list_of_keyword_defaults_efield = [
+    "edl",
+    1,
+    "electrodes",
+    1.0,
+    0.0,
+    50.0,
+    90.0,
+    50.0,
+]
 
 list_of_bfield_keywords = [
     "B_logger_type",
@@ -64,7 +73,21 @@ list_of_keyword_defaults_bfield = ["edl", 1, "coil", 1.0, 0.0, 90.0]
 
 dict_of_allowed_values_efield = {
     "E_logger_type": ["edl", "elogger", "zen", "qel"],
-    "E_logger_gain": ["low", "verylow", "high", 0.4, 1, 10, 11, 2, 4, 8, 16, 32, 64],
+    "E_logger_gain": [
+        "low",
+        "verylow",
+        "high",
+        0.4,
+        1,
+        10,
+        11,
+        2,
+        4,
+        8,
+        16,
+        32,
+        64,
+    ],
     "E_instrument_type": [
         "electrodes",
         "dipole",
@@ -77,7 +100,20 @@ dict_of_allowed_values_efield = {
 
 dict_of_allowed_values_bfield = {
     "B_logger_type": ["edl", "zen", "qel_blogger"],
-    "B_logger_gain": ["low", "verylow", "high", 0.4, 1, 10, 2, 4, 8, 16, 32, 64],
+    "B_logger_gain": [
+        "low",
+        "verylow",
+        "high",
+        0.4,
+        1,
+        10,
+        2,
+        4,
+        8,
+        16,
+        32,
+        64,
+    ],
     "B_instrument_type": ["fluxgate", "coil", "coils"],
 }
 
@@ -88,22 +124,23 @@ list_of_station_types = ["mt", "e", "b", "qe", "qb"]
 
 
 def read_configfile(filename):
-    """
-        Read a general config file and return the content as dictionary.
+    """Read a general config file and return the content as dictionary.
 
-        Config files without sections or only DEFAULT section 
-        -> return dictionary
-        
-        Config files with sections 
-        -> return nested dictionary (main level keys are section heads)
-        
-        Config files with sections as well as section-less entries 
-        -> return nested dictionary, which includes a top level 'DEFAULT' key
+    Config files without sections or only DEFAULT section
+    -> return dictionary
+
+    Config files with sections
+    -> return nested dictionary (main level keys are section heads)
+
+    Config files with sections as well as section-less entries
+    -> return nested dictionary, which includes a top level 'DEFAULT' key
     """
 
     # check, if file is present
     if not op.isfile(filename):
-        raise MTex.MTpyError_inputarguments("File does not exist: {0}".format(filename))
+        raise MTex.MTpyError_inputarguments(
+            "File does not exist: {0}".format(filename)
+        )
 
     # try to parse file - exit, if not a config file
     try:
@@ -123,7 +160,8 @@ def read_configfile(filename):
             configobject.readfp(FH)
         except:
             raise MTex.MTpyError_inputarguments(
-                "File is not a proper " "configuration file: {0}".format(filename)
+                "File is not a proper "
+                "configuration file: {0}".format(filename)
             )
 
     config_dict = configobject._sections
@@ -139,15 +177,14 @@ def read_configfile(filename):
 
 
 def read_survey_configfile(filename):
-    """
-    Read in a survey configuration file and return a dictionary.
+    """Read in a survey configuration file and return a dictionary.
 
     Input config file must contain station names as section headers!
 
-    The output dictionary keys are station names (capitalised), 
+    The output dictionary keys are station names (capitalised),
     the values are (sub-)dictionaries. The configuration file must contain
     sections for all stations, each containing all mandatory keywords:
-    
+
     - latitude (deg)
     - longitude (deg)
     - elevation (in meters)
@@ -171,7 +208,6 @@ def read_survey_configfile(filename):
     - E_Yaxis_length (in meters)
 
     B-field recorded:
-  
     - B_logger_type ('edl'/'qel_blogger')
     - B_logger_gain (factor/gain level)
     - B_instrument_type ('coil(s)', 'fluxgate')
@@ -183,8 +219,7 @@ def read_survey_configfile(filename):
     A global section can be used to include parameters for all stations.
     The name of the section must be one of:
 
-        global/main/default/general 
-
+        global/main/default/general
     """
 
     error_counter = 0
@@ -258,13 +293,11 @@ def read_survey_configfile(filename):
     # ============================================================
     # local function definition
     def fromglobals(key, stationdict, globaldict):
-        """
-            Check if stationdict contains key. 
-            If not search for key in global dict and add it to station dict.
+        """Check if stationdict contains key.
+        If not search for key in global dict and add it to station dict.
 
-            Return if global dict is not defined.
-            Return True if key was present in either dictionary, False if not.
-
+        Return if global dict is not defined.
+        Return True if key was present in either dictionary, False if not.
         """
 
         if key in list(stationdict.keys()):
@@ -297,9 +330,14 @@ def read_survey_configfile(filename):
                 found = False
                 # import ipdb
                 # ipdb.set_trace()
-                if fromglobals(req_keyword, stationdict, globaldict)[0] is False:
+                if (
+                    fromglobals(req_keyword, stationdict, globaldict)[0]
+                    is False
+                ):
                     # try short form instead
-                    found, value = fromglobals(shortform, stationdict, globaldict)
+                    found, value = fromglobals(
+                        shortform, stationdict, globaldict
+                    )
                     # print shortform,value
 
                     if found is True:
@@ -331,7 +369,9 @@ def read_survey_configfile(filename):
                     except:
                         raise MTex.MTpyError_config_file(
                             "Error - wrong "
-                            "coordinate format for station {0}".format(stationname)
+                            "coordinate format for station {0}".format(
+                                stationname
+                            )
                         )
 
                     stationdict[req_keyword] = new_value
@@ -416,9 +456,15 @@ def read_survey_configfile(filename):
             except:
                 try:
                     # read from other config dict entry
-                    stationdict["rr_latitude"] = config_dict[rem_station]["latitude"]
-                    stationdict["rr_longitude"] = config_dict[rem_station]["longitude"]
-                    stationdict["rr_elevation"] = config_dict[rem_station]["elevation"]
+                    stationdict["rr_latitude"] = config_dict[rem_station][
+                        "latitude"
+                    ]
+                    stationdict["rr_longitude"] = config_dict[rem_station][
+                        "longitude"
+                    ]
+                    stationdict["rr_elevation"] = config_dict[rem_station][
+                        "elevation"
+                    ]
 
                 except:
                     # if finally failed to read rr_station info,\
@@ -475,15 +521,13 @@ def read_survey_configfile(filename):
 
 
 def write_dict_to_configfile(dictionary, output_filename):
-    """
-    Write a dictionary into a configuration file.
+    """Write a dictionary into a configuration file.
 
-    The dictionary can contain pure key-value pairs as well as a 
-    level-1 nested dictionary. In the first case, the entries are 
-    stored in a 'DEFAULT' section. In the latter case, the dictionary 
-    keys are taken as section heads and the sub-dictionaries key-value 
-    pairs fill up the respective section  
-
+    The dictionary can contain pure key-value pairs as well as a
+    level-1 nested dictionary. In the first case, the entries are
+    stored in a 'DEFAULT' section. In the latter case, the dictionary
+    keys are taken as section heads and the sub-dictionaries key-value
+    pairs fill up the respective section
     """
 
     configobject = configparser.ConfigParser()
@@ -512,10 +556,9 @@ def write_dict_to_configfile(dictionary, output_filename):
 
 
 def _validate_dictionary(dict2validate, referencedict):
-
-    """Check, if there are lists of allowed entries for all 
-    keys of the current dictionary. If yes, test, if the current 
-    value is among the allowed ones. 
+    """Check, if there are lists of allowed entries for all
+    keys of the current dictionary. If yes, test, if the current
+    value is among the allowed ones.
     """
 
     for key, value in list(dict2validate.items()):
@@ -554,71 +597,70 @@ def _validate_dictionary(dict2validate, referencedict):
 
 # ==============================================================================
 def read_survey_txt_file(survey_file, delimiter=None):
-    """
-    read survey file and return a dictionary of dictionaries where the first
-    nested dictionary is keyed by the station name.  Each station dictionarly
-    includes all the information input in the survey file with keywords 
-    verbatim as the headers in survey file, all lower case.  
-    
-    *Must be included in survey file*
-    ================= =========================================================
-    key word           description
-    ================= =========================================================
-    station           station name
-    lat(itude)        latitude (decimal degrees is best)
-    long(itude)       longitude (decimal degrees is best)
-    elev(ation)       elevation (in meters)
-    ex/E_Xaxis_length dipole length in north direction (in meters)
-    ey/E_Yaxis_length dipole length in east direction (in meters)
-    E_Xaxis_azimuth   orientaion of Ex (degrees)
-    E_Yaxis_azimuth   orientaion of Ey (degrees)
+    """Read survey file and return a dictionary of dictionaries where the first
+     nested dictionary is keyed by the station name.  Each station dictionarly
+     includes all the information input in the survey file with keywords
+     verbatim as the headers in survey file, all lower case.
+
+     *Must be included in survey file*
+     ================= =========================================================
+     key word           description
+     ================= =========================================================
+     station           station name
+     lat(itude)        latitude (decimal degrees is best)
+     long(itude)       longitude (decimal degrees is best)
+     elev(ation)       elevation (in meters)
+     ex/E_Xaxis_length dipole length in north direction (in meters)
+     ey/E_Yaxis_length dipole length in east direction (in meters)
+     E_Xaxis_azimuth   orientaion of Ex (degrees)
+     E_Yaxis_azimuth   orientaion of Ey (degrees)
 
 
-    sampling_interval sampling interval in seconds
-    hx                coil number in north direction for calibration
-    hy                coil number in east direction for calibration
-    hz                coil number in vertical direction for calibration
-    date              date of deployment
-    notes             any notes that might help later
-    station_type      type of data collected  (MT, E, B)
-    declination       declination in degrees (N = 0 and East = 90)
-    ================= =========================================================
-     
-    *Information on E-field data*:
-    ========================== ================================================
-    key word                    description
-    ========================== ================================================
-    E_logger_type               type of data logger used to record data 
-    E_logger_gain               factor/gain level
-    E_instrument_type           type of electrodes used
-    E_instrument_amplification  applied amplification factor
-    E_Xaxis_azimuth             orientaion of Ex (degrees)
-    E_Xaxis_length              length of dipole for Ex (in meters)
-    E_Yaxis_azimuth             orientaion of Ey (degrees)
-    E_Yaxis_length              length of dipole for Ey (in meters)
-    ========================== ================================================
-   
-   *Information on B-field data*:
-    ========================== ================================================
-    key word                    description
-    ========================== ================================================
-    B_logger_type              type of data logger used to record data
-    B_logger_gain              factor/gain level
-    B_instrument_type          type of magnetometer used (coil, fluxgate)
-    B_instrument_amplification applied amplification factor
-    B_Xaxis_azimuth            orientation of Bx (degrees)
-    B_Yaxis_azimuth            orientation of By (degrees)
-    ================= =========================================================
-    
-    Arguments:
-    -----------
-        **survey_file** : string (full path to file)
-        
-    Outputs:
-    ---------
-        **survey_lst** : list
-                         list of dictionaries with key words the same as the
-                         headers in survey file, all lower case
+     sampling_interval sampling interval in seconds
+     hx                coil number in north direction for calibration
+     hy                coil number in east direction for calibration
+     hz                coil number in vertical direction for calibration
+     date              date of deployment
+     notes             any notes that might help later
+     station_type      type of data collected  (MT, E, B)
+     declination       declination in degrees (N = 0 and East = 90)
+     ================= =========================================================
+
+     *Information on E-field data*:
+     ========================== ================================================
+     key word                    description
+     ========================== ================================================
+     E_logger_type               type of data logger used to record data
+     E_logger_gain               factor/gain level
+     E_instrument_type           type of electrodes used
+     E_instrument_amplification  applied amplification factor
+     E_Xaxis_azimuth             orientaion of Ex (degrees)
+     E_Xaxis_length              length of dipole for Ex (in meters)
+     E_Yaxis_azimuth             orientaion of Ey (degrees)
+     E_Yaxis_length              length of dipole for Ey (in meters)
+     ========================== ================================================
+
+    *Information on B-field data*:
+     ========================== ================================================
+     key word                    description
+     ========================== ================================================
+     B_logger_type              type of data logger used to record data
+     B_logger_gain              factor/gain level
+     B_instrument_type          type of magnetometer used (coil, fluxgate)
+     B_instrument_amplification applied amplification factor
+     B_Xaxis_azimuth            orientation of Bx (degrees)
+     B_Yaxis_azimuth            orientation of By (degrees)
+     ================= =========================================================
+
+     Arguments:
+     -----------
+         **survey_file** : string (full path to file)
+
+     Outputs:
+     ---------
+         **survey_lst** : list
+                          list of dictionaries with key words the same as the
+                          headers in survey file, all lower case
     """
 
     with open(survey_file, "r") as sfid:
@@ -796,27 +838,26 @@ def read_survey_txt_file(survey_file, delimiter=None):
 
 
 # ==============================================================================
-def write_config_from_survey_txt_file(survey_file, save_name=None, delimiter="\t"):
-    """
-    write a survey configuration file from a survey txt file 
-    
-    Arguments:
-    ----------
-        **survey_file** : string
-                          full path to survey text file.  
-                          See read_survey_txt_file for the assumed header 
-                          information.
-                          
-        **save_name** : string
-                        name to save file to.  
-                        If save_name = None, then file saved as 
-                        os.path.join(os.path.dirname(survey_file,
-                                            os.path.basename(survey_file).cfg)
-                                            
-    Outputs:
-    ---------
-        **cfg_fn** : string
-                    full path to saved config file
+def write_config_from_survey_txt_file(
+    survey_file, save_name=None, delimiter="\t"
+):
+    """Write a survey configuration file from a survey txt file .
+
+    Arguments::
+            **survey_file** : string
+                              full path to survey text file.
+                              See read_survey_txt_file for the assumed header
+                              information.
+
+            **save_name** : string
+                            name to save file to.
+                            If save_name = None, then file saved as
+                            os.path.join(os.path.dirname(survey_file,
+                                                os.path.basename(survey_file).cfg)
+
+    Outputs::
+            **cfg_fn** : string
+                        full path to saved config file
     """
 
     survey_dict = read_survey_txt_file(survey_file, delimiter=delimiter)

@@ -11,9 +11,10 @@ Created on Mon Oct 30 13:33:37 2023
 
 # =============================================================================
 class Plot1DResponse(object):
-    """
-    plot the 1D response and model.  Plots apparent resisitivity and phase
-    in different subplots with the model on the far right.  You can plot both
+    """Plot the 1D response and model.
+
+    Plots apparent resisitivity and phase
+in different subplots with the model on the far right.  You can plot both
     TE and TM modes together along with different iterations of the model.
     These will be plotted in different colors or shades of gray depneng on
     color_scale.
@@ -84,7 +85,6 @@ class Plot1DResponse(object):
     subplot_wspace       width spacing between subplots
     title_str            title of plot
     ==================== ======================================================
-
     """
 
     def __init__(
@@ -194,10 +194,7 @@ class Plot1DResponse(object):
             self.plot()
 
     def plot(self):
-        """
-        plot data, response and model
-
-        """
+        """Plot data, response and model."""
         if type(self.resp_te_fn) is not list:
             self.resp_te_fn = [self.resp_te_fn]
 
@@ -681,8 +678,7 @@ class Plot1DResponse(object):
         plt.show()
 
     def redraw_plot(self):
-        """
-        redraw plot if parameters were changed
+        """Redraw plot if parameters were changed
 
         use this function if you updated some attributes and want to re-plot.
 
@@ -694,14 +690,13 @@ class Plot1DResponse(object):
             >>> p1 = ocd.plotAllResponses()
             >>> #change line width
             >>> p1.lw = 2
-            >>> p1.redraw_plot()
+            >>> p1.redraw_plot().
         """
         plt.close(self.fig)
         self.plot()
 
     def update_plot(self, fig):
-        """
-        update any parameters that where changed using the built-in draw from
+        """Update any parameters that where changed using the built-in draw from
         canvas.
 
         Use this if you change an of the .fig or axes properties
@@ -715,7 +710,6 @@ class Plot1DResponse(object):
             >>> ps1 = ocd.plotAllResponses()
             >>> [ax.grid(True, which='major') for ax in [ps1.axrte,ps1.axtep]]
             >>> ps1.update_plot()
-
         """
 
         fig.canvas.draw()
@@ -728,48 +722,45 @@ class Plot1DResponse(object):
         fig_dpi=None,
         close_plot="y",
     ):
-        """
-        save_plot will save the figure to save_fn.
+        """Save_plot will save the figure to save_fn.
 
-        Arguments:
-        -----------
+        Arguments::
 
-            **save_fn** : string
-                          full path to save figure to, can be input as
-                          * directory path -> the directory path to save to
-                            in which the file will be saved as
-                            save_fn/station_name_PhaseTensor.file_format
+                **save_fn** : string
+                              full path to save figure to, can be input as
+                              * directory path -> the directory path to save to
+                                in which the file will be saved as
+                                save_fn/station_name_PhaseTensor.file_format
 
-                          * full path -> file will be save to the given
-                            path.  If you use this option then the format
-                            will be assumed to be provided by the path
+                              * full path -> file will be save to the given
+                                path.  If you use this option then the format
+                                will be assumed to be provided by the path
 
-            **file_format** : [ pdf | eps | jpg | png | svg ]
-                              file type of saved figure pdf,svg,eps...
+                **file_format** : [ pdf | eps | jpg | png | svg ]
+                                  file type of saved figure pdf,svg,eps...
 
-            **orientation** : [ landscape | portrait ]
-                              orientation in which the file will be saved
-                              *default* is portrait
+                **orientation** : [ landscape | portrait ]
+                                  orientation in which the file will be saved
+                                  *default* is portrait
 
-            **fig_dpi** : int
-                          The resolution in dots-per-inch the file will be
-                          saved.  If None then the dpi will be that at
-                          which the figure was made.  I don't think that
-                          it can be larger than dpi of the figure.
+                **fig_dpi** : int
+                              The resolution in dots-per-inch the file will be
+                              saved.  If None then the dpi will be that at
+                              which the figure was made.  I don't think that
+                              it can be larger than dpi of the figure.
 
-            **close_plot** : [ y | n ]
-                             * 'y' will close the plot after saving.
-                             * 'n' will leave plot open
+                **close_plot** : [ y | n ]
+                                 * 'y' will close the plot after saving.
+                                 * 'n' will leave plot open
 
-        :Example: ::
+            :Example: ::
 
-            >>> # to save plot as jpg
-            >>> import mtpy.modeling.occam2d as occam2d
-            >>> dfn = r"/home/occam2d/Inv1/data.dat"
-            >>> ocd = occam2d.Occam2DData(dfn)
-            >>> ps1 = ocd.plotPseudoSection()
-            >>> ps1.save_plot(r'/home/MT/figures', file_format='jpg')
-
+                >>> # to save plot as jpg
+                >>> import mtpy.modeling.occam2d as occam2d
+                >>> dfn = r"/home/occam2d/Inv1/data.dat"
+                >>> ocd = occam2d.Occam2DData(dfn)
+                >>> ps1 = ocd.plotPseudoSection()
+                >>> ps1.save_plot(r'/home/MT/figures', file_format='jpg')
         """
 
         if fig_dpi is None:
@@ -806,8 +797,6 @@ class Plot1DResponse(object):
         print("Saved figure to: " + self.fig_fn)
 
     def __str__(self):
-        """
-        rewrite the string builtin to give a useful message
-        """
+        """Rewrite the string builtin to give a useful message."""
 
         return "Plots model responses and model for 1D occam inversion"

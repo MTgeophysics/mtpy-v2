@@ -14,6 +14,7 @@ import numpy as np
 
 class ModelErrors:
     def __init__(self, data=None, measurement_error=None, **kwargs):
+        """Init function."""
 
         self._functions = {
             "egbert": self.compute_geometric_mean_error,
@@ -49,6 +50,7 @@ class ModelErrors:
         self.measurement_error = measurement_error
 
     def __str__(self):
+        """Str function."""
         lines = ["Model Errors:", "-" * 20]
         lines += [f"\terror_type:    {self.error_type}"]
         lines += [f"\terror_value:   {self.error_value}"]
@@ -58,9 +60,11 @@ class ModelErrors:
         return "\n".join(lines)
 
     def __repr__(self):
+        """Repr function."""
         return self.__str__()
 
     def __eq__(self, other):
+        """Eq function."""
         if not isinstance(other, ModelErrors):
             raise TypeError(
                 f"Cannot compare ModelErrors to type {type(other)}"
@@ -75,14 +79,11 @@ class ModelErrors:
         return True
 
     def validate_percent(self, value):
-        """
-        Make sure the percent is a decimal
-
-        :param value: DESCRIPTION
+        """Make sure the percent is a decimal.
+        :param value: DESCRIPTION.
         :type value: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if value >= 1:
@@ -92,6 +93,7 @@ class ModelErrors:
 
     @property
     def error_parameters(self):
+        """Error parameters."""
         return {
             "error_value": self.error_value,
             "error_type": self.error_type,
@@ -100,43 +102,52 @@ class ModelErrors:
 
     @property
     def error_type(self):
+        """Error type."""
         return self._error_type
 
     @error_type.setter
     def error_type(self, value):
+        """Error type."""
         if value not in self._functions.keys():
             raise NotImplementedError(f"Error Type {value} not supported.")
         self._error_type = value
 
     @property
     def floor(self):
+        """Floor function."""
         return self._floor
 
     @floor.setter
     def floor(self, value):
+        """Floor function."""
         if value not in [False, True]:
             raise ValueError("Floor must be True or False")
         self._floor = value
 
     @property
     def error_value(self):
+        """Error value."""
         return self._error_value
 
     @error_value.setter
     def error_value(self, value):
+        """Error value."""
         self._error_value = self.validate_percent(value)
 
     @property
     def mode(self):
+        """Mode function."""
         return self._mode
 
     @mode.setter
     def mode(self, value):
+        """Mode function."""
         if value not in self._array_shapes.keys():
             raise NotImplementedError(f"Mode {value} not supported.")
         self._mode = value
 
     def _get_shape(self):
+        """Get shape."""
         try:
             return self._array_shapes[self.mode]
 
@@ -144,13 +155,11 @@ class ModelErrors:
             raise NotImplementedError(f"Mode {self.mode} not supported.")
 
     def validate_array_shape(self, data):
-        """
-
-        :param data: DESCRIPTION
+        """Validate array shape.
+        :param data: DESCRIPTION.
         :type data: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if not isinstance(data, np.ndarray):
@@ -173,10 +182,12 @@ class ModelErrors:
 
     @property
     def data(self):
+        """Data function."""
         return self._data
 
     @data.setter
     def data(self, value):
+        """Data function."""
         if value is not None:
             self._data = self.validate_array_shape(value)
         else:
@@ -184,38 +195,34 @@ class ModelErrors:
 
     @property
     def measurement_error(self):
+        """Measurement error."""
         return self._measurement_error
 
     @measurement_error.setter
     def measurement_error(self, value):
+        """Measurement error."""
         if value is not None:
             self._measurement_error = self.validate_array_shape(value)
         else:
             self._measurement_error = None
 
     def mask_zeros(self, data):
-        """
-        mask zeros
-
-        :param data: DESCRIPTION
+        """Mask zeros.
+        :param data: DESCRIPTION.
         :type data: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         dshape = data.shape
         data = np.nan_to_num(data).reshape(dshape)
         return np.ma.masked_equal(data, 0)
 
     def resize_output(self, error_array):
-        """
-        resize the error estimtion to the same size as the input data
-
-        :param error_array: DESCRIPTION
+        """Resize the error estimtion to the same size as the input data.
+        :param error_array: DESCRIPTION.
         :type error_array: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if error_array.shape != self.data.shape:
@@ -228,16 +235,14 @@ class ModelErrors:
         return error_array
 
     def set_floor(self, error_array):
-        """
-        Set error floor
-
-        :param array: DESCRIPTION
-        :type data: TYPE
-        :param floor: DESCRIPTION
+        """Set error floor.
+        :param error_array:
+        :param array: DESCRIPTION.
+        :type array: TYPE
+        :param floor: DESCRIPTION.
         :type floor: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if self.measurement_error is not None:
@@ -248,19 +253,17 @@ class ModelErrors:
         return error_array
 
     def use_measurement_error(self):
+        """Use measurement error."""
         return self.measurement_error
 
     def compute_percent_error(self):
-        """
-        Percent error
-
-        :param data: DESCRIPTION
+        """Percent error.
+        :param data: DESCRIPTION.
         :type data: TYPE
-        :param percent: DESCRIPTION
+        :param percent: DESCRIPTION.
         :type percent: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         err = self.error_value * np.abs(self.data)
@@ -270,17 +273,13 @@ class ModelErrors:
         return err
 
     def compute_arithmetic_mean_error(self):
-        """
-        error_value * (Zxy + Zyx) / 2
-
-
-        :param data: DESCRIPTION
+        """Error_value * (Zxy + Zyx) / 2.
+        :param data: DESCRIPTION.
         :type data: TYPE
-        :param error_value: DESCRIPTION
+        :param error_value: DESCRIPTION.
         :type error_value: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if self.data.shape[1] < 2:
@@ -305,16 +304,13 @@ class ModelErrors:
         return err
 
     def compute_median_error(self):
-        """
-        median(array) * error_value
-
-        :param array: DESCRIPTION
+        """Median(array) * error_value.
+        :param array: DESCRIPTION.
         :type array: TYPE
-        :param error_value: DESCRIPTION
+        :param error_value: DESCRIPTION.
         :type error_value: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         data = self.mask_zeros(self.data)
@@ -331,16 +327,13 @@ class ModelErrors:
         return err
 
     def compute_eigen_value_error(self):
-        """
-        error_value * eigen(data).mean()
-
-        :param data: DESCRIPTION
+        """Error_value * eigen(data).mean().
+        :param data: DESCRIPTION.
         :type data: TYPE
-        :param error_value: DESCRIPTION
+        :param error_value: DESCRIPTION.
         :type error_value: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if self.data.shape[1] < 2:
@@ -374,16 +367,13 @@ class ModelErrors:
         return err
 
     def compute_geometric_mean_error(self):
-        """
-        error_value * sqrt(Zxy * Zyx)
-
-        :param data: DESCRIPTION
+        """Error_value * sqrt(Zxy * Zyx).
+        :param data: DESCRIPTION.
         :type data: TYPE
-        :param error_value: DESCRIPTION
+        :param error_value: DESCRIPTION.
         :type error_value: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         data = self.data.copy()
@@ -425,18 +415,15 @@ class ModelErrors:
         return err
 
     def compute_row_error(self):
-        """
-        set zxx and zxy the same error and zyy and zyx the same error
-
-        :param data: DESCRIPTION
+        """Set zxx and zxy the same error and zyy and zyx the same error.
+        :param data: DESCRIPTION.
         :type data: TYPE
-        :param error_value: DESCRIPTION
+        :param error_value: DESCRIPTION.
         :type error_value: TYPE
-        :param floor: DESCRIPTION, defaults to True
+        :param floor: DESCRIPTION, defaults to True.
         :type floor: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if self.data.shape[1] < 2:
@@ -464,15 +451,13 @@ class ModelErrors:
         return err
 
     def compute_absolute_error(self):
-        """
-
-        :param data: DESCRIPTION
+        """Compute absolute error.
+        :param data: DESCRIPTION.
         :type data: TYPE
-        :param error_value: DESCRIPTION
+        :param error_value: DESCRIPTION.
         :type error_value: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         err = np.ones_like(self.data, dtype=float) * self.error_value
 
@@ -483,19 +468,17 @@ class ModelErrors:
     def compute_error(
         self, data=None, error_type=None, error_value=None, floor=None
     ):
-        """
-
-        :param data: DESCRIPTION, defaults to None
+        """Compute error.
+        :param data: DESCRIPTION, defaults to None.
         :type data: TYPE, optional
-        :param error_type: DESCRIPTION, defaults to None
+        :param error_type: DESCRIPTION, defaults to None.
         :type error_type: TYPE, optional
-        :param error_value: DESCRIPTION, defaults to None
+        :param error_value: DESCRIPTION, defaults to None.
         :type error_value: TYPE, optional
-        :param floor: DESCRIPTION, defaults to None
+        :param floor: DESCRIPTION, defaults to None.
         :type floor: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if data is not None:

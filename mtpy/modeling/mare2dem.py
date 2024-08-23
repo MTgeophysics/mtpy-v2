@@ -20,35 +20,28 @@ from mtpy.utils import mesh_tools, gis_tools, filehandling
 
 
 def line_length(x0, y0, x1, y1):
-    """
-    Returns the length of a line segment
-    """
+    """Returns the length of a line segment."""
     return np.sqrt(abs(y1 - y0) ** 2 + abs(x1 - x0) ** 2)
 
 
 def points_o2d_to_m2d(eastings, northings, profile_length=None):
-    """
-    Converts Occam2D points to Mare2D system. This is assuming
-    O2D profile origin is start of line and Mare2D profile origin is
-    middle of line.
+    """Converts Occam2D points to Mare2D system.
 
-    Parameters
-    ----------
-    eastings : np.ndarray
-        1D array of profile line easting points.
-    northings : np.ndarray
-        1D array of profile line northing points
-    profile_length : float, optional
-        Length of the profile being converted. If not provided, it's
+    This is assuming
+O2D profile origin is start of line and Mare2D profile origin is
+    middle of line.
+    :param eastings: 1D array of profile line easting points.
+    :type eastings: np.ndarray
+    :param northings: 1D array of profile line northing points.
+    :type northings: np.ndarray
+    :param profile_length: Length of the profile being converted. If not provided, it's
         assumed the full profile is being convered. Alternatively
         you can provide the profile length if providing specific
-        points to convert, e.g. site locations.
-
-    Returns
-    -------
-    np.ndarray
-        1D array of floats representing the profile in Mare2D
+        points to convert, e.g. site locations, defaults to None.
+    :type profile_length: float, optional
+    :return: 1D array of floats representing the profile in Mare2D
         coordinates.
+    :rtype: np.ndarray
     """
     converted_points = []
     if profile_length is None:
@@ -75,26 +68,22 @@ def plot(
     site_names,
     figsize=None,
 ):
-    """
-    Generate line plot of Mare2DEM profile and site locations against
+    """Generate line plot of Mare2DEM profile and site locations against
     elevation.
-
-    Parameters
-    ----------
-    m2d_profile : np.ndarray
-        1D array of floats, profile line in Mare2D
+    :param m2d_profile: 1D array of floats, profile line in Mare2D
         coordinates.
-    profile_elevation : np.ndarray
-        1D array of floats, elevation of the profile line.
-    site_locations : np.ndarray
-        1D array of floats, locations of sites on the profile line.
-    site_elevations : np.ndarray
-        1D array of floats, elevation of sites.
-    site_names : np.ndarray
-        Array of site names.
-    figsize : tuple of (float, float), optional
-        Size of the figure. 'None' let's matplotlib handle the
-        figsize.
+    :type m2d_profile: np.ndarray
+    :param profile_elevation: 1D array of floats, elevation of the profile line.
+    :type profile_elevation: np.ndarray
+    :param site_locations: 1D array of floats, locations of sites on the profile line.
+    :type site_locations: np.ndarray
+    :param site_elevations: 1D array of floats, elevation of sites.
+    :type site_elevations: np.ndarray
+    :param site_names: Array of site names.
+    :type site_names: np.ndarray
+    :param figsize: Size of the figure. 'None' let's matplotlib handle the
+        figsize, defaults to None.
+    :type figsize: tuple of (float, float), optional
     """
     fig, ax = plt.subplots(figsize=figsize)
     ax.plot(m2d_profile, profile_elevation, "b", label="M2D Profile")
@@ -117,29 +106,23 @@ def plot(
 
 
 def get_profile_specs(o2d_data, site_easts, site_norths):
-    """
-    Get specifications for the MARE2D profile line from Occam2D profile.
-
-    Parameters
-    ----------
-    m2d_profile : mtpy.modeling.occam2d.Data
-        Occam2D data object that has been initialised with EDI data.
-    site_easts : np.ndarray
-        1D array of floats of length n. Easting coordinates for the
+    """Get specifications for the MARE2D profile line from Occam2D profile.
+    :param o2d_data:
+    :param m2d_profile: Occam2D data object that has been initialised with EDI data.
+    :type m2d_profile: mtpy.modeling.occam2d.Data
+    :param site_easts: 1D array of floats of length n. Easting coordinates for the
         station locations.
-    site_norths : np.ndarray
-        1D array of floats of length n. Northing coordinates for the
+    :type site_easts: np.ndarray
+    :param site_norths: 1D array of floats of length n. Northing coordinates for the
         station locations.
-
-    Returns
-    -------
-    tuple(float, ..., int, str)
-        x0, y0: start of profile line.
+    :type site_norths: np.ndarray
+    :return: X0, y0: start of profile line.
         x1, y1: end of profile line.
         mare_origin_x, mare_origin_y: Origin of the Mare2D profile,
             which is the middle of the line.
         epsg: epsg code of the profile origin
-        utm_zone: utm code of the profile origin (of form e.g. '54K S')
+        utm_zone: utm code of the profile origin (of form e.g. '54K S').
+    :rtype: tuple(float, ..., int, str)
     """
     m, c1 = o2d_data.profile_line
     # Find start of profile
@@ -167,32 +150,29 @@ def get_profile_specs(o2d_data, site_easts, site_norths):
 def generate_profile_line(
     site_easts, site_norths, x0, y0, x1, y1, elevation_sample_n
 ):
-    """
-    Generates the profile line by creating linspaced samples between
+    """Generates the profile line by creating linspaced samples between
     the start and end of the line.
 
     The station locations are inserted into the generated points.
     The points are sorted by eastings, unless a north-south line is
     provided, in which case it is sorted by northings.
-
-    Parameters
-    ----------
-    site_easts : np.ndarray
-        1D array of floats. Easting coordinates of stations.
-    site_norths : np.ndarray
-        1D array of floats. Easting coordinates of stations.
-    x0, y0 : float
-        Start of the line.
-    x1, y1 : float
-        End of the line.
-    elevation_sample_n : int
-        Number of samples to generate along the profile line.
-
-    Returns
-    -------
-    tuple(np.ndarray, np.ndarray)
-        Two 1D arrays, eastings and northings of the profile line
+    :param y1:
+    :param x1:
+    :param y0:
+    :param x0:
+    :param site_easts: 1D array of floats. Easting coordinates of stations.
+    :type site_easts: np.ndarray
+    :param site_norths: 1D array of floats. Easting coordinates of stations.
+    :type site_norths: np.ndarray
+    :param x0, y0: Start of the line.
+    :type x0, y0: float
+    :param x1, y1: End of the line.
+    :type x1, y1: float
+    :param elevation_sample_n: Number of samples to generate along the profile line.
+    :type elevation_sample_n: int
+    :return: Two 1D arrays, eastings and northings of the profile line
         (with station locations included).
+    :rtype: tuple(np.ndarray, np.ndarray)
     """
     # Select samples from Occam2D profile for loading into mare2dem
     # For whatever reason, original script ignores first and last coordinates (x0, y0), (x1, y1)
@@ -224,8 +204,7 @@ def occam2d_to_mare2dem(
     elevation_sample_n=300,
     flip_elevation=True,
 ):
-    """
-    Converts Occam2D profile to Mare2D format, giving station locations
+    """Converts Occam2D profile to Mare2D format, giving station locations
     with elevations in Mare2D format. The elevation is interpolated from
     the provided topo file.
 
@@ -243,29 +222,22 @@ def occam2d_to_mare2dem(
     Doesn't handle if the `rot_o2d_data` isn't actually rotated, will
     end up working with duplicates. This isn't a problem, just
     inefficient.
-
-    Parameters
-    ----------
-    o2d_data : mtpy.modeling.occam2d.Data
-        Occam2D Data object that has been initialised with EDI data and
+    :param o2d_data: Occam2D Data object that has been initialised with EDI data and
         *not* rotated to strike angle.
-    rot_o2d_data : mtpy.modeling.occam2d.Data
-        Occam2D Data object that has been initialised with EDI data nd
+    :type o2d_data: mtpy.modeling.occam2d.Data
+    :param rot_o2d_data: Occam2D Data object that has been initialised with EDI data nd
         *is* rotated to strike angle.
-    surface_file : str or bytes
-        Full path to ASCII grid file containing topography data.
-    elevation_sample_n : int, optional
-        Number of points to sample from the Occam2D profile for
+    :type rot_o2d_data: mtpy.modeling.occam2d.Data
+    :param surface_file: Full path to ASCII grid file containing topography data.
+    :type surface_file: str or bytes
+    :param elevation_sample_n: Number of points to sample from the Occam2D profile for
         for loading into Mare2D. According to original script this
         should be changed to something sensible based on length of the
-        profile line.
-    flip_elevation : bool, optional
-        If True, elevation is multiplied by -1 after interpolation.
-
-    Returns
-    -------
-    tuple
-        A tuple containing (mare origin, utm_zone,
+        profile line, defaults to 300.
+    :type elevation_sample_n: int, optional
+    :param flip_elevation: If True, elevation is multiplied by -1 after interpolation, defaults to True.
+    :type flip_elevation: bool, optional
+    :return: A tuple containing (mare origin, utm_zone,
         site locations, site elevations, site names, Mare2DEM profile,
         profile elevation). Mare origin X and Y are the middle of the
         profile line in UTM coordinates. utm_zone is the UTM string of
@@ -274,6 +246,7 @@ def occam2d_to_mare2dem(
         of sites in metres (interpolated from surface_file). Mare2DEM
         profile is the full profile line in Mare2D coordinates.
         Elevation is the elevation of the Mare2D profile line.
+    :rtype: tuple
     """
     # Get site location eastings and northings from Occam2D profile
     # Projected and non-projected
@@ -367,8 +340,7 @@ def occam2d_to_mare2dem(
 
 
 def write_elevation_file(m2d_profile, profile_elevation, savepath=None):
-    """
-    Write an elevation file that can be imported into Mamba2D.
+    """Write an elevation file that can be imported into Mamba2D.
 
     m2d_profile : np.ndarray
         1D array of the m2d profile in m2d coordinates.
@@ -396,46 +368,43 @@ def write_mare2dem_data(
     solve_statics=False,
     savepath=None,
 ):
-    """
-    Uses an Occam2D data file and site locations + elevations to
+    """Uses an Occam2D data file and site locations + elevations to
     generate a MARE2DEM data file.
-
-    Parameters
-    ----------
-    o2d_filepath : bytes or str
-        Full path to the Occam2D data file created from EDI data.
-    site_locations : np.ndarray
-        Array of shape (nstations). According to the original comments
+    :param utm_zone:
+    :param o2d_filepath: Full path to the Occam2D data file created from EDI data.
+    :type o2d_filepath: bytes or str
+    :param site_locations: Array of shape (nstations). According to the original comments
         in the `EDI2Mare2DEM_withOccam2D_new` script, this is the
         site elevation but in Mare2D coordinates, however it gets set
         as the 'y' component of receiver locations in the Mare2DEM
         data file.
-    site_elevations : np.ndarray
-        Array of shape (nstations). I think this is the site elevation
+    :type site_locations: np.ndarray
+    :param site_elevations: Array of shape (nstations). I think this is the site elevation
         in UTM coordinates. Gets set as the 'z' component of receiver
         locations in the Mare2DEM data file.
-    site_names : np.ndarray
-        Array of site_names.
-    mare_origin : tuple
-        Tuple of float (x, y, utm_zone). The Mare2D origin in UTM
+    :type site_elevations: np.ndarray
+    :param site_names: Array of site_names.
+    :type site_names: np.ndarray
+    :param mare_origin: Tuple of float (x, y, utm_zone). The Mare2D origin in UTM
         coordinates. Note according to the original script, Mare2D origin
         is the middle of the profile line. utm_zone is the UTM string,
         e.g. '54S'.
-    gstrike : int
-        The 2D strike, same as
+    :type mare_origin: tuple
+    :param gstrike: The 2D strike, same as
         `geoelectric_strike` in Occam2D model. This information is used
         for the UTM origin line in the data file.
-    solve_statics : bool or list, optional
-        If boolean, sets whether to solve statics for all stations.
+    :type gstrike: int
+    :param solve_statics: If boolean, sets whether to solve statics for all stations.
         A list of site names can be passed. Sites in the list will
         have solve_statics set to True, any sites not included
         are set to False. This writes a '1' or a '0' in
         the Receiver section of the Mare2D data file in the SovleStatics
-        column.
-    savepath : bytes or str, optional
-        Full path of where to save the Mare2D data file. If not
+        column, defaults to False.
+    :type solve_statics: bool or list, optional
+    :param savepath: Full path of where to save the Mare2D data file. If not
         provided, will be saved as 'Mare2D_data.txt' in working
-        directory.
+        directory, defaults to None.
+    :type savepath: bytes or str, optional
     """
     # Prepare O2D data for data block
     o2d_sites = []

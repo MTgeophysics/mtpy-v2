@@ -21,8 +21,7 @@ import math
 def correct4sensor_orientation(
     Z_prime, Bx=0, By=90, Ex=0, Ey=90, Z_prime_error=None
 ):
-    """
-    Correct a Z-array for wrong orientation of the sensors.
+    """Correct a Z-array for wrong orientation of the sensors.
 
     Assume, E' is measured by sensors orientated with the angles
         E'x: a
@@ -53,38 +52,22 @@ def correct4sensor_orientation(
     E' = Z' * B' => T^(-1) * E = Z' * U^(-1) * B
                  => E = T * Z' * U^(-1) * B
                  => Z = T * Z' * U^(-1)
-
-    :param Z_prime: impedance tensor to be adjusted
-    :dtype Z_prime: np.ndarray(num_frequency, 2, 2, dtype='complex')
-
-
-    :param Bx: orientation of Bx relative to geographic north (0)
-                                   *default* is 0
-    :type Bx: float (angle in degrees)
-
+    :param Z_prime_error:
+        Defaults to None.
+    :param Ey:
+        Defaults to 90.
+    :param Ex:
+        Defaults to 0.
     :param By:
-    :type By: float (angle in degrees)
-                         orientation of By relative to geographic north (0)
-                                 *default* is 90
-
-    :param Ex: orientation of Ex relative to geographic north (0)
-                                   *default* is 0
-    :type Ex: float (angle in degrees)
-
-    :param Ey: orientation of Ey relative to geographic north (0)
-                                  *default* is 90
-    :type Ey: float (angle in degrees)
-
-    :param Z_prime_error: impedance tensor error (std)
-                                                 *default* is None
-    :type Z_prime_error: np.ndarray(Z_prime.shape)
-
-    :returns: adjusted impedance tensor
-    :rtype: np.ndarray(Z_prime.shape, dtype='complex')
-
-    :returns: impedance tensor standard deviation in
-                                        default orientation
-    :rtype: np.ndarray(Z_prime.shape, dtype='real')
+        Defaults to 90.
+    :param Bx:
+        Defaults to 0.
+    :param Z_prime: Impedance tensor to be adjusted.
+    :return s: Adjusted impedance tensor.
+    :rtype s: np.ndarray(Z_prime.shape, dtype='complex')
+    :return s: Impedance tensor standard deviation in
+        default orientation.
+    :rtype s: np.ndarray(Z_prime.shape, dtype='real')
     """
     try:
         if len(Z_prime.shape) != 2:

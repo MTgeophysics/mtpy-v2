@@ -15,8 +15,7 @@ from loguru import logger
 
 
 class WSStartup:
-    """
-    read and write startup files
+    """Read and write startup files
 
     :Example: ::
 
@@ -51,8 +50,7 @@ class WSStartup:
                         *default* is 'default'
     target_rms          target rms
                         *default* is 1.0
-    =================== =======================================================
-
+    =================== =======================================================.
     """
 
     def __init__(self, data_fn=None, initial_fn=None, **kwargs):
@@ -91,10 +89,12 @@ class WSStartup:
 
     @property
     def startup_fn(self):
+        """Startup fn."""
         return self.save_path.joinpath(self.fn_basename)
 
     @startup_fn.setter
     def startup_fn(self, value):
+        """Startup fn."""
         if value is None:
             self.save_path = Path()
 
@@ -104,10 +104,7 @@ class WSStartup:
             self.fn_basename = value.name
 
     def write_startup_file(self, save_path):
-        """
-        makes a startup file for WSINV3D.
-
-        """
+        """Makes a startup file for WSINV3D."""
         if self.data_fn is None:
             raise IOError("Need to input data file name")
 
@@ -163,10 +160,7 @@ class WSStartup:
         return self.startup_fn
 
     def read_startup_file(self, startup_fn):
-        """
-        read startup file fills attributes
-
-        """
+        """Read startup file fills attributes."""
         self.startup_fn = startup_fn
 
         with open(self.startup_fn, "r") as sfid:

@@ -3,6 +3,7 @@ import numpy as np
 
 
 def get_next_fig_num():
+    """Get next fig num."""
     current_fig_nums = set(plt.get_fignums())
     number = 1
     while number in current_fig_nums:
@@ -11,6 +12,7 @@ def get_next_fig_num():
 
 
 def gen_hist_bins(uniq_period_list):
+    """Gen hist bins."""
     bins = np.array(uniq_period_list)  # get center of bins
     diff = np.diff(np.r_[0, bins]).dot(0.5)
     bins -= diff  # shift left
