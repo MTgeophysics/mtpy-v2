@@ -17,7 +17,6 @@ class Simpeg3DData:
     """ """
 
     def __init__(self, dataframe, **kwargs):
-        
 
         # nez+ as keys then enz- as values
         self.component_map = {
@@ -106,24 +105,24 @@ class Simpeg3DData:
     @property
     def n_stations(self):
         return self.dataframe.station.unique().size
-    
+
     @property
     def station_names(self):
-        """ list of station names """
+        """list of station names"""
         return list(self.dataframe.station.unique())
-    
+
     @property
     def components_to_invert(self):
-        """ get a list of components to invert base on user input"""
+        """get a list of components to invert base on user input"""
         components = []
         for comp in self.component_map.keys():
             if getattr(self, f"invert_{comp}"):
                 components.append(comp)
         return components
-    
+
     @property
     def n_orientation(self):
-        """ number of components to invert"""
+        """number of components to invert"""
         return len(self.components_to_invert)
 
     def _get_z_mode_sources(self, orientation):
@@ -228,22 +227,31 @@ class Simpeg3DData:
         return df.to_records(index=False, column_dtypes=dict(self._rec_dtypes))
 
     def get_observations_and_erros(self):
-        """ build object from a dataframe """
+        """build object from a dataframe"""
 
         # inverting for real and imaginary
         n_component = len(self.invert_types)
 
-        f_dict = dict([(round(ff, 5), ii) for ii, ff in enumerate(self.frequencies)])
-        observations = np.zeros((self.n_frequencies, self.n_orientation, n_component, self.n_stations))
+        f_dict = dict(
+            [(round(ff, 5), ii) for ii, ff in enumerate(self.frequencies)]
+        )
+        observations = np.zeros(
+            (
+                self.n_frequencies,
+                self.n_orientation,
+                n_component,
+                self.n_stations,
+            )
+        )
         errors = np.zeros_like(observations)
         for s_index, station in enumerate(self.station_names):
             station_df = self.dataframe.loc[self.dataframe.station == station]
             station_df.set_index("period", inplace=True)
             for row in station_df.itertuples():
-                f_index = f_dict[round(1./row.Index, 5)]
+                f_index = f_dict[round(1.0 / row.Index, 5)]
                 for c_index, comp in enumerate(self.components_to_invert):
                     value = getattr(row, comp)
-                    err = getattr(row, f"{comp}_model_error") # user_set error
+                    err = getattr(row, f"{comp}_model_error")  # user_set error
                     # err = getattr(row, f"{comp}_error") # measurement error from data statistics
                     observations[f_index, c_index, 0, s_index] = value.real
                     observations[f_index, c_index, 1, s_index] = value.imag
@@ -252,14 +260,24 @@ class Simpeg3DData:
 
         observations[np.where(np.nan_to_num(observations) == 0)] = 100
         errors[np.where(np.nan_to_num(errors) == 0)] = np.inf
-         
+
         return observations, errors
-    
+
     @property
     def data_object(self):
-        """ create a data object"""
+        """create a data object"""
         observations, errors = self.get_observations_and_erros()
         survey = self.get_survey()
-        return data.Data(survey, 
-                         dobs=observations.flatten(),
-                           standard_deviation=errors.flatten())
+        return data.Data(
+            survey,
+            dobs=observations.flatten(),
+            standard_deviation=errors.flatten(),
+        )
+
+    def from_data_object(self, data_object):
+        """ingest a Simpeg.data.Data object into a dataframe
+
+        :param data_object: _description_
+        :type data_object: _type_
+        """
+        raise NotImplementedError()
