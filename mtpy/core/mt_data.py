@@ -12,7 +12,6 @@ from pathlib import Path
 from collections import OrderedDict
 from copy import deepcopy
 
-
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -100,8 +99,8 @@ class MTData(OrderedDict, MTStations):
     def _validate_item(self, mt_obj):
         """Make sure intpu is an MT object.
 
-        If the input is a string assume
-its a file path.
+        If the input is a string assume its a file path.
+
         :param mt_obj: Input MT object.
         :type mt_obj: :class:`mtpy.MT`, str, :class:`pathlib.Path`
         :raises TypeError: If not any of the input types.
@@ -121,6 +120,7 @@ its a file path.
 
     def __eq__(self, other):
         """Test for other is equal.
+
         :param other: Other MTData object.
         :type other: :class:`mtpy.MTData`
         :return: True if equal, False if not equal.
@@ -162,6 +162,7 @@ its a file path.
 
     def __deepcopy__(self, memo):
         """Deep copy overwrite to make sure that logger is skipped.
+
         :param memo: DESCRIPTION.
         :type memo: TYPE
         :return: Deep copy of original MTData.
@@ -182,6 +183,7 @@ its a file path.
 
     def copy(self):
         """Deep copy of original MTData object.
+
         :param memo: DESCRIPTION.
         :type memo: TYPE
         :return: Deep copy of original MTData.
@@ -193,6 +195,7 @@ its a file path.
 
     def clone_empty(self):
         """Return a copy of MTData excluding MT objects.
+
         :return: Copy of MTData object excluding MT objects.
         :rtype: :class:`mtpy.MTData`
         """
@@ -206,6 +209,7 @@ its a file path.
     @property
     def mt_list(self):
         """Mt list.
+
         :return: List of MT objects.
         :rtype: list
         """
@@ -221,6 +225,7 @@ its a file path.
     @property
     def survey_ids(self):
         """Survey IDs for all MT objects.
+
         :return: List of survey IDs.
         :rtype: list
         """
@@ -228,6 +233,7 @@ its a file path.
 
     def get_survey(self, survey_id):
         """Get all MT objects that belong to the 'survey_id' from the data set.
+
         :param survey_id: Survey ID.
         :type survey_id: str
         :return: MTData object including only those with the desired 'survey_id'.
@@ -248,6 +254,7 @@ its a file path.
         compute_model_error=False,
     ):
         """Add a MT object.
+
         :param compute_model_error:
             Defaults to False.
         :param mt_object: MT object for a single station.
@@ -297,6 +304,7 @@ its a file path.
 
     def add_tf(self, tf, **kwargs):
         """Add a MT object.
+
         :param **kwargs:
         :param tf:
         :param mt_object: MT object for a single station.
@@ -314,6 +322,7 @@ its a file path.
 
     def remove_station(self, station_id, survey_id=None):
         """Remove a station from the dictionary based on the key.
+
         :param station_id: Station ID.
         :type station_id: str
         :param survey_id: Survey ID, defaults to None.
@@ -328,6 +337,7 @@ its a file path.
 
     def _get_station_key(self, station_id, survey_id):
         """Get station key from station id and survey id.
+
         :param station_id: Station ID.
         :type station_id: str
         :param survey_id: Survey ID.
@@ -350,6 +360,7 @@ its a file path.
 
     def get_periods(self):
         """Get all unique periods.
+
         :return: DESCRIPTION.
         :rtype: TYPE
         """
@@ -362,6 +373,7 @@ its a file path.
     def get_station(self, station_id=None, survey_id=None, station_key=None):
         """If 'station_key' is None, tries to find key from `station_id` and
         'survey_id' using MTData._get_station_key()
+
         :param station_key: Full station key {survey_id}.{station_id},, defaults to None.
         :type station_key: str, optional
         :param station_id: Station ID, defaults to None.
@@ -386,6 +398,7 @@ its a file path.
 
     def apply_bounding_box(self, lon_min, lon_max, lat_min, lat_max):
         """Apply a bounding box.
+
         :param lon_min: DESCRIPTION.
         :type lon_min: TYPE
         :param lon_max: DESCRIPTION.
@@ -415,6 +428,7 @@ its a file path.
     def get_subset(self, station_list):
         """Get a subset of the data from a list of stations, could be station_id
         or station_keys
+
         :param station_list: List of station keys as {survey_id}.{station_id}.
         :type station_list: list
         :return: Returns just those stations within station_list.
@@ -444,6 +458,7 @@ its a file path.
 
     def to_dataframe(self, utm_crs=None, cols=None):
         """To dataframe.
+
         :param utm_crs: DESCRIPTION, defaults to None.
         :type utm_crs: TYPE, optional
         :param cols: DESCRIPTION, defaults to None.
@@ -463,6 +478,7 @@ its a file path.
 
     def to_mt_dataframe(self, utm_crs=None):
         """Create an MTDataFrame.
+
         :param utm_crs: DESCRIPTION, defaults to None.
         :type utm_crs: TYPE, optional
         :return: DESCRIPTION.
@@ -473,6 +489,7 @@ its a file path.
 
     def from_dataframe(self, df):
         """Create an dictionary of MT objects from a dataframe.
+
         :param df: Dataframe of mt data.
         :type df: `pandas.DataFrame`
         """
@@ -485,6 +502,7 @@ its a file path.
 
     def from_mt_dataframe(self, mt_df):
         """Create an dictionary of MT objects from a dataframe.
+
         :param mt_df:
         :param df: Dataframe of mt data.
         :type df: `MTDataFrame`
@@ -494,10 +512,12 @@ its a file path.
 
     def to_geo_df(self, model_locations=False, data_type="station_locations"):
         """Make a geopandas dataframe for easier GIS manipulation.
+
         :param model_locations: If True returns points in model coordinates,, defaults to False.
         :type model_locations: bool, optional
         :param data_type: Type of data in GeoDataFrame
-            [ 'station_locations' | 'phase_tensor' | 'tipper' | 'shapefiles' (both pt and tipper) ],, defaults to "station_locations".
+            [ 'station_locations' | 'phase_tensor' | 'tipper' | 'shapefiles' (both pt and tipper) ],
+              defaults to "station_locations".
         :type data_type: string, optional
         :return: Geopandas dataframe with requested data in requested coordinates.
         :rtype: geopandas.GeoDataFrame
@@ -597,6 +617,7 @@ its a file path.
     def rotate(self, rotation_angle, inplace=True):
         """Rotate the data by the given angle assuming positive clockwise with
         north = 0, east = 90.
+
         :param inplace:
             Defaults to True.
         :param rotation_angle: DESCRIPTION.
@@ -625,6 +646,7 @@ its a file path.
 
         These can be in (longitude, latitude) or (easting, northing).
         The calculation is done in UTM, therefore a UTM CRS must be input
+
         :param x1: DESCRIPTION.
         :type x1: TYPE
         :param y1: DESCRIPTION.
@@ -670,7 +692,8 @@ its a file path.
         eigen                      error_value * mean(eigen(z))
         percent                    error_value * z
         absolute                   error_value
-        ========================== ===========================================.
+        ========================== ===========================================
+
         :param z_error_value: DESCRIPTION, defaults to None.
         :type z_error_value: TYPE, optional
         :param z_error_type: DESCRIPTION, defaults to None.
@@ -709,6 +732,7 @@ its a file path.
 
     def get_nearby_stations(self, station_key, radius, radius_units="m"):
         """Get stations close to a given station.
+
         :param radius_units:
             Defaults to "m".
         :param station_key: DESCRIPTION.
@@ -756,6 +780,7 @@ its a file path.
         """Estimate static shift for a station by estimating the median resistivity
         values for nearby stations within a radius given.  Can set the period
         range to estimate the resistivity values.
+
         :param shift_tolerance:
             Defaults to 0.15.
         :param radius_units:
@@ -810,6 +835,7 @@ its a file path.
         """Estimate starting resistivity from the data.
 
         Creates a plot of the mean and median apparent resistivity values.
+
         :return: Array of the median rho per period.
         :rtype: np.ndarray(n_periods)
         :return: Array of the mean rho per period.
@@ -878,6 +904,7 @@ its a file path.
 
     def to_modem(self, data_filename=None, **kwargs):
         """Create a modem data file.
+
         :param data_filename: DESCRIPTION, defaults to None.
         :type data_filename: TYPE, optional
         :param **kwargs: DESCRIPTION.
@@ -911,6 +938,7 @@ its a file path.
 
     def from_modem_data(self, data_filename, survey="data", **kwargs):
         """From modem data.
+
         :param survey:
             Defaults to "data".
         :param data_filename: DESCRIPTION.
@@ -930,7 +958,8 @@ its a file path.
         self.from_modem(data_filename, survey=survey, **kwargs)
 
     def from_modem(self, data_filename, survey="data", **kwargs):
-        """Read in a modem data file.
+        """Read in a modem data file
+
         :param survey:
             Defaults to "data".
         :param data_filename: DESCRIPTION.
@@ -1013,6 +1042,7 @@ its a file path.
 
     def to_occam2d(self, data_filename=None, **kwargs):
         """Write an Occam2D data file.
+
         :param data_filename: DESCRIPTION, defaults to None.
         :type data_filename: TYPE, optional
         :param **kwargs: DESCRIPTION.
@@ -1034,6 +1064,7 @@ its a file path.
 
     def add_white_noise(self, value, inplace=True):
         """Add white noise to the data, useful for synthetic tests.
+
         :param value: DESCRIPTION.
         :type value: TYPE
         :param inplace: DESCRIPTION, defaults to True.
@@ -1063,6 +1094,7 @@ its a file path.
         self, station_key=None, station_id=None, survey_id=None, **kwargs
     ):
         """Plot mt response.
+
         :param survey_id:
             Defaults to None.
         :param station_id:
@@ -1149,11 +1181,11 @@ its a file path.
         return Simpeg3DData(self.to_dataframe(), **kwargs)
     
 
-
     def plot_stations(
         self, map_epsg=4326, bounding_box=None, model_locations=False, **kwargs
     ):
         """Plot stations.
+
         :param model_locations:
             Defaults to False.
         :param bounding_box:
@@ -1183,6 +1215,7 @@ its a file path.
         self, station_key=None, station_id=None, survey_id=None, **kwargs
     ):
         """Plot phase tensor elements.
+
         :param survey_id:
             Defaults to None.
         :param station_id:
@@ -1208,6 +1241,7 @@ its a file path.
         """Plot Phase tensor maps for transfer functions in the working_dataframe
 
         .. seealso:: :class:`mtpy.imaging.PlotPhaseTensorMaps`.
+
         :param **kwargs: DESCRIPTION.
         :type **kwargs: TYPE
         :return: DESCRIPTION.
@@ -1234,6 +1268,7 @@ its a file path.
         if specified
 
         .. seealso:: :class:`mtpy.imaging.PlotPhaseTensorPseudosection`
+
         :param mt_data:
             Defaults to None.
         :param **kwargs: DESCRIPTION.
@@ -1253,6 +1288,7 @@ its a file path.
         and strike angles are interpreted for data points that are 3D.
 
         .. seealso:: :class:`mtpy.analysis.niblettbostick.calculate_depth_of_investigation`.
+
         :param survey_id:
             Defaults to None.
         :param station_id:
@@ -1279,6 +1315,7 @@ its a file path.
         """Plot Penetration depth in map view for a single period
 
         .. seealso:: :class:`mtpy.imaging.PlotPenetrationDepthMap`.
+
         :param **kwargs:
         :param mt_data: DESCRIPTION.
         :type mt_data: TYPE
@@ -1293,6 +1330,7 @@ its a file path.
         working dataframe
 
         .. seealso:: :class:`mtpy.imaging.PlotResPhaseMaps`
+
         :param **kwargs: DESCRIPTION.
         :type **kwargs: TYPE
         :return: DESCRIPTION.
@@ -1303,6 +1341,7 @@ its a file path.
 
     def plot_resistivity_phase_pseudosections(self, **kwargs):
         """Plot resistivity and phase in a pseudosection along a profile line.
+
         :param mt_data: DESCRIPTION, defaults to None.
         :type mt_data: TYPE, optional
         :param **kwargs: DESCRIPTION.
@@ -1315,6 +1354,7 @@ its a file path.
 
     def plot_residual_phase_tensor_maps(self, survey_01, survey_02, **kwargs):
         """Plot residual phase tensor maps.
+
         :param **kwargs:
         :param survey_01: DESCRIPTION.
         :type survey_01: TYPE
@@ -1347,6 +1387,7 @@ its a file path.
          match up, you should first interpolate onto a common period map and
          then make shape files.  Otherwise you will have a bunch of shapefiles
          with only a few shapes.
+
         :param arrow_size:
             Defaults to None.
         :param ellipse_size:
