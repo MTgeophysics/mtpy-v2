@@ -4,24 +4,8 @@
 import warnings
 import numpy as np
 
-import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
-
 from simpeg.electromagnetics import natural_source as nsem
-from simpeg import (
-    maps,
-    optimization,
-    inversion,
-    inverse_problem,
-    directives,
-    data_misfit,
-    regularization,
-)
-from pymatsolver import Pardiso
-
-# from dask.distributed import Client, LocalCluster
-from mtpy.modeling.simpeg.data_2d import Simpeg2DData
-from mtpy.modeling.simpeg.make_2d_mesh import QuadTreeMesh
+from simpeg import data
 
 warnings.filterwarnings("ignore")
 
@@ -243,7 +227,7 @@ class Simpeg3DData:
 
         return df.to_records(index=False, column_dtypes=dict(self._rec_dtypes))
 
-    def _from_dataframe(self, df):
+    def get_observations_and_erros(self):
         """ build object from a dataframe """
 
         # inverting for real and imaginary
@@ -253,7 +237,7 @@ class Simpeg3DData:
         observations = np.zeros((self.n_frequencies, self.n_orientation, n_component, self.n_stations))
         errors = np.zeros_like(observations)
         for s_index, station in enumerate(self.station_names):
-            station_df = sdf.loc[sdf.station == station]
+            station_df = self.dataframe.loc[self.dataframe.station == station]
             station_df.set_index("period", inplace=True)
             for row in station_df.itertuples():
                 f_index = f_dict[round(1./row.Index, 5)]
@@ -264,5 +248,16 @@ class Simpeg3DData:
                     observations[f_index, c_index, 0, s_index] = value.real
                     observations[f_index, c_index, 1, s_index] = value.imag
                     errors[f_index, c_index, 0, s_index] = err
-                    errors[f_index, c_index, 1, s_index] = err 
+                    errors[f_index, c_index, 1, s_index] = err
+
+        observations[np.where(np.nan_to_num(observations) == 0)] = 100
+        errors[np.where(np.nan_to_num(errors) == 0)] = np.inf
+         
         return observations, errors
+    
+    @property
+    def data_object(self):
+        """ create a data object"""
+        observations, errors = self.get_observations_and_erros()
+        survey = self.get_survey()
+        return data.Data(survey, dobs=observations, standard_deviation=errors.flatten())
