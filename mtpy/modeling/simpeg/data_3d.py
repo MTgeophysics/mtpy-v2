@@ -33,7 +33,7 @@ class Simpeg3DData:
     """ """
 
     def __init__(self, dataframe, **kwargs):
-        self.dataframe = dataframe
+        
 
         # nez+ as keys then enz- as values
         self.component_map = {
@@ -84,6 +84,11 @@ class Simpeg3DData:
         self.invert_z_yy = True
         self.invert_t_zx = True
         self.invert_t_zy = True
+        self.invert_types = ["real", "imaginary"]
+
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+        self.dataframe = dataframe
 
     @property
     def station_locations(self):
@@ -117,6 +122,25 @@ class Simpeg3DData:
     @property
     def n_stations(self):
         return self.dataframe.station.unique().size
+    
+    @property
+    def station_names(self):
+        """ list of station names """
+        return list(self.dataframe.station.unique())
+    
+    @property
+    def components_to_invert(self):
+        """ get a list of components to invert base on user input"""
+        components = []
+        for comp in self.component_map.keys():
+            if getattr(self, f"invert_{comp}"):
+                components.append(comp)
+        return components
+    
+    @property
+    def n_orientation(self):
+        """ number of components to invert"""
+        return len(self.components_to_invert)
 
     def _get_z_mode_sources(self, orientation):
         """Get the source for each mode"""
@@ -218,3 +242,27 @@ class Simpeg3DData:
         df = df[[col[0] for col in self._rec_dtypes]]
 
         return df.to_records(index=False, column_dtypes=dict(self._rec_dtypes))
+
+    def _from_dataframe(self, df):
+        """ build object from a dataframe """
+
+        # inverting for real and imaginary
+        n_component = len(self.invert_types)
+
+        f_dict = dict([(round(ff, 5), ii) for ii, ff in enumerate(self.frequencies)])
+        observations = np.zeros((self.n_frequencies, self.n_orientation, n_component, self.n_stations))
+        errors = np.zeros_like(observations)
+        for s_index, station in enumerate(self.station_names):
+            station_df = sdf.loc[sdf.station == station]
+            station_df.set_index("period", inplace=True)
+            for row in station_df.itertuples():
+                f_index = f_dict[round(1./row.Index, 5)]
+                for c_index, comp in enumerate(self.components_to_invert):
+                    value = getattr(row, comp)
+                    err = getattr(row, f"{comp}_model_error") # user_set error
+                    # err = getattr(row, f"{comp}_error") # measurement error from data statistics
+                    observations[f_index, c_index, 0, s_index] = value.real
+                    observations[f_index, c_index, 1, s_index] = value.imag
+                    errors[f_index, c_index, 0, s_index] = err
+                    errors[f_index, c_index, 1, s_index] = err 
+        return observations, errors
