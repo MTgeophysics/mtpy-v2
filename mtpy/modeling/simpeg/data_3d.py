@@ -260,4 +260,6 @@ class Simpeg3DData:
         """ create a data object"""
         observations, errors = self.get_observations_and_erros()
         survey = self.get_survey()
-        return data.Data(survey, dobs=observations, standard_deviation=errors.flatten())
+        return data.Data(survey, 
+                         dobs=observations.flatten(),
+                           standard_deviation=errors.flatten())
