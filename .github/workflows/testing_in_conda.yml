@@ -34,6 +34,7 @@ jobs:
         conda install pytest
         conda install pytest-subtests
         conda install pytest-cov
+        conda install conda-forge::mkl-devel
         pip install git+https://github.com/simpeg/pydiso.git
         conda install conda-forge::simpeg
         pip install git+https://github.com/kujaku11/mt_metadata.git@main
