@@ -26,6 +26,8 @@ from mtpy.core import MTDataFrame
 from mtpy.modeling.errors import ModelErrors
 from mtpy.modeling.modem import Data
 from mtpy.modeling.occam2d import Occam2DData
+from mtpy.modeling.simpeg.data_2d import Simpeg2DData
+from mtpy.modeling.simpeg.data_3d import Simpeg3DData
 from mtpy.gis.shapefile_creator import ShapefileCreator
 from mtpy.imaging import (
     PlotStations,
@@ -1107,6 +1109,46 @@ its a file path.
                 station_key=station_key,
             )
             return mt_object.plot_mt_response(**kwargs)
+        
+    def to_simpeg_2d(self, **kwargs):
+        """Create a data object for Simpeg to work with.
+
+        All information is derived from the dataframe.  Therefore the user 
+        should create the profile, interpolate, estimate model errors
+        from the `MTData` object first before creating the Simpeg2D object.
+
+        kwargs include: 
+
+          - `include_elevation` -> bool
+          - `invert_te` -> bool
+          - `invert_tm` -> bool
+        """
+
+        return Simpeg2DData(self.to_dataframe(), **kwargs)
+    
+    def to_simpeg_3d(self, **kwargs):
+        """Create a data object that Simpeg can work with.
+
+        All information is derived from the dataframe.  Therefore the user 
+        should interpolate, estimate model errors, etc from the `MTData` 
+        object first before creating the Simpeg3D object.
+
+        kwargs include: 
+
+          - include_elevation -> bool
+          - geographic_coordinates  -> bool
+          - invert_z_xx  -> bool
+          - invert_z_xy  -> bool
+          - invert_z_yx  -> bool
+          - invert_z_yy  -> bool
+          - invert_t_zx  -> bool
+          - invert_t_zy  -> bool
+          - invert_types = ["real", "imaginary"]
+        """
+
+        return Simpeg3DData(self.to_dataframe(), **kwargs)
+    
+
 
     def plot_stations(
         self, map_epsg=4326, bounding_box=None, model_locations=False, **kwargs
@@ -1334,9 +1376,9 @@ its a file path.
             self.to_mt_dataframe(), output_crs, save_dir=save_dir
         )
         sc.utm = utm
-        if ellipse_size is None and pt == True:
+        if ellipse_size is None and pt:
             sc.ellipse_size = sc.estimate_ellipse_size()
-        if arrow_size is None and tipper == True:
+        if arrow_size is None and tipper:
             sc.arrow_soze = sc.estimate_arrow_size()
 
         return sc.make_shp_files(

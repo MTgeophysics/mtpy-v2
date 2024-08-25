@@ -31,6 +31,9 @@ class Simpeg2DData:
         self.invert_te = True
         self.invert_tm = True
 
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
     @property
     def station_locations(self):
         """
