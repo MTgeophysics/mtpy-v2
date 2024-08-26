@@ -22,6 +22,7 @@ from simpeg.electromagnetics.natural_source.survey import Data
 class TestSimpeg3DData(unittest.TestCase):
     @classmethod
     def setUpClass(self):
+        self.maxDiff = None
         self.md = MTData()
         self.md.add_station(
             [fn for fn in PROFILE_LIST if fn.name.startswith("16")]
@@ -49,36 +50,35 @@ class TestSimpeg3DData(unittest.TestCase):
             self.assertEqual((6, 3), self.simpeg_data.station_locations.shape)
 
         with self.subTest("easting"):
-            self.assertTrue(
-                np.allclose(
-                    np.array(
-                        [
-                            1748272.6633829,
-                            1748748.38773332,
-                            1749294.26095771,
-                            1749782.36727311,
-                            1750256.42072474,
-                            1750746.91502363,
-                        ]
-                    ),
-                    self.simpeg_data.station_locations[:, 0],
-                )
+            self.assertListEqual(
+                np.round(
+                    [
+                        1748272.6633829,
+                        1748748.38773332,
+                        1749294.26095771,
+                        1749782.36727311,
+                        1750256.42072474,
+                        1750746.91502363,
+                    ],
+                    5,
+                ).tolist(),
+                np.round(self.simpeg_data.station_locations[:, 0], 5).tolist(),
             )
+
         with self.subTest("northing"):
-            self.assertTrue(
-                np.allclose(
-                    np.array(
-                        [
-                            392386.55064591,
-                            392327.27572739,
-                            392236.78815949,
-                            392163.46012645,
-                            392092.04770295,
-                            392015.27551658,
-                        ]
-                    ),
-                    self.simpeg_data.station_locations[:, 1],
-                )
+            self.assertListEqual(
+                np.round(
+                    [
+                        392386.55064591,
+                        392327.27572739,
+                        392236.78815949,
+                        392163.46012645,
+                        392092.04770295,
+                        392015.27551658,
+                    ],
+                    5,
+                ).tolist(),
+                np.round(self.simpeg_data.station_locations[:, 1], 5).tolist(),
             )
 
         with self.subTest("elevation"):
