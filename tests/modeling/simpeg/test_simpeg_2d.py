@@ -112,22 +112,22 @@ class TestSimpeg2DData(unittest.TestCase):
             np.allclose(1.0 / self.new_periods, self.simpeg_data.frequencies)
         )
 
-    def test_survey_te(self):
+    def test_te_survey(self):
         # simpeg sorts in order of lowest frequency to highest
         with self.subTest("frequencies"):
             self.assertTrue(
                 np.allclose(
                     1.0 / self.new_periods[::-1],
-                    self.simpeg_data.survey_te.frequencies,
+                    self.simpeg_data.te_survey.frequencies,
                 )
             )
 
-    def test_survey_tm(self):
+    def test_tm_survey(self):
         with self.subTest("frequencies"):
             self.assertTrue(
                 np.allclose(
                     1.0 / self.new_periods[::-1],
-                    self.simpeg_data.survey_tm.frequencies,
+                    self.simpeg_data.tm_survey.frequencies,
                 )
             )
 

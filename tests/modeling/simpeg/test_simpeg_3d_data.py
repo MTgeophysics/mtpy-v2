@@ -48,45 +48,56 @@ class TestSimpeg3DData(unittest.TestCase):
         with self.subTest("shape"):
             self.assertEqual((6, 3), self.simpeg_data.station_locations.shape)
 
+        with self.subTest("easting"):
+            self.assertTrue(
+                np.allclose(
+                    np.array(
+                        [
+                            1748272.6633829,
+                            1748748.38773332,
+                            1749294.26095771,
+                            1749782.36727311,
+                            1750256.42072474,
+                            1750746.91502363,
+                        ]
+                    ),
+                    self.simpeg_data.station_locations[:, 0],
+                )
+            )
+        with self.subTest("northing"):
+            self.assertTrue(
+                np.allclose(
+                    np.array(
+                        [
+                            392386.55064591,
+                            392327.27572739,
+                            392236.78815949,
+                            392163.46012645,
+                            392092.04770295,
+                            392015.27551658,
+                        ]
+                    ),
+                    self.simpeg_data.station_locations[:, 1],
+                )
+            )
+
         with self.subTest("elevation"):
             self.assertTrue(
                 np.allclose(
-                    self.simpeg_data.station_locations[:, 1],
-                    np.array([210.0, 213.0, 212.0, 219.0, 214.0, 220.0]),
+                    self.simpeg_data.station_locations[:, 2],
+                    np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
                 )
             )
 
     def test_to_rec_array(self):
         survey_data = Data.fromRecArray(self.simpeg_data.to_rec_array())
-
-    # def test_station_locations_no_elevation(self):
-    #     self.simpeg_data.include_elevation = False
-    #     with self.subTest("shape"):
-    #         self.assertEqual((6, 2), self.simpeg_data.station_locations.shape)
-
-    #     with self.subTest("offset"):
-    #         self.assertTrue(
-    #             np.allclose(
-    #                 self.simpeg_data.station_locations[:, 0],
-    #                 np.array(
-    #                     [
-    #                         0.0,
-    #                         479.36423899,
-    #                         1032.47570849,
-    #                         1526.02107079,
-    #                         2005.38361755,
-    #                         2501.76393224,
-    #                     ]
-    #                 ),
-    #             )
-    #         )
-    #     with self.subTest("elevation"):
-    #         self.assertTrue(
-    #             np.allclose(
-    #                 self.simpeg_data.station_locations[:, 1],
-    #                 np.zeros((6)),
-    #             )
-    #         )
+        with self.subTest("survey frequencies"):
+            self.assertTrue(
+                np.allclose(
+                    self.simpeg_data.frequencies,
+                    survey_data.survey.frequencies[::-1],
+                )
+            )
 
     def test_frequencies(self):
         self.assertTrue(

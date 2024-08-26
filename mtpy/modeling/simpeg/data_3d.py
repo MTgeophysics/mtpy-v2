@@ -93,6 +93,7 @@ class Simpeg3DData:
                     np.zeros(station_df.elevation.size),
                 ]
 
+    @property
     def frequencies(self):
         """unique frequencies from the dataframe"""
 
