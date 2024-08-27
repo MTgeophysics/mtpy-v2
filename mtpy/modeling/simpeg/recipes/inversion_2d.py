@@ -95,15 +95,22 @@ class Simpeg2D:
         # get attributes
         attr_list = []
         property_list = []
-        for key, value in vars(self).items():
+        for key, value in dir(self).items():
             if key.startswith("_"):
                 continue
-            if isinstance(value, property):
-                property_list.append(f"\tProperty {key}: {value}")
+            if isinstance(getattr(type(self), key, None), property):
+                property_list.append(
+                    f"\t{key}: {type(getattr(type(self), key))}"
+                )
             elif isinstance(value, (float, int, str, bool)):
-                attr_list.append(f"\tAttribute {key}: {value}")
+                attr_list.append(f"\t{key}: {getattr(type(self), key)}")
 
-        return "\n".join(sorted(attr_list) + sorted(property_list))
+        return "\n".join(
+            ["Attributes"]
+            + sorted(attr_list)
+            + ["Properties"]
+            + sorted(property_list)
+        )
 
     def __repr__(self):
         return self.__str__()
