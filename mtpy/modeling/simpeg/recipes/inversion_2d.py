@@ -91,6 +91,23 @@ class Simpeg2D:
         for key, value in kwargs.items():
             setattr(self, key, value)
 
+    def __str__(self):
+        # get attributes
+        attr_list = []
+        property_list = []
+        for key, value in vars(self).items():
+            if key.startswith("_"):
+                continue
+            if isinstance(value, property):
+                property_list.append(f"\tProperty {key}: {value}")
+            elif isinstance(value, (float, int, str, bool)):
+                attr_list.append(f"\tAttribute {key}: {value}")
+
+        return "\n".join(sorted(attr_list) + sorted(property_list))
+
+    def __repr__(self):
+        return self.__str__()
+
     def make_mesh(self, **kwargs):
         """
         make QuadTree Mesh
