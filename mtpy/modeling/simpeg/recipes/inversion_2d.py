@@ -95,21 +95,37 @@ class Simpeg2D:
         # get attributes
         attr_list = []
         property_list = []
-        for key, value in dir(self).items():
+        method_list = []
+        for key in dir(self):
             if key.startswith("_"):
                 continue
+            value = getattr(self, key)
             if isinstance(getattr(type(self), key, None), property):
-                property_list.append(
-                    f"\t{key}: {type(getattr(type(self), key))}"
-                )
-            elif isinstance(value, (float, int, str, bool)):
-                attr_list.append(f"\t{key}: {getattr(type(self), key)}")
+                property_list.append(f"\t{key}: {value}")
+            else:
+                if isinstance(
+                    value, (float, int, str, bool, list, tuple, dict)
+                ):
+                    attr_list.append(f"\t{key}: {value}")
+                else:
+                    method_list.append(f"\t{key}")
+
+        return "\n".join(
+            ["Attributes:"]
+            + sorted(attr_list)
+            + ["Properties:"]
+            + sorted(property_list)
+            + ["Methods:"]
+            + sorted(method_list)
+        )
 
         return "\n".join(
             ["Attributes"]
             + sorted(attr_list)
             + ["Properties"]
             + sorted(property_list)
+            + ["Methods:"]
+            + sorted(method_list)
         )
 
     def __repr__(self):
@@ -400,7 +416,7 @@ class Simpeg2D:
             ),
             range_y=kwargs.get(
                 "z_limits",
-                (-self.simpeg_inversion.quad_tree.mesh.h[1].sum() / 2, 500),
+                (-self.quad_tree.mesh.h[1].sum() / 2, 500),
             ),
         )
         cb = plt.colorbar(out[0], fraction=0.01, ax=ax)
@@ -447,6 +463,10 @@ class Simpeg2D:
                 self.iterations[iteration]["phi_d"]
                 for iteration in self.iterations.keys()
             ],
+            marker="o",
+            ms=15,
+            mec="k",
+            mfc="r",
         )
 
         ax.set_xlabel("$\phi_m$ [model smallness]")
