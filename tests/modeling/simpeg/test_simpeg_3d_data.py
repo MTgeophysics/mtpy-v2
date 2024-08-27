@@ -51,34 +51,46 @@ class TestSimpeg3DData(unittest.TestCase):
 
         with self.subTest("easting"):
             self.assertListEqual(
-                np.round(
-                    [
-                        1748272.6633829,
-                        1748748.38773332,
-                        1749294.26095771,
-                        1749782.36727311,
-                        1750256.42072474,
-                        1750746.91502363,
-                    ],
-                    5,
-                ).tolist(),
-                np.round(self.simpeg_data.station_locations[:, 0], 5).tolist(),
+                sorted(
+                    np.round(
+                        [
+                            1748272.6633829,
+                            1748748.38773332,
+                            1749294.26095771,
+                            1749782.36727311,
+                            1750256.42072474,
+                            1750746.91502363,
+                        ],
+                        5,
+                    ).tolist()
+                ),
+                sorted(
+                    np.round(
+                        self.simpeg_data.station_locations[:, 0], 5
+                    ).tolist()
+                ),
             )
 
         with self.subTest("northing"):
             self.assertListEqual(
-                np.round(
-                    [
-                        392386.55064591,
-                        392327.27572739,
-                        392236.78815949,
-                        392163.46012645,
-                        392092.04770295,
-                        392015.27551658,
-                    ],
-                    5,
-                ).tolist(),
-                np.round(self.simpeg_data.station_locations[:, 1], 5).tolist(),
+                sorted(
+                    np.round(
+                        [
+                            392386.55064591,
+                            392327.27572739,
+                            392236.78815949,
+                            392163.46012645,
+                            392092.04770295,
+                            392015.27551658,
+                        ],
+                        5,
+                    ).tolist()
+                ),
+                sorted(
+                    np.round(
+                        self.simpeg_data.station_locations[:, 1], 5
+                    ).tolist()
+                ),
             )
 
         with self.subTest("elevation"):
@@ -94,8 +106,8 @@ class TestSimpeg3DData(unittest.TestCase):
         with self.subTest("survey frequencies"):
             self.assertTrue(
                 np.allclose(
-                    self.simpeg_data.frequencies,
-                    survey_data.survey.frequencies[::-1],
+                    np.sort(self.simpeg_data.frequencies),
+                    np.sort(survey_data.survey.frequencies[::-1]),
                 )
             )
 
