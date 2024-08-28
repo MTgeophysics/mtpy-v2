@@ -28,8 +28,7 @@ ogr.UseExceptions()
 
 
 class PTShapeFile(object):
-    """
-    write shape file for GIS plotting programs
+    """Write shape file for GIS plotting programs
 
     ======================== ==================================================
     key words/attributes      Description
@@ -77,9 +76,7 @@ class PTShapeFile(object):
     :Example: ::
         >>> pts = PTShapeFile(edilist, save_path=r"/home/gis")
         >>> pts.projection = 'NAD27'
-        >>> pts.write_shape_files()
-
-
+        >>> pts.write_shape_files().
     """
 
     def __init__(self, edi_list=None, proj="WGS84", esize=0.03, **kwargs):
@@ -126,9 +123,7 @@ class PTShapeFile(object):
         self._rotation_angle = 0.0
 
     def _set_rotation_angle(self, rotation_angle):
-        """
-        rotate all mt_objs to rotation angle
-        """
+        """Rotate all mt_objs to rotation angle."""
 
         self._rotation_angle = float(rotation_angle)
 
@@ -136,6 +131,7 @@ class PTShapeFile(object):
             mt_obj.rotation_angle = float(self._rotation_angle)
 
     def _get_rotation_angle(self):
+        """Get rotation angle."""
         return self._rotation_angle
 
     rotation_angle = property(
@@ -145,10 +141,8 @@ class PTShapeFile(object):
     )
 
     def _get_plot_period(self):
-        """
-        from the list of edi's get a frequency list from all possible
+        """From the list of edi's get a frequency list from all possible
         frequencies.
-
         """
 
         if self.plot_period is None:
@@ -171,8 +165,7 @@ class PTShapeFile(object):
                 self.plot_period = [self.plot_period]
 
     def _get_pt_array(self, pt_obj_list=None, periods=None, residual=False):
-        """
-        get the phase tensor information into a form that is more structured
+        """Get the phase tensor information into a form that is more structured
         to manipulate easier later.
 
         make a dictionary with keys being the plot period values and each
@@ -180,9 +173,11 @@ class PTShapeFile(object):
         collected from each station.
 
         Note: this only supports 2 coordinate system 1) lat-long; 2) UTM-WGS84 default
-
-        :param periods: a list of the periods as a subset of the all periods.
-        :return:
+        :param residual:
+            Defaults to False.
+        :param pt_obj_list:
+            Defaults to None.
+        :param periods: A list of the periods as a subset of the all periods, defaults to None.
         """
 
         utm_cs_list = []  # used to detect multi-UTM zones
@@ -331,8 +326,7 @@ class PTShapeFile(object):
             )
 
     def write_shape_files(self, periods=None, normalize="all"):
-        """
-        write shape file from given attributes
+        """Write shape file from given attributes
         https://pcjericks.github.io/py-gdalogr-cookbook/vector_layers.html
         #create-a-new-shapefile-and-add-data
         """
@@ -501,10 +495,7 @@ class PTShapeFile(object):
     def write_data_pt_shape_files_modem(
         self, modem_data_fn, rotation_angle=0.0
     ):
-        """
-        write pt files from a modem data file.
-
-        """
+        """Write pt files from a modem data file."""
 
         modem_obj = mtpy.modeling.modem.Data()
         modem_obj.read_data_file(modem_data_fn)
@@ -522,10 +513,8 @@ class PTShapeFile(object):
     def write_resp_pt_shape_files_modem(
         self, modem_data_fn, modem_resp_fn, rotation_angle=0.0
     ):
-        """
-        write pt files from a modem response file where ellipses are normalized
+        """Write pt files from a modem response file where ellipses are normalized
         by the data file.
-
         """
 
         # first get the data and response and place them in array for later use
@@ -545,15 +534,13 @@ class PTShapeFile(object):
     def write_residual_pt_shape_files_modem(
         self, modem_data_fn, modem_resp_fn, rotation_angle=0.0, normalize="1"
     ):
-        """
-        write residual pt shape files from ModEM output
+        """Write residual pt shape files from ModEM output
 
         normalize [ '1' | 'all' ]
                    * '1' to normalize the ellipse by itself, all ellipses are
                          normalized to phimax, thus one axis is of length
                          1*ellipse_size
-                   * 'all' to normalize each period by the largest phimax
-
+                   * 'all' to normalize each period by the largest phimax.
         """
 
         # first get the data and response and place them in array for later use
@@ -611,8 +598,7 @@ class PTShapeFile(object):
 # Tipper arrows
 # ==============================================================================
 class TipperShapeFile(object):
-    """
-    write shape file for GIS plotting programs.
+    """Write shape file for GIS plotting programs.
 
     currently only writes the real induction vectors.
 
@@ -669,7 +655,6 @@ class TipperShapeFile(object):
         >>> tipshp.arrow_lw = .0001
         >>> tipshp.arrow_size = .05
         >>> tipshp.write_shape_files()
-
     """
 
     def __init__(self, edi_list=None, **kwargs):
@@ -702,9 +687,7 @@ class TipperShapeFile(object):
         self._rotation_angle = 0.0
 
     def _set_rotation_angle(self, rotation_angle):
-        """
-        rotate all mt_objs to rotation angle
-        """
+        """Rotate all mt_objs to rotation angle."""
 
         self._rotation_angle = float(rotation_angle)
 
@@ -712,6 +695,7 @@ class TipperShapeFile(object):
             mt_obj.rotation_angle = float(self._rotation_angle)
 
     def _get_rotation_angle(self):
+        """Get rotation angle."""
         return self._rotation_angle
 
     rotation_angle = property(
@@ -721,10 +705,7 @@ class TipperShapeFile(object):
     )
 
     def _get_plot_period(self):
-        """
-        from the list of edi's get a frequency list to invert for.
-
-        """
+        """From the list of edi's get a frequency list to invert for."""
 
         if self.plot_period is None:
             # get all frequencies from all edi files
@@ -746,8 +727,7 @@ class TipperShapeFile(object):
                 self.plot_period = [self.plot_period]
 
     def _get_tip_array(self):
-        """
-        get the phase tensor information into a form that is more structured
+        """Get the phase tensor information into a form that is more structured
         to manipulate easier later.
 
         make a dictionary with keys being the plot period values and each
@@ -842,9 +822,7 @@ class TipperShapeFile(object):
             )
 
     def write_real_shape_files(self):
-        """
-        write shape file from given attributes
-        """
+        """Write shape file from given attributes."""
 
         self._get_tip_array()
 
@@ -985,9 +963,7 @@ class TipperShapeFile(object):
             print("Wrote shape file to {0}".format(shape_fn))
 
     def write_imag_shape_files(self):
-        """
-        write shape file from given attributes
-        """
+        """Write shape file from given attributes."""
 
         self._get_tip_array()
 
@@ -1128,10 +1104,7 @@ class TipperShapeFile(object):
             print("Wrote shape file to {0}".format(shape_fn))
 
     def write_tip_shape_files_modem(self, modem_data_fn, rotation_angle=0.0):
-        """
-        write tip files from a modem data file.
-
-        """
+        """Write tip files from a modem data file."""
 
         modem_obj = mtpy.modeling.modem.Data()
         modem_obj.read_data_file(modem_data_fn)
@@ -1149,10 +1122,7 @@ class TipperShapeFile(object):
     def write_tip_shape_files_modem_residual(
         self, modem_data_fn, modem_resp_fn, rotation_angle
     ):
-        """
-        write residual tipper files for modem
-
-        """
+        """Write residual tipper files for modem."""
         modem_data_obj = mtpy.modeling.modem.Data()
         modem_data_obj.read_data_file(modem_data_fn)
 
@@ -1180,10 +1150,7 @@ class TipperShapeFile(object):
 # reproject a layer DOESNT WORK YET
 # ==============================================================================
 def reproject_layer(in_shape_file, out_shape_file=None, out_proj="WGS84"):
-    """
-    reproject coordinates into a different coordinate system
-
-    """
+    """Reproject coordinates into a different coordinate system."""
 
     driver = ogr.GetDriverByName("ESRI Shapefile")
 
@@ -1254,6 +1221,7 @@ def reproject_layer(in_shape_file, out_shape_file=None, out_proj="WGS84"):
 
 
 def array2raster(newRasterfn, rasterOrigin, pixelWidth, pixelHeight, array):
+    """Array2raster function."""
     cols = array.shape[1]
     rows = array.shape[0]
     originX = rasterOrigin[0]
@@ -1311,11 +1279,9 @@ def array2raster(newRasterfn, rasterOrigin, pixelWidth, pixelHeight, array):
 
 
 def modem_to_shapefiles(mfndat, save_dir):
-    """
-    create shape file representaiotn for ModEM model
-    :param mfndat: \path2\Modular_NLCG_110.dat
-    :param save_dir: \path2\outshp
-    :return:
+    """Create shape file representaiotn for ModEM model.
+    :param mfndat: \path2\Modular_NLCG_110.dat.
+    :param save_dir: \path2\outshp.
     """
 
     pts = PTShapeFile(save_path=save_dir)
@@ -1342,14 +1308,14 @@ def create_phase_tensor_shpfiles(
     every_site=1,
     period_list=None,
 ):
-    """
-    generate shape file for a folder of edi files, and save the shape files a dir.
+    """Generate shape file for a folder of edi files, and save the shape files a dir.
+    :param period_list:
+        Defaults to None.
     :param edi_dir:
     :param save_dir:
-    :param proj: defult is WGS84-UTM, with ellipse_size=1000 meters
-    :param ellipse_size: the size of ellipse: 100-5000, try them out to suit your needs
-    :param every_site: by default every MT station will be output, but user can sample down with 2, 3,..
-    :return:
+    :param proj: Defult is WGS84-UTM, with ellipse_size=1000 meters, defaults to "WGS84".
+    :param ellipse_size: The size of ellipse: 100-5000, try them out to suit your needs, defaults to 1000.
+    :param every_site: , defaults to 1.
     """
 
     edipath = edi_dir
@@ -1371,11 +1337,9 @@ def create_phase_tensor_shpfiles(
 
 
 def create_tipper_shpfiles(edipath, save_dir):
-    """
-    Create Tipper (induction arrows real and imaginary) shape files
+    """Create Tipper (induction arrows real and imaginary) shape files.
     :param edipath:
     :param save_dir:
-    :return:
     """
 
     edilist = [
@@ -1398,6 +1362,7 @@ def create_tipper_shpfiles(edipath, save_dir):
 
 
 def create_modem_data_shapefiles():
+    """Create modem data shapefiles."""
     # modem: provide dat file and save_path below:
     # mfn = r"E:/Githubz/mtpy/examples/data/ModEM_files/VicSynthetic07/Modular_MPI_NLCG_016.dat"
     mfn = r"E:\Data\Modeling\Isa\100hs_flat_BB\Isa_run3_NLCG_048.dat"
@@ -1469,6 +1434,7 @@ if __name__ == "__main__d":
     "-o", "--output", type=str, default="temp", help="Output directory"
 )
 def generate_shape_files(input, output):
+    """Generate shape files."""
     print(
         "======================================================================="
     )

@@ -20,6 +20,7 @@ from mtpy.imaging.mtcolors import FixPointNormalize
 
 class PlotMesh(PlotBase):
     def __init__(self, model_obj, **kwargs):
+        """Init function."""
         self.model_obj = model_obj
         self.grid_lw = 0.5
         self.grid_color = (0.25, 0.25, 0.25)
@@ -33,12 +34,9 @@ class PlotMesh(PlotBase):
             self.plot()
 
     def _plot_topography(self):
-        """
-        Plot topography if asked
-
-        :return: DESCRIPTION
+        """Plot topography if asked.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if not "topography" in self.model_obj.surface_dict.keys():
@@ -81,12 +79,9 @@ class PlotMesh(PlotBase):
         mycb.set_label(label="Elevation (m)", size=12)
 
     def _plot_topography_ax2(self):
-        """
-        Plot topography if asked
-
-        :return: DESCRIPTION
+        """Plot topography if asked.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if not "topography" in self.model_obj.surface_dict.keys():
@@ -112,17 +107,15 @@ class PlotMesh(PlotBase):
         self.ax2.pcolormesh(x, y, plot_topo)
 
     def plot(self):
-        """
-        Plot the mesh to show model grid
+        """Plot the mesh to show model grid.
 
-        Arguments:
-        ----------
+        Arguments::
 
-            **z_limits** : tuple (zmin,zmax)
-                            plot min and max distances in meters for the
-                            vertical direction.  If None, the z_limits is
-                            set to the number of layers.  Z is positive down
-                            *default* is None
+                **z_limits** : tuple (zmin,zmax)
+                                plot min and max distances in meters for the
+                                vertical direction.  If None, the z_limits is
+                                set to the number of layers.  Z is positive down
+                                *default* is None
         """
 
         self._set_subplot_params()

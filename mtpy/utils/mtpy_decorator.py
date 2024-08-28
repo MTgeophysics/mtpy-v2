@@ -5,8 +5,7 @@ from loguru import logger
 
 
 class deprecated(object):
-    """
-    Description:
+    """Description:
         used to mark functions, methods and classes deprecated, and prints warning message when it called
         decorators based on https://stackoverflow.com/a/40301488
 
@@ -23,6 +22,7 @@ class deprecated(object):
         self.reason = reason
 
     def __call__(self, cls_or_func):  # pragma: no cover
+        """Call function."""
         if inspect.isfunction(cls_or_func):
             if hasattr(cls_or_func, "func_code"):
                 _code = cls_or_func.__code__
@@ -44,6 +44,7 @@ class deprecated(object):
 
         @functools.wraps(cls_or_func)
         def new_func(*args, **kwargs):  # pragma: no cover
+            """New func."""
             import warnings
 
             warnings.simplefilter(

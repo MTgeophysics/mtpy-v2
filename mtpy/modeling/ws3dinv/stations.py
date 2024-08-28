@@ -17,8 +17,7 @@ from pyevtk.hl import pointsToVTK
 
 # ==============================================================================
 class WSStation:
-    """
-    read and write a station file where the locations are relative to the
+    """Read and write a station file where the locations are relative to the
     3D mesh.
 
     ==================== ======================================================
@@ -55,10 +54,12 @@ class WSStation:
 
     @property
     def station_filename(self):
+        """Station filename."""
         return self.save_path.joinpath(self.fn_basename)
 
     @station_filename.setter
     def station_filename(self, value):
+        """Station filename."""
         if value is not None:
             value = Path(value)
             if value.parent == Path("."):
@@ -75,38 +76,34 @@ class WSStation:
         save_path=None,
         elev=None,
     ):
-        """
-        write a station file to go with the data file.
+        """Write a station file to go with the data file.
 
         the locations are on a relative grid where (0, 0, 0) is the
         center of the grid.  Also, the stations are assumed to be in the center
         of the cell.
 
-        Arguments:
-        -----------
-            **east** : np.ndarray(n_stations)
-                       relative station locations in east direction
+        Arguments::
+                **east** : np.ndarray(n_stations)
+                           relative station locations in east direction
 
-            **north** : np.ndarray(n_stations)
-                       relative station locations in north direction
+                **north** : np.ndarray(n_stations)
+                           relative station locations in north direction
 
-            **elev** : np.ndarray(n_stations)
-                       relative station locations in vertical direction
+                **elev** : np.ndarray(n_stations)
+                           relative station locations in vertical direction
 
-            **station_list** : list or np.ndarray(n_stations)
-                               name of stations
+                **station_list** : list or np.ndarray(n_stations)
+                                   name of stations
 
-            **save_path** : string
-                            directory or full path to save station file to
-                            if a directory  the file will be saved as
-                            save_path/WS_Station_Locations.txt
-                            if save_path is none the current working directory
-                            is used as save_path
+                **save_path** : string
+                                directory or full path to save station file to
+                                if a directory  the file will be saved as
+                                save_path/WS_Station_Locations.txt
+                                if save_path is none the current working directory
+                                is used as save_path
 
-        Outputs:
-        ---------
-            **station_fn** : full path to station file
-
+        Outputs::
+                **station_fn** : full path to station file
         """
         if east is not None:
             self.east = east
@@ -136,27 +133,23 @@ class WSStation:
         return self.station_filename
 
     def read_station_file(self, station_filename):
-        """
-        read in station file written by write_station_file
+        """Read in station file written by write_station_file.
 
-        Arguments:
-        ----------
-            **station_fn** : string
-                             full path to station file
+        Arguments::
+                **station_fn** : string
+                                 full path to station file
 
-        Outputs:
-        ---------
-            **east** : np.ndarray(n_stations)
-                       relative station locations in east direction
+        Outputs::
+                **east** : np.ndarray(n_stations)
+                           relative station locations in east direction
 
-            **north** : np.ndarray(n_stations)
-                       relative station locations in north direction
-            **elev** : np.ndarray(n_stations)
-                       relative station locations in vertical direction
+                **north** : np.ndarray(n_stations)
+                           relative station locations in north direction
+                **elev** : np.ndarray(n_stations)
+                           relative station locations in vertical direction
 
-            **station_list** : list or np.ndarray(n_stations)
-                               name of stations
-
+                **station_list** : list or np.ndarray(n_stations)
+                                   name of stations
         """
         self.station_filename = station_filename
 
@@ -177,18 +170,16 @@ class WSStation:
         self.elev = self.station_locations["elev"]
 
     def write_vtk_file(self, save_path, vtk_basename="VTKStations"):
-        """
-        write a vtk file to plot stations
+        """Write a vtk file to plot stations.
 
-        Arguments:
-        ------------
-            **save_path** : string
-                            directory to save file to.  Will save as
-                            save_path/vtk_basename
+        Arguments::
+                **save_path** : string
+                                directory to save file to.  Will save as
+                                save_path/vtk_basename
 
-            **vtk_basename** : string
-                               base file name for vtk file, extension is
-                               automatically added.
+                **vtk_basename** : string
+                                   base file name for vtk file, extension is
+                                   automatically added.
         """
         save_path = Path(save_path)
         if save_path.is_dir():
@@ -208,22 +199,18 @@ class WSStation:
         return save_fn
 
     def from_wl_write_station_file(self, sites_file, out_file, ncol=5):
-        """
-        write a ws station file from the outputs of winglink
+        """Write a ws station file from the outputs of winglink.
 
-        Arguments:
-        -----------
-            **sites_fn** : string
-                           full path to sites file output from winglink
+        Arguments::
+                **sites_fn** : string
+                               full path to sites file output from winglink
 
-            **out_fn** : string
-                         full path to .out file output from winglink
+                **out_fn** : string
+                             full path to .out file output from winglink
 
-            **ncol** : int
-                       number of columns the data is in
-                       *default* is 5
-
-
+                **ncol** : int
+                           number of columns the data is in
+                           *default* is 5
         """
 
         wl_east, wl_north, wl_station_list = wl.get_station_locations(

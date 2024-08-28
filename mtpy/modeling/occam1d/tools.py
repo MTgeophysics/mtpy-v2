@@ -82,8 +82,7 @@ import matplotlib.pyplot as plt
 
 
 def parse_arguments(arguments):
-    """
-    takes list of command line arguments obtained by passing in sys.argv
+    """Takes list of command line arguments obtained by passing in sys.argv
     reads these and returns a parser object
 
     author: Alison Kirkby (2016)
@@ -247,10 +246,9 @@ def parse_arguments(arguments):
 
 
 def update_inputs():
-    """
-    update input parameters from command line
+    """Update input parameters from command line
 
-    author: Alison Kirkby (2016)
+    author: Alison Kirkby (2016).
     """
     from sys import argv
 
@@ -265,12 +263,10 @@ def update_inputs():
 
 
 def get_strike(mt_object, fmin, fmax, strike_approx=0):
-    """
-    get the strike from the z array, choosing the strike angle that is closest
+    """Get the strike from the z array, choosing the strike angle that is closest
     to the azimuth of the PT ellipse (PT strike).
 
     if there is not strike available from the z array use the PT strike.
-
     """
     fselect = (mt_object.Z.freq > fmin) & (mt_object.Z.freq < fmax)
 
@@ -298,8 +294,7 @@ def get_strike(mt_object, fmin, fmax, strike_approx=0):
 
 
 def generate_inputfiles(**input_parameters):
-    """
-    generate all the input files to run occam1d, return the path and the
+    """Generate all the input files to run occam1d, return the path and the
     startup files to run.
 
     author: Alison Kirkby (2016)
@@ -403,10 +398,7 @@ def generate_inputfiles(**input_parameters):
 
 
 def divide_inputs(work_to_do, size):
-    """
-    divide list of inputs into chunks to send to each processor
-
-    """
+    """Divide list of inputs into chunks to send to each processor."""
     chunks = [[] for _ in range(size)]
     for i, d in enumerate(work_to_do):
         chunks[i % size].append(d)
@@ -415,15 +407,14 @@ def divide_inputs(work_to_do, size):
 
 
 def build_run():
-    """
-    build input files and run a suite of models in series (pretty quick so won't bother parallelise)
+    """Build input files and run a suite of models in series (pretty quick so won't bother parallelise)
 
     run Occam1d on each set of inputs.
     Occam is run twice. First to get the lowest possible misfit.
     we then set the target rms to a factor (default 1.05) times the minimum rms achieved
     and run to get the smoothest model.
 
-    author: Alison Kirkby (2016)
+    author: Alison Kirkby (2016).
     """
     # from mpi4py import MPI
 

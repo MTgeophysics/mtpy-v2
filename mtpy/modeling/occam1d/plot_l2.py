@@ -20,58 +20,55 @@ from .model import Occam1DModel
 
 # =============================================================================
 class PlotOccam1DL2(PlotBase):
-    """
-    plot L2 curve of iteration vs rms and roughness
+    """Plot L2 curve of iteration vs rms and roughness.
 
-    Arguments:
-    ----------
-        **rms_arr** : structured array with keys:
-                      * 'iteration' --> for iteration number (int)
-                      * 'rms' --> for rms (float)
-                      * 'roughness' --> for roughness (float)
+    Arguments::
+            **rms_arr** : structured array with keys:
+                          * 'iteration' --> for iteration number (int)
+                          * 'rms' --> for rms (float)
+                          * 'roughness' --> for roughness (float)
 
-    ======================= ===================================================
-    Keywords/attributes     Description
-    ======================= ===================================================
-    ax1                     matplotlib.axes instance for rms vs iteration
-    ax2                     matplotlib.axes instance for roughness vs rms
-    fig                     matplotlib.figure instance
-    fig_dpi                 resolution of figure in dots-per-inch
-    fig_num                 number of figure instance
-    fig_size                size of figure in inches (width, height)
-    font_size               size of axes tick labels, axes labels is +2
-    plot_yn                 [ 'y' | 'n']
-                            'y' --> to plot on instantiation
-                            'n' --> to not plot on instantiation
-    rms_arr                 structure np.array as described above
-    rms_color               color of rms marker and line
-    rms_lw                  line width of rms line
-    rms_marker              marker for rms values
-    rms_marker_size         size of marker for rms values
-    rms_mean_color          color of mean line
-    rms_median_color        color of median line
-    rough_color             color of roughness line and marker
-    rough_font_size         font size for iteration number inside roughness
-                            marker
-    rough_lw                line width for roughness line
-    rough_marker            marker for roughness
-    rough_marker_size       size of marker for roughness
-    subplot_bottom          subplot spacing from bottom
-    subplot_left            subplot spacing from left
-    subplot_right           subplot spacing from right
-    subplot_top             subplot spacing from top
-    ======================= ===================================================
+        ======================= ===================================================
+        Keywords/attributes     Description
+        ======================= ===================================================
+        ax1                     matplotlib.axes instance for rms vs iteration
+        ax2                     matplotlib.axes instance for roughness vs rms
+        fig                     matplotlib.figure instance
+        fig_dpi                 resolution of figure in dots-per-inch
+        fig_num                 number of figure instance
+        fig_size                size of figure in inches (width, height)
+        font_size               size of axes tick labels, axes labels is +2
+        plot_yn                 [ 'y' | 'n']
+                                'y' --> to plot on instantiation
+                                'n' --> to not plot on instantiation
+        rms_arr                 structure np.array as described above
+        rms_color               color of rms marker and line
+        rms_lw                  line width of rms line
+        rms_marker              marker for rms values
+        rms_marker_size         size of marker for rms values
+        rms_mean_color          color of mean line
+        rms_median_color        color of median line
+        rough_color             color of roughness line and marker
+        rough_font_size         font size for iteration number inside roughness
+                                marker
+        rough_lw                line width for roughness line
+        rough_marker            marker for roughness
+        rough_marker_size       size of marker for roughness
+        subplot_bottom          subplot spacing from bottom
+        subplot_left            subplot spacing from left
+        subplot_right           subplot spacing from right
+        subplot_top             subplot spacing from top
+        ======================= ===================================================
 
-    =================== =======================================================
-    Methods             Description
-    =================== =======================================================
-    plot                plots L2 curve.
-    redraw_plot         call redraw_plot to redraw the figures,
-                        if one of the attributes has been changed
-    save_figure         saves the matplotlib.figure instance to desired
-                        location and format
-    =================== ======================================================
-
+        =================== =======================================================
+        Methods             Description
+        =================== =======================================================
+        plot                plots L2 curve.
+        redraw_plot         call redraw_plot to redraw the figures,
+                            if one of the attributes has been changed
+        save_figure         saves the matplotlib.figure instance to desired
+                            location and format
+        =================== ======================================================
     """
 
     def __init__(self, dir_path, model_fn, **kwargs):
@@ -107,9 +104,7 @@ class PlotOccam1DL2(PlotBase):
             self.plot()
 
     def _get_iter_list(self):
-        """
-        get all iteration files in dir_path
-        """
+        """Get all iteration files in dir_path."""
 
         if not self.dir_path.exists():
             raise IOError(f"Could not find {self.dir_path}")
@@ -136,9 +131,7 @@ class PlotOccam1DL2(PlotBase):
         self.rms_arr.sort(order="iteration")
 
     def plot(self):
-        """
-        plot L2 curve
-        """
+        """Plot L2 curve."""
 
         nr = self.rms_arr.shape[0]
         med_rms = np.median(self.rms_arr["rms"])

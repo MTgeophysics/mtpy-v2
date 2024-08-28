@@ -17,9 +17,7 @@ from scipy import interpolate
 
 # =============================================================================
 def in_hull(p, hull):
-    """
-    Test if points in p are within the convex hull
-    """
+    """Test if points in p are within the convex hull."""
 
     try:
         if not isinstance(hull, Delaunay):
@@ -32,10 +30,9 @@ def in_hull(p, hull):
         # in those instances use linear programming (much slower) to define
         # a convex hull.
         def in_hull_lp(points, x):
-            """
+            """In hull lp.
             :param points:
             :param x:
-            :return:
             """
             n_points = len(points)
             c = np.zeros(n_points)
@@ -52,18 +49,15 @@ def in_hull(p, hull):
 
 
 def get_plot_xy(plot_array, cell_size, n_padding_cells):
-    """
-    Get plot x and plot y from a plot array to interpolate on to
-
-    :param plot_array: DESCRIPTION
+    """Get plot x and plot y from a plot array to interpolate on to.
+    :param plot_array: DESCRIPTION.
     :type plot_array: TYPE
-    :param cell_size: DESCRIPTION
+    :param cell_size: DESCRIPTION.
     :type cell_size: TYPE
-    :param n_padding_cells: DESCRIPTION
+    :param n_padding_cells: DESCRIPTION.
     :type n_padding_cells: TYPE
-    :return: DESCRIPTION
+    :return: DESCRIPTION.
     :rtype: TYPE
-
     """
 
     # create uniform x, y to plot on.
@@ -100,23 +94,22 @@ def get_plot_xy(plot_array, cell_size, n_padding_cells):
 def griddata_interpolate(
     x, y, values, new_x, new_y, interpolation_method="cubic"
 ):
-    """
-
-    :param x: DESCRIPTION
+    """Griddata interpolate.
+    :param values:
+    :param x: DESCRIPTION.
     :type x: TYPE
-    :param y: DESCRIPTION
+    :param y: DESCRIPTION.
     :type y: TYPE
-    :param value: DESCRIPTION
+    :param value: DESCRIPTION.
     :type value: TYPE
-    :param new_x: DESCRIPTION
+    :param new_x: DESCRIPTION.
     :type new_x: TYPE
-    :param new_y: DESCRIPTION
+    :param new_y: DESCRIPTION.
     :type new_y: TYPE
-    :param interpolation_method: DESCRIPTION, defaults to "cubic"
+    :param interpolation_method: DESCRIPTION, defaults to "cubic".
     :type interpolation_method: TYPE, optional
-    :return: DESCRIPTION
+    :return: DESCRIPTION.
     :rtype: TYPE
-
     """
     points = np.array([x, y]).T
     grid_x, grid_y = np.meshgrid(new_x, new_y)
@@ -140,20 +133,19 @@ def interpolate_to_map_griddata(
     n_padding_cells=10,
     interpolation_method="cubic",
 ):
-    """
-    Interpolate using scipy.interpolate.griddata
-
-    :param plot_array: DESCRIPTION
+    """Interpolate using scipy.interpolate.griddata.
+    :param interpolation_method:
+        Defaults to "cubic".
+    :param plot_array: DESCRIPTION.
     :type plot_array: TYPE
-    :param component: DESCRIPTION
+    :param component: DESCRIPTION.
     :type component: TYPE
-    :param cell_size: DESCRIPTION, defaults to .002
+    :param cell_size: DESCRIPTION002, defaults to 0.002.
     :type cell_size: TYPE, optional
-    :param n_padding_cells: DESCRIPTION, defaults to 10
+    :param n_padding_cells: DESCRIPTION, defaults to 10.
     :type n_padding_cells: TYPE, optional
-    :return: DESCRIPTION
+    :return: DESCRIPTION.
     :rtype: TYPE
-
     """
 
     plot_x, plot_y = get_plot_xy(plot_array, cell_size, n_padding_cells)
@@ -183,23 +175,27 @@ def triangulate_interpolation(
     nearest_neighbors=7,
     interp_pow=4,
 ):
-    """
-
-    :param x: DESCRIPTION
+    """Triangulate interpolation.
+    :param interp_pow:
+        Defaults to 4.
+    :param nearest_neighbors:
+        Defaults to 7.
+    :param padded_y:
+    :param padded_x:
+    :param x: DESCRIPTION.
     :type x: TYPE
-    :param y: DESCRIPTION
+    :param y: DESCRIPTION.
     :type y: TYPE
-    :param values: DESCRIPTION
+    :param values: DESCRIPTION.
     :type values: TYPE
-    :param new_x: DESCRIPTION
+    :param new_x: DESCRIPTION.
     :type new_x: TYPE
-    :param new_y: DESCRIPTION
+    :param new_y: DESCRIPTION.
     :type new_y: TYPE
-    :param : DESCRIPTION
-    :type : TYPE
-    :return: DESCRIPTION
+    :param: DESCRIPTION.
+    :type: TYPE
+    :return: DESCRIPTION.
     :rtype: TYPE
-
     """
 
     grid_x, grid_y = np.meshgrid(new_x, new_y)
@@ -255,35 +251,31 @@ def interpolate_to_map_triangulate(
     nearest_neighbors=7,
     interp_pow=4,
 ):
-    """
-
-    `plot_array` must have key words:
+    """`plot_array` must have key words:
 
         - **latitude**: latitude in decimal degrees of measured points
         - **longitude**: longitude in decimal degrees of measured points
         - values should have the proper name of the input component. For
           example if you are plotting the resistivity of the xy component then
-          the keyword should be 'res_xy'
-
-    :param plot_x: desired regular x locations to interpolate to
+          the keyword should be 'res_xy'.
+    :param plot_x: Desired regular x locations to interpolate to.
     :type plot_x: np.ndarray
-    :param plot_y: desired regular x locations to interpolate to
+    :param plot_y: Desired regular x locations to interpolate to.
     :type plot_y: np.ndarray
-    :param plot_array: structured array, see above
+    :param plot_array: Structured array, see above.
     :type plot_array: np.ndarray
-    :param component: component or keyword of the plot_array to plot
+    :param component: Component or keyword of the plot_array to plot.
     :type component: string
-    :param cell_size: size of cells , defaults to 0.002
+    :param cell_size: Size of cells 002, defaults to 0.002.
     :type cell_size: TYPE, optional
-    :param n_padding_cells: DESCRIPTION, defaults to 10
+    :param n_padding_cells: DESCRIPTION, defaults to 10.
     :type n_padding_cells: TYPE, optional
-    :param nearest_neighbors: DESCRIPTION, defaults to 7
+    :param nearest_neighbors: DESCRIPTION, defaults to 7.
     :type nearest_neighbors: TYPE, optional
-    :param interp_pow: DESCRIPTION, defaults to 4
+    :param interp_pow: DESCRIPTION, defaults to 4.
     :type interp_pow: TYPE, optional
-    :return: DESCRIPTION
+    :return: DESCRIPTION.
     :rtype: TYPE
-
     """
 
     # add padding to the locations
@@ -326,21 +318,23 @@ def interpolate_to_map(
     interpolation_power=5,
     nearest_neighbors=7,
 ):
-    """
-
-    :param plot_array: DESCRIPTION
+    """Interpolate to map.
+    :param nearest_neighbors:
+        Defaults to 7.
+    :param interpolation_power:
+        Defaults to 5.
+    :param plot_array: DESCRIPTION.
     :type plot_array: TYPE
-    :param component: DESCRIPTION
+    :param component: DESCRIPTION.
     :type component: TYPE
-    :param cell_size: DESCRIPTION, defaults to .002
+    :param cell_size: DESCRIPTION002, defaults to 0.002.
     :type cell_size: TYPE, optional
-    :param n_padding_cells: DESCRIPTION, defaults to 10
+    :param n_padding_cells: DESCRIPTION, defaults to 10.
     :type n_padding_cells: TYPE, optional
-    :param interpolation_method: DESCRIPTION, defaults to "delaunay"
+    :param interpolation_method: DESCRIPTION, defaults to "delaunay".
     :type interpolation_method: TYPE, optional
-    :return: DESCRIPTION
+    :return: DESCRIPTION.
     :rtype: TYPE
-
     """
 
     if interpolation_method in ["nearest", "linear", "cubic"]:

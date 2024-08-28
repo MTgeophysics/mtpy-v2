@@ -16,16 +16,15 @@ import mtpy.utils.calculator as MTcc
 
 # =============================================================================
 class ResidualPhaseTensor:
-    """
-    PhaseTensor class - generates a Phase Tensor (PT) object DeltaPhi
+    """PhaseTensor class - generates a Phase Tensor (PT) object DeltaPhi
     DeltaPhi = 1 - Phi1^-1*Phi2
     """
 
     def __init__(
         self, pt_object1=None, pt_object2=None, residual_type="heise"
     ):
-        """
-        Initialise an instance of the ResidualPhaseTensor class.
+        """Initialise an instance of the ResidualPhaseTensor class.
+
         Optional input:
         pt_object1 : instance of the PhaseTensor class
         pt_object2 : instance of the PhaseTensor class
@@ -63,8 +62,8 @@ class ResidualPhaseTensor:
             self.compute_residual_pt()
 
     def compute_residual_pt(self):
-        """
-        Read in two instance of the MTpy PhaseTensor class.
+        """Read in two instance of the MTpy PhaseTensor class.
+
         Update attributes:
         rpt, rpt_error, _self.pt1, _self.pt2, _self.pt1_error, _self.pt2_error
         """
@@ -259,13 +258,12 @@ class ResidualPhaseTensor:
             )
 
     def read_pts(self, pt1, pt2, pt1_error=None, pt2error=None):
-        """
-        Read two PT arrays and calculate the ResPT array (incl. uncertainties).
+        """Read two PT arrays and calculate the ResPT array (incl. uncertainties).
+
         Input:
         - 2x PT array
         Optional:
         - 2x pt_erroror array
-
         """
 
         try:
@@ -284,8 +282,8 @@ class ResidualPhaseTensor:
         self.compute_residual_pt(pt_o1, pt_o2)
 
     def set_rpt(self, rpt_array):
-        """
-        Set the attribute 'rpt' (ResidualPhaseTensor array).
+        """Set the attribute 'rpt' (ResidualPhaseTensor array).
+
         Input:
         ResPT array
         Test for shape, but no test for consistency!
@@ -307,8 +305,8 @@ class ResidualPhaseTensor:
         )
 
     def set_rpt_error(self, rpt_error_array):
-        """
-        Set the attribute 'rpt_error' (ResidualPhaseTensor-erroror array).
+        """Set the attribute 'rpt_error' (ResidualPhaseTensor-erroror array).
+
         Input:
         ResPT-erroror array
         Test for shape, but no test for consistency!

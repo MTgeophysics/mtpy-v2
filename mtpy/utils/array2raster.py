@@ -406,41 +406,37 @@ def array2raster(
     utm_epsg,
     rotation_angle=0.0,
 ):
-    """
-    converts an array into a raster file that can be read into a GIS program.
+    """Converts an array into a raster file that can be read into a GIS program.
 
     utm_lower_left_mt_location should be a MTLocation object with a UTM
     projection and represents the lower left hand corner of the grid.
 
-    Arguments:
-    --------------
-        **raster_fn** : string
-                        full path to save raster file to
+    Arguments::
+            **raster_fn** : string
+                            full path to save raster file to
 
-        **origin** : (lon, lat)
-                     longitude and latitude of southwest corner of the array
+            **origin** : (lon, lat)
+                         longitude and latitude of southwest corner of the array
 
-        **cell_width** : float (in meters)
-                         size of model cells in east-west direction
+            **cell_width** : float (in meters)
+                             size of model cells in east-west direction
 
-        **cell_height** : float (in meters)
-                         size of model cells in north-south direction
+            **cell_height** : float (in meters)
+                             size of model cells in north-south direction
 
-        **res_array** : np.ndarray(east, north)
-                        resistivity array in linear scale.
+            **res_array** : np.ndarray(east, north)
+                            resistivity array in linear scale.
 
-        **projection** : string
-                        name of the projection datum
+            **projection** : string
+                            name of the projection datum
 
-        **rotation_angle** : float
-                             angle in degrees to rotate grid.
-                             Assuming N = 0 and E = 90, positive clockwise
+            **rotation_angle** : float
+                                 angle in degrees to rotate grid.
+                                 Assuming N = 0 and E = 90, positive clockwise
 
-    Output:
-    ----------
-        * creates a geotiff file projected into projection in UTM.  The
-          values are in log scale for coloring purposes.
-
+    Output::
+            * creates a geotiff file projected into projection in UTM.  The
+              values are in log scale for coloring purposes.
     """
     # convert rotation angle to radians
     r_theta = np.deg2rad(rotation_angle)

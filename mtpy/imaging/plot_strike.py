@@ -20,8 +20,7 @@ from mtpy.core import Tipper
 
 
 class PlotStrike(PlotBase):
-    """
-        PlotStrike will plot the strike estimated from the invariants, phase tensor
+    """PlotStrike will plot the strike estimated from the invariants, phase tensor
         and the tipper in either a rose diagram of xy plot
 
 
@@ -113,7 +112,6 @@ class PlotStrike(PlotBase):
             >>> strike.redraw_plot()
             >>> #---save the plot---
             >>> strike.save_plot(r"/home/Figures")
-
     """
 
     def __init__(self, mt_data, **kwargs):
@@ -178,13 +176,12 @@ class PlotStrike(PlotBase):
     # ---need to rotate data on setting rotz
     @property
     def rotation_angle(self):
+        """Rotation angle."""
         return self._rotation_angle
 
     @rotation_angle.setter
     def rotation_angle(self, value):
-        """
-        only a single value is allowed
-        """
+        """Only a single value is allowed."""
         for mt in self.mt_data.values():
             mt.rotation_angle = value
         self._rotation_angle = value
@@ -192,14 +189,12 @@ class PlotStrike(PlotBase):
         self.make_strike_df()
 
     def make_strike_df(self):
-        """
-        make strike array
+        """Make strike array
 
         .. note:: Polar plots assume the azimuth is an angle measured
                 counterclockwise positive from x = 0.  Therefore all angles
                 are calculated as 90 - angle to make them conform to the
-                polar plot convention.
-
+                polar plot convention..
         """
 
         entries = []
@@ -287,27 +282,21 @@ class PlotStrike(PlotBase):
         self.strike_df = pd.DataFrame(entries)
 
     def get_mean(self, estimate_df):
-        """
-        get mean value
-        """
+        """Get mean value."""
         s_mean = estimate_df.measured_strike.mean(skipna=True)
         s_mean %= 360
 
         return s_mean
 
     def get_median(self, estimate_df):
-        """
-        get median value
-        """
+        """Get median value."""
         s_median = estimate_df.measured_strike.median(skipna=True)
         s_median %= 360
 
         return s_median
 
     def get_mode(self, estimate_df):
-        """
-        get mode from a historgram
-        """
+        """Get mode from a historgram."""
 
         bins = np.linspace(-360, 360, 146)
 
@@ -318,6 +307,7 @@ class PlotStrike(PlotBase):
         return s_mode
 
     def get_estimate(self, estimate, period_range=None):
+        """Get estimate."""
         if period_range is None:
             return self.strike_df.loc[self.strike_df.estimate == estimate]
 
@@ -332,9 +322,7 @@ class PlotStrike(PlotBase):
             ]
 
     def get_stats(self, estimate, period_range=None):
-        """
-        print stats nicely
-        """
+        """Print stats nicely."""
         estimate_df = self.get_estimate(estimate, period_range)
         # print out the statistics of the strike angles
         s_mean = self.get_mean(estimate_df)
@@ -354,9 +342,7 @@ class PlotStrike(PlotBase):
         return s_median, s_mode, s_mean
 
     def get_plot_array(self, estimate, period_range=None):
-        """
-        get a plot array that has the min and max angles
-        """
+        """Get a plot array that has the min and max angles."""
         estimate_df = self.get_estimate(estimate, period_range)
         # array goes from
         st_array = estimate_df.plot_strike.to_numpy().flatten()
@@ -371,18 +357,14 @@ class PlotStrike(PlotBase):
         return plot_array
 
     def _get_histogram_range(self):
-        """
-        get histogram range based on fold
-        """
+        """Get histogram range based on fold."""
         if self.fold == True:
             return (0, 180)
         elif self.fold == False:
             return (0, 360)
 
     def _get_bin_range(self):
-        """
-        get the bin range
-        """
+        """Get the bin range."""
         ### get the range in periods to plot
         if self.plot_range == "data":
             return np.arange(
@@ -396,9 +378,7 @@ class PlotStrike(PlotBase):
             )
 
     def _get_n_subplots(self):
-        """
-        get number of subplots
-        """
+        """Get number of subplots."""
 
         n_subplots = 0
         if self.plot_pt:
@@ -411,6 +391,7 @@ class PlotStrike(PlotBase):
         return n_subplots
 
     def _get_subplots(self, index=None):
+        """Get subplots."""
 
         ax_inv = None
         ax_pt = None
@@ -552,9 +533,7 @@ class PlotStrike(PlotBase):
         return ax_inv, ax_pt, ax_tip
 
     def _plot_bars(self, ax, strike, hist_range):
-        """
-        plot rose diagram of given strike array
-        """
+        """Plot rose diagram of given strike array."""
         hist = np.histogram(
             strike[np.nonzero(strike)].flatten(),
             bins=int(360 / self.bin_width),
@@ -569,12 +548,9 @@ class PlotStrike(PlotBase):
         )
 
     def _set_bar_color(self, bars, hist, estimate):
-        """
-        set the bar colors according to estimate
-
-        :return: DESCRIPTION
+        """Set the bar colors according to estimate.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if estimate == "tipper":
@@ -618,17 +594,15 @@ class PlotStrike(PlotBase):
                     bar.set_facecolor(self.color_pt)
 
     def _set_ax_label(self, ax, label, box_color):
-        """
-
-        :param ax: DESCRIPTION
+        """Set ax label.
+        :param ax: DESCRIPTION.
         :type ax: TYPE
-        :param label: DESCRIPTION
+        :param label: DESCRIPTION.
         :type label: TYPE
-        :param box_color: DESCRIPTION
+        :param box_color: DESCRIPTION.
         :type box_color: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if "h" in self.plot_orientation:
@@ -654,9 +628,7 @@ class PlotStrike(PlotBase):
             ax.yaxis.set_label_position("right")
 
     def _plot_per_period(self):
-        """
-        plot per period range
-        """
+        """Plot per period range."""
 
         # plot specs
         self.subplot_hspace = 0.3
@@ -798,12 +770,9 @@ class PlotStrike(PlotBase):
         plt.show()
 
     def _plot_all_periods(self):
-        """
-        plot all periods into one rose diagram
-
-        :return: DESCRIPTION
+        """Plot all periods into one rose diagram.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         hist_range = self._get_histogram_range()
 
@@ -897,10 +866,7 @@ class PlotStrike(PlotBase):
         plt.show()
 
     def plot(self, show=True):
-        """
-        plot Strike angles as rose plots
-
-        """
+        """Plot Strike angles as rose plots."""
         if self.strike_df is None:
             self.make_strike_df()
 

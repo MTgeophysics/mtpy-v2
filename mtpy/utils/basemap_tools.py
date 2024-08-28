@@ -5,6 +5,7 @@ from mtpy.utils.calculator import nearest_index
 
 
 def get_latlon_extents_from_modem_data(stations_obj):
+    """Get latlon extents from modem data."""
 
     return (
         stations_obj.lon.min(),
@@ -15,10 +16,7 @@ def get_latlon_extents_from_modem_data(stations_obj):
 
 
 def compute_tick_interval_from_map_extent(lonMin, lonMax, latMin, latMax):
-    """
-    estimate an even tick interval based on map extent based on some sensible options
-    
-    """
+    """Estimate an even tick interval based on map extent based on some sensible options."""
     tick_options = np.array([1.0, 2.0, 5.0])
     tick_options = np.hstack(
         [tick_options * 0.01, tick_options * 0.1, tick_options, tick_options * 10.0]
@@ -32,14 +30,12 @@ def compute_tick_interval_from_map_extent(lonMin, lonMax, latMin, latMax):
 
 
 def compute_map_extent_from_modem_data(stations_obj, buffer=None, buffer_factor=0.1):
-    """
-    compute extent for a plot from data extent from ModEM data file
-    
-    :param data_fn: full path to modem data file
-    :param buffer: optional argument; buffer in latitude/longitude (if not provided, 
-    this is assumed to be a fraction of the maximum of the north-south or east-west extent)
-    :param buffer_factor: fraction of north-south or east-west extent for buffer (if buffer not provided)
-    
+    """Compute extent for a plot from data extent from ModEM data file.
+    :param buffer_factor:
+        Defaults to 0.1.
+    :param stations_obj:
+    :param data_fn: Full path to modem data file.
+    :param buffer: Optional argument; buffer in latitude/longitude (if not provided,, defaults to None.
     """
 
     lonMin, lonMax, latMin, latMax = get_latlon_extents_from_modem_data(stations_obj)
@@ -54,18 +50,13 @@ def compute_map_extent_from_modem_data(stations_obj, buffer=None, buffer_factor=
 
 
 def compute_lonlat0_from_modem_data(stations_obj):
-    """
-    compute lat0 and lon0 for creating a basemap, using data centre point in modem data file
-    """
+    """Compute lat0 and lon0 for creating a basemap, using data centre point in modem data file."""
 
     return stations_obj.center_point["lon"], stations_obj.center_point["lat"]
 
 
 def initialise_basemap(stations_obj, buffer=None, **basemap_kwargs):
-    """
-    create a new basemap instance
-    
-    """
+    """Create a new basemap instance."""
 
     from mpl_toolkits.basemap import Basemap
 
@@ -95,14 +86,13 @@ def add_basemap_frame(
     mlabels=[False, False, False, True],
     plabels=[True, False, False, False],
 ):
-    """
-    add a standard map frame (lat/lon labels and tick marks, coastline and states) to basemap
-    
-    :param tick_interval: tick interval in degrees
-    :param coastline_kwargs: dictionary containing arguments to pass into the drawcoastlines function
-    :param states_kwargs: dictionary containing arguments to pass into the drawstates function
-    :param mlabels: where to place meridian (longitude) labels on plot (list containing True/False for [left,right,top,bottom])
-    :param plabels: where to place parallels (latitudes) labels on plot (list containing True/False for [left,right,top,bottom])
+    """Add a standard map frame (lat/lon labels and tick marks, coastline and states) to basemap.
+    :param basemap:
+    :param tick_interval: Tick interval in degrees, defaults to None.
+    :param coastline_kwargs: Dictionary containing arguments to pass into the drawcoastlines function, defaults to {}.
+    :param states_kwargs: Dictionary containing arguments to pass into the drawstates function, defaults to {}.
+    :param mlabels: Where to place meridian (longitude) labels on plot (list containing True/False for [left,right,top,bottom]), defaults to [False, False, False, True].
+    :param plabels: Where to place parallels (latitudes) labels on plot (list containing True/False for [left,right,top,bottom]), defaults to [True, False, False, False].
     """
     if tick_interval is None:
         tick_interval = compute_tick_interval_from_map_extent(
@@ -124,15 +114,13 @@ def add_basemap_frame(
 
 
 def plot_data(x, y, values, basemap=None, cbar=False, **param_dict):
-    """
-    plot array data, either 1d or 2d
-    
-    :param x: x position of points
-    :param y: y position of points
-    :param values: values to plot, if 1D, a scatter plot will be made, if 2D, a pcolormesh plot will be made
-    :param basemap: supply a basemap, if None, data will be plotted on current axes
-    :param cbar: True/False, whether or not to show a colorbar
-    
+    """Plot array data, either 1d or 2d.
+    :param **param_dict:
+    :param x: X position of points.
+    :param y: Y position of points.
+    :param values: Values to plot, if 1D, a scatter plot will be made, if 2D, a pcolormesh plot will be made.
+    :param basemap: Supply a basemap, if None, data will be plotted on current axes, defaults to None.
+    :param cbar: True/False, whether or not to show a colorbar, defaults to False.
     """
 
     if len(np.shape(values)) == 1:

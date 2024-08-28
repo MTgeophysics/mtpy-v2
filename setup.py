@@ -25,6 +25,7 @@ requirements = [
     "rasterio",
     "contextily",
     "pyevtk",
+    "aurora",
     "SimPEG==0.20.0",
 ]
 

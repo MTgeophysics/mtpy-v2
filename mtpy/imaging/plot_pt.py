@@ -20,12 +20,9 @@ from mtpy.imaging.mtplot_tools import (
 
 
 class PlotPhaseTensor(PlotBase):
-    """
-    Will plot phase tensor, strike angle, min and max phase angle,
+    """Will plot phase tensor, strike angle, min and max phase angle,
     azimuth, skew, and ellipticity as subplots on one plot.  It can plot
     the resistivity tensor along side the phase tensor for comparison.
-
-
     """
 
     def __init__(self, pt_object, station=None, **kwargs):
@@ -56,31 +53,29 @@ class PlotPhaseTensor(PlotBase):
     # ---need to rotate data on setting rotz
     @property
     def rotation_angle(self):
+        """Rotation angle."""
         return self._rotation_angle
 
     @rotation_angle.setter
     def rotation_angle(self, theta_r):
-        """
-        only a single value is allowed
-        """
+        """Only a single value is allowed."""
         self._rotation_angle = theta_r
         if not theta_r == 0:
 
             self.pt.rotate(theta_r)
 
     def _rotate_pt(self, rotation_angle):
-        """
-
-        :param rotation_angle: DESCRIPTION
+        """Rotate pt.
+        :param rotation_angle: DESCRIPTION.
         :type rotation_angle: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         self.pt.rotate(rotation_angle)
 
     def _setup_subplots(self):
+        """Setup subplots."""
         self.ax_pt = self.fig.add_subplot(4, 1, 1, aspect="equal")
         self.ax_phase = self.fig.add_subplot(4, 1, 2)
         self.ax_skew = self.fig.add_subplot(4, 1, 3, sharex=self.ax_phase)
@@ -88,9 +83,7 @@ class PlotPhaseTensor(PlotBase):
         self.ax_strike = self.fig.add_subplot(4, 1, 4, sharex=self.ax_phase)
 
     def plot(self, rotation_angle=None):
-        """
-        plots the phase tensor elements
-        """
+        """Plots the phase tensor elements."""
 
         if self.x_limits is None:
             self.x_limits = self.set_period_limits(1.0 / self.pt.frequency)

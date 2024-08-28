@@ -14,57 +14,54 @@ import numpy as np
 
 
 class MTEllipse:
-    """
-    helper class for getting ellipse properties from an input dictionary
+    """Helper class for getting ellipse properties from an input dictionary.
 
-    Arguments:
-    -------------
+    Arguments::
 
-    * 'size' -> size of ellipse in points
-               *default* is .25
+        * 'size' -> size of ellipse in points
+                   *default* is .25
 
-    * 'colorby' : [ 'phimin' | 'phimax' | 'beta' |
-              'skew_seg' | 'phidet' | 'ellipticity' ]
+        * 'colorby' : [ 'phimin' | 'phimax' | 'beta' |
+                  'skew_seg' | 'phidet' | 'ellipticity' ]
 
-              - 'phimin' -> colors by minimum phase
-              - 'phimax' -> colors by maximum phase
-              - 'skew' -> colors by skew
-              - 'skew_seg' -> colors by skew in
-                             discrete segments
-                             defined by the range
-              - 'normalized_skew' -> colors by
-                              normalized_skew
-                              see Booker, 2014
-              - 'normalized_skew_seg' -> colors by
-                             normalized_skew
-                             discrete segments
-                             defined by the range
-              - 'phidet' -> colors by determinant of
-                           the phase tensor
-              - 'ellipticity' -> colors by ellipticity
-              *default* is 'phimin'
+                  - 'phimin' -> colors by minimum phase
+                  - 'phimax' -> colors by maximum phase
+                  - 'skew' -> colors by skew
+                  - 'skew_seg' -> colors by skew in
+                                 discrete segments
+                                 defined by the range
+                  - 'normalized_skew' -> colors by
+                                  normalized_skew
+                                  see Booker, 2014
+                  - 'normalized_skew_seg' -> colors by
+                                 normalized_skew
+                                 discrete segments
+                                 defined by the range
+                  - 'phidet' -> colors by determinant of
+                               the phase tensor
+                  - 'ellipticity' -> colors by ellipticity
+                  *default* is 'phimin'
 
-    * 'range' : tuple (min, max, step)
-               Need to input at least the min and max
-               and if using 'skew_seg' to plot
-               discrete values input step as well
-               *default* depends on 'colorby'
+        * 'range' : tuple (min, max, step)
+                   Need to input at least the min and max
+                   and if using 'skew_seg' to plot
+                   discrete values input step as well
+                   *default* depends on 'colorby'
 
-    * 'cmap' : [ 'mt_yl2rd' | 'mt_bl2yl2rd' |
-                 'mt_wh2bl' | 'mt_rd2bl' |
-                 'mt_bl2wh2rd' | 'mt_seg_bl2wh2rd' |
-                 'mt_rd2gr2bl']
+        * 'cmap' : [ 'mt_yl2rd' | 'mt_bl2yl2rd' |
+                     'mt_wh2bl' | 'mt_rd2bl' |
+                     'mt_bl2wh2rd' | 'mt_seg_bl2wh2rd' |
+                     'mt_rd2gr2bl']
 
-             - 'mt_yl2rd'       --> yellow to red
-             - 'mt_bl2yl2rd'    --> blue to yellow to red
-             - 'mt_wh2bl'       --> white to blue
-             - 'mt_rd2bl'       --> red to blue
-             - 'mt_bl2wh2rd'    --> blue to white to red
-             - 'mt_bl2gr2rd'    --> blue to green to red
-             - 'mt_rd2gr2bl'    --> red to green to blue
-             - 'mt_seg_bl2wh2rd' --> discrete blue to
-                                     white to red
-
+                 - 'mt_yl2rd'       --> yellow to red
+                 - 'mt_bl2yl2rd'    --> blue to yellow to red
+                 - 'mt_wh2bl'       --> white to blue
+                 - 'mt_rd2bl'       --> red to blue
+                 - 'mt_bl2wh2rd'    --> blue to white to red
+                 - 'mt_bl2gr2rd'    --> blue to green to red
+                 - 'mt_rd2gr2bl'    --> red to green to blue
+                 - 'mt_seg_bl2wh2rd' --> discrete blue to
+                                         white to red
     """
 
     def __init__(self, **kwargs):
@@ -82,16 +79,12 @@ class MTEllipse:
         self.get_color_map()
 
     def get_color_map(self):
-        """
-        get a color map
-        """
+        """Get a color map."""
         if self.ellipse_colorby in ["skew_seg", "normalized_skew_seg"]:
             self.ellipse_cmap = "mt_seg_bl2wh2rd"
 
     def get_range(self):
-        """
-        get an appropriate range for the colorby
-        """
+        """Get an appropriate range for the colorby."""
         # set color ranges
         if self.ellipse_range[0] == self.ellipse_range[1]:
             if self.ellipse_colorby in [
@@ -109,6 +102,7 @@ class MTEllipse:
 
     @property
     def ellipse_cmap_n_segments(self):
+        """Ellipse cmap n segments."""
         return float(
             (self.ellipse_range[1] - self.ellipse_range[1])
             / (2 * self.ellipse_range[2])
@@ -116,6 +110,7 @@ class MTEllipse:
 
     @property
     def ellipse_cmap_bounds(self):
+        """Ellipse cmap bounds."""
         try:
             return np.arange(
                 self.ellipse_range[0],
@@ -126,9 +121,7 @@ class MTEllipse:
             return None
 
     def get_pt_color_array(self, pt_object):
-        """
-        Get the appropriat color by array
-        """
+        """Get the appropriat color by array."""
 
         # get the properties to color the ellipses by
         if (
@@ -159,6 +152,7 @@ class MTEllipse:
 
     @property
     def ellipse_properties(self):
+        """Ellipse properties."""
         return {
             "size": self.ellipse_size,
             "range": self.ellipse_range,

@@ -9,6 +9,7 @@ revised by JP 2017
 revised by AK 2017 to bring across functionality from ak branch
 
 """
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -24,8 +25,7 @@ from mtpy.modeling.plots import PlotRMS
 
 
 class Residual(Data):
-    """
-    class to contain residuals for each data point, and rms values for each
+    """Class to contain residuals for each data point, and rms values for each
     station
 
     ====================== ====================================================
@@ -102,38 +102,32 @@ class Residual(Data):
             setattr(self, key, value)
 
     def read_residual_file(self, residual_fn):
-        """
-
-        :param residual_fn: DESCRIPTION, defaults to None
+        """Read residual file.
+        :param residual_fn: DESCRIPTION, defaults to None.
         :type residual_fn: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         self.dataframe = self.read_data_file(residual_fn)
         self.calculate_rms()
 
     def calculate_rms(self):
-        """
-        add columns for rms
-        :return: DESCRIPTION
+        """Add columns for rms.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if self.dataframe is None:
             return
 
-        for col in ["zxx", "zxy", "zyx", "zyy", "tzx", "tzy"]:
+        for col in ["z_xx", "z_xy", "z_yx", "z_yy", "t_zx", "t_zy"]:
             with np.errstate(divide="ignore", invalid="ignore"):
-                self.dataframe[f"rms_{col}"] = np.abs(self.dataframe[col]) / (
-                    np.real(self.dataframe[f"{col}_model_error"]) * np.sqrt(2)
-                )
+                self.dataframe[f"rms_{col.replace('_', '')}"] = np.abs(
+                    self.dataframe[col]
+                ) / (np.real(self.dataframe[f"{col}_model_error"]) * np.sqrt(2))
 
     @property
     def rms_per_period_all(self):
-        """
-        RMS per period
-        """
+        """RMS per period."""
 
         if self.dataframe is not None:
             rms_list = []
@@ -161,12 +155,9 @@ class Residual(Data):
 
     @property
     def rms_per_period_per_component(self):
-        """
-        RMS per period by component
-
-        :return: DESCRIPTION
+        """RMS per period by component.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         rms_list = []
@@ -195,13 +186,13 @@ class Residual(Data):
         return df
 
     def plot_rms_per_period(self, plot_type="all", **kwargs):
-        """
-
-        :param **kwargs: DESCRIPTION
+        """Plot rms per period.
+        :param plot_type:
+            Defaults to "all".
+        :param **kwargs: DESCRIPTION.
         :type **kwargs: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if plot_type == "all":
@@ -229,14 +220,11 @@ class Residual(Data):
         return ax
 
     def plot_rms(self, **kwargs):
-        """
-        plot RMS in different views
-
-        :param **kwargs: DESCRIPTION
+        """Plot RMS in different views.
+        :param **kwargs: DESCRIPTION.
         :type **kwargs: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         plot_rms = PlotRMS(self.dataframe, **kwargs)
         plot_rms.plot()

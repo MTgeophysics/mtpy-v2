@@ -32,9 +32,10 @@ from mtpy.imaging.mtplot_tools import (
 
 
 class PlotMTResponse(PlotBase):
-    """
-    Plots Resistivity and phase for the different modes of the MT response.  At
-    the moment it supports the input of an .edi file. Other formats that will
+    """Plots Resistivity and phase for the different modes of the MT response.
+
+    At
+the moment it supports the input of an .edi file. Other formats that will
     be supported are the impedance tensor and errors with an array of periods
     and .j format.
 
@@ -62,8 +63,6 @@ class PlotMTResponse(PlotBase):
     and call redraw_plot().  If you know more aout matplotlib and want to
     change axes parameters, that can be done by changing the parameters in the
     axes attributes and then call update_plot(), note the plot must be open.
-
-
     """
 
     def __init__(
@@ -118,10 +117,12 @@ class PlotMTResponse(PlotBase):
 
     @property
     def plot_model_error(self):
+        """Plot model error."""
         return self._plot_model_error
 
     @plot_model_error.setter
     def plot_model_error(self, value):
+        """Plot model error."""
         if value:
             self._error_str = "model_error"
         else:
@@ -131,9 +132,7 @@ class PlotMTResponse(PlotBase):
 
     @property
     def period(self):
-        """
-        plot period
-        """
+        """Plot period."""
         if not (self.Z.period == np.array([1])).all():
             return self.Z.period
         elif not (self.Tipper.period == np.array([1])).all():
@@ -146,13 +145,12 @@ class PlotMTResponse(PlotBase):
     # ---need to rotate data on setting rotz
     @property
     def rotation_angle(self):
+        """Rotation angle."""
         return self._rotation_angle
 
     @rotation_angle.setter
     def rotation_angle(self, theta_r):
-        """
-        only a single value is allowed
-        """
+        """Only a single value is allowed."""
         if not theta_r == 0:
             self.Z.rotate(theta_r)
             self.Tipper.rotate(theta_r)
@@ -163,6 +161,7 @@ class PlotMTResponse(PlotBase):
             self._rotation_angle = theta_r
 
     def _has_z(self):
+        """Has z."""
         if self.plot_z:
             if self.Z is None or self.Z.z is None or (self.Z.z == 0 + 0j).all():
                 self.logger.info(f"No Z data for station {self.station}")
@@ -170,6 +169,7 @@ class PlotMTResponse(PlotBase):
         return self.plot_z
 
     def _has_tipper(self):
+        """Has tipper."""
         if self.plot_tipper.find("y") >= 0:
             if (
                 self.Tipper is None
@@ -181,6 +181,7 @@ class PlotMTResponse(PlotBase):
         return self.plot_tipper
 
     def _has_pt(self):
+        """Has pt."""
         if self.plot_pt:
             # if np.all(self.Z.z == 0 + 0j) or self.Z is None:
             if (
@@ -191,12 +192,9 @@ class PlotMTResponse(PlotBase):
         return self.plot_pt
 
     def _get_n_rows(self):
-        """
-        get the number of rows to be plots
-
-        :return: DESCRIPTION
+        """Get the number of rows to be plots.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         n_rows = 0
         if self.plot_z:
@@ -210,11 +208,9 @@ class PlotMTResponse(PlotBase):
         return n_rows
 
     def _get_index_dict(self):
-        """
-        get an index dictionary for the various components
-        :return: DESCRIPTION
+        """Get an index dictionary for the various components.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         pdict = {}
         index = 0
@@ -234,6 +230,7 @@ class PlotMTResponse(PlotBase):
         return index, pdict
 
     def _setup_subplots(self):
+        """Setup subplots."""
         # create a dictionary for the number of subplots needed
         nrows = self._get_n_rows()
         index, pdict = self._get_index_dict()
@@ -252,8 +249,8 @@ class PlotMTResponse(PlotBase):
                 2,
                 subplot_spec=gs_master[0],
                 height_ratios=[2, 1.5],
-                hspace=0.05,
-                wspace=0.15,
+                hspace=self.subplot_hspace,
+                wspace=self.subplot_wspace,
             )
 
             # --> make figure for xy,yx components
@@ -326,6 +323,7 @@ class PlotMTResponse(PlotBase):
         return label_coords
 
     def _plot_resistivity(self, axr, period, z_obj, mode="od"):
+        """Plot resistivity."""
         if not self.plot_z:
             return
         if mode == "od":
@@ -382,6 +380,7 @@ class PlotMTResponse(PlotBase):
         return eb_list, label_list
 
     def _plot_phase(self, axp, period, z_obj, mode="od", index=0):
+        """Plot phase."""
         if not self.plot_z:
             return
 
@@ -435,6 +434,7 @@ class PlotMTResponse(PlotBase):
         )
 
     def _plot_determinant(self):
+        """Plot determinant."""
         if not self.plot_z:
             return
         # res_det
@@ -474,6 +474,7 @@ class PlotMTResponse(PlotBase):
             self.axr.set_ylim(self.res_limits)
 
     def _plot_tipper(self):
+        """Plot tipper."""
         if "y" in self.plot_tipper:
             self.axt, _, _ = plot_tipper_lateral(
                 self.axt,
@@ -482,6 +483,7 @@ class PlotMTResponse(PlotBase):
                 self.arrow_real_properties,
                 self.arrow_imag_properties,
                 self.font_size,
+                arrow_direction=self.arrow_direction,
             )
             if self.plot_tipper.find("y") >= 0:
                 self.axt.set_xlabel("Period (s)", fontdict=self.font_dict)
@@ -503,6 +505,7 @@ class PlotMTResponse(PlotBase):
                     self.axt.set_xlabel("")
 
     def _plot_pt(self):
+        """Plot pt."""
         # ----plot phase tensor ellipse---------------------------------------
         if self.plot_pt:
             color_array = self.get_pt_color_array(self.pt)
@@ -554,16 +557,14 @@ class PlotMTResponse(PlotBase):
             )
 
     def _initiate_figure(self):
-        """make figure instance"""
+        """Make figure instance."""
         self._set_subplot_params()
         self.fig = plt.figure(self.fig_num, self.fig_size, dpi=self.fig_dpi)
         self.fig.clf()
 
     def plot(self):
-        """
-        plotResPhase(filename,fig_num) will plot the apparent resistivity and
+        """PlotResPhase(filename,fig_num) will plot the apparent resistivity and
         phase for a single station.
-
         """
         self.plot_z = self._has_z()
         self.plot_tipper = self._has_tipper()
@@ -579,9 +580,14 @@ class PlotMTResponse(PlotBase):
 
         if self.plot_z:
             if self.res_limits is None:
-                self.res_limits = self.set_resistivity_limits(
-                    self.Z.resistivity
-                )
+                if self.plot_num == 1:
+                    self.res_limits = self.set_resistivity_limits(
+                        self.Z.resistivity
+                    )
+                elif self.plot_num == 2 or self.plot_num == 3:
+                    self.res_limits = self.set_resistivity_limits(
+                        self.Z.resistivity, mode="all"
+                    )
 
             eb_list, labels = self._plot_resistivity(
                 self.axr, self.period, self.Z, mode="od"
@@ -594,9 +600,11 @@ class PlotMTResponse(PlotBase):
             if self.plot_num == 2:
                 self._plot_resistivity(self.axr2, self.period, self.Z, mode="d")
                 self._plot_phase(self.axp2, self.period, self.Z, mode="d")
+
             # ===Plot the Determinant if desired================================
             if self.plot_num == 3:
                 self._plot_determinant()
+
         self._plot_tipper()
         self._plot_pt()
 

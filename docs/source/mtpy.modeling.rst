@@ -8,8 +8,11 @@ Subpackages
    :maxdepth: 4
 
    mtpy.modeling.modem
+   mtpy.modeling.occam1d
    mtpy.modeling.occam2d
    mtpy.modeling.plots
+   mtpy.modeling.simpeg
+   mtpy.modeling.ws3dinv
 
 Submodules
 ----------
@@ -42,38 +45,6 @@ mtpy.modeling.mesh\_tools module
 --------------------------------
 
 .. automodule:: mtpy.modeling.mesh_tools
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mtpy.modeling.occam1d module
-----------------------------
-
-.. automodule:: mtpy.modeling.occam1d
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mtpy.modeling.occam2d module
-----------------------------
-
-.. automodule:: mtpy.modeling.occam2d
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mtpy.modeling.occam2d\_rewrite module
--------------------------------------
-
-.. automodule:: mtpy.modeling.occam2d_rewrite
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mtpy.modeling.occamtools module
--------------------------------
-
-.. automodule:: mtpy.modeling.occamtools
    :members:
    :undoc-members:
    :show-inheritance:
@@ -130,14 +101,6 @@ mtpy.modeling.winglinktools module
 ----------------------------------
 
 .. automodule:: mtpy.modeling.winglinktools
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mtpy.modeling.ws3dinv module
-----------------------------
-
-.. automodule:: mtpy.modeling.ws3dinv
    :members:
    :undoc-members:
    :show-inheritance:

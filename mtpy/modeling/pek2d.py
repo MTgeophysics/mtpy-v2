@@ -15,10 +15,7 @@ import mtpy.utils.filehandling as fh
 
 
 class Model:
-    """
-    class for creating and reading model files
-
-    """
+    """Class for creating and reading model files."""
 
     def __init__(self, working_directory, **input_parameters):
         self.working_directory = working_directory
@@ -141,6 +138,7 @@ class Model:
                     pass
 
     def build_inputfiles(self):
+        """Build inputfiles."""
         inversiondir = fh.make_unique_folder(
             self.working_directory, basename=self.idir_basename
         )
@@ -152,9 +150,7 @@ class Model:
         self.write_ctlfile()
 
     def read_model(self):
-        """
-        use pek2d forward python setup code to read the model
-        """
+        """Use pek2d forward python setup code to read the model."""
         model = p2d.Model(
             working_directory=self.working_directory, **self.input_parameters
         )
@@ -177,9 +173,7 @@ class Model:
                 print("can't assign attribute {}".format(attr))
 
     def read_outfile(self, chunk=1750, linelength=52):
-        """
-        read the outfile from the reverse end and get out last iteration
-        """
+        """Read the outfile from the reverse end and get out last iteration."""
         # open outfile
         outfile = open(op.join(self.working_directory, self.outfile))
 
@@ -240,9 +234,7 @@ class Model:
                         #                        print i,j,k,n
 
     def build_model(self):
-        """
-        build model file string
-        """
+        """Build model file string."""
         # build a forward model object
         ro = p2d.Model(self.working_directory, **self.input_parameters)
         ro.build_model()
@@ -298,6 +290,7 @@ class Model:
         self.build_modelfilestring()
 
     def write_modelfile(self):
+        """Write modelfile."""
 
         if not hasattr(self, "modelfilestring"):
             self.build_model()
@@ -306,6 +299,7 @@ class Model:
         outfile.close()
 
     def build_modelfilestring(self):
+        """Build modelfilestring."""
         # initialise a list containing info for model file
         modelfilestring = []
         # add header info
@@ -396,6 +390,7 @@ class Model:
         self.modelfilestring = "\n".join(modelfilestring) + "\n"
 
     def build_data(self):
+        """Build data."""
 
         imethod = "nearest"
         ftol = 0.000001
@@ -498,6 +493,7 @@ class Model:
         self.freq = 1.0 / (np.array(periodlst))
 
     def build_datafiles(self):
+        """Build datafiles."""
 
         if not hasattr(self, "datafile_data"):
             self.build_data()
@@ -530,6 +526,7 @@ class Model:
         self.datafile_strings = dfstrings
 
     def write_datafiles(self):
+        """Write datafiles."""
 
         if not hasattr(self, "datafile_strings"):
             self.build_datafiles()
@@ -550,6 +547,7 @@ class Model:
         exlf.close()
 
     def write_ctlfile(self):
+        """Write ctlfile."""
         ctrf = open(
             op.join(self.working_directory, self.working_directory, "pb.ctr"), "w"
         )

@@ -11,10 +11,8 @@ Created on Mon Oct 30 13:35:16 2023
 
 # =============================================================================
 class Occam1DRun(object):
-    """
-    run occam 1d from python given the correct files and location of occam1d
+    """Run occam 1d from python given the correct files and location of occam1d
     executable
-
     """
 
     def __init__(self, startup_fn=None, occam_path=None, **kwargs):
@@ -25,6 +23,7 @@ class Occam1DRun(object):
         self.run_occam1d()
 
     def run_occam1d(self):
+        """Run occam1d."""
 
         if self.startup_fn is None:
             raise IOError("Need to input startup file")

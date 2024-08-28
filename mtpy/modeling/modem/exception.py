@@ -18,18 +18,18 @@ class ModEMError(Exception):
 
 
 class DataError(ModEMError):
-    """Raise for ModEM Data class specific exceptions"""
+    """Raise for ModEM Data class specific exceptions."""
 
     pass
 
 
 class ModelError(ModEMError):
-    """ Raise for ModEM Model class specific exceptions"""
+    """Raise for ModEM Model class specific exceptions."""
 
     pass
 
 
 class CovarianceError(ModEMError):
-    """ Raise for Covariance class specific exceptions"""
+    """Raise for Covariance class specific exceptions."""
 
     pass

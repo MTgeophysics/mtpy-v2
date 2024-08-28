@@ -13,7 +13,7 @@ from matplotlib.ticker import MultipleLocator
 
 
 def readOutputFile(outputfile):
-    """readOutputFile will read an output file from winglink and output data
+    """ReadOutputFile will read an output file from winglink and output data
     in the form of a dictionary.
 
     Input:
@@ -21,7 +21,7 @@ def readOutputFile(outputfile):
 
     Output:
         idict = dictionary with keys of station name
-                each idict[station name] is a dictionary with keys 
+                each idict[station name] is a dictionary with keys
                 corresponding to modeled and observed responses:
                     'obsresxy','obsphasexy','modresxy','modphasexy','obsresyx',
                     'obsphaseyx','modresyx','modphaseyx','obshzres',
@@ -38,7 +38,6 @@ def readOutputFile(outputfile):
         plst = periodlst as the median of all stations.
         stationlst = list of stations in order from profile
         title = list of parameters for plotting as [title,profile,inversiontype]
-
     """
 
     ofid = open(outputfile, "r")
@@ -149,8 +148,7 @@ def readOutputFile(outputfile):
 
 
 def plotResponses(outputfile, maxcol=8, plottype="all", **kwargs):
-    """
-    plotResponse will plot the responses modeled from winglink against the 
+    """PlotResponse will plot the responses modeled from winglink against the
     observed data.
 
     Inputs:
@@ -158,9 +156,9 @@ def plotResponses(outputfile, maxcol=8, plottype="all", **kwargs):
         maxcol = maximum number of columns for the plot
         plottype = 'all' to plot all on the same plot
                    '1' to plot each respones in a different figure
-                   station to plot a single station or enter as a list of 
+                   station to plot a single station or enter as a list of
                    stations to plot a few stations [station1,station2].  Does
-                   not have to be verbatim but should have similar unique 
+                   not have to be verbatim but should have similar unique
                    characters input pb01 for pb01cs in outputfile
     Outputs:
         None
@@ -518,14 +516,13 @@ def plotResponses(outputfile, maxcol=8, plottype="all", **kwargs):
 
 
 def readModelFile(modelfile, profiledirection="ew"):
-    """
-    readModelFile reads in the XYZ txt file output by Winglink.    
+    """ReadModelFile reads in the XYZ txt file output by Winglink.
 
     Inputs:
         modelfile = fullpath and filename to modelfile
-        profiledirection = 'ew' for east-west predominantly, 'ns' for 
-                            predominantly north-south.  This gives column to 
-                            fix
+        profiledirection = 'ew' for east-west predominantly, 'ns' for
+                            predominantly north-south.  This gives column to
+                            fix.
     """
 
     mfid = open(modelfile, "r")

@@ -22,15 +22,14 @@ import sys
 
 
 def recursive_glob(dirname, ext="*.edi"):
-    """
-    Under the dirname recursively find all files with extension ext.
+    """Under the dirname recursively find all files with extension ext.
+
     Return a list of the full-path to the types of files of interest.
 
     This function is useful to handle a nested directories of EDI files.
-
-    :param dirname: a single dir OR a list of dirs.
-    :param ext: eg, ".edi", ".xml"
-    :return: a list of path2files
+    :param dirname: A single dir OR a list of dirs.
+    :param ext: Eg, ".edi", ".xml", defaults to "*.edi".
+    :return: A list of path2files.
     """
     import fnmatch
 
@@ -49,6 +48,7 @@ def recursive_glob(dirname, ext="*.edi"):
 
 class EdiFolders(object):
     def __init__(self, startDir, edifiles_threshold=1, filetype=".edi"):
+        """Init function."""
         self.startDir = startDir  # the top level dir to be searched
         self.edifiles_threshold = (
             edifiles_threshold  # at least 1 file is of the specified type.
@@ -57,10 +57,9 @@ class EdiFolders(object):
         self.folders_of_interest = []  # initial empty list
 
     def find_edi_folders(self, aStartDir):
-        """
-        find  directories containing the file of type self.filetype
-        :param aStartDir: the directory to start from
-        :return: a list of full path to folders of interest.
+        """Find  directories containing the file of type self.filetype.
+        :param aStartDir: The directory to start from.
+        :return: A list of full path to folders of interest.
         """
 
         for dirName, subdirList, fileList in os.walk(aStartDir):
@@ -89,6 +88,7 @@ class EdiFolders(object):
             return self.folders_of_interest
 
     def get_all_edi_files(self):
+        """Get all edi files."""
 
         return recursive_glob(self.startDir)
 

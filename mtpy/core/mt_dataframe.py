@@ -18,13 +18,12 @@ from . import Z, Tipper
 
 
 class MTDataFrame:
-    """
-    Dataframe for a single station
+    """Dataframe for a single station
 
     Tried subclassing pandas.DataFrame, but that turned out to not be straight
     forward, so when with compilation instead.
 
-    Think about having period as an index?
+    Think about having period as an index?.
     """
 
     def __init__(self, data=None, n_entries=0, **kwargs):
@@ -181,6 +180,7 @@ class MTDataFrame:
             setattr(self, key, value)
 
     def __str__(self):
+        """Str function."""
         if self._has_data():
             return self.dataframe.__str__()
 
@@ -188,6 +188,7 @@ class MTDataFrame:
             return "Empty MTStationDataFrame"
 
     def __repr__(self):
+        """Repr function."""
         if self._has_data():
             return self.dataframe.__repr__()
         else:
@@ -195,23 +196,27 @@ class MTDataFrame:
 
     @property
     def _column_names(self):
+        """Column names."""
         return [col[0] for col in self._dtype_list]
 
     @property
     def _pt_attrs(self):
+        """Pt attrs."""
         return [col for col in self._column_names if col.startswith("pt")]
 
     @property
     def _tipper_attrs(self):
+        """Tipper attrs."""
         return [col for col in self._column_names if col.startswith("t_")]
 
     def __eq__(self, other):
+        """Eq function."""
         other = self._validate_data(other)
         return (self.dataframe == other).all().all()
 
     @property
     def nonzero_items(self):
-        """return number of non zero entries"""
+        """Return number of non zero entries."""
 
         if self._has_data():
             cols = [
@@ -225,13 +230,11 @@ class MTDataFrame:
             return 0
 
     def _validate_data(self, data):
-        """
-
-        :param data: DESCRIPTION
+        """Validate data.
+        :param data: DESCRIPTION.
         :type data: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if data is None:
@@ -259,11 +262,13 @@ class MTDataFrame:
         return df
 
     def _get_initial_df(self, n_entries=0):
+        """Get initial df."""
         return pd.DataFrame(
             np.empty(n_entries, dtype=np.dtype(self._dtype_list))
         )
 
     def _has_data(self):
+        """Has data."""
         if self.dataframe is None:
             return False
         elif self.dataframe.shape[0] > 0:
@@ -271,12 +276,9 @@ class MTDataFrame:
         return False
 
     def get_station_df(self, station=None):
-        """
-        get a single station df
-
-        :return: DESCRIPTION
+        """Get a single station df.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if station is not None:
             self.working_station = station
@@ -295,24 +297,22 @@ class MTDataFrame:
 
     @property
     def size(self):
+        """Size function."""
         if self._has_data():
             return self.period.size
 
     def _get_index(self, comp):
-        """
-        get component index values
-
-        :param comp: | xx | xy | yx | yy | zx | zy |
+        """Get component index values.
+        :param comp: | xx | xy | yx | yy | zx | zy |.
         :type comp: string
-        :return: index values for input and output channels
+        :return: Index values for input and output channels.
         :rtype: dict
-
         """
         if comp in self._index_dict.keys():
             return self._index_dict[comp]
 
     def _get_key_index(self, key):
-        """ """
+        """Get key index."""
 
         if key.count("_") > 0:
             comp = key.split("_")[1]
@@ -320,12 +320,9 @@ class MTDataFrame:
 
     @property
     def period(self):
-        """
-        Get frequencies
-
-        :return: DESCRIPTION
+        """Get frequencies.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if self._has_data():
@@ -333,28 +330,22 @@ class MTDataFrame:
 
     @property
     def frequency(self):
-        """
-        Get frequencies
-
-        :return: DESCRIPTION
+        """Get frequencies.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if self._has_data():
             return 1.0 / self.period
 
     def get_period(self, period, tol=None):
-        """
-        get periods with a percentage based on tol if given.
-
-        :param period: exact period value to search for
+        """Get periods with a percentage based on tol if given.
+        :param period: Exact period value to search for.
         :type period: float
-        :param tol: tolerance to search around given period, defaults to None
+        :param tol: Tolerance to search around given period, defaults to None.
         :type tol: float, optional
-        :return: dataframe with periods
+        :return: Dataframe with periods.
         :rtype: TYPE
-
         """
         if tol is not None:
             return MTDataFrame(
@@ -369,7 +360,7 @@ class MTDataFrame:
 
     @property
     def survey(self):
-        """survey name"""
+        """Survey name."""
         if self._has_data():
             if self.working_survey is None:
                 self.working_survey = self.dataframe.survey.unique()[0]
@@ -377,7 +368,7 @@ class MTDataFrame:
 
     @survey.setter
     def survey(self, value):
-        """survey name"""
+        """Survey name."""
         if self._has_data():
             if self.working_survey in [None, ""]:
                 self.dataframe.loc[
@@ -387,7 +378,7 @@ class MTDataFrame:
 
     @property
     def station(self):
-        """station name"""
+        """Station name."""
         if self._has_data():
             if self.working_station is None:
                 self.working_station = self.dataframe.station.unique()[0]
@@ -395,7 +386,7 @@ class MTDataFrame:
 
     @station.setter
     def station(self, value):
-        """station name"""
+        """Station name."""
         if self._has_data():
             if self.working_station in [None, ""]:
                 self.dataframe.loc[
@@ -405,7 +396,7 @@ class MTDataFrame:
 
     @property
     def latitude(self):
-        """latitude"""
+        """Latitude."""
         if self._has_data():
             return self.dataframe.loc[
                 self.dataframe.station == self.station, "latitude"
@@ -413,7 +404,7 @@ class MTDataFrame:
 
     @latitude.setter
     def latitude(self, value):
-        """latitude"""
+        """Latitude."""
         if self._has_data():
             self.dataframe.loc[
                 self.dataframe.station == self.station, "latitude"
@@ -421,7 +412,7 @@ class MTDataFrame:
 
     @property
     def longitude(self):
-        """longitude"""
+        """Longitude."""
         if self._has_data():
             return self.dataframe.loc[
                 self.dataframe.station == self.station, "longitude"
@@ -429,7 +420,7 @@ class MTDataFrame:
 
     @longitude.setter
     def longitude(self, value):
-        """longitude"""
+        """Longitude."""
         if self._has_data():
             self.dataframe.loc[
                 self.dataframe.station == self.station, "longitude"
@@ -437,7 +428,7 @@ class MTDataFrame:
 
     @property
     def elevation(self):
-        """elevation"""
+        """Elevation."""
         if self._has_data():
             return self.dataframe.loc[
                 self.dataframe.station == self.station, "elevation"
@@ -445,7 +436,7 @@ class MTDataFrame:
 
     @elevation.setter
     def elevation(self, value):
-        """elevation"""
+        """Elevation."""
         if self._has_data():
             self.dataframe.loc[
                 self.dataframe.station == self.station, "elevation"
@@ -453,7 +444,7 @@ class MTDataFrame:
 
     @property
     def datum_epsg(self):
-        """datum_epsg"""
+        """Datum_epsg."""
         if self._has_data():
             return self.dataframe.loc[
                 self.dataframe.station == self.station, "datum_epsg"
@@ -461,7 +452,7 @@ class MTDataFrame:
 
     @datum_epsg.setter
     def datum_epsg(self, value):
-        """datum_epsg"""
+        """Datum_epsg."""
         if self._has_data():
             self.dataframe.loc[
                 self.dataframe.station == self.station, "datum_epsg"
@@ -469,7 +460,7 @@ class MTDataFrame:
 
     @property
     def east(self):
-        """station"""
+        """Station."""
         if self._has_data():
             return self.dataframe.loc[
                 self.dataframe.station == self.station, "east"
@@ -477,7 +468,7 @@ class MTDataFrame:
 
     @east.setter
     def east(self, value):
-        """east"""
+        """East."""
         if self._has_data():
             self.dataframe.loc[
                 self.dataframe.station == self.station, "east"
@@ -485,7 +476,7 @@ class MTDataFrame:
 
     @property
     def north(self):
-        """north"""
+        """North."""
         if self._has_data():
             return self.dataframe.loc[
                 self.dataframe.station == self.station, "north"
@@ -493,7 +484,7 @@ class MTDataFrame:
 
     @north.setter
     def north(self, value):
-        """north"""
+        """North."""
         if self._has_data():
             self.dataframe.loc[
                 self.dataframe.station == self.station, "north"
@@ -501,7 +492,7 @@ class MTDataFrame:
 
     @property
     def utm_epsg(self):
-        """utm_epsg"""
+        """Utm_epsg."""
         if self._has_data():
             return self.dataframe.loc[
                 self.dataframe.station == self.station, "utm_epsg"
@@ -509,7 +500,7 @@ class MTDataFrame:
 
     @utm_epsg.setter
     def utm_epsg(self, value):
-        """utm_epsg"""
+        """Utm_epsg."""
         if self._has_data():
             self.dataframe.loc[
                 self.dataframe.station == self.station, "utm_epsg"
@@ -517,7 +508,7 @@ class MTDataFrame:
 
     @property
     def model_east(self):
-        """model_east"""
+        """Model_east."""
         if self._has_data():
             return self.dataframe.loc[
                 self.dataframe.station == self.station, "model_east"
@@ -525,7 +516,7 @@ class MTDataFrame:
 
     @model_east.setter
     def model_east(self, value):
-        """model_east"""
+        """Model_east."""
         if self._has_data():
             self.dataframe.loc[
                 self.dataframe.station == self.station, "model_east"
@@ -533,7 +524,7 @@ class MTDataFrame:
 
     @property
     def model_north(self):
-        """model_north"""
+        """Model_north."""
         if self._has_data():
             return self.dataframe.loc[
                 self.dataframe.station == self.station, "model_north"
@@ -541,7 +532,7 @@ class MTDataFrame:
 
     @model_north.setter
     def model_north(self, value):
-        """model_north"""
+        """Model_north."""
         if self._has_data():
             self.dataframe.loc[
                 self.dataframe.station == self.station, "model_north"
@@ -549,7 +540,7 @@ class MTDataFrame:
 
     @property
     def model_elevation(self):
-        """model_elevation"""
+        """Model_elevation."""
         if self._has_data():
             return self.dataframe.loc[
                 self.dataframe.station == self.station, "model_elevation"
@@ -557,7 +548,7 @@ class MTDataFrame:
 
     @model_elevation.setter
     def model_elevation(self, value):
-        """model_elevation"""
+        """Model_elevation."""
         if self._has_data():
             self.dataframe.loc[
                 self.dataframe.station == self.station,
@@ -566,7 +557,7 @@ class MTDataFrame:
 
     @property
     def profile_offset(self):
-        """profile_offset"""
+        """Profile_offset."""
         if self._has_data():
             return self.dataframe.loc[
                 self.dataframe.station == self.station, "profile_offset"
@@ -574,7 +565,7 @@ class MTDataFrame:
 
     @profile_offset.setter
     def profile_offset(self, value):
-        """profile_offset"""
+        """Profile_offset."""
         if self._has_data():
             self.dataframe.loc[
                 self.dataframe.station == self.station,
@@ -582,11 +573,12 @@ class MTDataFrame:
             ] = value
 
     def _get_empty_impedance_array(self, dtype=complex):
+        """Get empty impedance array."""
         return np.zeros((self.period.size, 2, 2), dtype=complex)
 
     @property
     def impedance(self):
-        """Impedance elements"""
+        """Impedance elements."""
         z = self._get_empty_impedance_array()
 
         for key in ["zxx", "zxy", "zyx", "zyy"]:
@@ -597,16 +589,13 @@ class MTDataFrame:
         return z
 
     def _get_data_array(self, obj, attr):
-        """
-        Get data array from object given the attribute
-
-        :param obj: DESCRIPTION
+        """Get data array from object given the attribute.
+        :param obj: DESCRIPTION.
         :type obj: TYPE
-        :param attr: DESCRIPTION
+        :param attr: DESCRIPTION.
         :type attr: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         try:
             return getattr(obj, attr)
@@ -614,18 +603,16 @@ class MTDataFrame:
             return None
 
     def _fill_data(self, data_array, column, index):
-        """
-        fill data frame column with data array spliced by index
-
-        :param data_array: DESCRIPTION
+        """Fill data frame column with data array spliced by index.
+        :param column:
+        :param data_array: DESCRIPTION.
         :type data_array: TYPE
-        :param attr: DESCRIPTION
+        :param attr: DESCRIPTION.
         :type attr: TYPE
-        :param index: DESCRIPTION
+        :param index: DESCRIPTION.
         :type index: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if data_array is not None:
@@ -641,15 +628,14 @@ class MTDataFrame:
                 ] = data_array[:, index["ii"], index["jj"]]
 
     def from_z_object(self, z_object):
-        """
-        Fill impedance
-        :param impedance: DESCRIPTION
+        """Fill impedance.
+        :param z_object:
+        :param impedance: DESCRIPTION.
         :type impedance: TYPE
-        :param index: DESCRIPTION
+        :param index: DESCRIPTION.
         :type index: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         self.dataframe.loc[
@@ -700,17 +686,16 @@ class MTDataFrame:
                     self._fill_data(data_array, f"pt_{pt_attr}{error}", None)
 
     def from_t_object(self, t_object):
-        """
-        Fill tipper
-        :param tipper: DESCRIPTION
+        """Fill tipper.
+        :param t_object:
+        :param tipper: DESCRIPTION.
         :type tipper: TYPE
-        :param tipper_error: DESCRIPTION
+        :param tipper_error: DESCRIPTION.
         :type tipper_error: TYPE
-        :param index: DESCRIPTION
+        :param index: DESCRIPTION.
         :type index: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         self.dataframe.loc[
             self.dataframe.station == self.station, "period"
@@ -737,11 +722,10 @@ class MTDataFrame:
                         self._fill_data(data_array, f"t_{t_attr}", None)
 
     def to_z_object(self):
-        """
-        fill z_object from dataframe
+        """Fill z_object from dataframe
 
         Need to have the components this way for transposing the elements so
-        that the shape is (nf, 2, 2)
+        that the shape is (nf, 2, 2).
         """
 
         nf = self.period.size
@@ -823,12 +807,9 @@ class MTDataFrame:
         return z_object
 
     def to_t_object(self):
-        """
-        To a tipper object
-
-        :return: DESCRIPTION
+        """To a tipper object.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         nf = self.period.size
@@ -853,6 +834,7 @@ class MTDataFrame:
 
     @property
     def station_locations(self):
+        """Station locations."""
         return (
             self.dataframe.groupby("station")
             .nth(0)[self._station_location_attrs]
@@ -861,7 +843,7 @@ class MTDataFrame:
 
     @property
     def phase_tensor(self):
-        """phase tensor information"""
+        """Phase tensor information."""
 
         return self.dataframe[
             self._station_location_attrs + self._pt_attrs
@@ -869,7 +851,7 @@ class MTDataFrame:
 
     @property
     def tipper(self):
-        """phase tensor information"""
+        """Phase tensor information."""
 
         return self.dataframe[
             self._station_location_attrs + self._tipper_attrs
@@ -877,19 +859,16 @@ class MTDataFrame:
 
     @property
     def for_shapefiles(self):
-        """for shape files includes phase tensor and tipper"""
+        r"""For shape files includes phase tensor and tippe."""
 
         return self.dataframe[
             self._station_location_attrs + self._pt_attrs + self._tipper_attrs
         ].reset_index()
 
     def get_station_distances(self, utm=False):
-        """
-        Get distance information between stations
-
-        :return: DESCRIPTION
+        """Get distance information between stations.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if utm:
             x_key = "east"

@@ -31,8 +31,7 @@ from .z_analysis import (
 # Impedance Tensor Class
 # ==============================================================================
 class Z(TFBase):
-    """
-    Z class - generates an impedance tensor (Z) object.
+    """Z class - generates an impedance tensor (Z) object.
 
     Z is a complex array of the form (n_frequency, 2, 2),
     with indices in the following order:
@@ -43,41 +42,14 @@ class Z(TFBase):
         - Zyy: (1,1)
 
     All errors are given as standard deviations (sqrt(VAR))
-
-    :param z: array containing complex impedance values
+    :param z: Array containing complex impedance values.
     :type z: numpy.ndarray(n_frequency, 2, 2)
-
-
-    :param z_error: array containing error values (standard deviation)
-     of impedance tensor elements
+    :param z_error: Array containing error values (standard deviation)
+        of impedance tensor elements.
     :type z_error: numpy.ndarray(n_frequency, 2, 2)
-    :param frequency: array of frequencyuency values corresponding to impedance
-     tensor elements.
+    :param frequency: Array of frequencyuency values corresponding to impedance
+        tensor elements.
     :type frequency: np.ndarray(n_frequency)
-
-    Create Impedance from scracth
-    ------------------------------
-
-    >>> import mtpy.core import Z
-    >>> import numpy as np
-    >>> z_test = np.array([[0+0j, 1+1j], [-1-1j, 0+0j]])
-    >>> z_object = Z(z=z_test, frequency=[1])
-    >>> z_object.rotate(45)
-    >>> z_object.resistivity
-
-    Create from resistivity and phase
-    -----------------------------------
-
-    >>> z_object = Z()
-    >>> z_object.set_resistivity_phase(
-        np.array([[5, 100], [100, 5]]),
-        np.array([[90, 45], [-135, -90]]),
-        np.array([1])
-        )
-    >>> z_object.z
-    array([[[ 3.06161700e-16 +5.j, 1.58113883e+01+15.8113883j],
-            [-1.58113883e+01-15.8113883j, 3.06161700e-16 -5.j ]]])
-
     """
 
     def __init__(
@@ -87,18 +59,17 @@ class Z(TFBase):
         frequency=None,
         z_model_error=None,
     ):
-        """
-        Initialize an instance of the Z class.
-
-        :param z: array containing complex impedance values
-        :type z: numpy.ndarray(n_frequency, 2, 2)
-        :param z_error: array containing error values (standard deviation)
-         of impedance tensor elements
-        :type z_error: numpy.ndarray(n_frequency, 2, 2)
-        :param frequency: array of frequencyuency values corresponding to impedance
-         tensor elements.
-        :type frequency: np.ndarray(n_frequency)
-
+        """Initialize an instance of the Z class.
+        :param z_model_error:
+            Defaults to None.
+        :param z: Array containing complex impedance values, defaults to None.
+        :type z: numpy.ndarray(n_frequency, 2, 2), optional
+        :param z_error: Array containing error values (standard deviation)
+            of impedance tensor elements, defaults to None.
+        :type z_error: numpy.ndarray(n_frequency, 2, 2), optional
+        :param frequency: Array of frequencyuency values corresponding to impedance
+            tensor elements, defaults to None.
+        :type frequency: np.ndarray(n_frequency), optional
         """
 
         super().__init__(
@@ -111,26 +82,18 @@ class Z(TFBase):
 
     @property
     def z(self):
-        """
-        Impedance tensor
+        """Impedance tensor
 
-        np.ndarray(nfrequency, 2, 2)
+        np.ndarray(nfrequency, 2, 2).
         """
         if self._has_tf():
             return self._dataset.transfer_function.values
 
     @z.setter
     def z(self, z):
-        """
-        Set the attribute 'z'.
-
-
-        :param z: complex impedance tensor array
+        """Set the attribute 'z'.
+        :param z: Complex impedance tensor array.
         :type z: np.ndarray(nfrequency, 2, 2)
-
-        Test for shape, but no test for consistency!
-
-        Nulling the rotation_angle
         """
 
         old_shape = None
@@ -154,16 +117,14 @@ class Z(TFBase):
     # ----impedance error-----------------------------------------------------
     @property
     def z_error(self):
-        """error of impedance tensor array as standard deviation"""
+        """Error of impedance tensor array as standard deviation."""
         if self._has_tf_error():
             return self._dataset.transfer_function_error.values
 
     @z_error.setter
     def z_error(self, z_error):
-        """
-        Set the attribute z_error
-
-        :param z_error: error of impedance tensor array as standard deviation
+        """Set the attribute z_error.
+        :param z_error: Error of impedance tensor array as standard deviation.
         :type z_error: np.ndarray(nfrequency, 2, 2)
         """
         old_shape = None
@@ -188,17 +149,15 @@ class Z(TFBase):
     # ----impedance model error-----------------------------------------------------
     @property
     def z_model_error(self):
-        """model error of impedance tensor array as standard deviation"""
+        """Model error of impedance tensor array as standard deviation."""
         if self._has_tf_model_error():
             return self._dataset.transfer_function_model_error.values
 
     @z_model_error.setter
     def z_model_error(self, z_model_error):
-        """
-        Set the attribute z_model_error
-
-        :param z_model_error: error of impedance tensor array as standard
-         deviation
+        """Set the attribute z_model_error.
+        :param z_model_error: Error of impedance tensor array as standard
+            deviation.
         :type z_model_error: np.ndarray(nfrequency, 2, 2)
         """
 
@@ -230,8 +189,7 @@ class Z(TFBase):
     def remove_ss(
         self, reduce_res_factor_x=1.0, reduce_res_factor_y=1.0, inplace=False
     ):
-        """
-        Remove the static shift by providing the respective correction factors
+        """Remove the static shift by providing the respective correction factors
         for the resistivity in the x and y components.
         (Factors can be determined by using the "Analysis" module for the
         impedance tensor)
@@ -243,27 +201,22 @@ class Z(TFBase):
 
         therefore the correct Z will be :
             * Z0 = S^(-1) * Z
-
-
-        :param reduce_res_factor_x: static shift factor to be applied to x
-         components (ie z[:, 0, :]).  This is assumed to be in resistivity scale
-        :type reduce_res_factor_x: float or iterable list or array
-        :param reduce_res_factor_y: static shift factor to be applied to y
-         components (ie z[:, 1, :]).  This is assumed to be in resistivity scale
-        :type reduce_res_factor_y: float or iterable list or array
-        :param inplace: Update the current object or return a new impedance
-        :type inplace: boolean
-        :returns: static shift matrix,
-        :rtype: np.ndarray ((2, 2))
-        :returns: corrected Z if inplace is False
-        :rtype: mtpy.core.z.Z
-
-        .. note:: The factors are in resistivity scale, so the entries of the
-         matrix "S" need to be given by their square-roots!
-
+        :param reduce_res_factor_x: Static shift factor to be applied to x
+            components (ie z[:, 0, :]).  This is assumed to be in resistivity scale, defaults to 1.0.
+        :type reduce_res_factor_x: float or iterable list or array, optional
+        :param reduce_res_factor_y: Static shift factor to be applied to y
+            components (ie z[:, 1, :]).  This is assumed to be in resistivity scale, defaults to 1.0.
+        :type reduce_res_factor_y: float or iterable list or array, optional
+        :param inplace: Update the current object or return a new impedance, defaults to False.
+        :type inplace: boolean, optional
+        :return s: Static shift matrix,.
+        :rtype s: np.ndarray ((2, 2))
+        :return s: Corrected Z if inplace is False.
+        :rtype s: mtpy.core.z.Z
         """
 
         def _validate_factor_single(factor):
+            """Validate factor single."""
             try:
                 x_factor = float(factor)
             except ValueError:
@@ -273,6 +226,7 @@ class Z(TFBase):
             return np.repeat(x_factor, len(self.z))
 
         def _validate_ss_input(factor):
+            """Validate ss input."""
             if not np.iterable(factor):
                 x_factor = _validate_factor_single(factor)
 
@@ -319,32 +273,29 @@ class Z(TFBase):
         only_2d=False,
         inplace=False,
     ):
-        """
-        Remove distortion D form an observed impedance tensor Z to obtain
+        """Remove distortion D form an observed impedance tensor Z to obtain
         the uperturbed "correct" Z0:
         Z = D * Z0
 
         Propagation of errors/uncertainties included
-
-
-        :param distortion_tensor: real distortion tensor as a 2x2
-        :type distortion_tensor: np.ndarray(2, 2, dtype=real)
-        :param distortion_error_tensor: default is None
-        :type distortion_error_tensor: np.ndarray(2, 2, dtype=real),
-        :param inplace: Update the current object or return a new impedance
-        :type inplace: boolean
-        :returns: input distortion tensor
-        :rtype: np.ndarray(2, 2, dtype='real')
-        :returns: impedance tensor with distorion removed
-        :rtype: np.ndarray(num_frequency, 2, 2, dtype='complex')
-        :returns: impedance tensor error after distortion is removed
-        :rtype: np.ndarray(num_frequency, 2, 2, dtype='complex')
-
-        :Example: ::
-
-                >>> distortion = np.array([[1.2, .5],[.35, 2.1]])
-                >>> d, new_z, new_z_error = z_obj.remove_distortion(distortion)
-
+        :param only_2d:
+            Defaults to False.
+        :param comp:
+            Defaults to "det".
+        :param n_frequencies:
+            Defaults to None.
+        :param distortion_tensor: Real distortion tensor as a 2x2, defaults to None.
+        :type distortion_tensor: np.ndarray(2, 2, dtype=real), optional
+        :param distortion_error_tensor:, defaults to None.
+        :type distortion_error_tensor: np.ndarray(2, 2, dtype=real),, optional
+        :param inplace: Update the current object or return a new impedance, defaults to False.
+        :type inplace: boolean, optional
+        :return s: Input distortion tensor.
+        :rtype s: np.ndarray(2, 2, dtype='real')
+        :return s: Impedance tensor with distorion removed.
+        :rtype s: np.ndarray(num_frequency, 2, 2, dtype='complex')
+        :return s: Impedance tensor error after distortion is removed.
+        :rtype s: np.ndarray(num_frequency, 2, 2, dtype='complex')
         """
 
         if distortion_tensor is None:
@@ -372,7 +323,7 @@ class Z(TFBase):
 
     @property
     def resistivity(self):
-        """resistivity of impedance"""
+        """Resistivity of impedance."""
         if self.z is not None:
             return np.apply_along_axis(
                 lambda x: np.abs(x) ** 2 / self.frequency * 0.2, 0, self.z
@@ -380,17 +331,16 @@ class Z(TFBase):
 
     @property
     def phase(self):
-        """phase of impedance"""
+        """Phase of impedance."""
         if self.z is not None:
             return np.rad2deg(np.angle(self.z))
 
     @property
     def resistivity_error(self):
-        """
-        resistivity error of impedance
+        """Resistivity error of impedance
 
         By standard error propagation, relative error in resistivity is
-        2*relative error in z amplitude.
+        2*relative error in z amplitude..
         """
         if self.z is not None and self.z_error is not None:
             with np.errstate(divide="ignore", invalid="ignore"):
@@ -402,13 +352,12 @@ class Z(TFBase):
 
     @property
     def phase_error(self):
-        """
-        phase error of impedance
+        """Phase error of impedance
 
         Uncertainty in phase (in degrees) is computed by defining a circle around
         the z vector in the complex plane. The uncertainty is the absolute angle
         between the vector to (x,y) and the vector between the origin and the
-        tangent to the circle.
+        tangent to the circle..
         """
         if self.z is not None and self.z_error is not None:
             with np.errstate(divide="ignore", invalid="ignore"):
@@ -416,7 +365,7 @@ class Z(TFBase):
 
     @property
     def resistivity_model_error(self):
-        """resistivity model error of impedance"""
+        """Resistivity model error of impedance."""
         if self.z is not None and self.z_model_error is not None:
             with np.errstate(divide="ignore", invalid="ignore"):
                 return np.apply_along_axis(
@@ -427,7 +376,7 @@ class Z(TFBase):
 
     @property
     def phase_model_error(self):
-        """phase model error of impedance"""
+        """Phase model error of impedance."""
         if self.z is not None and self.z_model_error is not None:
             with np.errstate(divide="ignore", invalid="ignore"):
                 return np.degrees(
@@ -435,22 +384,17 @@ class Z(TFBase):
                 )
 
     def _compute_z_error(self, res_error, phase_error):
-        """
-        Compute z error from apparent resistivity and phase.
-
-        :param res: resistivity array
+        """Compute z error from apparent resistivity and phase.
+        :param res: Resistivity array.
         :type res: np.ndarray
-        :param res_error: resistivity error array
+        :param res_error: Resistivity error array.
         :type res_error: np.ndarray
-        :param phase: phase array in degrees
+        :param phase: Phase array in degrees.
         :type phase: np.ndarray
-        :param phase_error: phase error array in degrees
+        :param phase_error: Phase error array in degrees.
         :type phase_error: np.ndarray
-        :return: impedance error as a float
+        :return: Impedance error as a float.
         :rtype: np.ndarray
-
-
-
         """
         if res_error is None:
             return None
@@ -472,27 +416,22 @@ class Z(TFBase):
         res_model_error=None,
         phase_model_error=None,
     ):
-        """
-        Set values for resistivity (res - in Ohm m) and phase
+        """Set values for resistivity (res - in Ohm m) and phase
         (phase - in degrees), including error propagation.
-
-        :param resistivity: resistivity array in Ohm-m
+        :param phase_model_error:
+            Defaults to None.
+        :param res_model_error:
+            Defaults to None.
+        :param resistivity: Resistivity array in Ohm-m.
         :type resistivity: np.ndarray(num_frequency, 2, 2)
-        :param phase: phase array in degrees
+        :param phase: Phase array in degrees.
         :type phase: np.ndarray(num_frequency, 2, 2)
-        :param frequency: frequency array in Hz
+        :param frequency: Frequency array in Hz.
         :type frequency: np.ndarray(num_frequency)
-        :param res_error: resistivity error array in Ohm-m
-        :type res_error: np.ndarray(num_frequency, 2, 2)
-        :param phase_error: phase error array in degrees
-        :type phase_error: np.ndarray(num_frequency, 2, 2)
-
-        .. note:: The error propogation is causal, meaning the apparent
-         resistivity error and phase error are linked through a Taylor exampsion
-         approximation where the phase error is estimated from the apparent
-         resistivity error.  Therefore if you set the phase error
-         you will likely not get back the same phase error.
-
+        :param res_error: Resistivity error array in Ohm-m, defaults to None.
+        :type res_error: np.ndarray(num_frequency, 2, 2), optional
+        :param phase_error: Phase error array in degrees, defaults to None.
+        :type phase_error: np.ndarray(num_frequency, 2, 2), optional
         """
 
         if resistivity is None or phase is None or frequency is None:
@@ -521,7 +460,7 @@ class Z(TFBase):
 
     @property
     def det(self):
-        """determinant of impedance"""
+        """Determinant of impedance."""
         if self.z is not None:
             det_z = np.array([np.linalg.det(ii) ** 0.5 for ii in self.z])
 
@@ -529,9 +468,7 @@ class Z(TFBase):
 
     @property
     def det_error(self):
-        """
-        Return the determinant of impedance error
-        """
+        """Return the determinant of impedance error."""
         det_z_error = None
         if self.z_error is not None:
             det_z_error = np.zeros_like(self.det, dtype=float)
@@ -551,9 +488,7 @@ class Z(TFBase):
 
     @property
     def det_model_error(self):
-        """
-        Return the determinant of impedance model error
-        """
+        """Return the determinant of impedance model error."""
         det_z_error = None
         if self.z_model_error is not None:
             det_z_error = np.zeros_like(self.det, dtype=float)
@@ -573,31 +508,31 @@ class Z(TFBase):
 
     @property
     def phase_det(self):
-        """phase determinant"""
+        """Phase determinant."""
         if self.det is not None:
             return np.rad2deg(np.arctan2(self.det.imag, self.det.real))
 
     @property
     def phase_error_det(self):
-        """phase error determinant"""
+        """Phase error determinant."""
         if self.det is not None:
             return np.rad2deg(np.arcsin(self.det_error / abs(self.det)))
 
     @property
     def phase_model_error_det(self):
-        """phase model error determinant"""
+        """Phase model error determinant."""
         if self.det is not None:
             return np.rad2deg(np.arcsin(self.det_model_error / abs(self.det)))
 
     @property
     def res_det(self):
-        """resistivity determinant"""
+        """Resistivity determinant."""
         if self.det is not None:
             return 0.2 * (1.0 / self.frequency) * abs(self.det) ** 2
 
     @property
     def res_error_det(self):
-        """resistivity error determinant"""
+        """Resistivity error determinant."""
         if self.det_error is not None:
             return (
                 0.2
@@ -608,7 +543,7 @@ class Z(TFBase):
 
     @property
     def res_model_error_det(self):
-        """resistivity model error determinant"""
+        """Resistivity model error determinant."""
         if self.det_model_error is not None:
             return (
                 0.2
@@ -618,16 +553,13 @@ class Z(TFBase):
             )
 
     def _get_component(self, comp, array):
-        """
-        Get the correct component from an array
-
-        :param comp: [ xx | xy | yx | yy ]
+        """Get the correct component from an array.
+        :param comp: [ xx | xy | yx | yy ].
         :type comp: string
-        :param array: impedance array
+        :param array: Impedance array.
         :type array: np.ndarray
-        :return: array component
+        :return: Array component.
         :rtype: np.ndarray
-
         """
         if array is not None:
             index_dict = {"x": 0, "y": 1}
@@ -638,127 +570,127 @@ class Z(TFBase):
 
     @property
     def res_xx(self):
-        """resistivity of xx component"""
+        """Resistivity of xx component."""
         return self._get_component("xx", self.resistivity)
 
     @property
     def res_xy(self):
-        """resistivity of xy component"""
+        """Resistivity of xy component."""
         return self._get_component("xy", self.resistivity)
 
     @property
     def res_yx(self):
-        """resistivity of yx component"""
+        """Resistivity of yx component."""
         return self._get_component("yx", self.resistivity)
 
     @property
     def res_yy(self):
-        """resistivity of yy component"""
+        """Resistivity of yy component."""
         return self._get_component("yy", self.resistivity)
 
     @property
     def res_error_xx(self):
-        """resistivity error of xx component"""
+        """Resistivity error of xx component."""
         return self._get_component("xx", self.resistivity_error)
 
     @property
     def res_error_xy(self):
-        """resistivity error of xy component"""
+        """Resistivity error of xy component."""
         return self._get_component("xy", self.resistivity_error)
 
     @property
     def res_error_yx(self):
-        """resistivity error of yx component"""
+        """Resistivity error of yx component."""
         return self._get_component("yx", self.resistivity_error)
 
     @property
     def res_error_yy(self):
-        """resistivity error of yy component"""
+        """Resistivity error of yy component."""
         return self._get_component("yy", self.resistivity_error)
 
     @property
     def res_model_error_xx(self):
-        """resistivity model error of xx component"""
+        """Resistivity model error of xx component."""
         return self._get_component("xx", self.resistivity_model_error)
 
     @property
     def res_model_error_xy(self):
-        """resistivity model error of xy component"""
+        """Resistivity model error of xy component."""
         return self._get_component("xy", self.resistivity_model_error)
 
     @property
     def res_model_error_yx(self):
-        """resistivity model error of yx component"""
+        """Resistivity model error of yx component."""
         return self._get_component("yx", self.resistivity_model_error)
 
     @property
     def res_model_error_yy(self):
-        """resistivity model error of yy component"""
+        """Resistivity model error of yy component."""
         return self._get_component("yy", self.resistivity_model_error)
 
     @property
     def phase_xx(self):
-        """phase of xx component"""
+        """Phase of xx component."""
         return self._get_component("xx", self.phase)
 
     @property
     def phase_xy(self):
-        """phase of xy component"""
+        """Phase of xy component."""
         return self._get_component("xy", self.phase)
 
     @property
     def phase_yx(self):
-        """phase of yx component"""
+        """Phase of yx component."""
         return self._get_component("yx", self.phase)
 
     @property
     def phase_yy(self):
-        """phase of yy component"""
+        """Phase of yy component."""
         return self._get_component("yy", self.phase)
 
     @property
     def phase_error_xx(self):
-        """phase error of xx component"""
+        """Phase error of xx component."""
         return self._get_component("xx", self.phase_error)
 
     @property
     def phase_error_xy(self):
-        """phase error of xy component"""
+        """Phase error of xy component."""
         return self._get_component("xy", self.phase_error)
 
     @property
     def phase_error_yx(self):
-        """phase error of yx component"""
+        """Phase error of yx component."""
         return self._get_component("yx", self.phase_error)
 
     @property
     def phase_error_yy(self):
-        """phase error of yy component"""
+        """Phase error of yy component."""
         return self._get_component("yy", self.phase_error)
 
     @property
     def phase_model_error_xx(self):
-        """phase model error of xx component"""
+        """Phase model error of xx component."""
         return self._get_component("xx", self.phase_model_error)
 
     @property
     def phase_model_error_xy(self):
-        """phase model error of xy component"""
+        """Phase model error of xy component."""
         return self._get_component("xy", self.phase_model_error)
 
     @property
     def phase_model_error_yx(self):
-        """phase model error of yx component"""
+        """Phase model error of yx component."""
         return self._get_component("yx", self.phase_model_error)
 
     @property
     def phase_model_error_yy(self):
-        """phase model error of yy component"""
+        """Phase model error of yy component."""
         return self._get_component("yy", self.phase_model_error)
 
     @property
     def phase_tensor(self):
-        """Phase tensor object based on impedance"""
+        """Phase tensor object based on impedance."""
         return PhaseTensor(
             z=self.z,
             z_error=self.z_error,
@@ -768,19 +700,16 @@ class Z(TFBase):
 
     @property
     def invariants(self):
-        """Weaver Invariants"""
+        """Weaver Invariants."""
         return ZInvariants(z=self.z)
 
     def estimate_dimensionality(
         self, skew_threshold=5, eccentricity_threshold=0.1
     ):
-        """
-        Estimate dimensionality of the impedance tensor from parameters such
+        """Estimate dimensionality of the impedance tensor from parameters such
         as strike and phase tensor eccentricity
-
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         dimensionality = np.ones(self.period.size, dtype=int)
@@ -801,17 +730,17 @@ class Z(TFBase):
         comp="det",
         only_2d=False,
     ):
-        """
-
-        :param n_frequencies: DESCRIPTION, defaults to 20
+        """Estimate distortion.
+        :param only_2d:
+            Defaults to False.
+        :param n_frequencies: DESCRIPTION, defaults to None.
         :type n_frequencies: TYPE, optional
-        :param comp: DESCRIPTION, defaults to "det"
+        :param comp: DESCRIPTION, defaults to "det".
         :type comp: TYPE, optional
-        :param : DESCRIPTION
-        :type : TYPE
-        :return: DESCRIPTION
+        :param: DESCRIPTION.
+        :type: TYPE
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if n_frequencies is None:
             nf = self.frequency.size
@@ -829,12 +758,9 @@ class Z(TFBase):
         return find_distortion(new_z_object, comp=comp, only_2d=only_2d)
 
     def estimate_depth_of_investigation(self):
-        """
-        estimate depth of investigation
-
-        :return: DESCRIPTION
+        """Estimate depth of investigation.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         return calculate_depth_of_investigation(self)

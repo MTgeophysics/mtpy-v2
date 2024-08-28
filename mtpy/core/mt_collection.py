@@ -44,8 +44,7 @@ from mth5.mth5 import MTH5
 
 
 class MTCollection:
-    """
-    Collection of transfer functions
+    """Collection of transfer functions
 
     The main working variable is `MTCollection.dataframe` which is a property
     that returns either the `master dataframe` that contains all the TF's in
@@ -57,8 +56,7 @@ class MTCollection:
 
         >>> mc = MTCollection()
         >>> mc.open_collection(filename="path/to/example/mth5.h5")
-        >>> mc.working_dataframe = mc.master_dataframe.iloc[0:5]
-
+        >>> mc.working_dataframe = mc.master_dataframe.iloc[0:5].
     """
 
     def __init__(self, working_directory=None):
@@ -74,6 +72,7 @@ class MTCollection:
         self.logger = logger
 
     def __str__(self):
+        """Str function."""
         lines = [f"Working Directory: {self.working_directory}"]
         lines.append(f"MTH5 file:         {self.mth5_filename}")
         if self.mth5_collection.h5_is_read():
@@ -83,21 +82,26 @@ class MTCollection:
         return "\n".join(lines)
 
     def __repr__(self):
+        """Repr function."""
         return self.__str__()
 
     def __enter__(self):
+        """Enter function."""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit function."""
         self.close_collection()
         return False
 
     @property
     def working_directory(self):
+        """Working directory."""
         return self._cwd
 
     @working_directory.setter
     def working_directory(self, value):
+        """Working directory."""
         if value is None:
             return
         value = Path(value)
@@ -107,6 +111,7 @@ class MTCollection:
 
     @property
     def mth5_filename(self):
+        """Mth5 filename."""
         if self.mth5_basename.find(".h5") > 0:
             return self.working_directory.joinpath(f"{self.mth5_basename}")
         else:
@@ -114,18 +119,17 @@ class MTCollection:
 
     @mth5_filename.setter
     def mth5_filename(self, value):
+        """Mth5 filename."""
         value = Path(value)
         self.working_directory = value.parent
         self.mth5_basename = value.stem
 
     @property
     def master_dataframe(self):
-        """
-        This is the full summary of all transfer functions in the MTH5
+        """This is the full summary of all transfer functions in the MTH5
         file.  It is a property because if a user adds TF's then the
         master_df will be automatically updated.  the tranformation is quick
         for now.
-
         """
 
         if self.mth5_collection.h5_is_read():
@@ -134,13 +138,10 @@ class MTCollection:
 
     @property
     def dataframe(self):
-        """
-        This property returns the working dataframe or master dataframe if
+        """This property returns the working dataframe or master dataframe if
         the working dataframe is None.
-
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if self.working_dataframe is None:
             return self.master_dataframe
@@ -152,31 +153,21 @@ class MTCollection:
         return self.working_dataframe
 
     def has_data(self):
+        """Has data."""
         if self.master_dataframe is not None:
             return True
         return False
 
     @staticmethod
     def make_file_list(mt_path, file_types=["edi"]):
-        """
-        Get a list of MT file from a given path
-
-        :param mt_path: full path to where the MT transfer functions are stored
-        or a list of paths
-        :type mt_path: string or :class:`pathlib.Path` or list
-
-        :param file_types: List of file types to look for given their extension
-        :type file_types: list
-
-        Currently available file types are or will be:
-            - edi - EDI files
-            - zmm - EMTF output file
-            - j - BIRRP output file
-            - avg - Zonge output file
-
+        """Get a list of MT file from a given path.
+        :param file_types:
+            Defaults to ["edi"].
+        :param mt_path: Full path to where the MT transfer functions are stored.
         """
 
         def check_path(mt_path):
+            """Check path."""
             if mt_path is None:
                 return None
             else:
@@ -205,16 +196,17 @@ class MTCollection:
         working_directory=None,
         mode="a",
     ):
-        """
-        Initialize an mth5
-
-        :param basename: DESCRIPTION, defaults to "mt_collection"
+        """Initialize an mth5.
+        :param mode:
+            Defaults to "a".
+        :param filename:
+            Defaults to None.
+        :param basename: DESCRIPTION, defaults to None.
         :type basename: TYPE, optional
-        :param working_directory: DESCRIPTION, defaults to None
+        :param working_directory: DESCRIPTION, defaults to None.
         :type working_directory: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if filename is not None:
             self.mth5_filename = filename
@@ -228,30 +220,23 @@ class MTCollection:
         self.mth5_collection.open_mth5(self.mth5_filename, mode)
 
     def close_collection(self):
-        """
-        close mth5
-
-        :return: DESCRIPTION
+        """Close mth5.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         self.mth5_collection.close_mth5()
 
     def add_tf(self, transfer_function, new_survey=None, tf_id_extra=None):
-        """
-        transfer_function could be a transfer function object, a file name,
+        """Transfer_function could be a transfer function object, a file name,
         a list of either.
-
-        :param transfer_function: transfer function object
+        :param transfer_function: Transfer function object.
         :type transfer_function: list, tuple, array, MTData, MT
-        :param new_survey: new survey name, defaults to None
+        :param new_survey: New survey name, defaults to None.
         :type new_survey: str, optional
-        :param tf_id_extra: additional text onto existing 'tf_id',
-         defaults to None
+        :param tf_id_extra: Additional text onto existing 'tf_id',, defaults to None.
         :type tf_id_extra: string, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if isinstance(transfer_function, MTData):
             self.from_mt_data(
@@ -280,15 +265,13 @@ class MTCollection:
         self.mth5_collection.tf_summary.summarize()
 
     def get_tf(self, tf_id, survey=None):
-        """
-
-        Get transfer function
-
-        :param tf_id: DESCRIPTION
+        """Get transfer function.
+        :param survey:
+            Defaults to None.
+        :param tf_id: DESCRIPTION.
         :type tf_id: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if survey is None:
@@ -328,19 +311,16 @@ class MTCollection:
         return mt_object
 
     def _from_file(self, filename, new_survey=None, tf_id_extra=None):
-        """
-        Add transfer functions for a list of file names
-
-        :param file_list: DESCRIPTION
+        """Add transfer functions for a list of file names.
+        :param filename:
+        :param file_list: DESCRIPTION.
         :type file_list: TYPE
-        :param new_survey: new survey name, defaults to None
+        :param new_survey: New survey name, defaults to None.
         :type new_survey: str, optional
-        :param tf_id_extra: additional text onto existing 'tf_id',
-         defaults to None
+        :param tf_id_extra: Additional text onto existing 'tf_id',, defaults to None.
         :type tf_id_extra: string, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if not self.mth5_collection.h5_is_write():
@@ -357,18 +337,15 @@ class MTCollection:
         )
 
     def _from_mt_object(self, mt_object, new_survey=None, tf_id_extra=None):
-        """
-
-        :param mt_object: DESCRIPTION
+        """From mt object.
+        :param mt_object: DESCRIPTION.
         :type mt_object: TYPE
-        :param new_survey: new survey name, defaults to None
+        :param new_survey: New survey name, defaults to None.
         :type new_survey: str, optional
-        :param tf_id_extra: additional text onto existing 'tf_id',
-         defaults to None
+        :param tf_id_extra: Additional text onto existing 'tf_id',, defaults to None.
         :type tf_id_extra: string, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if new_survey is not None:
             mt_object.survey = new_survey
@@ -380,16 +357,14 @@ class MTCollection:
         self.logger.debug("added %s " % mt_object.station)
 
     def to_mt_data(self, bounding_box=None, **kwargs):
-        """
-        Get a list of transfer functions
-
-        :param tf_ids: DESCRIPTION, defaults to None
+        """Get a list of transfer functions.
+        :param **kwargs:
+        :param tf_ids: DESCRIPTION, defaults to None.
         :type tf_ids: TYPE, optional
-        :param bounding_box: DESCRIPTION, defaults to None
+        :param bounding_box: DESCRIPTION, defaults to None.
         :type bounding_box: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if bounding_box is not None:
@@ -408,8 +383,7 @@ class MTCollection:
         return mt_data
 
     def from_mt_data(self, mt_data, new_survey=None, tf_id_extra=None):
-        """
-        Add data from a MTData object to an MTH5 collection.
+        """Add data from a MTData object to an MTH5 collection.
 
         Can use 'new_survey' to create a new survey to load to.
 
@@ -417,16 +391,13 @@ class MTCollection:
         useful if data have been edited or manipulated in some way.  For
         example could set 'tf_id_extra' = 'rotated' for rotated data. This will
         help you organize the tf's for each station.
-
-        :param mt_data: MTData object
+        :param mt_data: MTData object.
         :type mt_data: :class:`mtpy.core.mt_data.MTData`
-        :param new_survey: new survey name, defaults to None
+        :param new_survey: New survey name, defaults to None.
         :type new_survey: str, optional
-        :param tf_id_extra: additional text onto existing 'tf_id',
-         defaults to None
+        :param tf_id_extra: Additional text onto existing 'tf_id',, defaults to None.
         :type tf_id_extra: string, optional
-        :raises IOError: If an MTH5 is not writable raises
-
+        :raises IOError: If an MTH5 is not writable raises.
         """
         if self.mth5_collection.h5_is_write():
             for mt_obj in mt_data.values():
@@ -438,14 +409,15 @@ class MTCollection:
             raise IOError("MTH5 is not writeable, use 'open_mth5()'")
 
     def check_for_duplicates(self, locate="location", sig_figs=6):
-        """
-        Check for duplicate station locations in a MT DataFrame
-
-        :param dataframe: DESCRIPTION
+        """Check for duplicate station locations in a MT DataFrame.
+        :param sig_figs:
+            Defaults to 6.
+        :param locate:
+            Defaults to "location".
+        :param dataframe: DESCRIPTION.
         :type dataframe: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if self.has_data():
             if locate == "location":
@@ -465,20 +437,21 @@ class MTCollection:
         return None
 
     def apply_bbox(self, lon_min, lon_max, lat_min, lat_max):
-        """
-        Return :class:`pandas.DataFrame` of station within bounding box
-
-        :param longitude_min: Minimum longitude
+        """Return :class:`pandas.DataFrame` of station within bounding box.
+        :param lat_max:
+        :param lat_min:
+        :param lon_max:
+        :param lon_min:
+        :param longitude_min: Minimum longitude.
         :type longitude_min: float
-        :param longitude_max: Maximum longitude
+        :param longitude_max: Maximum longitude.
         :type longitude_max: float
-        :param latitude_min: Minimum latitude
+        :param latitude_min: Minimum latitude.
         :type latitude_min: float
-        :param latitude_max: Maximum longitude
+        :param latitude_max: Maximum longitude.
         :type latitude_max: float
-        :return: Only stations within the given bounding box
+        :return: Only stations within the given bounding box.
         :rtype: :class:`pandas.DataFrame`
-
         """
 
         if self.has_data():
@@ -499,10 +472,7 @@ class MTCollection:
             ]
 
     def to_geo_df(self, bounding_box=None, epsg=4326):
-        """
-        Make a geopandas dataframe for easier GIS manipulation
-
-        """
+        """Make a geopandas dataframe for easier GIS manipulation."""
         coordinate_system = f"epsg:{epsg}"
         if bounding_box is not None:
             self.apply_bbox(*bounding_box)
@@ -524,17 +494,15 @@ class MTCollection:
         return gdf
 
     def to_shp(self, filename, bounding_box=None, epsg=4326):
-        """
-
-        :param filename: DESCRIPTION
+        """To shp.
+        :param filename: DESCRIPTION.
         :type filename: TYPE
-        :param bounding_box: DESCRIPTION, defaults to None
+        :param bounding_box: DESCRIPTION, defaults to None.
         :type bounding_box: TYPE, optional
-        :param epsg: DESCRIPTION, defaults to 4326
+        :param epsg: DESCRIPTION, defaults to 4326.
         :type epsg: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if self.has_data():
@@ -552,18 +520,21 @@ class MTCollection:
         n_periods=48,
         new_file=True,
     ):
-        """
-        Average nearby stations to make it easier to invert
-
-        :param cell_size_m: DESCRIPTION
+        """Average nearby stations to make it easier to invert.
+        :param new_file:
+            Defaults to True.
+        :param n_periods:
+            Defaults to 48.
+        :param count:
+            Defaults to 1.
+        :param cell_size_m: DESCRIPTION.
         :type cell_size_m: TYPE
-        :param bounding_box: DESCRIPTION, defaults to None
+        :param bounding_box: DESCRIPTION, defaults to None.
         :type bounding_box: TYPE, optional
-        :param save_dir: DESCRIPTION, defaults to None
+        :param save_dir: DESCRIPTION, defaults to None.
         :type save_dir: TYPE, optional
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         # cell size in degrees (bit of a hack for now)
@@ -682,19 +653,15 @@ class MTCollection:
                     continue
 
     def plot_mt_response(self, tf_id, survey=None, **kwargs):
-        """
-
-        :param tf_id: DESCRIPTION
+        """Plot mt response.
+        :param survey:
+            Defaults to None.
+        :param tf_id: DESCRIPTION.
         :type tf_id: TYPE
-        :param **kwargs: DESCRIPTION
+        :param **kwargs: DESCRIPTION.
         :type **kwargs: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
-        if input as list, tuple, np.ndarray, pd.series assuming first column
-        is tf_id, and if needed the second column should be the survey id
-        for that tf.
-
         """
         mt_data = MTData()
         if isinstance(tf_id, str):
@@ -717,56 +684,54 @@ class MTCollection:
             return PlotMultipleResponses(mt_data, **kwargs)
 
     def plot_stations(self, map_epsg=4326, bounding_box=None, **kwargs):
-        """
-        plot stations
-
-        :param **kwargs: DESCRIPTION
+        """Plot stations.
+        :param bounding_box:
+            Defaults to None.
+        :param map_epsg:
+            Defaults to 4326.
+        :param **kwargs: DESCRIPTION.
         :type **kwargs: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
         if self.dataframe is not None:
             gdf = self.to_geo_df(epsg=map_epsg, bounding_box=bounding_box)
             return PlotStations(gdf, **kwargs)
 
     def plot_strike(self, mt_data=None, **kwargs):
-        """
-        Plot strike angle
+        """Plot strike angle
 
-        .. seealso:: :class:`mtpy.imaging.PlotStrike`
+        .. seealso:: :class:`mtpy.imaging.PlotStrike`.
         """
         if mt_data is None:
             mt_data = self.to_mt_data()
         return PlotStrike(mt_data, **kwargs)
 
     def plot_phase_tensor(self, tf_id, survey=None, **kwargs):
-        """
-        plot phase tensor elements
-
-        :param tf_id: DESCRIPTION
+        """Plot phase tensor elements.
+        :param survey:
+            Defaults to None.
+        :param tf_id: DESCRIPTION.
         :type tf_id: TYPE
-        :param **kwargs: DESCRIPTION
+        :param **kwargs: DESCRIPTION.
         :type **kwargs: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         tf_obj = self.get_tf(tf_id, survey=survey)
         return tf_obj.plot_phase_tensor(**kwargs)
 
     def plot_phase_tensor_map(self, mt_data=None, **kwargs):
-        """
-        Plot Phase tensor maps for transfer functions in the working_dataframe
+        """Plot Phase tensor maps for transfer functions in the working_dataframe
 
-        .. seealso:: :class:`mtpy.imaging.PlotPhaseTensorMaps`
-
-        :param **kwargs: DESCRIPTION
+        .. seealso:: :class:`mtpy.imaging.PlotPhaseTensorMaps`.
+        :param mt_data:
+            Defaults to None.
+        :param **kwargs: DESCRIPTION.
         :type **kwargs: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if mt_data is None:
@@ -775,17 +740,16 @@ class MTCollection:
         return PlotPhaseTensorMaps(mt_data=mt_data, **kwargs)
 
     def plot_phase_tensor_pseudosection(self, mt_data=None, **kwargs):
-        """
-        Plot a pseudo section of  phase tensor ellipses and induction vectors
+        """Plot a pseudo section of  phase tensor ellipses and induction vectors
         if specified
 
         .. seealso:: :class:`mtpy.imaging.PlotPhaseTensorPseudosection`
-
-        :param **kwargs: DESCRIPTION
+        :param mt_data:
+            Defaults to None.
+        :param **kwargs: DESCRIPTION.
         :type **kwargs: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if mt_data is None:
@@ -796,19 +760,17 @@ class MTCollection:
     def plot_residual_phase_tensor(
         self, mt_data_01, mt_data_02, plot_type="map", **kwargs
     ):
-        """
-
-        :param mt_data_01: DESCRIPTION
+        """Plot residual phase tensor.
+        :param mt_data_01: DESCRIPTION.
         :type mt_data_01: TYPE
-        :param mt_data_02: DESCRIPTION
+        :param mt_data_02: DESCRIPTION.
         :type mt_data_02: TYPE
-        :param plot_type: DESCRIPTION, defaults to "map"
+        :param plot_type: DESCRIPTION, defaults to "map".
         :type plot_type: TYPE, optional
-        :param **kwargs: DESCRIPTION
+        :param **kwargs: DESCRIPTION.
         :type **kwargs: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if plot_type in ["map"]:
@@ -818,22 +780,21 @@ class MTCollection:
             return PlotResidualPTPseudoSection(mt_data_01, mt_data_02, **kwargs)
 
     def plot_penetration_depth_1d(self, tf_id, survey=None, **kwargs):
-        """
-        Plot 1D penetration depth based on the Niblett-Bostick transformation
+        """Plot 1D penetration depth based on the Niblett-Bostick transformation
 
         Note that data is rotated to estimated strike previous to estimation
         and strike angles are interpreted for data points that are 3D.
 
-        .. seealso:: :class:`mtpy.analysis.niblettbostick.calculate_depth_of_investigation`
-
-
-        :param tf_object: DESCRIPTION
+        .. seealso:: :class:`mtpy.analysis.niblettbostick.calculate_depth_of_investigation`.
+        :param survey:
+            Defaults to None.
+        :param tf_id:
+        :param tf_object: DESCRIPTION.
         :type tf_object: TYPE
-        :param **kwargs: DESCRIPTION
+        :param **kwargs: DESCRIPTION.
         :type **kwargs: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         tf_object = self.get_tf(tf_id, survey=survey)
@@ -841,16 +802,14 @@ class MTCollection:
         return PlotPenetrationDepth1D(tf_object, **kwargs)
 
     def plot_penetration_depth_map(self, mt_data=None, **kwargs):
-        """
-        Plot Penetration depth in map view for a single period
+        """Plot Penetration depth in map view for a single period
 
-        .. seealso:: :class:`mtpy.imaging.PlotPenetrationDepthMap`
-
-        :param mt_data: DESCRIPTION
-        :type mt_data: TYPE
-        :return: DESCRIPTION
+        .. seealso:: :class:`mtpy.imaging.PlotPenetrationDepthMap`.
+        :param **kwargs:
+        :param mt_data: DESCRIPTION, defaults to None.
+        :type mt_data: TYPE, optional
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if mt_data is None:
@@ -859,16 +818,16 @@ class MTCollection:
         return PlotPenetrationDepthMap(mt_data, **kwargs)
 
     def plot_resistivity_phase_maps(self, mt_data=None, **kwargs):
-        """
-        Plot apparent resistivity and/or impedance phase maps from the
+        """Plot apparent resistivity and/or impedance phase maps from the
         working dataframe
 
         .. seealso:: :class:`mtpy.imaging.PlotResPhaseMaps`
-        :param **kwargs: DESCRIPTION
+        :param mt_data:
+            Defaults to None.
+        :param **kwargs: DESCRIPTION.
         :type **kwargs: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if mt_data is None:
@@ -877,16 +836,13 @@ class MTCollection:
         return PlotResPhaseMaps(mt_data, **kwargs)
 
     def plot_resistivity_phase_pseudosections(self, mt_data=None, **kwargs):
-        """
-        Plot resistivity and phase in a pseudosection along a profile line
-
-        :param mt_data: DESCRIPTION, defaults to None
+        """Plot resistivity and phase in a pseudosection along a profile line.
+        :param mt_data: DESCRIPTION, defaults to None.
         :type mt_data: TYPE, optional
-        :param **kwargs: DESCRIPTION
+        :param **kwargs: DESCRIPTION.
         :type **kwargs: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if mt_data is None:

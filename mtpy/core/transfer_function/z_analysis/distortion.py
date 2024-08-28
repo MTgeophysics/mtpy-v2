@@ -48,48 +48,22 @@ import mtpy.utils.calculator as MTcc
 
 
 def find_distortion(z_object, comp="det", only_2d=False):
-    """
-    find optimal distortion tensor from z object
+    """Find optimal distortion tensor from z object
 
     automatically determine the dimensionality over all frequencies, then find
-    the appropriate distortion tensor D
+    the appropriate distortion tensor D.
+    :param only_2d:
+        Defaults to False.
+    :param comp:
+        Defaults to "det".
+    :param z_object:
 
-    Parameters
-    ----------
+    Examples:
 
-        **z_object** : mtpy.core.z object
+            :Estimate Distortion: ::
 
-        **comp** : [ 'det' | '01' | '10 ]
-                type of distortion correction
-                *default* is 'det'
-
-        **num_freq** : int
-                       number of frequencies to look for distortion from
-                       the index 0
-                       *default* is None, meanincomp all frequencies are used
-
-        **dim_array** : list
-                      list of dimensions for each frequency
-                      *default* is None, meanincomp calculated from data
-
-    Returns
-    -------
-
-        **distortion** : np.ndarray(2, 2)
-                         distortion array all real values
-
-        **distortion_error** : np.ndarray(2, 2)
-                             distortion error array
-
-
-    Examples
-    --------
-
-        :Estimate Distortion: ::
-
-            >>> import mtpy.analysis.distortion as distortion
-            >>> dis, dis_error = distortion.find_distortion(z_object, num_freq=12)
-
+                >>> import mtpy.analysis.distortion as distortion
+                >>> dis, dis_error = distortion.find_distortion(z_object, num_freq=12)
     """
 
     st_array = -1 * z_object.phase_tensor.azimuth
@@ -365,32 +339,26 @@ def find_distortion(z_object, comp="det", only_2d=False):
 def remove_distortion_from_z_object(
     z_object, distortion_tensor, distortion_error_tensor=None, logger=None
 ):
-    """
-    Remove distortion D form an observed impedance tensor Z to obtain
+    """Remove distortion D form an observed impedance tensor Z to obtain
     the uperturbed "correct" Z0:
     Z = D * Z0
 
     Propagation of errors/uncertainties included
-
-
-    :param distortion_tensor: real distortion tensor as a 2x2
+    :param logger:
+        Defaults to None.
+    :param z_object:
+    :param distortion_tensor: Real distortion tensor as a 2x2.
     :type distortion_tensor: np.ndarray(2, 2, dtype=real)
-    :param distortion_error_tensor: default is None
-    :type distortion_error_tensor: np.ndarray(2, 2, dtype=real),
-    :param inplace: Update the current object or return a new impedance
+    :param distortion_error_tensor:, defaults to None.
+    :type distortion_error_tensor: np.ndarray(2, 2, dtype=real),, optional
+    :param inplace: Update the current object or return a new impedance.
     :type inplace: boolean
-    :returns: input distortion tensor
-    :rtype: np.ndarray(2, 2, dtype='real')
-    :returns: impedance tensor with distorion removed
-    :rtype: np.ndarray(num_frequency, 2, 2, dtype='complex')
-    :returns: impedance tensor error after distortion is removed
-    :rtype: np.ndarray(num_frequency, 2, 2, dtype='complex')
-
-    :Example: ::
-
-            >>> distortion = np.array([[1.2, .5],[.35, 2.1]])
-            >>> d, new_z, new_z_error = z_obj.remove_distortion(distortion)
-
+    :return s: Input distortion tensor.
+    :rtype s: np.ndarray(2, 2, dtype='real')
+    :return s: Impedance tensor with distorion removed.
+    :rtype s: np.ndarray(num_frequency, 2, 2, dtype='complex')
+    :return s: Impedance tensor error after distortion is removed.
+    :rtype s: np.ndarray(num_frequency, 2, 2, dtype='complex')
     """
 
     if distortion_error_tensor is None:

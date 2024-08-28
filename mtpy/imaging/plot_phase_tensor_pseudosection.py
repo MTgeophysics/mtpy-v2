@@ -24,8 +24,7 @@ from mtpy.imaging.mtplot_tools import (
 
 
 class PlotPhaseTensorPseudoSection(PlotBaseProfile):
-    """
-    PlotPhaseTensorPseudoSection will plot the phase tensor ellipses in a
+    """PlotPhaseTensorPseudoSection will plot the phase tensor ellipses in a
     pseudo section format
 
 
@@ -70,7 +69,6 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
     :Example: ::
         >>> pt1.save_figure(r"/home/PTFigures", file_format='pdf', dpi=300)
         File saved to '/home/PTFigures/PTPseudoSection.pdf'
-
     """
 
     def __init__(self, mt_data, **kwargs):
@@ -101,14 +99,11 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
             self.plot()
 
     def _get_patch(self, tf):
-        """
-        Get ellipse patch
-
-        :param tf: DESCRIPTION
+        """Get ellipse patch.
+        :param tf: DESCRIPTION.
         :type tf: TYPE
-        :return: DESCRIPTION
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         plot_x = self._get_offset(tf)
@@ -116,7 +111,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
 
         pt_obj = tf.pt
         has_pt = True
-        if pt_obj._has_tf():
+        if pt_obj._has_tf() and self.plot_pt:
             # this might make if faster
             phimax = pt_obj.phimax
             phimin = pt_obj.phimin
@@ -125,7 +120,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
             has_pt = False
 
         has_tipper = False
-        if tf.Tipper is not None:
+        if tf.Tipper is not None and "y" in self.plot_tipper:
             t_obj = tf.Tipper
             has_tipper = True
 
@@ -288,12 +283,9 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
         return plot_x, tf.tf_id[self.station_id[0] : self.station_id[1]]
 
     def _add_colorbar(self):
-        """
-        Add phase tensor color bar
-
-        :return: DESCRIPTION
+        """Add phase tensor color bar.
+        :return: DESCRIPTION.
         :rtype: TYPE
-
         """
 
         if self.cb_position is None:
@@ -342,10 +334,36 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
             self.cb.ax.yaxis.tick_left()
             self.cb.ax.tick_params(axis="y", direction="in")
 
+    def _add_tipper_legend(self):
+        """Add tipper legend."""
+        if "y" in self.plot_tipper:
+            legend_lines = []
+            legend_labels = []
+            if "r" in self.plot_tipper:
+                real_line = plt.Line2D(
+                    [0, 0], [0, 0], color=self.arrow_color_real
+                )
+                legend_lines.append(real_line)
+                legend_labels.append("Real")
+            if "i" in self.plot_tipper:
+                imag_line = plt.Line2D(
+                    [0, 0], [0, 0], color=self.arrow_color_imag
+                )
+                legend_lines.append(imag_line)
+                legend_labels.append("Imag")
+
+            self.ax.legend(
+                legend_lines,
+                legend_labels,
+                loc="lower right",
+                prop={"size": self.font_size},
+            )
+
     def plot(self):
-        """
-        plots the phase tensor pseudo section.  See class doc string for
-        more details.
+        """Plots the phase tensor pseudo section.
+
+        See class doc string for
+more details.
         """
 
         self._set_subplot_params()
@@ -454,3 +472,5 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
         self._add_colorbar()
 
         self.ax.set_axisbelow(True)
+
+        self._add_tipper_legend()

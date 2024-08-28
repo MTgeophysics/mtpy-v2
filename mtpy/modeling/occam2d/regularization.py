@@ -15,9 +15,10 @@ from mtpy.modeling.occam2d import Mesh
 
 # =============================================================================
 class Regularization(Mesh):
-    """
-    Creates a regularization grid based on Mesh.  Note that Mesh is inherited
-    by Regularization, therefore the intended use is to build a mesh with
+    """Creates a regularization grid based on Mesh.
+
+    Note that Mesh is inherited
+by Regularization, therefore the intended use is to build a mesh with
     the Regularization class.
 
     The regularization grid is what Occam calculates the inverse model on.
@@ -29,125 +30,123 @@ class Regularization(Mesh):
     Finally, you want the regularization to go to a half space at the bottom,
     basically one giant block.
 
-    Arguments:
-    -----------
-        **station_locations** : np.ndarray(n_stations)
-                                array of station locations along a profile
-                                line in meters.
+    Arguments::
+            **station_locations** : np.ndarray(n_stations)
+                                    array of station locations along a profile
+                                    line in meters.
 
-    ======================= ===================================================
-    Key Words/Attributes    Description
-    ======================= ===================================================
-    air_key                 letter associated with the value of air
-                            *default* is 0
-    air_value               value given to an air cell, *default* is 1E13
-    binding_offset          offset from the right side of the furthest left
-                            hand model block in meters.  The regularization
-                            grid is setup such that this should be 0.
-    cell_width              width of cells with in station area in meters
-                            *default* is 100
-    description             description of the model for the model file.
-                            *default* is 'simple inversion'
-    elevation_profile       elevation profile along the profile line.
-                            given as np.ndarray(nx, 2), where the elements
-                            are x_location, elevation.  If elevation profile
-                            is given add_elevation is called automatically.
-                            *default* is None
-    mesh_fn                 full path to mesh file.
-    mesh_values             letter values of each triangular mesh element
-                            if the cell is free value is ?
-    model_columns
-    model_name
-    model_rows
+        ======================= ===================================================
+        Key Words/Attributes    Description
+        ======================= ===================================================
+        air_key                 letter associated with the value of air
+                                *default* is 0
+        air_value               value given to an air cell, *default* is 1E13
+        binding_offset          offset from the right side of the furthest left
+                                hand model block in meters.  The regularization
+                                grid is setup such that this should be 0.
+        cell_width              width of cells with in station area in meters
+                                *default* is 100
+        description             description of the model for the model file.
+                                *default* is 'simple inversion'
+        elevation_profile       elevation profile along the profile line.
+                                given as np.ndarray(nx, 2), where the elements
+                                are x_location, elevation.  If elevation profile
+                                is given add_elevation is called automatically.
+                                *default* is None
+        mesh_fn                 full path to mesh file.
+        mesh_values             letter values of each triangular mesh element
+                                if the cell is free value is ?
+        model_columns
+        model_name
+        model_rows
 
-    min_block_width         [ float ] minimum model block width in meters,
-                            *default* is 2*cell_width
-    n_layers                number of vertical layers in mesh
-                            *default* is 90
-    num_free_param          [ int ] number of free parameters in the model.
-                            this is a tricky number to estimate apparently.
-    num_layers              [ int ] number of regularization layers.
-    num_x_pad_cells         number of horizontal padding cells outside the
-                            the station area that will increase in size
-                            by x_pad_multiplier. *default* is 7
-    num_x_pad_small_cells   number of horizonal padding cells just outside
-                            the station area with width cell_width.  This is
-                            to extend the station area if needed.
-                            *default* is 2
-    num_z_pad_cells         number of vertical padding cells below
-                            z_target_depth down to z_bottom. *default* is 5
-    prejudice_fn            full path to prejudice file
-                            *default* is 'none'
-    reg_basename            basename of regularization file (model file)
-                            *default* is 'Occam2DModel'
-    reg_fn                  full path to regularization file (model file)
-                            *default* is save_path/reg_basename
-    rel_station_locations   relative station locations within the mesh.  The
-                            locations are relative to the center of the station
-                            area.  *default* is None, filled later
-    save_path               full path to save mesh and model file to.
-                            *default* is current working directory.
-    statics_fn              full path to static shift file
-                            Static shifts in occam may not work.
-                            *default* is 'none'
-    station_locations       location of stations in meters, can be on a
-                            relative grid or in UTM.
-    trigger                 [ float ] multiplier to merge model blocks at
-                            depth.  A higher number increases the number of
-                            model blocks at depth.  *default* is .65
-    x_grid                  location of horizontal grid nodes in meters
-    x_nodes                 relative spacing between grid nodes
-    x_pad_multiplier        horizontal padding cells will increase by this
-                            multiple out to the edge of the grid.
-                            *default* is 1.5
-    z1_layer                thickness of the first layer in the model.
-                            Should be at least 1/4 of the first skin depth
-                            *default* is 10
-    z_bottom                bottom depth of the model (m).  Needs to be large
-                            enough to be 1D at the edge.
-                            *default* is 200000.0
-    z_grid                  location of vertical nodes in meters
-    z_nodes                 relative distance between vertical nodes in meters
-    z_target_depth          depth to deepest target of interest.  Below this
-                            depth cells will be padded to z_bottom
-    ======================= ===================================================
+        min_block_width         [ float ] minimum model block width in meters,
+                                *default* is 2*cell_width
+        n_layers                number of vertical layers in mesh
+                                *default* is 90
+        num_free_param          [ int ] number of free parameters in the model.
+                                this is a tricky number to estimate apparently.
+        num_layers              [ int ] number of regularization layers.
+        num_x_pad_cells         number of horizontal padding cells outside the
+                                the station area that will increase in size
+                                by x_pad_multiplier. *default* is 7
+        num_x_pad_small_cells   number of horizonal padding cells just outside
+                                the station area with width cell_width.  This is
+                                to extend the station area if needed.
+                                *default* is 2
+        num_z_pad_cells         number of vertical padding cells below
+                                z_target_depth down to z_bottom. *default* is 5
+        prejudice_fn            full path to prejudice file
+                                *default* is 'none'
+        reg_basename            basename of regularization file (model file)
+                                *default* is 'Occam2DModel'
+        reg_fn                  full path to regularization file (model file)
+                                *default* is save_path/reg_basename
+        rel_station_locations   relative station locations within the mesh.  The
+                                locations are relative to the center of the station
+                                area.  *default* is None, filled later
+        save_path               full path to save mesh and model file to.
+                                *default* is current working directory.
+        statics_fn              full path to static shift file
+                                Static shifts in occam may not work.
+                                *default* is 'none'
+        station_locations       location of stations in meters, can be on a
+                                relative grid or in UTM.
+        trigger                 [ float ] multiplier to merge model blocks at
+                                depth.  A higher number increases the number of
+                                model blocks at depth.  *default* is .65
+        x_grid                  location of horizontal grid nodes in meters
+        x_nodes                 relative spacing between grid nodes
+        x_pad_multiplier        horizontal padding cells will increase by this
+                                multiple out to the edge of the grid.
+                                *default* is 1.5
+        z1_layer                thickness of the first layer in the model.
+                                Should be at least 1/4 of the first skin depth
+                                *default* is 10
+        z_bottom                bottom depth of the model (m).  Needs to be large
+                                enough to be 1D at the edge.
+                                *default* is 200000.0
+        z_grid                  location of vertical nodes in meters
+        z_nodes                 relative distance between vertical nodes in meters
+        z_target_depth          depth to deepest target of interest.  Below this
+                                depth cells will be padded to z_bottom
+        ======================= ===================================================
 
-    .. note:: regularization does not work with topography yet.  Having
-              problems calculating the number of free parameters.
+        .. note:: regularization does not work with topography yet.  Having
+                  problems calculating the number of free parameters.
 
-    ========================= =================================================
-    Methods                   Description
-    ========================= =================================================
-    add_elevation             adds elevation to the mesh given elevation
-                              profile.
-    build_mesh                builds the mesh given the attributes of Mesh.  If
-                              elevation_profile is not None, add_elevation is
-                              called inside build_mesh
-    build_regularization      builds the regularization grid from the build mesh
-                              be sure to plot the grids before starting the
-                              inversion to make sure coverage is appropriate.
-    get_num_free_param        estimate the number of free parameters.
-                              **This is a work in progress**
-    plot_mesh                 plots the built mesh with station location.
-    read_mesh_file            reads in an existing mesh file and populates the
-                              appropriate attributes.
-    read_regularization_file  read in existing regularization file, populates
-                              apporopriate attributes
-    write_mesh_file           writes a mesh file to save_path
-    write_regularization_file writes a regularization file
-    ======================= ===================================================
+        ========================= =================================================
+        Methods                   Description
+        ========================= =================================================
+        add_elevation             adds elevation to the mesh given elevation
+                                  profile.
+        build_mesh                builds the mesh given the attributes of Mesh.  If
+                                  elevation_profile is not None, add_elevation is
+                                  called inside build_mesh
+        build_regularization      builds the regularization grid from the build mesh
+                                  be sure to plot the grids before starting the
+                                  inversion to make sure coverage is appropriate.
+        get_num_free_param        estimate the number of free parameters.
+                                  **This is a work in progress**
+        plot_mesh                 plots the built mesh with station location.
+        read_mesh_file            reads in an existing mesh file and populates the
+                                  appropriate attributes.
+        read_regularization_file  read in existing regularization file, populates
+                                  apporopriate attributes
+        write_mesh_file           writes a mesh file to save_path
+        write_regularization_file writes a regularization file
+        ======================= ===================================================
 
-    :Example: ::
+        :Example: ::
 
-        >>> edipath = r"/home/mt/edi_files"
-        >>> profile = occam2d.Profile(edi_path=edi_path)
-        >>> profile.generate_profile()
-        >>> reg = occam2d.Regularization(profile.station_locations)
-        >>> reg.build_mesh()
-        >>> reg.build_regularization()
-        >>> reg.save_path = r"/home/occam2d/Line1/Inv1"
-        >>> reg.write_regularization_file()
-
+            >>> edipath = r"/home/mt/edi_files"
+            >>> profile = occam2d.Profile(edi_path=edi_path)
+            >>> profile.generate_profile()
+            >>> reg = occam2d.Regularization(profile.station_locations)
+            >>> reg.build_mesh()
+            >>> reg.build_regularization()
+            >>> reg.save_path = r"/home/occam2d/Line1/Inv1"
+            >>> reg.write_regularization_file()
     """
 
     def __init__(self, station_locations=None, **kwargs):
@@ -175,6 +174,7 @@ class Regularization(Mesh):
             self.build_regularization()
 
     def __str__(self):
+        """Str function."""
         lines = []
         lines.append("=" * 55)
         lines.append(f"{'Regularization Parameters':^55}")
@@ -188,16 +188,16 @@ class Regularization(Mesh):
         return "\n".join(lines)
 
     def __repr__(self):
+        """Repr function."""
         return self.__str__()
 
     def build_regularization(self):
-        """
-        Builds larger boxes around existing mesh blocks for the regularization.
+        """Builds larger boxes around existing mesh blocks for the regularization.
+
         As the model deepens the regularization boxes get larger.
 
         The regularization boxes are merged mesh cells as prescribed by the
         Occam method.
-
         """
         # list of the mesh columns to combine
         self.model_columns = []
@@ -279,8 +279,7 @@ class Regularization(Mesh):
         self.get_num_free_params()
 
     def get_num_free_params(self):
-        """
-        estimate the number of free parameters in model mesh.
+        """Estimate the number of free parameters in model mesh.
 
         I'm assuming that if there are any fixed parameters in the block, then
         that model block is assumed to be fixed. Not sure if this is right
@@ -324,34 +323,31 @@ class Regularization(Mesh):
         prejudice_fn="none",
         save_path=None,
     ):
-        """
-        Write a regularization file for input into occam.
+        """Write a regularization file for input into occam.
 
         Calls build_regularization if build_regularization has not already
         been called.
 
         if reg_fn is None, then file is written to save_path/reg_basename
 
-        Arguments:
-        ----------
-            **reg_fn** : string
-                         full path to regularization file. *default* is None
-                         and file will be written to save_path/reg_basename
+        Arguments::
+                **reg_fn** : string
+                             full path to regularization file. *default* is None
+                             and file will be written to save_path/reg_basename
 
-            **reg_basename** : string
-                               basename of regularization file
+                **reg_basename** : string
+                                   basename of regularization file
 
-            **statics_fn** : string
-                             full path to static shift file
-                             .. note:: static shift does not always work in
-                                       occam2d.exe
-            **prejudice_fn** : string
-                               full path to prejudice file
+                **statics_fn** : string
+                                 full path to static shift file
+                                 .. note:: static shift does not always work in
+                                           occam2d.exe
+                **prejudice_fn** : string
+                                   full path to prejudice file
 
-            **save_path** : string
-                            path to save regularization file.
-                            *default* is current working directory
-
+                **save_path** : string
+                                path to save regularization file.
+                                *default* is current working directory
         """
         if save_path is not None:
             self.save_path = Path(save_path)
@@ -407,15 +403,13 @@ class Regularization(Mesh):
         print("Wrote Regularization file to {self.reg_fn}")
 
     def read_regularization_file(self, reg_fn):
-        """
-        Read in a regularization file and populate attributes:
+        """Read in a regularization file and populate attributes:
             * binding_offset
             * mesh_fn
             * model_columns
             * model_rows
             * prejudice_fn
             * statics_fn
-
         """
         self.reg_fn = Path(reg_fn)
         self.save_path = self.reg_fn.parent

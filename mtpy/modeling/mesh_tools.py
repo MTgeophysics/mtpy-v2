@@ -10,7 +10,7 @@ functions to assist with mesh generation
 # =============================================================================
 # Imports
 # =============================================================================
-# from pathlib import Path
+from pathlib import Path
 import numpy as np
 import mtpy.utils.filehandling as mtfh
 from mtpy.utils.gis_tools import project_point
@@ -24,36 +24,22 @@ import scipy.interpolate as spi
 
 
 def grid_centre(grid_edges):
-    """
-    calculate the grid centres from an array that defines grid edges
-    :param grid_edges: array containing grid edges
-    :returns: grid_centre: centre points of grid
+    """Calculate the grid centres from an array that defines grid edges.
+    :param grid_edges: Array containing grid edges.
+    :return s: Grid_centre: centre points of grid.
     """
     return np.mean([grid_edges[1:], grid_edges[:-1]], axis=0)
 
 
 def get_rounding(cell_width):
-    """
-    Get the rounding number given the cell width. Will be one significant number less
-    than the cell width. This reduces weird looking meshes.
+    """Get the rounding number given the cell width.
 
-    :param cell_width: Width of mesh cell
+    Will be one significant number less
+than the cell width. This reduces weird looking meshes.
+    :param cell_width: Width of mesh cell.
     :type cell_width: float
-    :return: digit to round to
+    :return: Digit to round to.
     :rtype: int
-
-    .. code-block:: python
-        :linenos:
-
-        >>> from mtpy.utils.mesh_tools import get_rounding
-        >>> get_rounding(9)
-        0
-        >>> get_rounding(90)
-        -1
-        >>> get_rounding(900)
-        -2
-        >>> get_rounding(9000)
-        -3
     """
 
     rounding = int(-1 * np.floor(np.log10(cell_width)))
@@ -64,17 +50,13 @@ def get_rounding(cell_width):
 def rotate_mesh(
     grid_east, grid_north, origin, rotation_angle, return_centre=False
 ):
-    """
-    rotate a mesh defined by grid_east and grid_north.
-
-    :param grid_east: 1d array defining the edges of the mesh in the east-west direction
-    :param grid_north: 1d array defining the edges of the mesh in the north-south direction
-    :param origin: real-world position of the (0,0) point in grid_east, grid_north
-    :param rotation_angle: angle in degrees to rotate the grid by
-    :param return_centre: True/False option to return points on centre of grid instead of grid edges
-
-    :return: grid_east, grid_north - 2d arrays describing the east and north coordinates
-
+    """Rotate a mesh defined by grid_east and grid_north.
+    :param grid_east: 1d array defining the edges of the mesh in the east-west direction.
+    :param grid_north: 1d array defining the edges of the mesh in the north-south direction.
+    :param origin: Real-world position of the (0,0) point in grid_east, grid_north.
+    :param rotation_angle: Angle in degrees to rotate the grid by.
+    :param return_centre: True/False option to return points on centre of grid instead of grid edges, defaults to False.
+    :return: Grid_east, grid_north - 2d arrays describing the east and north coordinates.
     """
     x0, y0 = origin
 
@@ -195,8 +177,7 @@ def interpolate_elevation_to_grid(
     fast=True,
     buffer=1,
 ):
-    """
-    # Note: this documentation is outdated and seems to be copied from
+    """# Note: this documentation is outdated and seems to be copied from
     #  model.interpolate_elevation2. It needs to be updated. This
     #  funciton does not update a dictionary but returns an array of
     #  elevation data.
@@ -247,7 +228,11 @@ def interpolate_elevation_to_grid(
     """
     # read the surface data in from ascii if surface not provided
     if surface_file:
-        lon, lat, elev = mtfh.read_surface_ascii(surface_file)
+        surface_file = Path(surface_file)
+        if surface_file.suffix[1:] in ["ascii", "txt", "asc"]:
+            lon, lat, elev = mtfh.read_surface_ascii(surface_file)
+        elif surface_file.suffix[1:] in ["tiff", "tif", "geotiff"]:
+            lon, lat, elev = mtfh.read_geotiff(surface_file)
     elif surface:
         lon, lat, elev = surface
     else:
@@ -311,13 +296,11 @@ def interpolate_elevation_to_grid(
 
 
 def get_nearest_index(array, value):
-    """
-    Return the index of the nearest value to the provided value in an array:
+    """Return the index of the nearest value to the provided value in an array:
 
         inputs:
             array = array or list of values
-            value = target value
-
+            value = target value.
     """
     array = np.array(array)
 
@@ -329,8 +312,7 @@ def get_nearest_index(array, value):
 def make_log_increasing_array(
     z1_layer, target_depth, n_layers, increment_factor=0.9
 ):
-    """
-    create depth array with log increasing cells, down to target depth,
+    """Create depth array with log increasing cells, down to target depth,
     inputs are z1_layer thickness, target depth, number of layers (n_layers)
     """
 
@@ -355,31 +337,22 @@ def make_log_increasing_array(
 
 
 def get_padding_cells(cell_width, max_distance, num_cells, stretch):
-    """
-    get padding cells, which are exponentially increasing to a given
+    """Get padding cells, which are exponentially increasing to a given
     distance.  Make sure that each cell is larger than the one previously.
 
-    Arguments
-    -------------
+    Arguments:
 
-        **cell_width** : float
-                         width of grid cell (m)
+            **cell_width** : float
+                             width of grid cell (m)
 
-        **max_distance** : float
-                           maximum distance the grid will extend (m)
+            **max_distance** : float
+                               maximum distance the grid will extend (m)
 
-        **num_cells** : int
-                        number of padding cells
+            **num_cells** : int
+                            number of padding cells
 
-        **stretch** : float
-                      base geometric factor
-
-    Returns
-    ----------------
-
-        **padding** : np.ndarray
-                      array of padding cells for one side
-
+            **stretch** : float
+                          base geometric factor
     """
 
     # compute scaling factor
@@ -409,13 +382,9 @@ def get_padding_cells(cell_width, max_distance, num_cells, stretch):
 
 
 def get_padding_from_stretch(cell_width, pad_stretch, num_cells):
-    """
-    get padding cells using pad stretch factor
-
-    """
+    """Get padding cells using pad stretch factor."""
     nodes = np.around(
-        cell_width
-        * (np.ones(num_cells) * pad_stretch) ** np.arange(num_cells),
+        cell_width * (np.ones(num_cells) * pad_stretch) ** np.arange(num_cells),
         get_rounding(cell_width),
     )
 
@@ -423,8 +392,7 @@ def get_padding_from_stretch(cell_width, pad_stretch, num_cells):
 
 
 def get_padding_cells2(cell_width, core_max, max_distance, num_cells):
-    """
-    get padding cells, which are exponentially increasing to a given
+    """Get padding cells, which are exponentially increasing to a given
     distance.  Make sure that each cell is larger than the one previously.
     """
     # check max distance is large enough to accommodate padding
@@ -442,10 +410,8 @@ def get_padding_cells2(cell_width, core_max, max_distance, num_cells):
 def get_station_buffer(
     grid_east, grid_north, station_east, station_north, buf=10e3
 ):
-    """
-    get cells within a specified distance (buf) of the stations
+    """Get cells within a specified distance (buf) of the stations
     returns a 2D boolean (True/False) array
-
     """
     first = True
     for xs, ys in np.vstack([station_east, station_north]).T:

@@ -27,21 +27,22 @@ def array2raster(
     crs,
     rotation_angle=0,
 ):
-    """
-    Use rasterio to write raster file.
-    :param raster_fn: DESCRIPTION
+    """Use rasterio to write raster file.
+    :param rotation_angle:
+        Defaults to 0.
+    :param array:
+    :param raster_fn: DESCRIPTION.
     :type raster_fn: TYPE
-    :param lower_left: DESCRIPTION
+    :param lower_left: DESCRIPTION.
     :type lower_left: TYPE
-    :param cell_size_north: DESCRIPTION
+    :param cell_size_north: DESCRIPTION.
     :type cell_size_north: TYPE
-    :param cell_size_east: DESCRIPTION
+    :param cell_size_east: DESCRIPTION.
     :type cell_size_east: TYPE
-    :param crs: DESCRIPTION
+    :param crs: DESCRIPTION.
     :type crs: TYPE
-    :return: DESCRIPTION
+    :return: DESCRIPTION.
     :rtype: TYPE
-
     """
 
     if not isinstance(lower_left, MTLocation):
