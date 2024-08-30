@@ -16,6 +16,7 @@ A vanilla recipe to invert 2D MT data.
 import warnings
 import numpy as np
 
+
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 
@@ -29,7 +30,16 @@ from simpeg import (
     data_misfit,
     regularization,
 )
-from pymatsolver import Pardiso
+
+try:
+    from pymatsolver import Pardiso
+
+    pardiso_imported = True
+except ImportError:
+    warnings.warn(
+        "Pardiso not installed see https://github.com/simpeg/pydiso/blob/main/README.md."
+    )
+    pardiso_imported = False
 
 # from dask.distributed import Client, LocalCluster
 from mtpy.modeling.simpeg.data_2d import Simpeg2DData
@@ -58,9 +68,13 @@ class Simpeg2D:
         self.ax = self.make_mesh()
         self.air_conductivity = 1e-8
         self.initial_conductivity = 1e-2
-        self.solver = "pardiso"
+        if pardiso_imported:
+            self.solver = "pardiso"
+            self._solvers_dict = {"pardiso": Pardiso}
 
-        self._solvers_dict = {"pardiso": Pardiso}
+        else:
+            self.solver = None
+            self._solvers_dict = {}
 
         # regularization parameters
         self.alpha_s = 1e-5
@@ -175,31 +189,54 @@ class Simpeg2D:
         """
         return self.exponent_map * self.active_map
 
+    def _get_solver(self):
+        """
+        get solver
+        """
+        try:
+            return self.solver_dict[self.solver]
+        except KeyError:
+            return None
+
     @property
     def tm_simulation(self):
         """
         Simulation for TE Mode
         """
-
-        return nsem.simulation.Simulation2DElectricField(
-            self.quad_tree.mesh,
-            survey=self.data.tm_survey,
-            sigmaMap=self.conductivity_map,
-            solver=self._solvers_dict[self.solver],
-        )
+        solver = self._get_solver()
+        if solver is not None:
+            return nsem.simulation.Simulation2DElectricField(
+                self.quad_tree.mesh,
+                survey=self.data.tm_survey,
+                sigmaMap=self.conductivity_map,
+                solver=self._solvers_dict[self.solver],
+            )
+        else:
+            return nsem.simulation.Simulation2DElectricField(
+                self.quad_tree.mesh,
+                survey=self.data.tm_survey,
+                sigmaMap=self.conductivity_map,
+            )
 
     @property
     def te_simulation(self):
         """
         Simulation for TE Mode
         """
-
-        return nsem.simulation.Simulation2DMagneticField(
-            self.quad_tree.mesh,
-            survey=self.data.te_survey,
-            sigmaMap=self.conductivity_map,
-            solver=self._solvers_dict[self.solver],
-        )
+        solver = self._get_solver()
+        if solver is not None:
+            return nsem.simulation.Simulation2DMagneticField(
+                self.quad_tree.mesh,
+                survey=self.data.te_survey,
+                sigmaMap=self.conductivity_map,
+                solver=self._solvers_dict[self.solver],
+            )
+        else:
+            nsem.simulation.Simulation2DMagneticField(
+                self.quad_tree.mesh,
+                survey=self.data.te_survey,
+                sigmaMap=self.conductivity_map,
+            )
 
     @property
     def te_data_misfit(self):
