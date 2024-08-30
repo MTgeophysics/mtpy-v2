@@ -1940,37 +1940,37 @@ class StructuredGrid3D:
     ):
         """Write out each depth slice as a raster in UTM coordinates.
 
-        Expecting
-a grid that is interoplated onto a regular grid of square cells with
-        size `cell_size`.
-        :param verbose:
-            Defaults to True.
-        :param log10:
-            Defaults to True.
-        :param shift_east:
-            Defaults to 0.
-        :param shift_north:
-            Defaults to 0.
-        :param cell_size: Square cell size (cell_size x cell_size) in meters.
-        :type cell_size: float
-        :param pad_north: Number of padding cells to skip from outside in,
-            if None defaults to self.pad_north, defaults to None.
-        :type pad_north: integer, optional
-        :param pad_east: Number of padding cells to skip from outside in
-            if None defaults to self.pad_east, defaults to None.
-        :type pad_east: integer, optional
-        :param save_path: Path to save files to. If None use self.save_path,, defaults to None.
-        :type save_path: string or Path, optional
-        :param depth_min: Minimum depth to make raster for in meters,, defaults to None.
-        :type depth_min: float, optional
-        :param depth_max: Maximum depth to make raster for in meters,, defaults to None.
-        :type depth_max: float, optional
-        :param rotation_angle: Angle (degrees) to rotate the raster assuming
-            clockwise positive rotation where North = 0, East = 90, defaults to 0.
-        :type rotation_angle: float, optional
-        :raises ValueError: If utm_epsg is not input.
-        :return: List of file paths to rasters.
-        :rtype: TYPE
+                Expecting
+        a grid that is interoplated onto a regular grid of square cells with
+                size `cell_size`.
+                :param verbose:
+                    Defaults to True.
+                :param log10:
+                    Defaults to True.
+                :param shift_east:
+                    Defaults to 0.
+                :param shift_north:
+                    Defaults to 0.
+                :param cell_size: Square cell size (cell_size x cell_size) in meters.
+                :type cell_size: float
+                :param pad_north: Number of padding cells to skip from outside in,
+                    if None defaults to self.pad_north, defaults to None.
+                :type pad_north: integer, optional
+                :param pad_east: Number of padding cells to skip from outside in
+                    if None defaults to self.pad_east, defaults to None.
+                :type pad_east: integer, optional
+                :param save_path: Path to save files to. If None use self.save_path,, defaults to None.
+                :type save_path: string or Path, optional
+                :param depth_min: Minimum depth to make raster for in meters,, defaults to None.
+                :type depth_min: float, optional
+                :param depth_max: Maximum depth to make raster for in meters,, defaults to None.
+                :type depth_max: float, optional
+                :param rotation_angle: Angle (degrees) to rotate the raster assuming
+                    clockwise positive rotation where North = 0, East = 90, defaults to 0.
+                :type rotation_angle: float, optional
+                :raises ValueError: If utm_epsg is not input.
+                :return: List of file paths to rasters.
+                :rtype: TYPE
         """
 
         if self.center_point.utm_crs is None:
@@ -2015,8 +2015,10 @@ a grid that is interoplated onto a regular grid of square cells with
         raster_fn_list = []
         for ii, d in enumerate(raster_depths, initial_index):
             try:
-                raster_fn = self.save_path.joinpath(
-                    f"{ii}_depth_{d:.2f}m_utm_{self.center_point.utm_epsg}.tif"
+                raster_fn = save_path.joinpath(
+                    f"{ii:02}_depth_{d:.2f}m_utm_{self.center_point.utm_epsg}.tif".replace(
+                        "-", "m"
+                    )
                 )
                 array2raster(
                     raster_fn,

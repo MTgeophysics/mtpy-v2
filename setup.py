@@ -25,8 +25,8 @@ requirements = [
     "rasterio",
     "contextily",
     "pyevtk",
+    "simpeg",
     "aurora",
-    "SimPEG==0.20.0",
 ]
 
 setup_requirements = [
@@ -66,7 +66,7 @@ setup(
     test_suite="tests",
     tests_require=test_requirements,
     url="https://github.com/MTgeophysics/mtpy-v2",
-    version="2.0.7",
+    version="2.0.8",
     zip_safe=False,
     package_data={"": []},
 )

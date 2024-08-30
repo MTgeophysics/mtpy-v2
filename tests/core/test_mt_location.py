@@ -151,7 +151,7 @@ class TestMTLocationModelLocation(unittest.TestCase):
         self.loc.get_elevation_from_national_map()
 
         if self.loc.elevation == 0:
-            self.assertEqual(0, self.loc_elevation)
+            self.assertEqual(0, self.loc.elevation)
         else:
             self.assertAlmostEqual(self.true_elevation, self.loc.elevation)
 
