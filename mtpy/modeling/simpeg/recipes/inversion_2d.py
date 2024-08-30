@@ -194,7 +194,7 @@ class Simpeg2D:
         get solver
         """
         try:
-            return self.solver_dict[self.solver]
+            return self._solvers_dict[self.solver]
         except KeyError:
             return None
 
@@ -209,7 +209,7 @@ class Simpeg2D:
                 self.quad_tree.mesh,
                 survey=self.data.tm_survey,
                 sigmaMap=self.conductivity_map,
-                solver=self._solvers_dict[self.solver],
+                solver=solver,
             )
         else:
             return nsem.simulation.Simulation2DElectricField(
@@ -229,7 +229,7 @@ class Simpeg2D:
                 self.quad_tree.mesh,
                 survey=self.data.te_survey,
                 sigmaMap=self.conductivity_map,
-                solver=self._solvers_dict[self.solver],
+                solver=solver,
             )
         else:
             nsem.simulation.Simulation2DMagneticField(
