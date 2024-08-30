@@ -28,7 +28,7 @@ jobs:
       shell: bash
       run: |
         python --version
-        conda create -n mtpy-v2-test python=--version
+        conda create -n mtpy-v2-test python=${{ matrix.python-version }}
         source activate mtpy-v2-test
         pip install mtpy-v2
         conda install pytest
