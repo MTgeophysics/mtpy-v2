@@ -40,7 +40,6 @@ jobs:
         pip install git+https://github.com/kujaku11/mth5.git@master
         pip install git+https://github.com/simpeg/aurora@main
         git clone https://github.com/MTgeophysics/mtpy_data.git
-        git clone --single-branch --branch mtpy_tests https://github.com/simpeg/aurora
         cd mtpy_data
         pip install -e .
         cd ..
@@ -63,6 +62,7 @@ jobs:
     - name: Execute Jupyter Notebooks
       run: |
         source activate mtpy-v2-test
+        git clone --single-branch --branch mtpy_tests https://github.com/simpeg/aurora
         cd aurora
         jupyter nbconvert --to notebook --execute docs/examples/dataset_definition.ipynb
         #        jupyter nbconvert --to notebook --execute docs/examples/operate_aurora.ipynb
@@ -72,6 +72,7 @@ jobs:
         #jupyter nbconvert --to notebook --execute docs/tutorials/synthetic_data_processing.ipynb
         #jupyter nbconvert --to notebook --execute tests/test_run_on_commit.ipynb
         cd ../
+        rm -rf aurora
         # Replace "notebook.ipynb" with your notebook's filename
 
     - name: Run Tests
