@@ -23,21 +23,26 @@ jobs:
       uses: s-weigand/setup-conda@v1
       with:
         update-conda: false
+        conda-channels: conda-forge
         python-version: ${{ matrix.python-version }}
 
     - name: Install Env
       shell: bash
       run: |
         python --version
-        conda create -n mtpy-v2-test python=${{ matrix.python-version }}
+        conda env create -f environment.yml
         source activate mtpy-v2-test
+        pip install git+https://github.com/simpeg/pydiso.git
         conda install pytest
         conda install pytest-subtests
         conda install pytest-cov
         pip install git+https://github.com/kujaku11/mt_metadata.git@main
-        pip install git+https://github.com/kujaku11/mth5.git@add_aurora_tools
-        pip install git+https://github.com/MTgeophysics/mtpy_data.git@main
+        pip install git+https://github.com/kujaku11/mth5.git@patches
         pip install git+https://github.com/simpeg/aurora@move_to_mth5
+        git clone https://github.com/MTgeophysics/mtpy_data.git
+        cd mtpy_data
+        pip install -e .
+        cd ..
         
     - name: Install Our Package
       shell: bash

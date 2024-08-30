@@ -16,8 +16,8 @@ from mtpy.imaging.mtplot_tools.plotters import plot_errorbar
 
 try:
     from discretize import TensorMesh
-    from SimPEG.electromagnetics import natural_source as nsem
-    from SimPEG import (
+    from simpeg.electromagnetics import natural_source as nsem
+    from simpeg import (
         maps,
         data,
         data_misfit,
@@ -50,6 +50,7 @@ class Simpeg1D:
         self.rho_initial = 100
         self.rho_reference = 100
         self.output_dict = None
+        self.max_iterations = 40
 
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -159,10 +160,9 @@ class Simpeg1D:
         """
         return sub_df.loc[(sub_df != 0).all(axis=1)]
 
-    def cull_from_difference(
-        self, sub_df, max_diff_res=1.0, max_diff_phase=10
-    ):
-        """Remove points based on a simple difference between neighboring points
+    def cull_from_difference(self, sub_df, max_diff_res=1.0, max_diff_phase=10):
+        """
+        Remove points based on a simple difference between neighboring points
 
         uses np.diff
 
@@ -189,7 +189,35 @@ class Simpeg1D:
             np.where(np.log10(abs(np.diff(sub_df.res))) > max_diff_res)[0] + 1
         ] = 0
 
-        self._sub_df = sub_df.loc[(sub_df != 0).all(axis=1)]
+        return sub_df.loc[(sub_df != 0).all(axis=1)]
+
+    def cull_from_interpolated(self, sub_df, tolerance=0.1, s_factor=2):
+        """
+        create a cubic spline as a smooth version of the data and then
+        find points a certain distance away to remove.
+
+        :param : DESCRIPTION
+        :type : TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        from scipy import interpolate
+
+        spline_res = interpolate.splrep(
+            sub_df.period,
+            sub_df.resistivity,
+            s=s_factor * len(sub_df.period),
+        )
+
+        bad_res = np.where(
+            abs(
+                interpolate.splev(sub_df.period, spline_res)
+                - sub_df.resistivity
+            )
+            > tolerance
+        )
 
     def cull_from_model(self, iteration):
         """Remove bad point based on initial run.
@@ -238,7 +266,7 @@ class Simpeg1D:
 
         # Cull the data
         if cull_from_difference:
-            self.cull_from_difference(self._sub_df)
+            self._sub_df = self.cull_from_difference(self._sub_df)
 
         source_list = []
         for freq in self.frequencies:
@@ -263,9 +291,7 @@ class Simpeg1D:
         # Reference model
         mref = np.ones(self.n_layers + 1) * np.log(1.0 / self.rho_reference)
 
-        dmis = data_misfit.L2DataMisfit(
-            simulation=simulation, data=data_object
-        )
+        dmis = data_misfit.L2DataMisfit(simulation=simulation, data=data_object)
 
         # Define the regularization (model objective function)
         reg = regularization.Sparse(
@@ -274,6 +300,7 @@ class Simpeg1D:
             alpha_x=alpha_z,
             reference_model=mref,
             mapping=maps.IdentityMap(self.mesh),
+            norms=np.array([p_s, p_z]),
         )
 
         # Define how the optimization problem is solved. Here we will use an inexact
@@ -312,7 +339,7 @@ class Simpeg1D:
             reg.norms = [p_s, p_z]
             # Reach target misfit for L2 solution, then use IRLS until model stops changing.
             IRLS = directives.Update_IRLS(
-                max_irls_iterations=40, minGNiter=1, f_min_change=1e-5
+                max_irls_iterations=maxIter, minGNiter=1, f_min_change=1e-5
             )
 
             # The directives are defined as a list.
@@ -352,7 +379,7 @@ class Simpeg1D:
         :rtype: TYPE
         """
 
-        target_misfit = self.data.size / 2.0
+        target_misfit = self.data.size
         iterations = list(self.output_dict.keys())
         n_iteration = len(iterations)
         phi_ds = np.zeros(n_iteration)

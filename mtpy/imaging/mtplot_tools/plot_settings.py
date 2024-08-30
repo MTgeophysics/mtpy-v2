@@ -12,6 +12,7 @@ import numpy as np
 
 import matplotlib.colors as colors
 import matplotlib.colorbar as mcb
+from matplotlib import __version__ as matplotlib_version
 
 from . import MTEllipse, MTArrows
 
@@ -336,8 +337,13 @@ class PlotSettings(MTArrows, MTEllipse):
 
     @property
     def font_dict(self):
-        """Font dict."""
-        return {"size": self.font_size + 2, "weight": self.font_weight}
+        if int(matplotlib_version[2]) < 9:
+            return {"size": self.font_size + 2, "weight": self.font_weight}
+        else:
+            return {
+                "fontsize": self.font_size + 2,
+                "fontweight": self.font_weight,
+            }
 
     def make_pt_cb(self, ax):
         """Make pt cb."""

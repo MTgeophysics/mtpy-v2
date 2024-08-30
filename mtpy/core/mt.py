@@ -94,6 +94,7 @@ class MT(TF, MTLocation):
         new_mt_obj.model_north = self.model_north
         new_mt_obj.model_elevation = self.model_elevation
         new_mt_obj._rotation_angle = self._rotation_angle
+        new_mt_obj.profile_offset = self.profile_offset
 
         return new_mt_obj
 
@@ -958,9 +959,7 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j
-                * self._transfer_function.transfer_function.imag
-                * noise_imag
+                1j * self._transfer_function.transfer_function.imag * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
@@ -974,15 +973,19 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j
-                * self._transfer_function.transfer_function.imag
-                * noise_imag
+                1j * self._transfer_function.transfer_function.imag * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
                 self._transfer_function.transfer_function_error + value
             )
             return new_mt_obj
+
+    def edit_curve(self, method="default", tolerance=0.05):
+        """
+        try to remove bad points in a scientific way.
+
+        """
 
     def to_occam1d(self, data_filename=None, mode="det"):
         """Write an Occam1DData data file.
