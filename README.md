@@ -7,11 +7,13 @@
 [![Documentation Status](https://readthedocs.org/projects/mtpy-v2/badge/?version=latest)](https://mtpy-v2.readthedocs.io/en/latest/?badge=latest)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/MTgeophysics/mtpy-v2/main)
 
-## Version 2.0.8
+## Version 2.0.9
 
 # Description
  
 `mtpy` provides tools for working with magnetotelluric (MT) data.  MTpy-v2 is an updated version of [mtpy](https://github.com/MTgeophysics/mtpy). Many things have changed under the hood and usage is different from mtpy v1. The main difference is that there is a central data type that can hold transfer functions and then read/write to your modeling program, plot, and analyze your data.  No longer will you need a directory of EDI files and then read them in everytime you want to do something.  You only need to build a project once and save it to an MTH5 file and you are ready to go. All metadata uses [mt-metadata](https://github.com/kujaku11/mt-metadata).
+
+
 
 # Installation
 
@@ -22,7 +24,32 @@
 ## Using conda
 
 `> conda install -c conda-forge mtpy-v2`
-  
+
+### Pardiso Solver
+
+`mtpy-v2` now include some tools to model and invert using `simpeg`. If you want to use the Pardiso solver you will need to install it separately. See the https://github.com/simpeg/pydiso for more information.  Below is a snippet from their recommendations. 
+
+#### Installing from source
+
+The wrapper is written in cython and links to the mkl libraries dynamically. Therefore,
+it needs to find the necessary header files associated with the MKL installation to compile.
+The meson build backend uses pkg-config to identify the locations of the mkl header files
+and library dynamic libraries. Most development installations of MKL should provide the
+necessary pkg-config files for this. For example, conda users can be install the necessary
+configuration information with `mkl-devel` package that is available on the default channel,
+conda-forge channel, the intel channel, or others, e.g.
+
+`conda install mkl-devel`
+
+If you have installed the configuration files to a non-standard location, you will need to set
+`PKG_CONFIG_PATH` to point to that location.
+
+After the necessary MKL files are accessible, you should be able to install by running
+
+`pip install .`
+
+in the installation directory. 
+
 
 # Functionality
 
