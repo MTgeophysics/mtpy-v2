@@ -40,6 +40,7 @@ jobs:
         pip install git+https://github.com/kujaku11/mth5.git@master
         pip install git+https://github.com/simpeg/aurora@main
         git clone https://github.com/MTgeophysics/mtpy_data.git
+        git clone https://github.com/simpeg/aurora # @main
         cd mtpy_data
         pip install -e .
         cd ..
@@ -50,6 +51,28 @@ jobs:
         source activate mtpy-v2-test
         pip install -e .
         conda list
+
+    - name: Install Jupyter and dependencies
+      run: |
+        pip install jupyter
+        pip install ipykernel
+        python -m ipykernel install --user --name mtpy-v2-test
+        # Install any other dependencies you need
+
+    - name: Execute Jupyter Notebooks
+      run: |
+        source activate mtpy-v2-test
+        cd aurora
+        jupyter nbconvert --to notebook --execute docs/examples/dataset_definition.ipynb
+        jupyter nbconvert --to notebook --execute docs/examples/operate_aurora.ipynb
+        jupyter nbconvert --to notebook --execute docs/tutorials/pole_zero_fitting/lemi_pole_zero_fitting_example.ipynb
+        jupyter nbconvert --to notebook --execute docs/tutorials/processing_configuration.ipynb
+        jupyter nbconvert --to notebook --execute docs/tutorials/process_cas04_single_station.ipynb
+        jupyter nbconvert --to notebook --execute docs/tutorials/synthetic_data_processing.ipynb
+        jupyter nbconvert --to notebook --execute tests/test_run_on_commit.ipynb
+        cd ../
+        # Replace "notebook.ipynb" with your notebook's filename
+
     - name: Run Tests
       shell: bash
       run: |
