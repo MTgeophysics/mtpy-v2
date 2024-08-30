@@ -54,6 +54,7 @@ jobs:
 
     - name: Install Jupyter and dependencies
       run: |
+        source activate mtpy-v2-test
         pip install jupyter
         pip install ipykernel
         python -m ipykernel install --user --name mtpy-v2-test
