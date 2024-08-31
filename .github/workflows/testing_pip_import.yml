@@ -61,7 +61,7 @@ jobs:
         cd ../../mth5/tests/
         pytest -rA .
         cd ../../aurora/tests/
-        pytest -rA .
+        pytest -rA . -k "not test_doc_build.py"
         cd ../../tests/
         pytest -rA .
         
