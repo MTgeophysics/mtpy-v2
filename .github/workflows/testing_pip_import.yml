@@ -56,14 +56,21 @@ jobs:
       shell: bash
       run: |
         source activate mtpy-v2-test
-        pytest -rA --cov=./ --cov-report=xml --cov=mtpy
+        cd mt_metadata/tests/
+        pytest -rA .
+        cd ../../mth5/tests/
+        pytest -rA .
+        cd ../../aurora/tests/
+        pytest -rA .
+        cd ../../tests/
+        pytest -rA .
         
-    - name: "Upload coverage to Codecov"
-      uses: codecov/codecov-action@v3
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      with:
-        fail_ci_if_error: false
-        verbose: true
-        flags: tests
+    # - name: "Upload coverage to Codecov"
+    #   uses: codecov/codecov-action@v3
+    #   env:
+    #     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+    #   with:
+    #     fail_ci_if_error: false
+    #     verbose: true
+    #     flags: tests
         
