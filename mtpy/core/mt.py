@@ -34,6 +34,11 @@ class MT(TF, MTLocation):
     """Basic MT container to hold all information necessary for a MT station
     including the following parameters.
 
+      - `survey_metadata` includes station metadata.
+      - `station_metadata` includes transfer function metadata
+      - `transfer_function` all information about the transfer function as
+       an `xarray.Dataset`
+
     Impedance and Tipper element nomenclature is E/H therefore the first
     letter represents the output channels and the second letter represents
     the input channels.
@@ -64,9 +69,6 @@ class MT(TF, MTLocation):
 
         TF.__init__(self, **tf_kwargs)
         MTLocation.__init__(self, survey_metadata=self._survey_metadata)
-
-        # MTLocation.__init__(self)
-        # TF.__init__(self)
 
         self.fn = fn
 
