@@ -22,7 +22,7 @@ requirements = [
     "mt_metadata",
     "mth5",
     "geopandas",
-    "rasterio",
+    "rasterio>=1",
     "contextily",
     "pyevtk",
     "simpeg",
