@@ -501,9 +501,9 @@ class Occam2DData:
         if not self._has_data():
             raise ValueError("Cannot write data from an empty dataframe.")
         data_list = []
-        for s_index, station in self.stations.iteritems():
+        for s_index, station in self.stations.items():
             sdf = self.dataframe.loc[self.dataframe.station == station]
-            for f_index, frequency in self.frequencies.iteritems():
+            for f_index, frequency in self.frequencies.items():
                 fdf = sdf[
                     (sdf.period >= (1.0 / frequency) * 0.99)
                     & (sdf.period <= (1.0 / frequency) * 1.01)

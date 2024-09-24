@@ -735,7 +735,7 @@ class Mesh:
                 mesh_lines.append("".join(self.mesh_values[:, zz, tt]) + "\n")
 
         with open(self.mesh_fn, "w") as fid:
-            mfid.writelines(mesh_lines)
+            fid.writelines(mesh_lines)
 
         print("Wrote Mesh file to {0}".format(self.mesh_fn))
 

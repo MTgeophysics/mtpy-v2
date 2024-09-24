@@ -358,8 +358,8 @@ by Regularization, therefore the intended use is to build a mesh with
                 self.save_path = Path()
             self.reg_fn = self.save_path.joinpath(self.reg_basename)
 
-        self.statics_fn = statics_fn
-        self.prejudice_fn = prejudice_fn
+        self.statics_fn = Path(statics_fn)
+        self.prejudice_fn = Path(prejudice_fn)
 
         if self.model_columns is None:
             if self.binding_offset is None:
@@ -392,8 +392,8 @@ by Regularization, therefore the intended use is to build a mesh with
 
         # --> write rows and columns of regularization grid
         for row, col in zip(self.model_rows, self.model_columns):
-            reg_lines.append("".join([f" {rr:>5}" for rr in row]) + "\n")
-            reg_lines.append("".join([f"{cc:>5}" for cc in col]) + "\n")
+            reg_lines.append("".join([f" {rr:>5}" for rr in row]))# + "\n"
+            reg_lines.append("".join([f"{cc:>5}" for cc in col]))# + "\n"
 
         reg_lines.append(f"{'NO. EXCEPTIONS:':<18}0")
 
