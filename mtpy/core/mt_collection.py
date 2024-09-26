@@ -248,21 +248,31 @@ class MTCollection:
             return
         elif not isinstance(transfer_function, (list, tuple, np.ndarray)):
             transfer_function = [transfer_function]
+            
+        surveys = []
         for item in transfer_function:
             if isinstance(item, MT):
                 self._from_mt_object(
                     item,
                     new_survey=new_survey,
                     tf_id_extra=tf_id_extra,
+                    update_metadata=False
                 )
             elif isinstance(item, (str, Path)):
                 self._from_file(
                     item,
                     new_survey=new_survey,
                     tf_id_extra=tf_id_extra,
+                    update_metadata=False
                 )
             else:
                 raise TypeError(f"Not sure want to do with {type(item)}.")
+                
+        if self.mth5_collection.file_version in ["0.1.0"]:
+            self.mth5_collection.survey_group.update_metadata()
+        else:
+            
+        self.mth5_collection.
         self.mth5_collection.tf_summary.summarize()
 
     def get_tf(self, tf_id, survey=None):
@@ -311,7 +321,9 @@ class MTCollection:
 
         return mt_object
 
-    def _from_file(self, filename, new_survey=None, tf_id_extra=None):
+    def _from_file(
+        self, filename, new_survey=None, tf_id_extra=None, update_metadata=True
+    ):
         """Add transfer functions for a list of file names.
         :param filename:
         :param file_list: DESCRIPTION.
@@ -333,11 +345,16 @@ class MTCollection:
         mt_object = MT(filename)
         mt_object.read()
 
-        self._from_mt_object(
-            mt_object, new_survey=new_survey, tf_id_extra=tf_id_extra
+        return self._from_mt_object(
+            mt_object,
+            new_survey=new_survey,
+            tf_id_extra=tf_id_extra,
+            update_metadata=update_metadata,
         )
 
-    def _from_mt_object(self, mt_object, new_survey=None, tf_id_extra=None):
+    def _from_mt_object(
+        self, mt_object, new_survey=None, tf_id_extra=None, update_metadata=True
+    ):
         """From mt object.
         :param mt_object: DESCRIPTION.
         :type mt_object: TYPE
@@ -352,10 +369,13 @@ class MTCollection:
             mt_object.survey = new_survey
         if tf_id_extra is not None:
             mt_object.tf_id = f"{mt_object.tf_id}_{tf_id_extra}"
-        if mt_object.survey_metadata.id in [None, ""]:
+        if mt_object.survey_metadata.id in [None, "", "0"]:
             mt_object.survey_metadata.id = "unknown_survey"
-        self.mth5_collection.add_transfer_function(mt_object)
+        tf_group = self.mth5_collection.add_transfer_function(
+            mt_object, update_metadata=update_metadata
+        )
         self.logger.debug("added %s " % mt_object.station)
+        return tf_group.parent.parent.parent.parent.attrs["id"]
 
     def to_mt_data(self, bounding_box=None, **kwargs):
         """Get a list of transfer functions.
