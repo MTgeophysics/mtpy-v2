@@ -379,8 +379,11 @@ class MTCollection:
         tf_group = self.mth5_collection.add_transfer_function(
             mt_object, update_metadata=update_metadata
         )
-        self.logger.debug("added %s " % mt_object.station)
-        return tf_group.parent.parent.parent.parent.attrs["id"]
+        mt_object.survey = (
+            tf_group.hdf5_group.parent.parent.parent.parent.attrs["id"]
+        )
+        self.logger.info(f"added {mt_object.survey}.{mt_object.station}")
+        return mt_object.survey
 
     def to_mt_data(self, bounding_box=None, **kwargs):
         """Get a list of transfer functions.
