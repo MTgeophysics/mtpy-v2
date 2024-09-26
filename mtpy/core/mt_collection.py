@@ -426,10 +426,11 @@ class MTCollection:
         :raises IOError: If an MTH5 is not writable raises.
         """
         if self.mth5_collection.h5_is_write():
-            for mt_obj in mt_data.values():
-                self.add_tf(
-                    mt_obj, new_survey=new_survey, tf_id_extra=tf_id_extra
-                )
+            self.add_tf(
+                list(mt_data.values()),
+                new_survey=new_survey,
+                tf_id_extra=tf_id_extra,
+            )
 
         else:
             raise IOError("MTH5 is not writeable, use 'open_mth5()'")
