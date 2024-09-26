@@ -195,6 +195,7 @@ class MTCollection:
         basename=None,
         working_directory=None,
         mode="a",
+        **kwargs,
     ):
         """Initialize an mth5.
         :param mode:
@@ -217,7 +218,7 @@ class MTCollection:
         if working_directory is not None:
             self.working_directory = working_directory
 
-        self.mth5_collection.open_mth5(self.mth5_filename, mode)
+        self.mth5_collection.open_mth5(self.mth5_filename, mode, **kwargs)
 
     def close_collection(self):
         """Close mth5.
