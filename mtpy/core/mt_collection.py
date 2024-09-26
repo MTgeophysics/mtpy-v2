@@ -248,31 +248,36 @@ class MTCollection:
             return
         elif not isinstance(transfer_function, (list, tuple, np.ndarray)):
             transfer_function = [transfer_function]
-            
+
         surveys = []
         for item in transfer_function:
             if isinstance(item, MT):
-                self._from_mt_object(
+                survey_id = self._from_mt_object(
                     item,
                     new_survey=new_survey,
                     tf_id_extra=tf_id_extra,
-                    update_metadata=False
+                    update_metadata=False,
                 )
+                if survey_id not in surveys:
+                    surveys.append(survey_id)
             elif isinstance(item, (str, Path)):
-                self._from_file(
+                survey_id = self._from_file(
                     item,
                     new_survey=new_survey,
                     tf_id_extra=tf_id_extra,
-                    update_metadata=False
+                    update_metadata=False,
                 )
+                if survey_id not in surveys:
+                    surveys.append(survey_id)
             else:
                 raise TypeError(f"Not sure want to do with {type(item)}.")
-                
+
         if self.mth5_collection.file_version in ["0.1.0"]:
             self.mth5_collection.survey_group.update_metadata()
         else:
-            
-        self.mth5_collection.
+            for survey_id in surveys:
+                survey_group = self.mth5_collection.get_survey(survey_id)
+                survey_group.update_metadata()
         self.mth5_collection.tf_summary.summarize()
 
     def get_tf(self, tf_id, survey=None):
