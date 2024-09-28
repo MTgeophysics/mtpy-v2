@@ -3,16 +3,12 @@
 This module contains a class for representing a dataset that can be processed.
 
 Development Notes:
-The KernelDataset could potentially be moved into mth5 or mtpy and used
-as the dataset description for other processing flows.
 
 Players on the stage:  One or more mth5s.
 
-Each mth5 has a mth5_obj.channel_summary dataframe which tells what data are available.
-Use a compressed view of this df with one line per acquisition run -- a "run_summary".
-
-Run_summary provides options for the local and possibly remote reference stations.
-Candidates for local station are the unique values in the station column.
+Each mth5 has a "run_summary" dataframe available. Run_summary provides options for
+the local and possibly remote reference stations. Candidates for local station are
+the unique values in the station column.
 
 For any candidate station, there are some integer n runs available.
 This yields 2^n - 1 possible combinations that can be processed, neglecting any
@@ -29,12 +25,11 @@ and in future maybe via some GUI (or a spreadsheet).
 
 The intended usage process is as follows:
  0. Start with a list of mth5s
- 1. Extract channel_summaries from each mth5 and join them vertically
- 2. Compress to a run_summary
- 3. Stare at the run_summary_df & Select a station "S" to process
- 4. Select a non-empty set of runs for station "S"
- 5. Select a remote reference "RR", (this is allowed to be None)
- 6. Extract the sub-dataframe corresponding to acquisition_runs from "S" and "RR"
+ 1. Extract a run_summary
+ 2. Stare at the run_summary_df, and select a station "S" to process
+ 3. Select a non-empty set of runs for station "S"
+ 4. Select a remote reference "RR", (this is allowed to be None)
+ 5. Extract the sub-dataframe corresponding to acquisition_runs from "S" and "RR"
  7. If the remote is not None:
   - Drop the runs (rows) associated with RR that do not intersect with S
   - Restrict start/end times of RR runs that intersect with S so overlap is complete.
@@ -48,10 +43,6 @@ The intended usage process is as follows:
  9. Edit the Processing Config appropriately,
 
 TODO: Consider supporting a default value for 'channel_scale_factors' that is None,
-
-TODO: As of March 2023 a RunSummary is available at the station level in mth5, but
- the aurora version is still being used.  This should be merged if possible so that
- aurora uses the built-in mth5 method. -- Run Summary exists atstation level in mth5
 
 TODO: Might need to groupby survey & station, for now consider station_id  unique.
 
@@ -234,23 +225,42 @@ class KernelDataset:
         """Return a deep copy of dataframe."""
         return copy.deepcopy(self.df)
 
-    def _add_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Add columns with appropriate dtypes."""
+    def _add_columns(
+            self,
+            df: pd.DataFrame,
+            null_columns: Optional[Union[list, tuple]] = ("fc",)
+    ) -> pd.DataFrame:
+        """
+        Add columns with appropriate dtypes.
 
+        :param df: A kernel dataset dataframe, possibly not all columns present.
+        :type df: pd.Dataframe
+        :param null_columns: Columns that will not init to their expected dtype, but rather init to null.
+        :type null_columns: Optional[Union[list, tuple]]
+        :return: Kernel dataset dataframe, with all columns present.
+        :rtype:  pd.Dataframe
+        """
         for col, dtype in KERNEL_DATASET_DTYPE:
             if not col in df.columns:
                 if col in ["survey", "station", "run", "start", "end"]:
                     raise ValueError(
                         f"{col} must be a filled column in the dataframe"
                     )
+                set_null = False
                 try:
                     df[col] = dtype(0)
+                    assigned_dtype = dtype
                 except TypeError:
-                    df[col] = None
-                logger.info(
-                    f"KernelDataset DataFrame needs column {col}, adding "
-                    f"and setting dtype to {dtype}."
-                )
+                    df[col] = None  # TODO: update to pd.NA
+                    assigned_dtype = type(None)
+                if col in null_columns:
+                    df[col] = pd.NA
+                    assigned_dtype = type(pd.NA)
+
+                msg = f"KernelDataset DataFrame needs column {col}, adding and " \
+                      f"setting dtype to {assigned_dtype}."
+                logger.info(msg)
+
         return df
 
     @property
