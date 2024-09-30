@@ -225,6 +225,7 @@ class MTCollection:
 
     def close_collection(self):
         """Close mth5.
+
         :return: DESCRIPTION.
         :rtype: TYPE
         """
@@ -252,6 +253,12 @@ class MTCollection:
             return
         elif not isinstance(transfer_function, (list, tuple, np.ndarray)):
             transfer_function = [transfer_function]
+            self.logger.warning(
+                "If you are adding multiple transfer functions, suggest making "
+                "a list of transfer functions first then adding the list using "
+                "mt_collection.add_tf([list_of_tfs]). "
+                "Otherwise adding transfer functions one by one will be slow."
+            )
 
         surveys = []
         for item in transfer_function:
@@ -394,6 +401,7 @@ class MTCollection:
 
     def to_mt_data(self, bounding_box=None, **kwargs):
         """Get a list of transfer functions.
+
         :param **kwargs:
         :param tf_ids: DESCRIPTION, defaults to None.
         :type tf_ids: TYPE, optional
@@ -427,6 +435,7 @@ class MTCollection:
         useful if data have been edited or manipulated in some way.  For
         example could set 'tf_id_extra' = 'rotated' for rotated data. This will
         help you organize the tf's for each station.
+
         :param mt_data: MTData object.
         :type mt_data: :class:`mtpy.core.mt_data.MTData`
         :param new_survey: New survey name, defaults to None.
@@ -447,6 +456,7 @@ class MTCollection:
 
     def check_for_duplicates(self, locate="location", sig_figs=6):
         """Check for duplicate station locations in a MT DataFrame.
+
         :param sig_figs:
             Defaults to 6.
         :param locate:
@@ -475,18 +485,15 @@ class MTCollection:
 
     def apply_bbox(self, lon_min, lon_max, lat_min, lat_max):
         """Return :class:`pandas.DataFrame` of station within bounding box.
-        :param lat_max:
-        :param lat_min:
-        :param lon_max:
-        :param lon_min:
-        :param longitude_min: Minimum longitude.
-        :type longitude_min: float
-        :param longitude_max: Maximum longitude.
-        :type longitude_max: float
-        :param latitude_min: Minimum latitude.
-        :type latitude_min: float
-        :param latitude_max: Maximum longitude.
-        :type latitude_max: float
+
+        :param lon_min: Minimum longitude.
+        :type lon_min: float
+        :param lon_max: Maximum longitude.
+        :type lon_max: float
+        :param lat_min: Minimum latitude.
+        :type lat_min: float
+        :param lat_max: Maximum longitude.
+        :type lat_max: float
         :return: Only stations within the given bounding box.
         :rtype: :class:`pandas.DataFrame`
         """
@@ -531,15 +538,17 @@ class MTCollection:
         return gdf
 
     def to_shp(self, filename, bounding_box=None, epsg=4326):
-        """To shp.
-        :param filename: DESCRIPTION.
-        :type filename: TYPE
-        :param bounding_box: DESCRIPTION, defaults to None.
-        :type bounding_box: TYPE, optional
-        :param epsg: DESCRIPTION, defaults to 4326.
-        :type epsg: TYPE, optional
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        """Create a shape file of station locations in the given EPSG number
+
+        :param filename: filename to save the shape file to.
+        :type filename: str
+        :param bounding_box: bounding box [lon_min, lon_max, lat_min, lat_max],
+         defaults to None.
+        :type bounding_box: list, optional
+        :param epsg: EPSG number to write shape file to, defaults to 4326.
+        :type epsg: int, optional
+        :return: dataframe.
+        :rtype: geopandas.DataFrame
         """
 
         if self.has_data():
@@ -558,20 +567,18 @@ class MTCollection:
         new_file=True,
     ):
         """Average nearby stations to make it easier to invert.
+
         :param new_file:
             Defaults to True.
         :param n_periods:
             Defaults to 48.
         :param count:
             Defaults to 1.
-        :param cell_size_m: DESCRIPTION.
-        :type cell_size_m: TYPE
-        :param bounding_box: DESCRIPTION, defaults to None.
-        :type bounding_box: TYPE, optional
-        :param save_dir: DESCRIPTION, defaults to None.
-        :type save_dir: TYPE, optional
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        :param cell_size_m: size of square to look in for nearby stations
+        :type cell_size_m: float
+        :param bounding_box:  bounding box [lon_min, lon_max, lat_min, lat_max],
+         defaults to None.
+        :type bounding_box: list, optional
         """
 
         # cell size in degrees (bit of a hack for now)
@@ -691,6 +698,7 @@ class MTCollection:
 
     def plot_mt_response(self, tf_id, survey=None, **kwargs):
         """Plot mt response.
+
         :param survey:
             Defaults to None.
         :param tf_id: DESCRIPTION.
@@ -722,6 +730,7 @@ class MTCollection:
 
     def plot_stations(self, map_epsg=4326, bounding_box=None, **kwargs):
         """Plot stations.
+
         :param bounding_box:
             Defaults to None.
         :param map_epsg:
@@ -746,6 +755,7 @@ class MTCollection:
 
     def plot_phase_tensor(self, tf_id, survey=None, **kwargs):
         """Plot phase tensor elements.
+
         :param survey:
             Defaults to None.
         :param tf_id: DESCRIPTION.
@@ -763,6 +773,7 @@ class MTCollection:
         """Plot Phase tensor maps for transfer functions in the working_dataframe
 
         .. seealso:: :class:`mtpy.imaging.PlotPhaseTensorMaps`.
+
         :param mt_data:
             Defaults to None.
         :param **kwargs: DESCRIPTION.
@@ -781,6 +792,7 @@ class MTCollection:
         if specified
 
         .. seealso:: :class:`mtpy.imaging.PlotPhaseTensorPseudosection`
+
         :param mt_data:
             Defaults to None.
         :param **kwargs: DESCRIPTION.
@@ -798,6 +810,7 @@ class MTCollection:
         self, mt_data_01, mt_data_02, plot_type="map", **kwargs
     ):
         """Plot residual phase tensor.
+
         :param mt_data_01: DESCRIPTION.
         :type mt_data_01: TYPE
         :param mt_data_02: DESCRIPTION.
@@ -823,6 +836,7 @@ class MTCollection:
         and strike angles are interpreted for data points that are 3D.
 
         .. seealso:: :class:`mtpy.analysis.niblettbostick.calculate_depth_of_investigation`.
+
         :param survey:
             Defaults to None.
         :param tf_id:
@@ -842,6 +856,7 @@ class MTCollection:
         """Plot Penetration depth in map view for a single period
 
         .. seealso:: :class:`mtpy.imaging.PlotPenetrationDepthMap`.
+
         :param **kwargs:
         :param mt_data: DESCRIPTION, defaults to None.
         :type mt_data: TYPE, optional
@@ -859,6 +874,7 @@ class MTCollection:
         working dataframe
 
         .. seealso:: :class:`mtpy.imaging.PlotResPhaseMaps`
+
         :param mt_data:
             Defaults to None.
         :param **kwargs: DESCRIPTION.
@@ -874,6 +890,7 @@ class MTCollection:
 
     def plot_resistivity_phase_pseudosections(self, mt_data=None, **kwargs):
         """Plot resistivity and phase in a pseudosection along a profile line.
+
         :param mt_data: DESCRIPTION, defaults to None.
         :type mt_data: TYPE, optional
         :param **kwargs: DESCRIPTION.
