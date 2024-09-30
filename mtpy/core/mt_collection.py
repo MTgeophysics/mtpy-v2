@@ -140,6 +140,7 @@ class MTCollection:
     def dataframe(self):
         """This property returns the working dataframe or master dataframe if
         the working dataframe is None.
+
         :return: DESCRIPTION.
         :rtype: TYPE
         """
@@ -161,6 +162,7 @@ class MTCollection:
     @staticmethod
     def make_file_list(mt_path, file_types=["edi"]):
         """Get a list of MT file from a given path.
+
         :param file_types:
             Defaults to ["edi"].
         :param mt_path: Full path to where the MT transfer functions are stored.
@@ -198,6 +200,7 @@ class MTCollection:
         **kwargs,
     ):
         """Initialize an mth5.
+
         :param mode:
             Defaults to "a".
         :param filename:
@@ -230,6 +233,7 @@ class MTCollection:
     def add_tf(self, transfer_function, new_survey=None, tf_id_extra=None):
         """Transfer_function could be a transfer function object, a file name,
         a list of either.
+
         :param transfer_function: Transfer function object.
         :type transfer_function: list, tuple, array, MTData, MT
         :param new_survey: New survey name, defaults to None.
@@ -282,6 +286,7 @@ class MTCollection:
 
     def get_tf(self, tf_id, survey=None):
         """Get transfer function.
+
         :param survey:
             Defaults to None.
         :param tf_id: DESCRIPTION.
@@ -330,6 +335,7 @@ class MTCollection:
         self, filename, new_survey=None, tf_id_extra=None, update_metadata=True
     ):
         """Add transfer functions for a list of file names.
+
         :param filename:
         :param file_list: DESCRIPTION.
         :type file_list: TYPE
@@ -361,6 +367,7 @@ class MTCollection:
         self, mt_object, new_survey=None, tf_id_extra=None, update_metadata=True
     ):
         """From mt object.
+
         :param mt_object: DESCRIPTION.
         :type mt_object: TYPE
         :param new_survey: New survey name, defaults to None.
