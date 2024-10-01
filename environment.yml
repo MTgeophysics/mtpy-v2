@@ -1,4 +1,4 @@
-name: mtpy-v2
+name: mtpy-v2-test
 channels:
   - conda-forge
   - defaults
