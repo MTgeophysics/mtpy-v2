@@ -31,8 +31,21 @@ History
 * Ak2 by @alkirkby in https://github.com/MTgeophysics/mtpy-v2/pull/43
 * Porting Aurora objects by @kujaku11 in https://github.com/MTgeophysics/mtpy-v2/pull/45
 * Updates by @kujaku11 in https://github.com/MTgeophysics/mtpy-v2/pull/40
-
-## New Contributors
 * @oaazeved made their first contribution in https://github.com/MTgeophysics/mtpy-v2/pull/32
 
 **Full Changelog**: https://github.com/MTgeophysics/mtpy-v2/compare/v2.0.7...v2.0.8
+
+2.0.9 (2024-08-30)
+----------------------
+
+* Check for Pardiso import by @kujaku11 in #48
+
+2.0.10 (2024-09-30)
+---------------------
+
+* Update testing_pip_import.yml by @kkappler in https://github.com/MTgeophysics/mtpy-v2/pull/49
+* Kk/patches  by @kkappler in https://github.com/MTgeophysics/mtpy-v2/pull/53
+* Optimize adding TF to MTCollection by @kujaku11 in https://github.com/MTgeophysics/mtpy-v2/pull/52
+* @kkappler made their first contribution in https://github.com/MTgeophysics/mtpy-v2/pull/49
+
+**Full Changelog**: https://github.com/MTgeophysics/mtpy-v2/compare/v2.0.9...v2.0.10
