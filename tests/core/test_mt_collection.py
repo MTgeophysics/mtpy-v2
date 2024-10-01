@@ -481,12 +481,12 @@ class TestMTCollection(unittest.TestCase):
                 original.station_metadata.comments = None
             if original.station_metadata.acquired_by.author in [""]:
                 original.station_metadata.acquired_by.author = None
-            if original.station_metadata.transfer_function.processing_type in [
-                ""
-            ]:
-                original.station_metadata.transfer_function.processing_type = (
-                    None
-                )
+            # if original.station_metadata.transfer_function.processing_type in [
+            #     ""
+            # ]:
+            #     original.station_metadata.transfer_function.processing_type = (
+            #         ""
+            #     )
 
             mt_data_02.add_station(original, compute_relative_location=False)
         mt_data_02.compute_relative_locations()
@@ -497,11 +497,9 @@ class TestMTCollection(unittest.TestCase):
 
         mt_data_01["CONUS_South.NMX20"].survey_metadata.update_bounding_box()
 
-        mt_data_02[
-            "unknown_survey_009.SAGE_2005_out"
-        ].station_metadata.runs = mt_data_01[
-            "unknown_survey_009.SAGE_2005_out"
-        ].station_metadata.runs
+        mt_data_02["unknown_survey_009.SAGE_2005_out"].station_metadata.runs = (
+            mt_data_01["unknown_survey_009.SAGE_2005_out"].station_metadata.runs
+        )
 
         with self.subTest("mt_data equal"):
             self.assertEqual(mt_data_01, mt_data_02)
