@@ -483,19 +483,18 @@ class MTCollection:
             return self.dataframe[self.dataframe.duplicated(query)]
         return None
 
-    def apply_bbox(self, lon_min, lon_max, lat_min, lat_max):
-        """Return :class:`pandas.DataFrame` of station within bounding box.
+    def apply_bbox(self, lon_min: float, lon_max: float, lat_min: float, lat_max: float) -> None:
+        """
+            Sets self.working_dataframe to only stations within bounding box.
 
-        :param lon_min: Minimum longitude.
-        :type lon_min: float
-        :param lon_max: Maximum longitude.
-        :type lon_max: float
-        :param lat_min: Minimum latitude.
-        :type lat_min: float
-        :param lat_max: Maximum longitude.
-        :type lat_max: float
-        :return: Only stations within the given bounding box.
-        :rtype: :class:`pandas.DataFrame`
+            :param lon_min: Minimum longitude.
+            :type lon_min: float
+            :param lon_max: Maximum longitude.
+            :type lon_max: float
+            :param lat_min: Minimum latitude.
+            :type lat_min: float
+            :param lat_max: Maximum longitude.
+            :type lat_max: float
         """
 
         if self.has_data():
