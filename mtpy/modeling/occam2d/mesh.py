@@ -266,7 +266,17 @@ class Mesh:
         x_left = float(abs(self.x_grid[0] - self.x_grid[1]))
         x_right = float(abs(self.x_grid[-1] - self.x_grid[-2]))
         x_pad_cell = np.max([x_left, x_right])
-
+        
+        # add x pad small cells
+        for ii in range(self.num_x_pad_small_cells):
+            left_cell = self.x_grid[0]
+            right_cell = self.x_grid[-1]
+            pad_cell = x_pad_cell
+            self.x_grid = np.insert(self.x_grid, 0, left_cell - pad_cell)
+            self.x_grid = np.append(self.x_grid, right_cell + pad_cell)
+            
+            
+        # add padding
         for ii in range(self.num_x_pad_cells):
             left_cell = self.x_grid[0]
             right_cell = self.x_grid[-1]

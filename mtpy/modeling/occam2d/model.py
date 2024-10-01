@@ -8,7 +8,8 @@ Created on Tue Mar  7 19:11:57 2023
 # Imports
 # =============================================================================
 import numpy as np
-
+import os
+from pathlib import Path
 from mtpy.modeling.occam2d import Startup, Regularization
 
 # =============================================================================
@@ -110,7 +111,7 @@ class Occam2DModel(Startup):
             >>> ocm.read_iter_file()
 
         """
-
+        
         if iter_fn is not None:
             self.iter_fn = iter_fn
 
@@ -122,13 +123,14 @@ class Occam2DModel(Startup):
             raise ValueError(f"Can not find {self.iter_fn}")
 
         self.save_path = self.iter_fn.parent
-
+        
         # open file, read lines, close file
 
         with open(self.iter_fn, "r") as ifid:
             ilines = ifid.readlines()
-
+        
         ii = 0
+        
         # put header info into dictionary with similar keys
         while ilines[ii].lower().find("param") != 0:
             iline = ilines[ii].strip().split(":")
@@ -145,7 +147,11 @@ class Occam2DModel(Startup):
                 except ValueError:
                     setattr(self, key, value)
             ii += 1
-
+        
+        # reset filenames
+        self.data_fn = Path(os.path.join(self.save_path,self.data_fn))
+        self.model_fn = Path(os.path.join(self.save_path,self.model_fn))
+        
         # get number of parameters
         iline = ilines[ii].strip().split(":")
         key = iline[0].strip().lower().replace(" ", "_")
@@ -163,13 +169,19 @@ class Occam2DModel(Startup):
             jj += 1
             mv_index += iline.shape[0]
 
-        # make sure data file is full path
-        if not self.data_fn.is_file():
-            self.data_fn = self.save_path.joinpath(self.data_fn)
 
-        # make sure model file is full path
-        if not self.model_fn.is_file():
-            self.model_fn = self.save_path.joinpath(self.model_fn)
+        # reset filenames
+        self.data_fn = Path(os.path.join(self.save_path,self.data_fn))
+        self.model_fn = Path(os.path.join(self.save_path,self.model_fn))
+
+        # # make sure data file is full path
+        
+        # if not self.data_fn.is_file():
+        #     self.data_fn = self.save_path.joinpath(self.data_fn)
+
+        # # make sure model file is full path
+        # if not self.model_fn.is_file():
+        #     self.model_fn = self.save_path.joinpath(self.model_fn)
 
     def write_iter_file(self, iter_fn=None):
         """

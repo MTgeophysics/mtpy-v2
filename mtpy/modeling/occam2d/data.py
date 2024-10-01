@@ -450,6 +450,7 @@ class Occam2DData:
             ],
             axis=1,
         )
+
         df = df.groupby(["station", "period"]).agg("first")
         df = df.sort_values("profile_offset").reset_index()
         self.dataframe = df

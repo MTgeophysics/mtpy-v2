@@ -1053,10 +1053,11 @@ class MTData(OrderedDict, MTStations):
 
         occam2d_data = Occam2DData(**kwargs)
         occam2d_data.dataframe = self.to_dataframe()
-        occam2d_data.profile_origin = (
-            self.center_point.east,
-            self.center_point.north,
-        )
+        if occam2d_data.profile_origin is None:
+            occam2d_data.profile_origin = (
+                self.center_point.east,
+                self.center_point.north,
+            )
 
         if data_filename is not None:
             occam2d_data.write_data_file(data_filename)
