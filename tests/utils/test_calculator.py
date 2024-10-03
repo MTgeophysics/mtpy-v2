@@ -234,10 +234,10 @@ class TestRotation(unittest.TestCase):
         # we are rotating clockwise so in the reference frame towards zero,
         # therefore we need to subtract
         with self.subTest("azimuth"):
-            self.assertAlmostEqual(self.azimuth - 30, self.compute_azimuth(ar))
+            self.assertAlmostEqual(self.azimuth + 30, self.compute_azimuth(ar))
 
         r = self.rotation_matrix(30)
-        b = np.dot(np.dot(r, self.a), np.linalg.inv(r))
+        b = np.dot(np.dot(np.linalg.inv(r), self.a), r)
         with self.subTest("matrix"):
             self.assertTrue(np.allclose(ar, b))
 
@@ -247,10 +247,10 @@ class TestRotation(unittest.TestCase):
         # we are rotating clockwise so in the reference frame away from zero,
         # therefore we need to add
         with self.subTest("azimuth"):
-            self.assertAlmostEqual(self.azimuth + 30, self.compute_azimuth(ar))
+            self.assertAlmostEqual(self.azimuth - 30, self.compute_azimuth(ar))
 
         r = self.rotation_matrix(-30)
-        b = np.dot(np.dot(r, self.a), np.linalg.inv(r))
+        b = np.dot(np.dot(np.linalg.inv(r), self.a), r)
         with self.subTest("matrix"):
             self.assertTrue(np.allclose(ar, b))
 
