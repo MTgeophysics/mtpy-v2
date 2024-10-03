@@ -212,13 +212,47 @@ class TestGetPeriod(unittest.TestCase):
 
 class TestRotation(unittest.TestCase):
     def setUp(self):
+        # this is a 45 degree vector
         self.a = np.array(np.array([[1, np.sqrt(2)], [np.sqrt(2), 1]]))
+        self.azimuth = self.compute_azimuth(self.a)
 
     def rotation_matrix(self, angle):
         phi = np.deg2rad(angle)
         return np.array(
             [[np.cos(phi), np.sin(phi)], [-np.sin(phi), np.cos(phi)]]
         )
+
+    def compute_azimuth(self, array):
+        return np.degrees(
+            0.5
+            * np.arctan2(array[0, 1] + array[1, 0], array[0, 0] - array[1, 1])
+        )
+
+    def test_rotate_30_plus(self):
+        ar, ar_err = calculator.rotate_matrix_with_errors(self.a, 30)
+
+        # we are rotating clockwise so in the reference frame towards zero,
+        # therefore we need to subtract
+        with self.subTest("azimuth"):
+            self.assertAlmostEqual(self.azimuth - 30, self.compute_azimuth(ar))
+
+        r = self.rotation_matrix(30)
+        b = np.dot(np.dot(r, self.a), np.linalg.inv(r))
+        with self.subTest("matrix"):
+            self.assertTrue(np.allclose(ar, b))
+
+    def test_rotate_30_minus(self):
+        ar, ar_err = calculator.rotate_matrix_with_errors(self.a, -30)
+
+        # we are rotating clockwise so in the reference frame away from zero,
+        # therefore we need to add
+        with self.subTest("azimuth"):
+            self.assertAlmostEqual(self.azimuth + 30, self.compute_azimuth(ar))
+
+        r = self.rotation_matrix(-30)
+        b = np.dot(np.dot(r, self.a), np.linalg.inv(r))
+        with self.subTest("matrix"):
+            self.assertTrue(np.allclose(ar, b))
 
 
 # =============================================================================
