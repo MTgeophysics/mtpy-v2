@@ -225,7 +225,7 @@ class TestRotation(unittest.TestCase):
     def compute_azimuth(self, array):
         return np.degrees(
             0.5
-            * np.arctan2(array[0, 1] + array[1, 0], array[0, 0] - array[1, 1])
+            * np.arctan2(array[0, 0] - array[1, 1], array[0, 1] + array[1, 0])
         )
 
     def test_rotate_30_plus(self):
@@ -237,7 +237,7 @@ class TestRotation(unittest.TestCase):
             self.assertAlmostEqual(self.azimuth + 30, self.compute_azimuth(ar))
 
         r = self.rotation_matrix(30)
-        b = np.dot(np.dot(np.linalg.inv(r), self.a), r)
+        b = np.dot(np.dot(r, self.a), r.T)
         with self.subTest("matrix"):
             self.assertTrue(np.allclose(ar, b))
 
@@ -250,7 +250,7 @@ class TestRotation(unittest.TestCase):
             self.assertAlmostEqual(self.azimuth - 30, self.compute_azimuth(ar))
 
         r = self.rotation_matrix(-30)
-        b = np.dot(np.dot(np.linalg.inv(r), self.a), r)
+        b = np.dot(np.dot(r, self.a), r.T)
         with self.subTest("matrix"):
             self.assertTrue(np.allclose(ar, b))
 

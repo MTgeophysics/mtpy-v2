@@ -473,9 +473,9 @@ def rotate_matrix_with_errors(in_matrix, angle, error=None):
     sphi = np.sin(phi)
 
     # clockwise rotation matrix is given by [[cos, sin], [-sin, cos]]
-    # jacobian rotation or similarity transformation is J^-1 A J
+    # jacobian rotation or similarity transformation is R A RT
     rot_mat = np.array([[cphi, sphi], [-sphi, cphi]])
-    rotated_matrix = np.dot(np.dot(np.linalg.inv(rot_mat), in_matrix), rot_mat)
+    rotated_matrix = np.dot(np.dot(rot_mat, in_matrix), rot_mat.T)
     # rotated_matrix = np.dot(np.dot(rot_mat, in_matrix), np.linalg.inv(rot_mat))
 
     err_mat = None
