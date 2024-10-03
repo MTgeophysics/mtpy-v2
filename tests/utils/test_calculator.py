@@ -67,9 +67,7 @@ class TestErrorCalculation(unittest.TestCase):
         # relative error in resistivity is 2 * relative error in z
         self.res_rel_err_test = 2.0 * self.z_err / np.abs(self.z)
 
-        self.phase_err_test = np.rad2deg(
-            np.arctan(self.z_err / np.abs(self.z))
-        )
+        self.phase_err_test = np.rad2deg(np.arctan(self.z_err / np.abs(self.z)))
         self.phase_err_test[self.res_rel_err_test > 1.0] = 90.0
 
         # test providing an array
@@ -210,6 +208,17 @@ class TestGetPeriod(unittest.TestCase):
             0.1, 100, 3, include_outside_range=False
         )
         self.assertTrue(np.isclose(test_array, self.array3).all())
+
+
+class TestRotation(unittest.TestCase):
+    def setUp(self):
+        self.a = np.array(np.array([[1, np.sqrt(2)], [np.sqrt(2), 1]]))
+
+    def rotation_matrix(self, angle):
+        phi = np.deg2rad(angle)
+        return np.array(
+            [[np.cos(phi), np.sin(phi)], [-np.sin(phi), np.cos(phi)]]
+        )
 
 
 # =============================================================================

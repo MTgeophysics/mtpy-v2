@@ -472,8 +472,8 @@ def rotate_matrix_with_errors(in_matrix, angle, error=None):
     cphi = np.cos(phi)
     sphi = np.sin(phi)
 
-    # clockwise rotation matrix is given by [[cos, -sin], [sin, cos]]
-    rot_mat = np.array([[cphi, -sphi], [sphi, cphi]])
+    # clockwise rotation matrix is given by [[cos, sin], [-sin, cos]]
+    rot_mat = np.array([[cphi, sphi], [-sphi, cphi]])
     rotated_matrix = np.dot(np.dot(rot_mat, in_matrix), np.linalg.inv(rot_mat))
 
     err_mat = None
@@ -546,7 +546,7 @@ def rotate_vector_with_errors(in_vector, angle, error=None):
     cphi = np.cos(phi)
     sphi = np.sin(phi)
 
-    rot_mat = np.array([[cphi, -sphi], [sphi, cphi]])
+    rot_mat = np.array([[cphi, sphi], [-sphi, cphi]])
 
     if in_vector.shape == (1, 2):
         rotated_vector = np.dot(in_vector, np.linalg.inv(rot_mat))
