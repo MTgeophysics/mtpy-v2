@@ -215,7 +215,7 @@ class TestGetPeriod(unittest.TestCase):
 class TestRotation(unittest.TestCase):
     def setUp(self):
         # this is a 45 degree vector
-        self.a = np.array(np.array([[1, np.sqrt(2)], [np.sqrt(2), 1]]))
+        self.a = np.array(np.array([[np.sqrt(2), 1], [1, np.sqrt(2)]]))
         self.azimuth = self.compute_azimuth(self.a)
 
     def rotation_matrix(self, angle):
@@ -227,7 +227,22 @@ class TestRotation(unittest.TestCase):
     def compute_azimuth(self, array):
         return np.degrees(
             0.5
-            * np.arctan2(array[0, 0] - array[1, 1], array[0, 1] + array[1, 0])
+            * np.arctan2(array[0, 1] + array[1, 0], array[0, 0] - array[1, 1])
+        )
+
+    def compute_strike(self, array):
+        return np.degrees(
+            0.25
+            * np.arctan2(
+                (array[0, 0] - array[1, 1])
+                * np.conj(array[0, 1] + array[1, 0])
+                + np.conj(array[0, 0] - array[1, 1])
+                * (array[0, 1] + array[1, 0]),
+                (
+                    abs(array[0, 0] - array[1, 1]) ** 2
+                    - abs(array[0, 1] - array[1, 0]) ** 2
+                ),
+            )
         )
 
     def test_get_rotation_matrix_0_clockwise(self):
@@ -249,6 +264,8 @@ class TestRotation(unittest.TestCase):
 
     def test_rotate_30_plus(self):
         ar, ar_err = calculator.rotate_matrix_with_errors(self.a, 30)
+
+        strike = self.compute_strike(ar)
 
         # we are rotating clockwise so in the reference frame towards zero,
         # therefore we need to subtract
