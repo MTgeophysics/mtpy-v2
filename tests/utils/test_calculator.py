@@ -218,12 +218,6 @@ class TestRotation(unittest.TestCase):
         self.a = np.array(np.array([[np.sqrt(2), 1], [1, np.sqrt(2)]]))
         self.azimuth = self.compute_azimuth(self.a)
 
-    def rotation_matrix(self, angle):
-        phi = np.deg2rad(angle)
-        return np.array(
-            [[np.cos(phi), np.sin(phi)], [-np.sin(phi), np.cos(phi)]]
-        )
-
     def compute_azimuth(self, array):
         return np.degrees(
             0.5
@@ -263,30 +257,34 @@ class TestRotation(unittest.TestCase):
         )
 
     def test_rotate_30_plus(self):
-        ar, ar_err = calculator.rotate_matrix_with_errors(self.a, 30)
-
-        strike = self.compute_strike(ar)
+        angle = 30
+        ar, ar_err = calculator.rotate_matrix_with_errors(self.a, angle)
 
         # we are rotating clockwise so in the reference frame towards zero,
         # therefore we need to subtract
         with self.subTest("azimuth"):
-            self.assertAlmostEqual(self.azimuth + 30, self.compute_azimuth(ar))
+            self.assertAlmostEqual(
+                self.azimuth + angle, self.compute_azimuth(ar)
+            )
 
-        r = self.rotation_matrix(30)
-        b = np.dot(np.dot(r, self.a), r.T)
+        r = calculator.get_rotation_matrix(angle)
+        b = r @ self.a @ r.T
         with self.subTest("matrix"):
             self.assertTrue(np.allclose(ar, b))
 
     def test_rotate_30_minus(self):
-        ar, ar_err = calculator.rotate_matrix_with_errors(self.a, -30)
+        angle = -30
+        ar, ar_err = calculator.rotate_matrix_with_errors(self.a, angle)
 
         # we are rotating clockwise so in the reference frame away from zero,
         # therefore we need to add
         with self.subTest("azimuth"):
-            self.assertAlmostEqual(self.azimuth - 30, self.compute_azimuth(ar))
+            self.assertAlmostEqual(
+                self.azimuth + angle, self.compute_azimuth(ar)
+            )
 
-        r = self.rotation_matrix(-30)
-        b = np.dot(np.dot(r, self.a), r.T)
+        r = calculator.get_rotation_matrix(angle)
+        b = r @ self.a @ r.T
         with self.subTest("matrix"):
             self.assertTrue(np.allclose(ar, b))
 

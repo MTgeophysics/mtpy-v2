@@ -439,7 +439,7 @@ def z_error2r_phi_error(z_real, z_imag, error):
 # That is NOT the same as the rotated error matrix Zerr (although the result is similar)
 
 
-def get_rotation_matrix(angle, clockwise=True):
+def get_rotation_matrix(angle, clockwise=False):
     """
     get the rotation matrix for the proper rotation
 
@@ -449,6 +449,7 @@ def get_rotation_matrix(angle, clockwise=True):
      matrix is returned
     :type clockwise: bool
     """
+    angle = np.deg2rad(angle)
     cphi = np.cos(angle)
     sphi = np.sin(angle)
 
@@ -458,7 +459,7 @@ def get_rotation_matrix(angle, clockwise=True):
         return np.array([[cphi, -sphi], [sphi, cphi]])
 
 
-def rotate_matrix_with_errors(in_matrix, angle, error=None):
+def rotate_matrix_with_errors(in_matrix, angle, error=None, clockwise=False):
     """Rotate a matrix including errors clockwise given an angle in degrees.
     :param in_matrix: A n x 2 x 2  matrix to rotate.
     :type in_matrix: np.ndarray
@@ -467,6 +468,7 @@ def rotate_matrix_with_errors(in_matrix, angle, error=None):
     :type angle: float
     :param error: A n x 2 x 2 matrix of associated errors,, defaults to None.
     :type error: np.ndarray, optional
+
     :raises MTex: If input array is incorrect.
     :return: Rotated matrix.
     :rtype: np.ndarray
@@ -488,10 +490,11 @@ def rotate_matrix_with_errors(in_matrix, angle, error=None):
     except TypeError:
         raise MTex.MTpyError_inputarguments('"Angle" must be a float')
 
-    rot_mat = get_rotation_matrix(phi)
+    rot_mat = get_rotation_matrix(angle, clockwise)
 
     # jacobian rotation or similarity transformation is R A RT
-    rotated_matrix = np.dot(np.dot(rot_mat, in_matrix), rot_mat.T)
+    # rotated_matrix = np.dot(np.dot(rot_mat, in_matrix), rot_mat.T)
+    rotated_matrix = rot_mat @ in_matrix @ rot_mat.T
     # rotated_matrix = np.dot(np.dot(rot_mat, in_matrix), np.linalg.inv(rot_mat))
 
     cphi = np.cos(phi)
@@ -531,7 +534,7 @@ def rotate_matrix_with_errors(in_matrix, angle, error=None):
     return rotated_matrix, err_mat
 
 
-def rotate_vector_with_errors(in_vector, angle, error=None):
+def rotate_vector_with_errors(in_vector, angle, error=None, clockwise=False):
     """Rotate a vector including errors clockwise given an angle in degrees.
     :param in_vector:
     :param in_matrix: A n x 1 x 2  vector to rotate.
@@ -564,21 +567,21 @@ def rotate_vector_with_errors(in_vector, angle, error=None):
     except TypeError:
         raise MTex.MTpyError_inputarguments('"Angle" must be a float')
 
-    rot_mat = get_rotation_matrix(phi)
+    rot_mat = get_rotation_matrix(phi, clockwise)
 
     if in_vector.shape == (1, 2):
-        rotated_vector = np.dot(in_vector, np.linalg.inv(rot_mat))
+        rotated_vector = np.matmul(in_vector, np.linalg.inv(rot_mat))
     else:
-        rotated_vector = np.dot(rot_mat, in_vector)
+        rotated_vector = np.matmul(rot_mat, in_vector)
 
     err_vector = None
     if error is not None:
         err_vector = np.zeros_like(error)
 
         if error.shape == (1, 2):
-            err_vector = np.dot(error, np.abs(np.linalg.inv(rot_mat)))
+            err_vector = np.matmul(error, np.abs(np.linalg.inv(rot_mat)))
         else:
-            err_vector = np.dot(np.abs(rot_mat), error)
+            err_vector = np.matmul(np.abs(rot_mat), error)
 
     return rotated_vector, err_vector
 
