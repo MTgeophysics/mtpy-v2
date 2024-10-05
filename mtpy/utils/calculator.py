@@ -567,7 +567,7 @@ def rotate_vector_with_errors(in_vector, angle, error=None, clockwise=False):
     except TypeError:
         raise MTex.MTpyError_inputarguments('"Angle" must be a float')
 
-    rot_mat = get_rotation_matrix(phi, clockwise)
+    rot_mat = get_rotation_matrix(angle, clockwise)
 
     if in_vector.shape == (1, 2):
         rotated_vector = np.matmul(in_vector, np.linalg.inv(rot_mat))
