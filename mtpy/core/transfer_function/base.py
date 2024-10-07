@@ -468,7 +468,7 @@ class TFBase:
 
             return inverse
 
-    def rotate(self, alpha, inplace=False, positive_clockwise_from_north=True):
+    def rotate(self, alpha, inplace=False, coordinate_reference_frame="ned"):
         """Rotate transfer function array by angle alpha.
 
         Rotation angle must be given in degrees. All angles are referenced
@@ -484,10 +484,10 @@ class TFBase:
         :type alpha: float (in degrees)
         :param inplace: rotate in place. Will add alpha to `rotation_angle`
         :type inplace: bool
-        :param positive_clockwise_from_north: If set to `True` then the
+        :param coordinate_reference_frame: If set to `ned` or `+` then the
          rotation will be clockwise from north (x1).  Therefore, a positive
          angle will rotate eastward and a negative angle will rotate westward.
-         If set to `False` then rotation will be counter-clockwise in a
+         If set to `enu` or `-` then rotation will be counter-clockwise in a
          coordinate system of (x1, x2). The angle is then positive from x1 to
          x2.
         :return: rotated transfer function if `inplace` is False
@@ -515,6 +515,18 @@ class TFBase:
                 msg = f"Angle must be a valid number (in degrees) not {alpha}"
                 self.logger.error(msg)
                 raise ValueError(msg)
+
+        def get_clockwise(coordinate_reference_frame):
+
+            if coordinate_reference_frame.lower() in ["ned", "+"]:
+                return False
+            elif coordinate_reference_frame.lower() in ["enu", "-"]:
+                return True
+            else:
+                raise ValueError(
+                    f"coordinate_reference_frame {coordinate_reference_frame} "
+                    "not understood."
+                )
 
         if isinstance(alpha, (float, int, str)):
             degree_angle = np.repeat(
@@ -559,6 +571,7 @@ class TFBase:
                         ds.transfer_function[index].values,
                         angle,
                         ds.transfer_function_error[index].values,
+                        clockwise=get_clockwise(coordinate_reference_frame),
                     )
                 if self._has_tf_model_error():
                     (
@@ -568,11 +581,13 @@ class TFBase:
                         ds.transfer_function[index].values,
                         angle,
                         ds.transfer_function_model_error[index].values,
+                        clockwise=get_clockwise(coordinate_reference_frame),
                     )
                 if not self._has_tf_error() and not self._has_tf_model_error():
                     (rot_tf[index, :, :], _) = rotate_func(
                         ds.transfer_function[index].values,
                         angle,
+                        clockwise=get_clockwise(coordinate_reference_frame),
                     )
         ds.transfer_function.values = rot_tf
         ds.transfer_function_error.values = rot_tf_error

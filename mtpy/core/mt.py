@@ -164,7 +164,7 @@ class MT(TF, MTLocation):
 
     @property
     def rotation_angle(self):
-        """Rotation angle in degrees from north."""
+        """Rotation angle in degrees from north. In the coordinate reference frame"""
         return self._rotation_angle
 
     @rotation_angle.setter
@@ -174,7 +174,7 @@ class MT(TF, MTLocation):
 
         upon setting rotates Z and Tipper
 
-        TODO figure this out with xarray
+        TODO: figure this out with xarray
         """
 
         self.rotate(theta_r)
@@ -183,19 +183,34 @@ class MT(TF, MTLocation):
     def rotate(self, theta_r, inplace=True):
         """Rotate the data in degrees assuming North is 0 measuring clockwise
         positive to East as 90.
-        :param theta_r: DESCRIPTION.
-        :type theta_r: TYPE
-        :param inplace: DESCRIPTION, defaults to True.
-        :type inplace: TYPE, optional
-        :return: DESCRIPTION.
-        :rtype: TYPE
+
+        :param theta_r: rotation angle to rotate by in degrees.
+        :type theta_r: float
+        :param inplace: rotate all transfer function in place, defaults to True.
+        :type inplace: bool, optional
+        :return: if inplace is False, returns a new MT object.
+        :rtype: MT object
+
         """
+
+        if self.has_impedance():
+            new_z = self.Z.rotate(
+                theta_r,
+                inplace=False,
+                coordinate_reference_frame=self.coordinate_reference_frame,
+            )
+        if self.has_tipper():
+            new_t = self.Tipper.rotate(
+                theta_r,
+                inplace=False,
+                coordinate_reference_frame=self.coordinate_reference_frame,
+            )
 
         if inplace:
             if self.has_impedance():
-                self.Z = self.Z.rotate(theta_r)
+                self.Z = new_z
             if self.has_tipper():
-                self.Tipper = self.Tipper.rotate(theta_r)
+                self.Tipper = new_t
 
             self._rotation_angle += theta_r
 
@@ -205,10 +220,10 @@ class MT(TF, MTLocation):
         else:
             new_m = self.clone_empty()
             if self.has_impedance():
-                new_m.Z = self.Z.rotate(theta_r)
+                new_m.Z = new_z
             if self.has_tipper():
-                new_m.Tipper = self.Tipper.rotate(theta_r)
-            new_m._rotation_angle += self._rotation_angle
+                new_m.Tipper = new_t
+            new_m._rotation_angle += theta_r
             return new_m
 
     @property

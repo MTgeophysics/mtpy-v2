@@ -439,26 +439,6 @@ def z_error2r_phi_error(z_real, z_imag, error):
 # That is NOT the same as the rotated error matrix Zerr (although the result is similar)
 
 
-def check_positive_clockwise_from_north(is_true):
-    """
-    Check that the expected rotation is clockwise from north.  This is a
-    little confusing.  If we want to rotate in the coordinate reference frame
-    of NED (x=north, y=east, z=+down) then we need to use a rotation matrix
-    that uses the conventional rotation matrix or counter-clockwise rotation.
-    Therefore if the positive clockwise from north is set to true then the
-    input parameter clockwise to `get_rotation_angle` is then False.
-
-    :param is_true: True if you want to rotate clockwise from north, False if
-     not.
-    :type is_true: TYPE
-    :return: DESCRIPTION
-    :rtype: TYPE
-
-    """
-
-    return not is_true
-
-
 def get_rotation_matrix(angle, clockwise=False):
     """
     get the rotation matrix for the proper rotation
@@ -534,10 +514,9 @@ def rotate_matrix_errors(error, angle):
     return error_matrix
 
 
-def rotate_matrix_with_errors(
-    in_matrix, angle, error=None, positive_clockwise_from_north=True
-):
-    """Rotate a matrix including errors clockwise given an angle in degrees.
+def rotate_matrix_with_errors(in_matrix, angle, error=None, clockwise=False):
+    """Rotate a matrix including errors given an angle in degrees.
+
     :param in_matrix: A n x 2 x 2  matrix to rotate.
     :type in_matrix: np.ndarray
     :param angle: Angle to rotate by assuming clockwise positive from
@@ -545,7 +524,8 @@ def rotate_matrix_with_errors(
     :type angle: float
     :param error: A n x 2 x 2 matrix of associated errors,, defaults to None.
     :type error: np.ndarray, optional
-
+    :param clockwise: rotate clockwise [True] or counter-clockwise [False]
+    :type clockwise: bool
     :raises MTex: If input array is incorrect.
     :return: Rotated matrix.
     :rtype: np.ndarray
@@ -573,10 +553,9 @@ def rotate_matrix_with_errors(
     return rotated_matrix, error_matrix
 
 
-def rotate_vector_with_errors(
-    in_vector, angle, error=None, positive_clockwise_from_north=True
-):
-    """Rotate a vector including errors clockwise given an angle in degrees.
+def rotate_vector_with_errors(in_vector, angle, error=None, clockwise=False):
+    """Rotate a vector including errors given an angle in degrees.
+
     :param in_vector:
     :param in_matrix: A n x 1 x 2  vector to rotate.
     :type in_matrix: np.ndarray
