@@ -73,15 +73,18 @@ class MT(TF, MTLocation):
 
         self.save_dir = Path.cwd()
 
+        self._coordinate_reference_frame_options = {
+            "+": "ned",
+            "-": "enu",
+            "ned": "ned",
+            "enu": "enu",
+        }
+
+        if self.station_metadata.transfer_function.sign_convention is None:
+            self.station_metadata.tranfer_function.sign_convention = "+"
+
         for key, value in kwargs.items():
             setattr(self, key, value)
-
-        if self.station_metadata.transfer_function.sign_convention is not None:
-            self.coordinate_reference_frame = (
-                self.station_metadata.transfer_function.sign_convention
-            )
-        else:
-            self.coordinate_reference_frame = "ned"
 
     def clone_empty(self):
         """Copy metadata but not the transfer function estimates."""
@@ -122,7 +125,10 @@ class MT(TF, MTLocation):
     @property
     def coordinate_reference_frame(self):
         """Coordinate reference frame of the transfer function"""
-        return self._coordinate_reference_frame.upper()
+
+        return self._coordinate_reference_frame_options[
+            self.station_metadata.transfer_function.sign_convention
+        ].upper()
 
     @coordinate_reference_frame.setter
     def coordinate_reference_frame(self, value):
@@ -150,11 +156,11 @@ class MT(TF, MTLocation):
                 f"Options are {options}"
             )
         if value in ["+", "ned"]:
-            value = "ned"
+            value = "+"
         elif value in ["-", "enu"]:
-            value = "enu"
+            value = "-"
 
-        self._coordinate_reference_frame = value.lower()
+        self.station_metadata.transfer_function.sign_convention = value
 
     @property
     def rotation_angle(self):

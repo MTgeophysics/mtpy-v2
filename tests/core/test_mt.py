@@ -29,7 +29,23 @@ class TestMT(unittest.TestCase):
         self.mt.longitude = 20
 
     def test_coordinate_reference_frame(self):
-        self.assertEqual(self.mt.coordinate_reference_frame, "ned")
+        self.assertEqual(self.mt.coordinate_reference_frame, "ned".upper())
+
+    def test_coordinate_reference_frame_set_minus(self):
+        a = MT(coordinate_reference_frame="-")
+        self.assertEqual(a.coordinate_reference_frame, "ENU")
+
+    def test_coordinate_reference_frame_set_enu(self):
+        a = MT(coordinate_reference_frame="enu")
+        self.assertEqual(a.coordinate_reference_frame, "ENU")
+
+    def test_coordinate_reference_frame_set_plus(self):
+        a = MT(coordinate_reference_frame="+")
+        self.assertEqual(a.coordinate_reference_frame, "NED")
+
+    def test_coordinate_reference_frame_set_ned(self):
+        a = MT(coordinate_reference_frame="ned")
+        self.assertEqual(a.coordinate_reference_frame, "NED")
 
     def test_clone_empty(self):
         new_mt = self.mt.clone_empty()
