@@ -253,9 +253,27 @@ class TestMTComputeModelError(unittest.TestCase):
 
     def test_rotation(self):
         self.mt.rotate(10)
+        with self.subTest("rot 10 strike"):
+            self.assertAlmostEqual(325, self.mt.pt.azimuth[0])
+        with self.subTest("rot 10 rotation angle"):
+            self.assertEqual(10, self.mt.rotation_angle)
         self.mt.rotate(20)
+        with self.subTest("rot 20 strike"):
+            self.assertAlmostEqual(345, self.mt.pt.azimuth[0])
+        with self.subTest("rot 10 rotation angle"):
+            self.assertEqual(self.mt.rotation_angle, 30)
 
-        self.assertEqual(self.mt.rotation_angle, 30)
+    def test_rotation_not_inplace(self):
+        self.mt.rotate(10)
+        with self.subTest("rot 10 strike"):
+            self.assertAlmostEqual(325, self.mt.pt.azimuth[0])
+        with self.subTest("rot 10 rotation angle"):
+            self.assertEqual(10, self.mt.rotation_angle)
+        self.mt.rotate(20)
+        with self.subTest("rot 20 strike"):
+            self.assertAlmostEqual(345, self.mt.pt.azimuth[0])
+        with self.subTest("rot 10 rotation angle"):
+            self.assertEqual(self.mt.rotation_angle, 30)
 
 
 class TestSetTipper(unittest.TestCase):
