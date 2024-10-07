@@ -150,7 +150,7 @@ class MT(TF, MTLocation):
             if self.has_tipper():
                 self.Tipper = self.Tipper.rotate(theta_r)
 
-            self._rotation_angle = theta_r
+            self._rotation_angle += theta_r
 
             self.logger.info(
                 f"Rotated transfer function by: {self._rotation_angle:.3f} degrees clockwise"
@@ -161,7 +161,7 @@ class MT(TF, MTLocation):
                 new_m.Z = self.Z.rotate(theta_r)
             if self.has_tipper():
                 new_m.Tipper = self.Tipper.rotate(theta_r)
-            new_m._rotation_angle = self._rotation_angle
+            new_m._rotation_angle += self._rotation_angle
             return new_m
 
     @property
@@ -959,7 +959,9 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j * self._transfer_function.transfer_function.imag * noise_imag
+                1j
+                * self._transfer_function.transfer_function.imag
+                * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
@@ -973,7 +975,9 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j * self._transfer_function.transfer_function.imag * noise_imag
+                1j
+                * self._transfer_function.transfer_function.imag
+                * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (

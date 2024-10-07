@@ -459,7 +459,64 @@ def get_rotation_matrix(angle, clockwise=False):
         return np.array([[cphi, -sphi], [sphi, cphi]])
 
 
-def rotate_matrix_with_errors(in_matrix, angle, error=None, clockwise=False):
+def rotate_matrix_errors(error, angle):
+    """
+    Rotate errors of a matrix
+
+    :param error: error matrix (2 x 2)
+    :type error: np.array
+    :param angle: rotation angle in degrees
+    :type angle: float
+    :return: propogated errors
+    :rtype: None or np.array
+
+    """
+
+    try:
+        phi = np.deg2rad(float(angle) % 360)
+    except TypeError:
+        raise MTex.MTpyError_inputarguments('"Angle" must be a float')
+
+    cphi = np.cos(phi)
+    sphi = np.sin(phi)
+
+    error_matrix = None
+    if error is not None:
+        err_orig = np.real(error)
+        error_matrix = np.zeros_like(error)
+
+        # standard propagation of errors:
+        error_matrix[0, 0] = np.sqrt(
+            (cphi**2 * err_orig[0, 0]) ** 2
+            + (cphi * sphi * err_orig[0, 1]) ** 2
+            + (cphi * sphi * err_orig[1, 0]) ** 2
+            + (sphi**2 * err_orig[1, 1]) ** 2
+        )
+        error_matrix[0, 1] = np.sqrt(
+            (cphi**2 * err_orig[0, 1]) ** 2
+            + (cphi * sphi * err_orig[1, 1]) ** 2
+            + (cphi * sphi * err_orig[0, 0]) ** 2
+            + (sphi**2 * err_orig[1, 0]) ** 2
+        )
+        error_matrix[1, 0] = np.sqrt(
+            (cphi**2 * err_orig[1, 0]) ** 2
+            + (cphi * sphi * err_orig[1, 1]) ** 2
+            + (cphi * sphi * err_orig[0, 0]) ** 2
+            + (sphi**2 * err_orig[0, 1]) ** 2
+        )
+        error_matrix[1, 1] = np.sqrt(
+            (cphi**2 * err_orig[1, 1]) ** 2
+            + (cphi * sphi * err_orig[0, 1]) ** 2
+            + (cphi * sphi * err_orig[1, 0]) ** 2
+            + (sphi**2 * err_orig[0, 0]) ** 2
+        )
+
+    return error_matrix
+
+
+def rotate_matrix_with_errors(
+    in_matrix, angle, error=None, positive_clockwise_from_north=True
+):
     """Rotate a matrix including errors clockwise given an angle in degrees.
     :param in_matrix: A n x 2 x 2  matrix to rotate.
     :type in_matrix: np.ndarray
@@ -485,56 +542,20 @@ def rotate_matrix_with_errors(in_matrix, angle, error=None, clockwise=False):
         )
         raise MTex.MTpyError_inputarguments(msg)
 
-    try:
-        phi = np.deg2rad(float(angle) % 360)
-    except TypeError:
-        raise MTex.MTpyError_inputarguments('"Angle" must be a float')
-
     rot_mat = get_rotation_matrix(angle, clockwise)
 
     # jacobian rotation or similarity transformation is R A RT
     # rotated_matrix = np.dot(np.dot(rot_mat, in_matrix), rot_mat.T)
     rotated_matrix = rot_mat @ in_matrix @ rot_mat.T
-    # rotated_matrix = np.dot(np.dot(rot_mat, in_matrix), np.linalg.inv(rot_mat))
 
-    cphi = np.cos(phi)
-    sphi = np.sin(phi)
+    error_matrix = rotate_matrix_errors(error, angle)
 
-    err_mat = None
-    if error is not None:
-        err_orig = np.real(error)
-        err_mat = np.zeros_like(error)
-
-        # standard propagation of errors:
-        err_mat[0, 0] = np.sqrt(
-            (cphi**2 * err_orig[0, 0]) ** 2
-            + (cphi * sphi * err_orig[0, 1]) ** 2
-            + (cphi * sphi * err_orig[1, 0]) ** 2
-            + (sphi**2 * err_orig[1, 1]) ** 2
-        )
-        err_mat[0, 1] = np.sqrt(
-            (cphi**2 * err_orig[0, 1]) ** 2
-            + (cphi * sphi * err_orig[1, 1]) ** 2
-            + (cphi * sphi * err_orig[0, 0]) ** 2
-            + (sphi**2 * err_orig[1, 0]) ** 2
-        )
-        err_mat[1, 0] = np.sqrt(
-            (cphi**2 * err_orig[1, 0]) ** 2
-            + (cphi * sphi * err_orig[1, 1]) ** 2
-            + (cphi * sphi * err_orig[0, 0]) ** 2
-            + (sphi**2 * err_orig[0, 1]) ** 2
-        )
-        err_mat[1, 1] = np.sqrt(
-            (cphi**2 * err_orig[1, 1]) ** 2
-            + (cphi * sphi * err_orig[0, 1]) ** 2
-            + (cphi * sphi * err_orig[1, 0]) ** 2
-            + (sphi**2 * err_orig[0, 0]) ** 2
-        )
-
-    return rotated_matrix, err_mat
+    return rotated_matrix, error_matrix
 
 
-def rotate_vector_with_errors(in_vector, angle, error=None, clockwise=False):
+def rotate_vector_with_errors(
+    in_vector, angle, error=None, positive_clockwise_from_north=True
+):
     """Rotate a vector including errors clockwise given an angle in degrees.
     :param in_vector:
     :param in_matrix: A n x 1 x 2  vector to rotate.
@@ -561,11 +582,6 @@ def rotate_vector_with_errors(in_vector, angle, error=None, clockwise=False):
             in_vector.shape, error.shape
         )
         raise MTex.MTpyError_inputarguments(msg)
-
-    try:
-        phi = np.deg2rad(float(angle) % 360)
-    except TypeError:
-        raise MTex.MTpyError_inputarguments('"Angle" must be a float')
 
     rot_mat = get_rotation_matrix(angle, clockwise)
 
