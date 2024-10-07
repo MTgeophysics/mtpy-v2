@@ -65,9 +65,6 @@ class MT(TF, MTLocation):
         TF.__init__(self, **tf_kwargs)
         MTLocation.__init__(self, survey_metadata=self._survey_metadata)
 
-        # MTLocation.__init__(self)
-        # TF.__init__(self)
-
         self.fn = fn
 
         self._Z = Z()
@@ -78,6 +75,13 @@ class MT(TF, MTLocation):
 
         for key, value in kwargs.items():
             setattr(self, key, value)
+
+        if self.station_metadata.transfer_function.sign_convention is not None:
+            self.coordinate_reference_frame = (
+                self.station_metadata.transfer_function.sign_convention
+            )
+        else:
+            self.coordinate_reference_frame = "ned"
 
     def clone_empty(self):
         """Copy metadata but not the transfer function estimates."""
@@ -114,6 +118,43 @@ class MT(TF, MTLocation):
     def copy(self):
         """Copy function."""
         return deepcopy(self)
+
+    @property
+    def coordinate_reference_frame(self):
+        """Coordinate reference frame of the transfer function"""
+        return self._coordinate_reference_frame.upper()
+
+    @coordinate_reference_frame.setter
+    def coordinate_reference_frame(self, value):
+        """set coordinate_reference_frame
+
+        options are NED, ENU
+
+        NED
+
+         - x = North
+         - y = East
+         - z = + down
+
+        ENU
+
+         - x = East
+         - y = North
+         - z = + up
+        """
+        options = ["ned", "enu", "+", "-"]
+
+        if value.lower() not in options:
+            raise ValueError(
+                f"{value} is not understood as a reference frame. "
+                f"Options are {options}"
+            )
+        if value in ["+", "ned"]:
+            value = "ned"
+        elif value in ["-", "enu"]:
+            value = "enu"
+
+        self._coordinate_reference_frame = value.lower()
 
     @property
     def rotation_angle(self):

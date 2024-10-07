@@ -439,6 +439,26 @@ def z_error2r_phi_error(z_real, z_imag, error):
 # That is NOT the same as the rotated error matrix Zerr (although the result is similar)
 
 
+def check_positive_clockwise_from_north(is_true):
+    """
+    Check that the expected rotation is clockwise from north.  This is a
+    little confusing.  If we want to rotate in the coordinate reference frame
+    of NED (x=north, y=east, z=+down) then we need to use a rotation matrix
+    that uses the conventional rotation matrix or counter-clockwise rotation.
+    Therefore if the positive clockwise from north is set to true then the
+    input parameter clockwise to `get_rotation_angle` is then False.
+
+    :param is_true: True if you want to rotate clockwise from north, False if
+     not.
+    :type is_true: TYPE
+    :return: DESCRIPTION
+    :rtype: TYPE
+
+    """
+
+    return not is_true
+
+
 def get_rotation_matrix(angle, clockwise=False):
     """
     get the rotation matrix for the proper rotation

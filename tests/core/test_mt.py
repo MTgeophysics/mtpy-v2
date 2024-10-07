@@ -28,6 +28,9 @@ class TestMT(unittest.TestCase):
         self.mt.latitude = 10
         self.mt.longitude = 20
 
+    def test_coordinate_reference_frame(self):
+        self.assertEqual(self.mt.coordinate_reference_frame, "ned")
+
     def test_clone_empty(self):
         new_mt = self.mt.clone_empty()
 
