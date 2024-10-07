@@ -472,15 +472,26 @@ class TFBase:
         """Rotate transfer function array by angle alpha.
 
         Rotation angle must be given in degrees. All angles are referenced
-        to geographic North, positive in clockwise direction.
-        (Mathematically negative!)
+        to the `coordinate_reference_frame` where the rotation angle is
+        clockwise positive, rotating North into East.
 
-        In non-rotated state, X refs to North and Y to East direction.
+        Most transfer functions are referenced an NED coordinate system, which
+        is what MTpy uses as the default.
+
+        In the NED coordinate system:
+
+        x=North, y=East, z=+down and a positve clockwise rotation is a positive
+        angle. In this coordinate system the rotation matrix is the
+        conventional rotation matrix.
+
+        In the ENU coordinate system:
+
+        x=East, y=North, z=+up and a positve clockwise rotation is a positive
+        angle. In this coordinate system the rotation matrix is the
+        inverser of the conventional rotation matrix.
 
         :param alpha: Angle to rotate by assuming a clockwise rotation from
-         north.  If this is not what you want you can set
-         `positive_clockwise_from_north` to False and that will assume
-         counter-clockwise rotation from the axis x1.
+         north in the `coordinate_reference_frame`
         :type alpha: float (in degrees)
         :param inplace: rotate in place. Will add alpha to `rotation_angle`
         :type inplace: bool
