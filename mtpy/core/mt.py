@@ -81,7 +81,7 @@ class MT(TF, MTLocation):
         }
 
         if self.station_metadata.transfer_function.sign_convention is None:
-            self.station_metadata.tranfer_function.sign_convention = "+"
+            self.station_metadata.transfer_function.sign_convention = "+"
 
         for key, value in kwargs.items():
             setattr(self, key, value)
