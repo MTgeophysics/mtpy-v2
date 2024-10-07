@@ -78,6 +78,10 @@ class MT(TF, MTLocation):
             "-": "enu",
             "ned": "ned",
             "enu": "enu",
+            "exp(+ i\\omega t)": "ned",
+            "exp(+i\\omega t)": "ned",
+            "exp(- i\\omega t)": "enu",
+            "exp(-i\\omega t)": "enu",
         }
 
         if self.station_metadata.transfer_function.sign_convention is None:
@@ -148,16 +152,15 @@ class MT(TF, MTLocation):
          - y = North
          - z = + up
         """
-        options = ["ned", "enu", "+", "-"]
 
-        if value.lower() not in options:
+        if value.lower() not in self._coordinate_reference_frame_options:
             raise ValueError(
                 f"{value} is not understood as a reference frame. "
-                f"Options are {options}"
+                f"Options are {self._coordinate_reference_frame_options}"
             )
-        if value in ["+", "ned"]:
+        if value in ["ned"] or "+" in value:
             value = "+"
-        elif value in ["-", "enu"]:
+        elif value in ["enu"] or "-" in value:
             value = "-"
 
         self.station_metadata.transfer_function.sign_convention = value
