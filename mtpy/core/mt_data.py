@@ -243,6 +243,12 @@ class MTData(OrderedDict, MTStations):
             value = "+"
         elif value in ["enu"] or "-" in value:
             value = "-"
+            self.logger.warning(
+                "MTpy-v2 is assumes a NED coordinate system where x=North, "
+                "y=East, z=+down. By changing to ENU there maybe some "
+                "incorrect values for angles and derivative products of the "
+                "impedance tensor."
+            )
 
         for mt_obj in self.values():
             mt_obj.coordinate_reference_frame = value
