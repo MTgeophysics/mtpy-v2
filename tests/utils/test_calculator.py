@@ -264,10 +264,10 @@ class TestRotation(unittest.TestCase):
         # therefore we need to subtract
         with self.subTest("azimuth"):
             self.assertAlmostEqual(
-                self.azimuth + angle, self.compute_azimuth(ar)
+                self.azimuth - angle, self.compute_azimuth(ar)
             )
 
-        r = calculator.get_rotation_matrix(angle)
+        r = calculator.get_rotation_matrix(angle, clockwise=True)
         b = r @ self.a @ r.T
         with self.subTest("matrix"):
             self.assertTrue(np.allclose(ar, b))
@@ -280,10 +280,10 @@ class TestRotation(unittest.TestCase):
         # therefore we need to add
         with self.subTest("azimuth"):
             self.assertAlmostEqual(
-                self.azimuth + angle, self.compute_azimuth(ar)
+                self.azimuth - angle, self.compute_azimuth(ar)
             )
 
-        r = calculator.get_rotation_matrix(angle)
+        r = calculator.get_rotation_matrix(angle, clockwise=True)
         b = r @ self.a @ r.T
         with self.subTest("matrix"):
             self.assertTrue(np.allclose(ar, b))

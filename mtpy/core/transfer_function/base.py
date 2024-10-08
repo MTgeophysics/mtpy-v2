@@ -530,9 +530,9 @@ class TFBase:
         def get_clockwise(coordinate_reference_frame):
 
             if coordinate_reference_frame.lower() in ["ned", "+"]:
-                return False
-            elif coordinate_reference_frame.lower() in ["enu", "-"]:
                 return True
+            elif coordinate_reference_frame.lower() in ["enu", "-"]:
+                return False
             else:
                 raise ValueError(
                     f"coordinate_reference_frame {coordinate_reference_frame} "

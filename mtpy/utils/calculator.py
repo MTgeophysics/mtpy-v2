@@ -514,7 +514,7 @@ def rotate_matrix_errors(error, angle):
     return error_matrix
 
 
-def rotate_matrix_with_errors(in_matrix, angle, error=None, clockwise=False):
+def rotate_matrix_with_errors(in_matrix, angle, error=None, clockwise=True):
     """Rotate a matrix including errors given an angle in degrees.
 
     :param in_matrix: A n x 2 x 2  matrix to rotate.
@@ -553,7 +553,7 @@ def rotate_matrix_with_errors(in_matrix, angle, error=None, clockwise=False):
     return rotated_matrix, error_matrix
 
 
-def rotate_vector_with_errors(in_vector, angle, error=None, clockwise=False):
+def rotate_vector_with_errors(in_vector, angle, error=None, clockwise=True):
     """Rotate a vector including errors given an angle in degrees.
 
     :param in_vector:
