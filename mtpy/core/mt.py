@@ -155,6 +155,12 @@ class MT(TF, MTLocation):
             value = "+"
         elif value in ["enu"] or "-" in value:
             value = "-"
+            self.logger.warning(
+                "MTpy-v2 is assumes a NED coordinate system where x=North, ",
+                "y=East, z=+down. By changing to ENU there maybe some ",
+                "incorrect values for angles and derivative products of the "
+                "impedance tensor.",
+            )
 
         self.station_metadata.transfer_function.sign_convention = value
 
