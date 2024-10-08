@@ -13,3 +13,15 @@ __all__ = [
     "MTStations",
     "MTDataFrame",
 ]
+
+# coordinate reference frames
+COORDINATE_REFERENCE_FRAME_OPTIONS = {
+    "+": "ned",
+    "-": "enu",
+    "ned": "ned",
+    "enu": "enu",
+    "exp(+ i\\omega t)": "ned",
+    "exp(+i\\omega t)": "ned",
+    "exp(- i\\omega t)": "enu",
+    "exp(-i\\omega t)": "enu",
+}

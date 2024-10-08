@@ -14,7 +14,7 @@ import numpy as np
 
 from mt_metadata.transfer_functions.core import TF
 
-from mtpy.core import Z, Tipper
+from mtpy.core import Z, Tipper, COORDINATE_REFERENCE_FRAME_OPTIONS
 from mtpy.core.mt_location import MTLocation
 from mtpy.core.mt_dataframe import MTDataFrame
 from mtpy.utils.estimate_tf_quality_factor import EMTFStats
@@ -73,16 +73,9 @@ class MT(TF, MTLocation):
 
         self.save_dir = Path.cwd()
 
-        self._coordinate_reference_frame_options = {
-            "+": "ned",
-            "-": "enu",
-            "ned": "ned",
-            "enu": "enu",
-            "exp(+ i\\omega t)": "ned",
-            "exp(+i\\omega t)": "ned",
-            "exp(- i\\omega t)": "enu",
-            "exp(-i\\omega t)": "enu",
-        }
+        self._coordinate_reference_frame_options = (
+            COORDINATE_REFERENCE_FRAME_OPTIONS
+        )
 
         if self.station_metadata.transfer_function.sign_convention is None:
             self.station_metadata.transfer_function.sign_convention = "+"

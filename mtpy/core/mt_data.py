@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 
 from .mt import MT
 from .mt_stations import MTStations
-from mtpy.core import MTDataFrame
+from mtpy.core import MTDataFrame, COORDINATE_REFERENCE_FRAME_OPTIONS
 
 from mtpy.modeling.errors import ModelErrors
 from mtpy.modeling.modem import Data
@@ -95,6 +95,10 @@ class MTData(OrderedDict, MTStations):
             "data_rotation_angle",
             "model_parameters",
         ]
+
+        self._coordinate_reference_frame_options = (
+            COORDINATE_REFERENCE_FRAME_OPTIONS
+        )
 
     def _validate_item(self, mt_obj):
         """Make sure intpu is an MT object.
@@ -205,6 +209,45 @@ class MTData(OrderedDict, MTStations):
             setattr(self, attr, deepcopy(getattr(self, attr)))
 
         return md
+
+    @property
+    def coordinate_reference_frame(self):
+        """coordinate reference frame ned or enu"""
+        return self._coordinate_reference_frame
+
+    @coordinate_reference_frame.setter
+    def coordinate_reference_frame(self, value):
+        """set coordinate_reference_frame
+
+        options are NED, ENU
+
+        NED
+
+         - x = North
+         - y = East
+         - z = + down
+
+        ENU
+
+         - x = East
+         - y = North
+         - z = + up
+        """
+
+        if value.lower() not in self._coordinate_reference_frame_options:
+            raise ValueError(
+                f"{value} is not understood as a reference frame. "
+                f"Options are {self._coordinate_reference_frame_options}"
+            )
+        if value in ["ned"] or "+" in value:
+            value = "+"
+        elif value in ["enu"] or "-" in value:
+            value = "-"
+
+        for mt_obj in self.values():
+            mt_obj.coordinate_reference_frame = value
+
+        self._coordinate_reference_frame = value
 
     @property
     def mt_list(self):
