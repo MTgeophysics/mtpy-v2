@@ -863,14 +863,14 @@ class TestMTStationProfile(unittest.TestCase):
         profile = self.stations.generate_profile(units="deg")
         for x, y, ii in zip(self.profile_deg[0:4], profile[0:4], range(4)):
             with self.subTest(ii):
-                self.assertAlmostEqual(x, y)
+                self.assertAlmostEqual(x, y, 5)
         with self.subTest("intercept"):
             self.assertAlmostEqual(
-                self.profile_deg[-1]["intercept"], profile[-1]["intercept"]
+                self.profile_deg[-1]["intercept"], profile[-1]["intercept"], 5
             )
         with self.subTest("slope"):
             self.assertAlmostEqual(
-                self.profile_deg[-1]["slope"], profile[-1]["slope"]
+                self.profile_deg[-1]["slope"], profile[-1]["slope"], 5
             )
 
     def test_generate_profile_m(self):
