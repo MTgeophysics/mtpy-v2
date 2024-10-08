@@ -571,6 +571,7 @@ class TFBase:
         )
 
         rotate_func = get_rotate_function(self._expected_shape)
+        clockwise = get_clockwise(coordinate_reference_frame)
 
         for index, angle in enumerate(degree_angle):
             if self._has_tf():
@@ -582,7 +583,7 @@ class TFBase:
                         ds.transfer_function[index].values,
                         angle,
                         ds.transfer_function_error[index].values,
-                        clockwise=get_clockwise(coordinate_reference_frame),
+                        clockwise=clockwise,
                     )
                 if self._has_tf_model_error():
                     (
@@ -592,13 +593,13 @@ class TFBase:
                         ds.transfer_function[index].values,
                         angle,
                         ds.transfer_function_model_error[index].values,
-                        clockwise=get_clockwise(coordinate_reference_frame),
+                        clockwise=clockwise,
                     )
                 if not self._has_tf_error() and not self._has_tf_model_error():
                     (rot_tf[index, :, :], _) = rotate_func(
                         ds.transfer_function[index].values,
                         angle,
-                        clockwise=get_clockwise(coordinate_reference_frame),
+                        clockwise=clockwise,
                     )
         ds.transfer_function.values = rot_tf
         ds.transfer_function_error.values = rot_tf_error

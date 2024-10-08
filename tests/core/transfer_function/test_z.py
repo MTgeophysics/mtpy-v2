@@ -137,6 +137,34 @@ class TestZSetResPhase(unittest.TestCase):
             ).all()
         )
 
+    def test_rotation_plus_5_ned(self):
+        zr = self.z.rotate(5, coordinate_reference_frame="ned")
+        with self.subTest("PT Strike"):
+            self.assertAlmostEqual(zr.phase_tensor.azimuth[0], 50)
+        with self.subTest("Invariant Strike"):
+            self.assertAlmostEqual(zr.invariants.strike[0], 50)
+
+    def test_rotation_minus_5_ned(self):
+        zr = self.z.rotate(-5, coordinate_reference_frame="ned")
+        with self.subTest("PT Strike"):
+            self.assertAlmostEqual(zr.phase_tensor.azimuth[0], 40)
+        with self.subTest("Invariant Strike"):
+            self.assertAlmostEqual(zr.invariants.strike[0], 40)
+
+    def test_rotation_plus_5_enu(self):
+        zr = self.z.rotate(5, coordinate_reference_frame="enu")
+        with self.subTest("PT Strike"):
+            self.assertAlmostEqual(zr.phase_tensor.azimuth[0], 40)
+        with self.subTest("Invariant Strike"):
+            self.assertAlmostEqual(zr.invariants.strike[0], 40)
+
+    def test_rotation_minus_5_enu(self):
+        zr = self.z.rotate(-5, coordinate_reference_frame="enu")
+        with self.subTest("PT Strike"):
+            self.assertAlmostEqual(zr.phase_tensor.azimuth[0], 50)
+        with self.subTest("Invariant Strike"):
+            self.assertAlmostEqual(zr.invariants.strike[0], 50)
+
 
 class TestRemoveStaticShift(unittest.TestCase):
     @classmethod
