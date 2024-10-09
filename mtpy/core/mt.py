@@ -38,8 +38,40 @@ class MT(TF, MTLocation):
     letter represents the output channels and the second letter represents
     the input channels.
 
-    For exampe for an input of Hx and an output of Ey the impedance tensor
+    For example for an input of Hx and an output of Ey the impedance tensor
     element is Zyx.
+
+    Coordinate reference frame of the transfer function is by defualt is NED
+
+     - x = North
+     - y = East
+     - z = + Down
+
+    The other option is ENU
+
+    - x = East
+    - y = North
+    - z = + Up
+
+    Other input options for the NED are:
+
+        - "+"
+        - "z+"
+        - "nez+"
+        - "ned"
+        - "exp(+ i\\omega t)"
+        - "exp(+i\\omega t)"
+        - None
+
+    And for ENU:
+
+        - "-"
+        - "z-"
+        - "enz-"
+        - "enu"
+        - "exp(- i\\omega t)"
+        - "exp(-i\\omega t)"
+
     """
 
     def __init__(self, fn=None, **kwargs):
@@ -122,7 +154,19 @@ class MT(TF, MTLocation):
 
     @property
     def coordinate_reference_frame(self):
-        """Coordinate reference frame of the transfer function"""
+        f"""Coordinate reference frame of the transfer function
+        
+        Deafualt is NED
+
+         - x = North
+         - y = East
+         - z = + down
+         
+        Options are:
+            
+            {self._coordinate_reference_frame_options}
+        
+        """
 
         return self._coordinate_reference_frame_options[
             self.station_metadata.transfer_function.sign_convention
