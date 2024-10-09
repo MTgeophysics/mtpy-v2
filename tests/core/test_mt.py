@@ -47,6 +47,15 @@ class TestMT(unittest.TestCase):
         a = MT(coordinate_reference_frame="ned")
         self.assertEqual(a.coordinate_reference_frame, "NED")
 
+    def test_coordinate_reference_frame_set_none(self):
+        a = MT(coordinate_reference_frame=None)
+        self.assertEqual(a.coordinate_reference_frame, "NED")
+
+    def test_sign_convention_none(self):
+        a = MT()
+        a.station_metadata.transfer_function.sign_convention = None
+        self.assertEqual(a.coordinate_reference_frame, "NED")
+
     def test_clone_empty(self):
         new_mt = self.mt.clone_empty()
 

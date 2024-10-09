@@ -18,10 +18,15 @@ __all__ = [
 COORDINATE_REFERENCE_FRAME_OPTIONS = {
     "+": "ned",
     "-": "enu",
+    "z+": "ned",
+    "z-": "enu",
+    "nez+": "ned",
+    "enz-": "enu",
     "ned": "ned",
     "enu": "enu",
     "exp(+ i\\omega t)": "ned",
     "exp(+i\\omega t)": "ned",
     "exp(- i\\omega t)": "enu",
     "exp(-i\\omega t)": "enu",
+    None: "ned",
 }

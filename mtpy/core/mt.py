@@ -77,8 +77,9 @@ class MT(TF, MTLocation):
             COORDINATE_REFERENCE_FRAME_OPTIONS
         )
 
-        if self.station_metadata.transfer_function.sign_convention is None:
-            self.station_metadata.transfer_function.sign_convention = "+"
+        self.coordinate_reference_frame = (
+            self.station_metadata.transfer_function.sign_convention
+        )
 
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -146,6 +147,8 @@ class MT(TF, MTLocation):
          - z = + up
         """
 
+        if value is None:
+            value = "+"
         if value.lower() not in self._coordinate_reference_frame_options:
             raise ValueError(
                 f"{value} is not understood as a reference frame. "
