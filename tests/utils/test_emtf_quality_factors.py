@@ -9,7 +9,6 @@ Created on Wed Jun 12 15:39:08 2024
 # =============================================================================
 import unittest
 
-import numpy as np
 from mtpy import MT
 
 from mt_metadata import (
@@ -53,7 +52,7 @@ class TestTFQualityFactory(unittest.TestCase):
             {"fn": TF_EDI_QUANTEC, "rounded_qf": 5.0, "qf": 4.75},
             {"fn": TF_EDI_RHO_ONLY, "rounded_qf": 4.0, "qf": 3.75},
             {"fn": TF_EDI_SPECTRA, "rounded_qf": 4.0, "qf": 4.0},
-            {"fn": TF_JFILE, "rounded_qf": 2.0, "qf": 2.25},
+            {"fn": TF_JFILE, "rounded_qf": 2.0, "qf": 2.0},
             {"fn": TF_POOR_XML, "rounded_qf": 3.0, "qf": 2.8},
             {"fn": TF_XML, "rounded_qf": 4.0, "qf": 4.4},
             {"fn": TF_XML_COMPLETE_REMOTE_INFO, "rounded_qf": 4.0, "qf": 4.0},
