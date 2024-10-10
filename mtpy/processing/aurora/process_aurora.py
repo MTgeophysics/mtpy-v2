@@ -240,7 +240,10 @@ class AuroraProcessing(BaseProcessing):
             return
 
         tf_obj.tf_id = self.processing_id
+
+        # copy to an MT object
         mt_obj = MT(survey_metadata=tf_obj.survey_metadata)
+        mt_obj.channel_nomenclature = tf_obj.channel_nomenclature
         mt_obj._transfer_function = tf_obj._transfer_function
 
         return mt_obj
