@@ -192,7 +192,7 @@ class AuroraProcessing(BaseProcessing):
                 run_summary = self.get_run_summary()
 
         if sample_rate is not None:
-            run_summary = self.run_summary.set_sample_rate(sample_rate)
+            run_summary = run_summary.set_sample_rate(sample_rate)
 
         self.from_run_summary(
             run_summary,
@@ -339,8 +339,10 @@ class AuroraProcessing(BaseProcessing):
                     kernel_dataset=pdict["kernel_dataset"],
                 )
                 if mt_obj is not None:
-                    tf_processed[sr]["processed"] = True
-                    tf_processed[sr]["tf"] = mt_obj
+                    tf_processed[key][
+                        "processed"
+                    ] = mt_obj.has_transfer_function()
+                    tf_processed[key]["tf"] = mt_obj
 
         processed = self._validate_tf_processed_dict(tf_processed)
         if len(processed.keys()) > 1:
@@ -420,6 +422,10 @@ class AuroraProcessing(BaseProcessing):
         for key, p_dict in tf_dict.items():
             if p_dict["processed"]:
                 new_dict[key] = p_dict
+            else:
+                self.logger.warning(
+                    f"Sample rate {key} was not processed correctly. Check log."
+                )
 
         if new_dict == {}:
             raise ValueError("No Transfer Functions were processed.")
