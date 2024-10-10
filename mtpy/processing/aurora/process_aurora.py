@@ -194,7 +194,12 @@ class AuroraProcessing(BaseProcessing):
         if sample_rate is not None:
             run_summary = self.run_summary.set_sample_rate(sample_rate)
 
-        self.from_run_summary(run_summary)
+        self.from_run_summary(
+            run_summary,
+            local_station_id=local_station_id,
+            remote_station_id=remote_station_id,
+            sample_rate=sample_rate,
+        )
         return self.clone()
 
     def process_single_sample_rate(
