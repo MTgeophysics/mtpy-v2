@@ -189,7 +189,7 @@ class AuroraProcessing(BaseProcessing):
 
         if run_summary is None:
             if not self.has_run_summary():
-                self.run_summary = self.get_run_summary()
+                run_summary = self.get_run_summary()
 
         if sample_rate is not None:
             run_summary = self.run_summary.set_sample_rate(sample_rate)
@@ -334,6 +334,7 @@ class AuroraProcessing(BaseProcessing):
             )
             for key, pdict in processing_dict.items():
                 mt_obj = self.process_single_sample_rate(
+                    key,
                     config=pdict["config"],
                     kernel_dataset=pdict["kernel_dataset"],
                 )
