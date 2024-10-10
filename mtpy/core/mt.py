@@ -14,7 +14,7 @@ import numpy as np
 
 from mt_metadata.transfer_functions.core import TF
 
-from mtpy.core import Z, Tipper
+from mtpy.core import Z, Tipper, COORDINATE_REFERENCE_FRAME_OPTIONS
 from mtpy.core.mt_location import MTLocation
 from mtpy.core.mt_dataframe import MTDataFrame
 from mtpy.utils.estimate_tf_quality_factor import EMTFStats
@@ -38,8 +38,40 @@ class MT(TF, MTLocation):
     letter represents the output channels and the second letter represents
     the input channels.
 
-    For exampe for an input of Hx and an output of Ey the impedance tensor
+    For example for an input of Hx and an output of Ey the impedance tensor
     element is Zyx.
+
+    Coordinate reference frame of the transfer function is by defualt is NED
+
+     - x = North
+     - y = East
+     - z = + Down
+
+    The other option is ENU
+
+    - x = East
+    - y = North
+    - z = + Up
+
+    Other input options for the NED are:
+
+        - "+"
+        - "z+"
+        - "nez+"
+        - "ned"
+        - "exp(+ i\\omega t)"
+        - "exp(+i\\omega t)"
+        - None
+
+    And for ENU:
+
+        - "-"
+        - "z-"
+        - "enz-"
+        - "enu"
+        - "exp(- i\\omega t)"
+        - "exp(-i\\omega t)"
+
     """
 
     def __init__(self, fn=None, **kwargs):
@@ -65,9 +97,6 @@ class MT(TF, MTLocation):
         TF.__init__(self, **tf_kwargs)
         MTLocation.__init__(self, survey_metadata=self._survey_metadata)
 
-        # MTLocation.__init__(self)
-        # TF.__init__(self)
-
         self.fn = fn
 
         self._Z = Z()
@@ -75,6 +104,14 @@ class MT(TF, MTLocation):
         self._rotation_angle = 0
 
         self.save_dir = Path.cwd()
+
+        self._coordinate_reference_frame_options = (
+            COORDINATE_REFERENCE_FRAME_OPTIONS
+        )
+
+        self.coordinate_reference_frame = (
+            self.station_metadata.transfer_function.sign_convention
+        )
 
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -116,8 +153,67 @@ class MT(TF, MTLocation):
         return deepcopy(self)
 
     @property
+    def coordinate_reference_frame(self):
+        f"""Coordinate reference frame of the transfer function
+        
+        Deafualt is NED
+
+         - x = North
+         - y = East
+         - z = + down
+         
+        Options are:
+            
+            {self._coordinate_reference_frame_options}
+        
+        """
+
+        return self._coordinate_reference_frame_options[
+            self.station_metadata.transfer_function.sign_convention
+        ].upper()
+
+    @coordinate_reference_frame.setter
+    def coordinate_reference_frame(self, value):
+        """set coordinate_reference_frame
+
+        options are NED, ENU
+
+        NED
+
+         - x = North
+         - y = East
+         - z = + down
+
+        ENU
+
+         - x = East
+         - y = North
+         - z = + up
+        """
+
+        if value is None:
+            value = "+"
+        if value.lower() not in self._coordinate_reference_frame_options:
+            raise ValueError(
+                f"{value} is not understood as a reference frame. "
+                f"Options are {self._coordinate_reference_frame_options}"
+            )
+        if value in ["ned"] or "+" in value:
+            value = "+"
+        elif value in ["enu"] or "-" in value:
+            value = "-"
+            self.logger.warning(
+                "MTpy-v2 is assumes a NED coordinate system where x=North, "
+                "y=East, z=+down. By changing to ENU there maybe some "
+                "incorrect values for angles and derivative products of the "
+                "impedance tensor."
+            )
+
+        self.station_metadata.transfer_function.sign_convention = value
+
+    @property
     def rotation_angle(self):
-        """Rotation angle in degrees from north."""
+        """Rotation angle in degrees from north. In the coordinate reference frame"""
         return self._rotation_angle
 
     @rotation_angle.setter
@@ -127,7 +223,7 @@ class MT(TF, MTLocation):
 
         upon setting rotates Z and Tipper
 
-        TODO figure this out with xarray
+        TODO: figure this out with xarray
         """
 
         self.rotate(theta_r)
@@ -136,32 +232,49 @@ class MT(TF, MTLocation):
     def rotate(self, theta_r, inplace=True):
         """Rotate the data in degrees assuming North is 0 measuring clockwise
         positive to East as 90.
-        :param theta_r: DESCRIPTION.
-        :type theta_r: TYPE
-        :param inplace: DESCRIPTION, defaults to True.
-        :type inplace: TYPE, optional
-        :return: DESCRIPTION.
-        :rtype: TYPE
+
+        :param theta_r: rotation angle to rotate by in degrees.
+        :type theta_r: float
+        :param inplace: rotate all transfer function in place, defaults to True.
+        :type inplace: bool, optional
+        :return: if inplace is False, returns a new MT object.
+        :rtype: MT object
+
         """
+
+        if self.has_impedance():
+            new_z = self.Z.rotate(
+                theta_r,
+                inplace=False,
+                coordinate_reference_frame=self.coordinate_reference_frame,
+            )
+        if self.has_tipper():
+            new_t = self.Tipper.rotate(
+                theta_r,
+                inplace=False,
+                coordinate_reference_frame=self.coordinate_reference_frame,
+            )
 
         if inplace:
             if self.has_impedance():
-                self.Z = self.Z.rotate(theta_r)
+                self.Z = new_z
             if self.has_tipper():
-                self.Tipper = self.Tipper.rotate(theta_r)
+                self.Tipper = new_t
 
-            self._rotation_angle = theta_r
+            self._rotation_angle += theta_r
 
             self.logger.info(
-                f"Rotated transfer function by: {self._rotation_angle:.3f} degrees clockwise"
+                f"Rotated transfer function by: {self._rotation_angle:.3f} "
+                "degrees clockwise in reference frame "
+                f"{self.coordinate_reference_frame}."
             )
         else:
             new_m = self.clone_empty()
             if self.has_impedance():
-                new_m.Z = self.Z.rotate(theta_r)
+                new_m.Z = new_z
             if self.has_tipper():
-                new_m.Tipper = self.Tipper.rotate(theta_r)
-            new_m._rotation_angle = self._rotation_angle
+                new_m.Tipper = new_t
+            new_m._rotation_angle += theta_r
             return new_m
 
     @property
@@ -959,7 +1072,9 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j * self._transfer_function.transfer_function.imag * noise_imag
+                1j
+                * self._transfer_function.transfer_function.imag
+                * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
@@ -973,7 +1088,9 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j * self._transfer_function.transfer_function.imag * noise_imag
+                1j
+                * self._transfer_function.transfer_function.imag
+                * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (

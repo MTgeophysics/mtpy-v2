@@ -84,58 +84,66 @@ class ZInvariants:
     @property
     def _x1(self):
         if self.has_impedance():
-            return self._zero_to_nan(
-                0.5 * (self.z[:, 0, 0].real + self.z[:, 1, 1].real)
-            )
+            # return self._zero_to_nan(
+            #     0.5 * (self.z[:, 0, 0].real + self.z[:, 1, 1].real)
+            # )
+            return 0.5 * (self.z[:, 0, 0].real + self.z[:, 1, 1].real)
 
     @property
     def _x2(self):
         if self.has_impedance():
-            return self._zero_to_nan(
-                0.5 * (self.z[:, 0, 1].real + self.z[:, 1, 0].real)
-            )
+            # return self._zero_to_nan(
+            #     0.5 * (self.z[:, 0, 1].real + self.z[:, 1, 0].real)
+            # )
+            return 0.5 * (self.z[:, 0, 1].real + self.z[:, 1, 0].real)
 
     @property
     def _x3(self):
         if self.has_impedance():
-            return self._zero_to_nan(
-                0.5 * (self.z[:, 0, 0].real - self.z[:, 1, 1].real)
-            )
+            # return self._zero_to_nan(
+            #     0.5 * (self.z[:, 0, 0].real - self.z[:, 1, 1].real)
+            # )
+            return 0.5 * (self.z[:, 0, 0].real - self.z[:, 1, 1].real)
 
     @property
     def _x4(self):
         if self.has_impedance():
-            return self._zero_to_nan(
-                0.5 * (self.z[:, 0, 1].real - self.z[:, 1, 0].real)
-            )
+            # return self._zero_to_nan(
+            #     0.5 * (self.z[:, 0, 1].real - self.z[:, 1, 0].real)
+            # )
+            return 0.5 * (self.z[:, 0, 1].real - self.z[:, 1, 0].real)
 
     @property
     def _e1(self):
         if self.has_impedance():
-            return self._zero_to_nan(
-                0.5 * (self.z[:, 0, 0].imag + self.z[:, 1, 1].imag)
-            )
+            # return self._zero_to_nan(
+            #     0.5 * (self.z[:, 0, 0].imag + self.z[:, 1, 1].imag)
+            # )
+            return 0.5 * (self.z[:, 0, 0].imag + self.z[:, 1, 1].imag)
 
     @property
     def _e2(self):
         if self.has_impedance():
-            return self._zero_to_nan(
-                0.5 * (self.z[:, 0, 1].imag + self.z[:, 1, 0].imag)
-            )
+            # return self._zero_to_nan(
+            #     0.5 * (self.z[:, 0, 1].imag + self.z[:, 1, 0].imag)
+            # )
+            return 0.5 * (self.z[:, 0, 1].imag + self.z[:, 1, 0].imag)
 
     @property
     def _e3(self):
         if self.has_impedance():
-            return self._zero_to_nan(
-                0.5 * (self.z[:, 0, 0].imag - self.z[:, 1, 1].imag)
-            )
+            # return self._zero_to_nan(
+            #     0.5 * (self.z[:, 0, 0].imag - self.z[:, 1, 1].imag)
+            # )
+            return 0.5 * (self.z[:, 0, 0].imag - self.z[:, 1, 1].imag)
 
     @property
     def _e4(self):
         if self.has_impedance():
-            return self._zero_to_nan(
-                0.5 * (self.z[:, 0, 1].imag - self.z[:, 1, 0].imag)
-            )
+            # return self._zero_to_nan(
+            #     0.5 * (self.z[:, 0, 1].imag - self.z[:, 1, 0].imag)
+            # )
+            return 0.5 * (self.z[:, 0, 1].imag - self.z[:, 1, 0].imag)
 
     @property
     def _ex(self):
@@ -146,7 +154,6 @@ class ZInvariants:
                 - self._x3 * self._e3
                 + self._x4 * self._e4
             )
-            ex[np.where(ex == 0)] = np.nan
 
             return self._zero_to_nan(ex)
 
@@ -166,17 +173,13 @@ class ZInvariants:
     def anisotropic_real(self):
         """inv 3"""
         if self.has_impedance():
-            return (
-                np.sqrt(self._x2**2 + self._x3**2) / self.normalizing_real
-            )
+            return np.sqrt(self._x2**2 + self._x3**2) / self.normalizing_real
 
     @property
     def anisotropic_imag(self):
         """inv 4"""
         if self.has_impedance():
-            return (
-                np.sqrt(self._e2**2 + self._e3**2) / self.normalizing_imag
-            )
+            return np.sqrt(self._e2**2 + self._e3**2) / self.normalizing_imag
 
     @property
     def electric_twist(self):

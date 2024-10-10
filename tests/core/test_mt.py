@@ -28,6 +28,34 @@ class TestMT(unittest.TestCase):
         self.mt.latitude = 10
         self.mt.longitude = 20
 
+    def test_coordinate_reference_frame(self):
+        self.assertEqual(self.mt.coordinate_reference_frame, "ned".upper())
+
+    def test_coordinate_reference_frame_set_minus(self):
+        a = MT(coordinate_reference_frame="-")
+        self.assertEqual(a.coordinate_reference_frame, "ENU")
+
+    def test_coordinate_reference_frame_set_enu(self):
+        a = MT(coordinate_reference_frame="enu")
+        self.assertEqual(a.coordinate_reference_frame, "ENU")
+
+    def test_coordinate_reference_frame_set_plus(self):
+        a = MT(coordinate_reference_frame="+")
+        self.assertEqual(a.coordinate_reference_frame, "NED")
+
+    def test_coordinate_reference_frame_set_ned(self):
+        a = MT(coordinate_reference_frame="ned")
+        self.assertEqual(a.coordinate_reference_frame, "NED")
+
+    def test_coordinate_reference_frame_set_none(self):
+        a = MT(coordinate_reference_frame=None)
+        self.assertEqual(a.coordinate_reference_frame, "NED")
+
+    def test_sign_convention_none(self):
+        a = MT()
+        a.station_metadata.transfer_function.sign_convention = None
+        self.assertEqual(a.coordinate_reference_frame, "NED")
+
     def test_clone_empty(self):
         new_mt = self.mt.clone_empty()
 
@@ -72,7 +100,9 @@ class TestMTSetImpedance(unittest.TestCase):
             [[[35.26438968, 0.20257033], [0.20257033, 35.26438968]]]
         )
 
-        self.pt = np.array([[[1.00020002, -0.020002], [-0.020002, 1.00020002]]])
+        self.pt = np.array(
+            [[[1.00020002, -0.020002], [-0.020002, 1.00020002]]]
+        )
         self.pt_error = np.array(
             [[[0.01040308, 0.02020604], [0.02020604, 0.01040308]]]
         )
@@ -213,8 +243,7 @@ class TestMTSetImpedance(unittest.TestCase):
 
 
 class TestMTComputeModelError(unittest.TestCase):
-    @classmethod
-    def setUpClass(self):
+    def setUp(self):
         self.z = np.array(
             [[0.1 - 0.1j, 10 + 10j], [-10 - 10j, -0.1 + 0.1j]]
         ).reshape((1, 2, 2))
@@ -230,6 +259,30 @@ class TestMTComputeModelError(unittest.TestCase):
         self.mt.compute_model_z_errors()
 
         self.assertTrue(np.allclose(self.mt.impedance_model_error.data, err))
+
+    def test_rotation(self):
+        self.mt.rotate(10)
+        with self.subTest("rot 10 strike"):
+            self.assertAlmostEqual(305, self.mt.pt.azimuth[0])
+        with self.subTest("rot 10 rotation angle"):
+            self.assertEqual(10, self.mt.rotation_angle)
+        self.mt.rotate(20)
+        with self.subTest("rot 20 strike"):
+            self.assertAlmostEqual(285, self.mt.pt.azimuth[0])
+        with self.subTest("rot 10 rotation angle"):
+            self.assertEqual(self.mt.rotation_angle, 30)
+
+    def test_rotation_not_inplace(self):
+        self.mt.rotate(10)
+        with self.subTest("rot 10 strike"):
+            self.assertAlmostEqual(305, self.mt.pt.azimuth[0])
+        with self.subTest("rot 10 rotation angle"):
+            self.assertEqual(10, self.mt.rotation_angle)
+        self.mt.rotate(20)
+        with self.subTest("rot 20 strike"):
+            self.assertAlmostEqual(285, self.mt.pt.azimuth[0])
+        with self.subTest("rot 10 rotation angle"):
+            self.assertEqual(self.mt.rotation_angle, 30)
 
 
 class TestSetTipper(unittest.TestCase):

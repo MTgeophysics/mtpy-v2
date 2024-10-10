@@ -164,7 +164,9 @@ class TFBase:
             tf_error = np.zeros_like(
                 tf_model_error, dtype=self._tf_dtypes["tf_error"]
             )
-            periods = self._validate_frequency(periods, tf_model_error.shape[0])
+            periods = self._validate_frequency(
+                periods, tf_model_error.shape[0]
+            )
 
         else:
             periods = self._validate_frequency(periods)
@@ -466,14 +468,41 @@ class TFBase:
 
             return inverse
 
-    def rotate(self, alpha, inplace=False):
+    def rotate(self, alpha, inplace=False, coordinate_reference_frame="ned"):
         """Rotate transfer function array by angle alpha.
 
         Rotation angle must be given in degrees. All angles are referenced
-        to geographic North, positive in clockwise direction.
-        (Mathematically negative!)
+        to the `coordinate_reference_frame` where the rotation angle is
+        clockwise positive, rotating North into East.
 
-        In non-rotated state, X refs to North and Y to East direction.
+        Most transfer functions are referenced an NED coordinate system, which
+        is what MTpy uses as the default.
+
+        In the NED coordinate system:
+
+        x=North, y=East, z=+down and a positve clockwise rotation is a positive
+        angle. In this coordinate system the rotation matrix is the
+        conventional rotation matrix.
+
+        In the ENU coordinate system:
+
+        x=East, y=North, z=+up and a positve clockwise rotation is a positive
+        angle. In this coordinate system the rotation matrix is the
+        inverser of the conventional rotation matrix.
+
+        :param alpha: Angle to rotate by assuming a clockwise rotation from
+         north in the `coordinate_reference_frame`
+        :type alpha: float (in degrees)
+        :param inplace: rotate in place. Will add alpha to `rotation_angle`
+        :type inplace: bool
+        :param coordinate_reference_frame: If set to `ned` or `+` then the
+         rotation will be clockwise from north (x1).  Therefore, a positive
+         angle will rotate eastward and a negative angle will rotate westward.
+         If set to `enu` or `-` then rotation will be counter-clockwise in a
+         coordinate system of (x1, x2). The angle is then positive from x1 to
+         x2.
+        :return: rotated transfer function if `inplace` is False
+        :rtype: xarray.DataSet
         """
 
         if not self._has_tf():
@@ -497,6 +526,18 @@ class TFBase:
                 msg = f"Angle must be a valid number (in degrees) not {alpha}"
                 self.logger.error(msg)
                 raise ValueError(msg)
+
+        def get_clockwise(coordinate_reference_frame):
+
+            if coordinate_reference_frame.lower() in ["ned", "+"]:
+                return True
+            elif coordinate_reference_frame.lower() in ["enu", "-"]:
+                return False
+            else:
+                raise ValueError(
+                    f"coordinate_reference_frame {coordinate_reference_frame} "
+                    "not understood."
+                )
 
         if isinstance(alpha, (float, int, str)):
             degree_angle = np.repeat(
@@ -530,6 +571,7 @@ class TFBase:
         )
 
         rotate_func = get_rotate_function(self._expected_shape)
+        clockwise = get_clockwise(coordinate_reference_frame)
 
         for index, angle in enumerate(degree_angle):
             if self._has_tf():
@@ -541,6 +583,7 @@ class TFBase:
                         ds.transfer_function[index].values,
                         angle,
                         ds.transfer_function_error[index].values,
+                        clockwise=clockwise,
                     )
                 if self._has_tf_model_error():
                     (
@@ -550,11 +593,13 @@ class TFBase:
                         ds.transfer_function[index].values,
                         angle,
                         ds.transfer_function_model_error[index].values,
+                        clockwise=clockwise,
                     )
                 if not self._has_tf_error() and not self._has_tf_model_error():
                     (rot_tf[index, :, :], _) = rotate_func(
                         ds.transfer_function[index].values,
                         angle,
+                        clockwise=clockwise,
                     )
         ds.transfer_function.values = rot_tf
         ds.transfer_function_error.values = rot_tf_error
@@ -579,41 +624,41 @@ class TFBase:
     ):
         """Interpolate onto a new period range.
 
-        The way this works is that NaNs
-are first interpolated using method `na_method` along the original
-        period map. This allows us to use xarray tools for interpolation. If we
-        drop NaNs using xarray it drops each column or row that has a single
-        NaN and removes way too much data. Therefore interpolating NaNs first
-        keeps most of the data.  Then a 1D interpolation is done for the
-        `new_periods` using method `method`.
+                The way this works is that NaNs
+        are first interpolated using method `na_method` along the original
+                period map. This allows us to use xarray tools for interpolation. If we
+                drop NaNs using xarray it drops each column or row that has a single
+                NaN and removes way too much data. Therefore interpolating NaNs first
+                keeps most of the data.  Then a 1D interpolation is done for the
+                `new_periods` using method `method`.
 
-        'pchip' seems to work best when using xr.interpolate_na
+                'pchip' seems to work best when using xr.interpolate_na
 
-        Set log_space=True if the object being interpolated is in log space,
-        like impedance. It seems that functions that are naturally in log-space
-        cause issues with the interpolators so taking the log of the function
-        seems to produce better results.
-        :param new_periods: New periods to interpolate on to.
-        :type new_periods: np.ndarray, list
-        :param inplace: Interpolate inplace, defaults to False.
-        :type inplace: bool, optional
-        :param method: Method for 1D linear interpolation options are
-            ["linear", "nearest", "zero", "slinear", "quadratic", "cubic"],, defaults to "slinear".
-        :type method: string, optional
-        :param na_method: Method to interpolate NaNs along original periods
-            options are {"linear", "nearest", "zero", "slinear", "quadratic",
-            "cubic", "polynomial", "barycentric", "krogh", "pchip", "spline",
-            "akima"}, defaults to "pchip".
-        :type na_method: string, optional
-        :param log_space: Set to true if function is naturally logarithmic,, defaults to False.
-        :type log_space: bool, optional
-        :param extrapolate: Extrapolate past original period range, default is
-            False. If set to True be careful cause the values are not great, defaults to False.
-        :type extrapolate: bool, optional
-        :param **kwargs: Keyword args passed to interpolation methods.
-        :type **kwargs: dict
-        :return: Interpolated object.
-        :rtype: :class:`mtpy.core.transfer_fuction.base.TFBase`
+                Set log_space=True if the object being interpolated is in log space,
+                like impedance. It seems that functions that are naturally in log-space
+                cause issues with the interpolators so taking the log of the function
+                seems to produce better results.
+                :param new_periods: New periods to interpolate on to.
+                :type new_periods: np.ndarray, list
+                :param inplace: Interpolate inplace, defaults to False.
+                :type inplace: bool, optional
+                :param method: Method for 1D linear interpolation options are
+                    ["linear", "nearest", "zero", "slinear", "quadratic", "cubic"],, defaults to "slinear".
+                :type method: string, optional
+                :param na_method: Method to interpolate NaNs along original periods
+                    options are {"linear", "nearest", "zero", "slinear", "quadratic",
+                    "cubic", "polynomial", "barycentric", "krogh", "pchip", "spline",
+                    "akima"}, defaults to "pchip".
+                :type na_method: string, optional
+                :param log_space: Set to true if function is naturally logarithmic,, defaults to False.
+                :type log_space: bool, optional
+                :param extrapolate: Extrapolate past original period range, default is
+                    False. If set to True be careful cause the values are not great, defaults to False.
+                :type extrapolate: bool, optional
+                :param **kwargs: Keyword args passed to interpolation methods.
+                :type **kwargs: dict
+                :return: Interpolated object.
+                :rtype: :class:`mtpy.core.transfer_fuction.base.TFBase`
         """
 
         da_dict = {}
@@ -660,14 +705,14 @@ are first interpolated using method `na_method` along the original
     def _find_nans_index(data_array):
         """Find nans at beginning and end of xarray.
 
-        When you interpolate a
-xarray.DataArray we interpolate nans, which removes the original nans
-        at the beginning and end of the array.  We need to find these
-        indicies and period min and max so we can put them back in.
-        :param data_array: DESCRIPTION.
-        :type data_array: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+                When you interpolate a
+        xarray.DataArray we interpolate nans, which removes the original nans
+                at the beginning and end of the array.  We need to find these
+                indicies and period min and max so we can put them back in.
+                :param data_array: DESCRIPTION.
+                :type data_array: TYPE
+                :return: DESCRIPTION.
+                :rtype: TYPE
         """
 
         index_list = []

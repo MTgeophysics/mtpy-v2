@@ -189,21 +189,19 @@ class KernelDataset:
             return False
         return False
 
-    def _df_has_local_station_id(self) -> bool:
+    def _df_has_local_station_id(self, df) -> bool:
         """Check to make sure the dataframe has the local station id.
         :return: DESCRIPTION.
         :rtype: bool
         """
-        if self._has_df():
-            return (self._df.station == self.local_station_id).any()
+        return (df.station == self.local_station_id).any()
 
-    def _df_has_remote_station_id(self) -> bool:
+    def _df_has_remote_station_id(self, df) -> bool:
         """Check to make sure the dataframe has the local station id.
         :return: DESCRIPTION.
         :rtype: bool
         """
-        if self._has_df():
-            return (self._df.station == self.remote_station_id).any()
+        return (df.station == self.remote_station_id).any()
 
     def _set_datetime_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Be sure to set start and end to be date time objects."""
@@ -226,9 +224,9 @@ class KernelDataset:
         return copy.deepcopy(self.df)
 
     def _add_columns(
-            self,
-            df: pd.DataFrame,
-            null_columns: Optional[Union[list, tuple]] = ("fc",)
+        self,
+        df: pd.DataFrame,
+        null_columns: Optional[Union[list, tuple]] = ("fc",),
     ) -> pd.DataFrame:
         """
         Add columns with appropriate dtypes.
@@ -257,8 +255,10 @@ class KernelDataset:
                     df[col] = pd.NA
                     assigned_dtype = type(pd.NA)
 
-                msg = f"KernelDataset DataFrame needs column {col}, adding and " \
-                      f"setting dtype to {assigned_dtype}."
+                msg = (
+                    f"KernelDataset DataFrame needs column {col}, adding and "
+                    f"setting dtype to {assigned_dtype}."
+                )
                 logger.info(msg)
 
         return df
@@ -282,7 +282,7 @@ class KernelDataset:
                     "Cannot convert local_station_id value to string."
                 )
             if self._has_df():
-                if not self._df_has_local_station_id():
+                if not self._df_has_local_station_id(self.df):
                     raise NameError(
                         f"Could not find {self._local_station_id} in dataframe"
                     )
@@ -333,7 +333,7 @@ class KernelDataset:
                     "Cannot convert remote_station_id value to string."
                 )
             if self._has_df():
-                if not self._df_has_remote_station_id():
+                if not self._df_has_remote_station_id(self.df):
                     raise NameError(
                         f"Could not find {self._remote_station_id} in dataframe"
                     )
@@ -451,6 +451,9 @@ class KernelDataset:
         :param remote_station_id: Label of the remote reference station, defaults to None.
         :type remote_station_id: Optional[Union[str, None]], optional
         """
+
+        self.df = None
+
         if local_station_id is not None:
             self.local_station_id = local_station_id
         if remote_station_id is not None:
@@ -459,9 +462,9 @@ class KernelDataset:
         if sample_rate is not None:
             run_summary = run_summary.set_sample_rate(sample_rate)
 
-        station_ids = [self.local_station_id]
+        station_ids = [local_station_id]
         if self.remote_station_id:
-            station_ids.append(self.remote_station_id)
+            station_ids.append(remote_station_id)
         df = restrict_to_station_list(
             run_summary.df, station_ids, inplace=False
         )
@@ -477,7 +480,7 @@ class KernelDataset:
 
         # set remote reference
         if self.remote_station_id:
-            cond = df.station == self.remote_station_id
+            cond = df.station == remote_station_id
             df.remote = cond
 
         # be sure to set date time columns and restrict to simultaneous runs
@@ -488,8 +491,8 @@ class KernelDataset:
         # Again check df is non-empty
         if len(df) == 0:
             msg = (
-                f"Local: {self.local_station_id} and remote: "
-                f"{self.remote_station_id} do not overlap. Remote reference "
+                f"Local: {local_station_id} and remote: "
+                f"{remote_station_id} do not overlap. Remote reference "
                 "processing not a valid option."
             )
             logger.error(msg)
@@ -883,9 +886,7 @@ class KernelDataset:
             self.df["run_hdf5_reference"].at[i] = run_obj.hdf5_group.ref
 
             if row.fc:
-                msg = (
-                    f"row {row} already has fcs prescribed by processing config"
-                )
+                msg = f"row {row} already has fcs prescribed by processing config"
                 msg += "-- skipping time series initialisation"
                 logger.info(msg)
                 # see Note #3

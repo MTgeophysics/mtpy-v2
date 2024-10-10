@@ -404,7 +404,9 @@ class TestMTCollection(unittest.TestCase):
             original.survey_metadata.hdf5_reference = (
                 h5_tf.survey_metadata.hdf5_reference
             )
-            original.survey_metadata.mth5_type = h5_tf.survey_metadata.mth5_type
+            original.survey_metadata.mth5_type = (
+                h5_tf.survey_metadata.mth5_type
+            )
             original.station_metadata.acquired_by.author = (
                 h5_tf.station_metadata.acquired_by.author
             )
@@ -497,9 +499,11 @@ class TestMTCollection(unittest.TestCase):
 
         mt_data_01["CONUS_South.NMX20"].survey_metadata.update_bounding_box()
 
-        mt_data_02["unknown_survey_009.SAGE_2005_out"].station_metadata.runs = (
-            mt_data_01["unknown_survey_009.SAGE_2005_out"].station_metadata.runs
-        )
+        mt_data_02[
+            "unknown_survey_009.SAGE_2005_out"
+        ].station_metadata.runs = mt_data_01[
+            "unknown_survey_009.SAGE_2005_out"
+        ].station_metadata.runs
 
         with self.subTest("mt_data equal"):
             self.assertEqual(mt_data_01, mt_data_02)
@@ -610,6 +614,13 @@ class TestMTCollectionFromMTData03(unittest.TestCase):
         for tf_id in self.mc.dataframe.tf_id:
             with self.subTest(tf_id):
                 self.assertIn("new", tf_id)
+
+    def test_mt_data_coordinate_reference_frame(self):
+        self.mt_data_obj.coordinate_reference_frame = "ned"
+
+        for mt_obj in self.mt_data_obj.values():
+            with self.subTest(mt_obj.station):
+                self.assertEqual(mt_obj.coordinate_reference_frame, "NED")
 
     @classmethod
     def tearDownClass(self):

@@ -210,9 +210,9 @@ class TestSetTipper(unittest.TestCase):
         b = self.tipper.rotate(45)
 
         with self.subTest("angle_real"):
-            self.assertTrue(np.isclose(b.angle_real, np.array([90])).all())
+            self.assertTrue(np.isclose(b.angle_real, np.array([0])).all())
         with self.subTest("angle_imag"):
-            self.assertTrue(np.isclose(b.angle_imag, np.array([90])).all())
+            self.assertTrue(np.isclose(b.angle_imag, np.array([0])).all())
         with self.subTest("mag_error"):
             self.assertTrue(np.isclose(b.mag_error, np.array([0.02])).all())
         with self.subTest("mag_model_error"):

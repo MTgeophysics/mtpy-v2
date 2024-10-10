@@ -58,6 +58,7 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
         # set the frequency to plot
         self.plot_station = False
         self.plot_period = 1.0
+        self.plot_pt = True
 
         self.pt_type = "wedges"
         self.skew_cmap = "mt_seg_bl2wh2rd"
@@ -632,7 +633,9 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
                     ticks=self.ellipse_cmap_bounds,
                 )
             elif "skew" in key:
-                norms = colors.BoundaryNorm(self.skew_cmap_bounds, cmap_input.N)
+                norms = colors.BoundaryNorm(
+                    self.skew_cmap_bounds, cmap_input.N
+                )
                 cb = mcb.ColorbarBase(
                     ax,
                     cmap=cmap_input,

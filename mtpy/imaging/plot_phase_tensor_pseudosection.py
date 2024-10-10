@@ -75,6 +75,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
         super().__init__(mt_data, **kwargs)
 
         self._rotation_angle = 0
+        self.plot_pt = True
 
         self.x_stretch = 1
         self.y_stretch = 10000
@@ -362,8 +363,8 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
     def plot(self):
         """Plots the phase tensor pseudo section.
 
-        See class doc string for
-more details.
+                See class doc string for
+        more details.
         """
 
         self._set_subplot_params()

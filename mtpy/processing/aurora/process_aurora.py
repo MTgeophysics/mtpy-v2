@@ -189,12 +189,19 @@ class AuroraProcessing(BaseProcessing):
 
         if run_summary is None:
             if not self.has_run_summary():
-                self.run_summary = self.get_run_summary()
+                run_summary = self.get_run_summary()
+            else:
+                run_summary = self.run_summary
 
         if sample_rate is not None:
-            run_summary = self.run_summary.set_sample_rate(sample_rate)
+            run_summary = run_summary.set_sample_rate(sample_rate)
 
-        self.from_run_summary(run_summary)
+        self.from_run_summary(
+            run_summary,
+            local_station_id=local_station_id,
+            remote_station_id=remote_station_id,
+            sample_rate=sample_rate,
+        )
         return self.clone()
 
     def process_single_sample_rate(
@@ -233,7 +240,10 @@ class AuroraProcessing(BaseProcessing):
             return
 
         tf_obj.tf_id = self.processing_id
+
+        # copy to an MT object
         mt_obj = MT(survey_metadata=tf_obj.survey_metadata)
+        mt_obj.channel_nomenclature = tf_obj.channel_nomenclature
         mt_obj._transfer_function = tf_obj._transfer_function
 
         return mt_obj
@@ -329,12 +339,15 @@ class AuroraProcessing(BaseProcessing):
             )
             for key, pdict in processing_dict.items():
                 mt_obj = self.process_single_sample_rate(
+                    key,
                     config=pdict["config"],
                     kernel_dataset=pdict["kernel_dataset"],
                 )
                 if mt_obj is not None:
-                    tf_processed[sr]["processed"] = True
-                    tf_processed[sr]["tf"] = mt_obj
+                    tf_processed[key][
+                        "processed"
+                    ] = mt_obj.has_transfer_function()
+                    tf_processed[key]["tf"] = mt_obj
 
         processed = self._validate_tf_processed_dict(tf_processed)
         if len(processed.keys()) > 1:
@@ -414,6 +427,10 @@ class AuroraProcessing(BaseProcessing):
         for key, p_dict in tf_dict.items():
             if p_dict["processed"]:
                 new_dict[key] = p_dict
+            else:
+                logger.warning(
+                    f"Sample rate {key} was not processed correctly. Check log."
+                )
 
         if new_dict == {}:
             raise ValueError("No Transfer Functions were processed.")

@@ -47,7 +47,7 @@ import mtpy.utils.calculator as MTcc
 # =============================================================================
 
 
-def find_distortion(z_object, comp="det", only_2d=False):
+def find_distortion(z_object, comp="det", only_2d=False, clockwise=True):
     """Find optimal distortion tensor from z object
 
     automatically determine the dimensionality over all frequencies, then find
@@ -99,8 +99,16 @@ def find_distortion(z_object, comp="det", only_2d=False):
             dis[index] = np.mean(
                 np.array(
                     [
-                        (1.0 / compr * np.dot(z_object.z.real[index], rot_mat)),
-                        (1.0 / compi * np.dot(z_object.z.imag[index], rot_mat)),
+                        (
+                            1.0
+                            / compr
+                            * np.dot(z_object.z.real[index], rot_mat)
+                        ),
+                        (
+                            1.0
+                            / compi
+                            * np.dot(z_object.z.imag[index], rot_mat)
+                        ),
                     ]
                 ),
                 axis=0,
@@ -132,7 +140,10 @@ def find_distortion(z_object, comp="det", only_2d=False):
                 err_array = None
 
             tetm_array, tetm_error = MTcc.rotate_matrix_with_errors(
-                z_object.z[index], strike_ang, error=err_array
+                z_object.z[index],
+                strike_ang,
+                error=err_array,
+                clockwise=clockwise,
             )
 
             tetm_r = tetm_array.real
@@ -318,7 +329,9 @@ def find_distortion(z_object, comp="det", only_2d=False):
                     ]
                 )
 
-                dis_error[index] = np.mean(np.array([dis_error_r, dis_error_i]))
+                dis_error[index] = np.mean(
+                    np.array([dis_error_r, dis_error_i])
+                )
         else:
             dis[index] = np.identity(2)
 
