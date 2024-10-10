@@ -190,6 +190,8 @@ class AuroraProcessing(BaseProcessing):
         if run_summary is None:
             if not self.has_run_summary():
                 run_summary = self.get_run_summary()
+            else:
+                run_summary = self.run_summary
 
         if sample_rate is not None:
             run_summary = run_summary.set_sample_rate(sample_rate)
@@ -423,7 +425,7 @@ class AuroraProcessing(BaseProcessing):
             if p_dict["processed"]:
                 new_dict[key] = p_dict
             else:
-                self.logger.warning(
+                logger.warning(
                     f"Sample rate {key} was not processed correctly. Check log."
                 )
 
