@@ -448,7 +448,9 @@ class Z(TFBase):
         res_error = self._validate_array_input(res_error, float)
         phase_error = self._validate_array_input(phase_error, float)
         res_model_error = self._validate_array_input(res_model_error, float)
-        phase_model_error = self._validate_array_input(phase_model_error, float)
+        phase_model_error = self._validate_array_input(
+            phase_model_error, float
+        )
 
         abs_z = np.sqrt(5.0 * self.frequency * (resistivity.T)).T
         self.z = abs_z * np.exp(1j * np.radians(phase))
@@ -725,10 +727,7 @@ class Z(TFBase):
         return dimensionality
 
     def estimate_distortion(
-        self,
-        n_frequencies=None,
-        comp="det",
-        only_2d=False,
+        self, n_frequencies=None, comp="det", only_2d=False, clockwise=True
     ):
         """Estimate distortion.
         :param only_2d:
@@ -755,7 +754,9 @@ class Z(TFBase):
             if self._has_tf_error():
                 new_z_object.z_error = self.z_error[0:nf]
 
-        return find_distortion(new_z_object, comp=comp, only_2d=only_2d)
+        return find_distortion(
+            new_z_object, comp=comp, only_2d=only_2d, clockwise=clockwise
+        )
 
     def estimate_depth_of_investigation(self):
         """Estimate depth of investigation.
