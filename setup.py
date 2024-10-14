@@ -14,7 +14,7 @@ with open("HISTORY.rst") as history_file:
 
 
 requirements = [
-    "numpy",
+    "numpy>=1.24,<2",
     "scipy",
     "matplotlib",
     "pyproj",
