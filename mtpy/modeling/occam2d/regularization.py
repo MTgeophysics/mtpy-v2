@@ -8,7 +8,7 @@ Created on Tue Mar  7 18:13:52 2023
 # Imports
 # =============================================================================
 from pathlib import Path
-
+import os
 import numpy as np
 
 from mtpy.modeling.occam2d import Mesh
@@ -358,8 +358,8 @@ by Regularization, therefore the intended use is to build a mesh with
                 self.save_path = Path()
             self.reg_fn = self.save_path.joinpath(self.reg_basename)
 
-        self.statics_fn = statics_fn
-        self.prejudice_fn = prejudice_fn
+        self.statics_fn = Path(statics_fn)
+        self.prejudice_fn = Path(prejudice_fn)
 
         if self.model_columns is None:
             if self.binding_offset is None:
@@ -371,29 +371,29 @@ by Regularization, therefore the intended use is to build a mesh with
         # --> write out header information
         reg_lines.append(f"{'Format:':<18}{'occam2mtmod_1.0'.upper()}")
         reg_lines.append(f"{'Model Name:':<18}{self.model_name.upper()}")
-        reg_lines.append(f"{'Description':<18}{self.description.upper()}")
+        reg_lines.append(f"{'Description:':<18}{self.description.upper()}")
 
         if self.mesh_fn.parent == self.save_path:
             reg_lines.append(f"{'Mesh File:':<18}{self.mesh_fn.name}")
         else:
             reg_lines.append(f"{'Mesh File:':<18}{self.mesh_fn}")
-        reg_lines.append(f"{'Mesh Type':<18}{'pw2d'.upper()}")
+        reg_lines.append(f"{'Mesh Type:':<18}{'pw2d'.upper()}")
         if self.statics_fn.parent == self.save_path:
-            reg_lines.append(f"{'Statics File':<18}{self.statics_fn.name}")
+            reg_lines.append(f"{'Statics File:':<18}{self.statics_fn.name}")
 
         else:
-            reg_lines.append(f"{'Statics File':<18}{self.statics_fn}")
+            reg_lines.append(f"{'Statics File:':<18}{self.statics_fn}")
         if self.prejudice_fn.parent == self.save_path:
-            reg_lines.append(f"{'Prejudice File':<18}{self.prejudice_fn.name}")
+            reg_lines.append(f"{'Prejudice File:':<18}{self.prejudice_fn.name}")
         else:
-            reg_lines.append(f"{'Prejudice File':<18}{self.prejudice_fn}")
-        reg_lines.append(f"{'Binding Offset':<20}{self.binding_offset:.1f}")
-        reg_lines.append(f"{'Num Layers':<20}{len(self.model_columns)}")
+            reg_lines.append(f"{'Prejudice File:':<18}{self.prejudice_fn}")
+        reg_lines.append(f"{'Binding Offset:':<20}{self.binding_offset:.1f}")
+        reg_lines.append(f"{'Num Layers:':<20}{len(self.model_columns)}")
 
         # --> write rows and columns of regularization grid
         for row, col in zip(self.model_rows, self.model_columns):
-            reg_lines.append("".join([f" {rr:>5}" for rr in row]) + "\n")
-            reg_lines.append("".join([f"{cc:>5}" for cc in col]) + "\n")
+            reg_lines.append("".join([f" {rr:>5}" for rr in row]))# + "\n"
+            reg_lines.append("".join([f"{cc:>5}" for cc in col]))# + "\n"
 
         reg_lines.append(f"{'NO. EXCEPTIONS:':<18}0")
 
@@ -448,6 +448,10 @@ by Regularization, therefore the intended use is to build a mesh with
                     ncols = []
                 elif len(iline) > 2:
                     ncols = ncols + iline
+
+        self.mesh_fn = Path(os.path.join(self.save_path,self.mesh_fn))
+        self.statics_fn = Path(os.path.join(self.save_path,self.statics_fn))
+        self.prejudice_fn = Path(os.path.join(self.save_path,self.prejudice_fn))
 
         # set mesh file name
         if not self.mesh_fn.is_file():
