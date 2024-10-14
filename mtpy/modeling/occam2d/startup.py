@@ -160,7 +160,7 @@ class Startup(object):
 
         slines.append(f"{'Date/Time:':<20}{self.date_time}")
         slines.append(f"{'Iterations to run:':<20}{self.iterations_to_run}")
-        slines.append("{'Target Misfit:':<20}{self.target_mistfit}")
+        slines.append(f"{'Target Misfit:':<20}{self.target_misfit}")
         slines.append(f"{'Roughness Type:':<20}{self.roughness_type}")
         slines.append(f"{'Diagonal Penalties:':<20}{self.diagonal_penalties}")
         slines.append(f"{'Stepsize Cut Count:':<20}{self.stepsize_count}")
@@ -183,6 +183,7 @@ class Startup(object):
         slines.append(f"{'Misfit Value:':<20}{self.misfit_value}")
         slines.append(f"{'Misfit Reached:':<20}{self.misfit_reached}")
         slines.append(f"{'Param Count:':<20}{self.param_count}")
+        slines = [ss +'\n' for ss in slines]
 
         # make an array of starting values if not are given
         if self.model_values is None:
@@ -208,6 +209,7 @@ class Startup(object):
         slines.append("".join(list(sline + ["\n"])))
         # --> write file
         sfid = open(self.startup_fn, "w")
+        
         sfid.writelines(slines)
         sfid.close()
 

@@ -9,7 +9,6 @@ Created on Wed Jun 12 15:39:08 2024
 # =============================================================================
 import unittest
 
-import numpy as np
 from mtpy import MT
 
 from mt_metadata import (

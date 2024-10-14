@@ -7,7 +7,7 @@
 [![Documentation Status](https://readthedocs.org/projects/mtpy-v2/badge/?version=latest)](https://mtpy-v2.readthedocs.io/en/latest/?badge=latest)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/MTgeophysics/mtpy-v2/main)
 
-## Version 2.0.10
+## Version 2.0.11
 
 # Description
  

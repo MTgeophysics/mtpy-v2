@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 
 from .mt import MT
 from .mt_stations import MTStations
-from mtpy.core import MTDataFrame
+from mtpy.core import MTDataFrame, COORDINATE_REFERENCE_FRAME_OPTIONS
 
 from mtpy.modeling.errors import ModelErrors
 from mtpy.modeling.modem import Data
@@ -95,6 +95,10 @@ class MTData(OrderedDict, MTStations):
             "data_rotation_angle",
             "model_parameters",
         ]
+
+        self._coordinate_reference_frame_options = (
+            COORDINATE_REFERENCE_FRAME_OPTIONS
+        )
 
     def _validate_item(self, mt_obj):
         """Make sure intpu is an MT object.
@@ -205,6 +209,51 @@ class MTData(OrderedDict, MTStations):
             setattr(self, attr, deepcopy(getattr(self, attr)))
 
         return md
+
+    @property
+    def coordinate_reference_frame(self):
+        """coordinate reference frame ned or enu"""
+        return self._coordinate_reference_frame
+
+    @coordinate_reference_frame.setter
+    def coordinate_reference_frame(self, value):
+        """set coordinate_reference_frame
+
+        options are NED, ENU
+
+        NED
+
+         - x = North
+         - y = East
+         - z = + down
+
+        ENU
+
+         - x = East
+         - y = North
+         - z = + up
+        """
+
+        if value.lower() not in self._coordinate_reference_frame_options:
+            raise ValueError(
+                f"{value} is not understood as a reference frame. "
+                f"Options are {self._coordinate_reference_frame_options}"
+            )
+        if value in ["ned"] or "+" in value:
+            value = "+"
+        elif value in ["enu"] or "-" in value:
+            value = "-"
+            self.logger.warning(
+                "MTpy-v2 is assumes a NED coordinate system where x=North, "
+                "y=East, z=+down. By changing to ENU there maybe some "
+                "incorrect values for angles and derivative products of the "
+                "impedance tensor."
+            )
+
+        for mt_obj in self.values():
+            mt_obj.coordinate_reference_frame = value
+
+        self._coordinate_reference_frame = value
 
     @property
     def mt_list(self):
@@ -609,7 +658,9 @@ class MTData(OrderedDict, MTStations):
                 )
 
             else:
-                mt_data.add_station(new_mt_obj, compute_relative_location=False)
+                mt_data.add_station(
+                    new_mt_obj, compute_relative_location=False
+                )
 
         if not inplace:
             return mt_data
@@ -628,12 +679,14 @@ class MTData(OrderedDict, MTStations):
         self.data_rotation_angle = rotation_angle
 
         if not inplace:
-            mt_data = self.clone_empty
+            mt_data = self.clone_empty()
         for mt_obj in self.values():
             if not inplace:
                 rot_mt_obj = mt_obj.copy()
                 rot_mt_obj.rotation_angle = rotation_angle
-                mt_data.add_station(rot_mt_obj, compute_relative_location=False)
+                mt_data.add_station(
+                    rot_mt_obj, compute_relative_location=False
+                )
             else:
                 mt_obj.rotation_angle = rotation_angle
 
@@ -727,8 +780,12 @@ class MTData(OrderedDict, MTStations):
             self.t_model_error.floor = t_floor
 
         for mt_obj in self.values():
-            mt_obj.compute_model_z_errors(**self.z_model_error.error_parameters)
-            mt_obj.compute_model_t_errors(**self.t_model_error.error_parameters)
+            mt_obj.compute_model_z_errors(
+                **self.z_model_error.error_parameters
+            )
+            mt_obj.compute_model_t_errors(
+                **self.t_model_error.error_parameters
+            )
 
     def get_nearby_stations(self, station_key, radius, radius_units="m"):
         """Get stations close to a given station.
@@ -1053,10 +1110,11 @@ class MTData(OrderedDict, MTStations):
 
         occam2d_data = Occam2DData(**kwargs)
         occam2d_data.dataframe = self.to_dataframe()
-        occam2d_data.profile_origin = (
-            self.center_point.east,
-            self.center_point.north,
-        )
+        if occam2d_data.profile_origin is None:
+            occam2d_data.profile_origin = (
+                self.center_point.east,
+                self.center_point.north,
+            )
 
         if data_filename is not None:
             occam2d_data.write_data_file(data_filename)

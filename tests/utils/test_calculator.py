@@ -212,6 +212,83 @@ class TestGetPeriod(unittest.TestCase):
         self.assertTrue(np.isclose(test_array, self.array3).all())
 
 
+class TestRotation(unittest.TestCase):
+    def setUp(self):
+        # this is a 45 degree vector
+        self.a = np.array(np.array([[np.sqrt(2), 1], [1, np.sqrt(2)]]))
+        self.azimuth = self.compute_azimuth(self.a)
+
+    def compute_azimuth(self, array):
+        return np.degrees(
+            0.5
+            * np.arctan2(array[0, 1] + array[1, 0], array[0, 0] - array[1, 1])
+        )
+
+    def compute_strike(self, array):
+        return np.degrees(
+            0.25
+            * np.arctan2(
+                (array[0, 0] - array[1, 1])
+                * np.conj(array[0, 1] + array[1, 0])
+                + np.conj(array[0, 0] - array[1, 1])
+                * (array[0, 1] + array[1, 0]),
+                (
+                    abs(array[0, 0] - array[1, 1]) ** 2
+                    - abs(array[0, 1] - array[1, 0]) ** 2
+                ),
+            )
+        )
+
+    def test_get_rotation_matrix_0_clockwise(self):
+        expected_rot = np.array([[1.0, 0.0], [-0.0, 1.0]])
+
+        self.assertTrue(
+            np.allclose(expected_rot, calculator.get_rotation_matrix(0))
+        )
+
+    def test_get_rotation_matrix_0_counterclockwise(self):
+        expected_rot = np.array([[1.0, -0.0], [0.0, 1.0]])
+
+        self.assertTrue(
+            np.allclose(
+                expected_rot,
+                calculator.get_rotation_matrix(0, clockwise=False),
+            )
+        )
+
+    def test_rotate_30_plus(self):
+        angle = 30
+        ar, ar_err = calculator.rotate_matrix_with_errors(self.a, angle)
+
+        # we are rotating clockwise so in the reference frame towards zero,
+        # therefore we need to subtract
+        with self.subTest("azimuth"):
+            self.assertAlmostEqual(
+                self.azimuth - angle, self.compute_azimuth(ar)
+            )
+
+        r = calculator.get_rotation_matrix(angle, clockwise=True)
+        b = r @ self.a @ r.T
+        with self.subTest("matrix"):
+            self.assertTrue(np.allclose(ar, b))
+
+    def test_rotate_30_minus(self):
+        angle = -30
+        ar, ar_err = calculator.rotate_matrix_with_errors(self.a, angle)
+
+        # we are rotating clockwise so in the reference frame away from zero,
+        # therefore we need to add
+        with self.subTest("azimuth"):
+            self.assertAlmostEqual(
+                self.azimuth - angle, self.compute_azimuth(ar)
+            )
+
+        r = calculator.get_rotation_matrix(angle, clockwise=True)
+        b = r @ self.a @ r.T
+        with self.subTest("matrix"):
+            self.assertTrue(np.allclose(ar, b))
+
+
 # =============================================================================
 # run
 # =============================================================================
