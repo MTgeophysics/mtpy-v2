@@ -66,7 +66,7 @@ setup(
     test_suite="tests",
     tests_require=test_requirements,
     url="https://github.com/MTgeophysics/mtpy-v2",
-    version="2.0.10",
+    version="2.0.11",
     zip_safe=False,
     package_data={"": []},
 )
