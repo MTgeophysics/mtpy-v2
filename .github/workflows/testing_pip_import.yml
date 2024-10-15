@@ -57,13 +57,13 @@ jobs:
       run: |
         source activate mtpy-v2-test
         cd mt_metadata/tests/
-        pytest -r -v .
+        pytest -v .
         cd ../../mth5/tests/
-        pytest -r -v .
+        pytest -v .
         cd ../../aurora/tests/
-        pytest -r -v . -k "not test_doc_build.py"
+        pytest -v . -k "not test_doc_build.py"
         cd ../../tests/
-        pytest -r -v .
+        pytest -v .
         
     # - name: "Upload coverage to Codecov"
     #   uses: codecov/codecov-action@v3
