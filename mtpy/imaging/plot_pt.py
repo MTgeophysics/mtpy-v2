@@ -62,7 +62,7 @@ class PlotPhaseTensor(PlotBase):
         self._rotation_angle = theta_r
         if not theta_r == 0:
 
-            self.pt.rotate(theta_r)
+            self.pt.rotate(theta_r, inplace=True)
 
     def _rotate_pt(self, rotation_angle):
         """Rotate pt.
@@ -99,7 +99,10 @@ class PlotPhaseTensor(PlotBase):
         color_array = self.get_pt_color_array(self.pt)
 
         # -------------plotPhaseTensor-----------------------------------
-        self.cbax, self.cbpt, = plot_pt_lateral(
+        (
+            self.cbax,
+            self.cbpt,
+        ) = plot_pt_lateral(
             self.ax_pt,
             self.pt,
             color_array,
