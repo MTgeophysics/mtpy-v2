@@ -154,7 +154,7 @@ class PlotMTResponse(PlotBase):
         if not theta_r == 0:
             self.Z.rotate(theta_r, inplace=True)
             self.Tipper.rotate(theta_r, inplace=True)
-            self.pt.rotate(theta_r, inplace=True)
+            self.pt = self.Z.phase_tensor
 
             self._rotation_angle += theta_r
         else:
