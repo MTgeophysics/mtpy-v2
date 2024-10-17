@@ -267,6 +267,8 @@ class MTData(OrderedDict, MTStations):
     @mt_list.setter
     def mt_list(self, value):
         """At this point not implemented, mainly here for inheritance of MTStations."""
+        if value is None:
+            return
         if len(self.values()) != 0:
             self.logger.warning("mt_list cannot be set.")
         pass
@@ -292,7 +294,9 @@ class MTData(OrderedDict, MTStations):
         survey_list = [
             mt_obj for key, mt_obj in self.items() if survey_id in key
         ]
-        return MTData(survey_list)
+        md = self.clone_empty()
+        md.add_station(survey_list)
+        return md
 
     def add_station(
         self,
@@ -323,8 +327,11 @@ class MTData(OrderedDict, MTStations):
 
         for m in mt_object:
             m = self._validate_item(m)
-            if self.utm_crs is not None:
-                m.utm_crs = self.utm_crs
+            try:
+                if self.utm_crs is not None:
+                    m.utm_crs = self.utm_crs
+            except AttributeError:
+                pass
             if survey is not None:
                 m.survey = survey
 
