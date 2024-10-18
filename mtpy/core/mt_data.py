@@ -59,11 +59,10 @@ class MTData(OrderedDict, MTStations):
     """
 
     def __init__(self, mt_list=None, **kwargs):
-        if mt_list is not None:
-            for mt_obj in mt_list:
-                self.add_station(mt_obj, compute_relative_location=False)
 
-        MTStations.__init__(self, None, None, **kwargs)
+        self._coordinate_reference_frame_options = (
+            COORDINATE_REFERENCE_FRAME_OPTIONS
+        )
 
         self.z_model_error = ModelErrors(
             error_value=5,
@@ -78,6 +77,7 @@ class MTData(OrderedDict, MTStations):
             mode="tipper",
         )
         self.data_rotation_angle = 0
+        self.coordinate_reference_frame = "ned"
 
         self.model_parameters = {}
 
@@ -96,8 +96,15 @@ class MTData(OrderedDict, MTStations):
             "model_parameters",
         ]
 
-        self._coordinate_reference_frame_options = (
-            COORDINATE_REFERENCE_FRAME_OPTIONS
+        if mt_list is not None:
+            for mt_obj in mt_list:
+                self.add_station(mt_obj, compute_relative_location=False)
+
+        MTStations.__init__(
+            self,
+            kwargs.pop("utm_epsg", None),
+            datum_epsg=kwargs.pop("datum_epsg", None),
+            **kwargs,
         )
 
     def _validate_item(self, mt_obj):
@@ -206,14 +213,16 @@ class MTData(OrderedDict, MTStations):
 
         md = MTData()
         for attr in self._copy_attrs:
-            setattr(self, attr, deepcopy(getattr(self, attr)))
+            setattr(md, attr, deepcopy(getattr(self, attr)))
 
         return md
 
     @property
     def coordinate_reference_frame(self):
         """coordinate reference frame ned or enu"""
-        return self._coordinate_reference_frame
+        return self._coordinate_reference_frame_options[
+            self._coordinate_reference_frame
+        ].upper()
 
     @coordinate_reference_frame.setter
     def coordinate_reference_frame(self, value):
@@ -267,6 +276,8 @@ class MTData(OrderedDict, MTStations):
     @mt_list.setter
     def mt_list(self, value):
         """At this point not implemented, mainly here for inheritance of MTStations."""
+        if value is None:
+            return
         if len(self.values()) != 0:
             self.logger.warning("mt_list cannot be set.")
         pass
@@ -292,7 +303,9 @@ class MTData(OrderedDict, MTStations):
         survey_list = [
             mt_obj for key, mt_obj in self.items() if survey_id in key
         ]
-        return MTData(survey_list)
+        md = self.clone_empty()
+        md.add_station(survey_list)
+        return md
 
     def add_station(
         self,
@@ -323,8 +336,11 @@ class MTData(OrderedDict, MTStations):
 
         for m in mt_object:
             m = self._validate_item(m)
-            if self.utm_crs is not None:
-                m.utm_crs = self.utm_crs
+            try:
+                if self.utm_crs is not None:
+                    m.utm_crs = self.utm_crs
+            except AttributeError:
+                pass
             if survey is not None:
                 m.survey = survey
 
@@ -476,14 +492,14 @@ class MTData(OrderedDict, MTStations):
 
     def get_subset(self, station_list):
         """Get a subset of the data from a list of stations, could be station_id
-        or station_keys
+        or station_keys. Safest to use keys {survey}.{station}
 
         :param station_list: List of station keys as {survey_id}.{station_id}.
         :type station_list: list
         :return: Returns just those stations within station_list.
         :rtype: :class:`mtpy.MTData`
         """
-        mt_data = MTData()
+        mt_data = self.clone_empty()
         for station in station_list:
             if station.count(".") > 0:
                 mt_data.add_station(
@@ -658,9 +674,7 @@ class MTData(OrderedDict, MTStations):
                 )
 
             else:
-                mt_data.add_station(
-                    new_mt_obj, compute_relative_location=False
-                )
+                mt_data.add_station(new_mt_obj, compute_relative_location=False)
 
         if not inplace:
             return mt_data
@@ -682,13 +696,10 @@ class MTData(OrderedDict, MTStations):
             mt_data = self.clone_empty()
         for mt_obj in self.values():
             if not inplace:
-                rot_mt_obj = mt_obj.copy()
-                rot_mt_obj.rotation_angle = rotation_angle
-                mt_data.add_station(
-                    rot_mt_obj, compute_relative_location=False
-                )
+                rot_mt_obj = mt_obj.rotate(rotation_angle, inplace=False)
+                mt_data.add_station(rot_mt_obj, compute_relative_location=False)
             else:
-                mt_obj.rotation_angle = rotation_angle
+                mt_obj.rotate(rotation_angle)
 
         if not inplace:
             return mt_data
@@ -780,12 +791,8 @@ class MTData(OrderedDict, MTStations):
             self.t_model_error.floor = t_floor
 
         for mt_obj in self.values():
-            mt_obj.compute_model_z_errors(
-                **self.z_model_error.error_parameters
-            )
-            mt_obj.compute_model_t_errors(
-                **self.t_model_error.error_parameters
-            )
+            mt_obj.compute_model_z_errors(**self.z_model_error.error_parameters)
+            mt_obj.compute_model_t_errors(**self.t_model_error.error_parameters)
 
     def get_nearby_stations(self, station_key, radius, radius_units="m"):
         """Get stations close to a given station.
