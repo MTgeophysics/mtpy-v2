@@ -492,7 +492,7 @@ class MTData(OrderedDict, MTStations):
 
     def get_subset(self, station_list):
         """Get a subset of the data from a list of stations, could be station_id
-        or station_keys
+        or station_keys. Safest to use keys {survey}.{station}
 
         :param station_list: List of station keys as {survey_id}.{station_id}.
         :type station_list: list
@@ -696,11 +696,10 @@ class MTData(OrderedDict, MTStations):
             mt_data = self.clone_empty()
         for mt_obj in self.values():
             if not inplace:
-                rot_mt_obj = mt_obj.copy()
-                rot_mt_obj.rotation_angle = rotation_angle
+                rot_mt_obj = mt_obj.rotate(rotation_angle, inplace=False)
                 mt_data.add_station(rot_mt_obj, compute_relative_location=False)
             else:
-                mt_obj.rotation_angle = rotation_angle
+                mt_obj.rotate(rotation_angle)
 
         if not inplace:
             return mt_data

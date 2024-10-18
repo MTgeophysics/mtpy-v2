@@ -43,7 +43,7 @@ except ImportError:
 
 # from dask.distributed import Client, LocalCluster
 from mtpy.modeling.simpeg.data_2d import Simpeg2DData
-from mtpy.modeling.simpeg.make_2d_mesh import QuadTreeMesh
+from mtpy.modeling.simpeg.make_2d_mesh import QuadTreeMesh, TensorMesh
 
 warnings.filterwarnings("ignore")
 
@@ -58,13 +58,28 @@ class Simpeg2D:
     - For now the default is a quad tree mesh
     - Optimization: Inexact Gauss Newton
     - Regularization: Sparse
+
+    # change mesh to tensor mesh.
     """
 
-    def __init__(self, dataframe, data_kwargs={}, mesh_kwargs={}, **kwargs):
+    def __init__(
+        self,
+        dataframe,
+        data_kwargs={},
+        mesh_kwargs={},
+        mesh_type="tensor",
+        **kwargs,
+    ):
         self.data = Simpeg2DData(dataframe, **data_kwargs)
         self.quad_tree = QuadTreeMesh(
             self.data.station_locations, self.data.frequencies, **mesh_kwargs
         )
+        self.tensor_mesh = TensorMesh(
+            self.data.station_locations, self.data.frequenceis, **mesh_kwargs
+        )
+
+        self.mesh_type = "tensor"
+
         self.ax = self.make_mesh()
         self.air_conductivity = 1e-8
         self.initial_conductivity = 1e-2
