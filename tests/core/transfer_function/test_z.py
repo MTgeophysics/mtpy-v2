@@ -165,6 +165,10 @@ class TestZSetResPhase(unittest.TestCase):
         with self.subTest("Invariant Strike"):
             self.assertAlmostEqual(zr.invariants.strike[0], 40)
 
+    def test_rotation_angle(self):
+        zr = self.z.rotate(40)
+        self.assertTrue(np.all(zr.rotation_angle == np.array([40])))
+
 
 class TestRemoveStaticShift(unittest.TestCase):
     @classmethod
@@ -276,9 +280,7 @@ class TestInvariants(unittest.TestCase):
         )
 
     def test_electric_twist(self):
-        self.assertAlmostEqual(
-            0.071840, self.z.invariants.electric_twist[0], 5
-        )
+        self.assertAlmostEqual(0.071840, self.z.invariants.electric_twist[0], 5)
 
     def test_phase_distortion(self):
         self.assertAlmostEqual(

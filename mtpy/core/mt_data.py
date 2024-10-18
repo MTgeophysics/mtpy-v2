@@ -499,7 +499,7 @@ class MTData(OrderedDict, MTStations):
         :return: Returns just those stations within station_list.
         :rtype: :class:`mtpy.MTData`
         """
-        mt_data = MTData()
+        mt_data = self.clone_empty()
         for station in station_list:
             if station.count(".") > 0:
                 mt_data.add_station(

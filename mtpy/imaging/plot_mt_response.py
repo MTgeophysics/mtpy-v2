@@ -155,6 +155,7 @@ class PlotMTResponse(PlotBase):
             self.Z.rotate(theta_r, inplace=True)
             self.Tipper.rotate(theta_r, inplace=True)
             self.pt = self.Z.phase_tensor
+            self.pt.rotation_angle = self.Z.rotation_angle
 
             self._rotation_angle += theta_r
         else:
@@ -163,11 +164,7 @@ class PlotMTResponse(PlotBase):
     def _has_z(self):
         """Has z."""
         if self.plot_z:
-            if (
-                self.Z is None
-                or self.Z.z is None
-                or (self.Z.z == 0 + 0j).all()
-            ):
+            if self.Z is None or self.Z.z is None or (self.Z.z == 0 + 0j).all():
                 self.logger.info(f"No Z data for station {self.station}")
                 return False
         return self.plot_z
@@ -602,9 +599,7 @@ class PlotMTResponse(PlotBase):
 
             # ===Plot the xx, yy components if desired==========================
             if self.plot_num == 2:
-                self._plot_resistivity(
-                    self.axr2, self.period, self.Z, mode="d"
-                )
+                self._plot_resistivity(self.axr2, self.period, self.Z, mode="d")
                 self._plot_phase(self.axp2, self.period, self.Z, mode="d")
 
             # ===Plot the Determinant if desired================================
