@@ -148,6 +148,9 @@ class TestMTData(unittest.TestCase):
             with self.subTest(attr):
                 self.assertEqual(getattr(self.md, attr), getattr(md, attr))
 
+    def test_n_station(self):
+        self.assertEqual(8, self.md.n_stations)
+
 
 class TestMTDataMethods(unittest.TestCase):
     @classmethod
