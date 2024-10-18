@@ -75,7 +75,7 @@ class Simpeg2D:
             self.data.station_locations, self.data.frequencies, **mesh_kwargs
         )
         self.tensor_mesh = TensorMesh(
-            self.data.station_locations, self.data.frequenceis, **mesh_kwargs
+            self.data.station_locations, self.data.frequencies, **mesh_kwargs
         )
 
         self.mesh_type = "tensor"
