@@ -75,7 +75,20 @@ class TestMTData(unittest.TestCase):
 
     def test_initialization_utm_epsg_no_mt_list(self):
         md = MTData(utm_epsg=self.utm_epsg)
-        self.assertEqual(self.md.utm_epsg, self.utm_epsg)
+        self.assertEqual(md.utm_epsg, self.utm_epsg)
+
+    def test_coordinate_reference_frame(self):
+        self.assertEqual("NED", self.md.coordinate_reference_frame)
+
+    def test_coordinate_reference_frame_set(self):
+        md = MTData(mt_list=self.mt_list_01, coordinate_reference_frame="enu")
+
+        with self.subTest("mtdata"):
+            self.assertEqual("ENU", md.coordinate_reference_frame)
+
+        for mt_obj in md.values():
+            with self.subTest(mt_obj.station):
+                self.assertEqual("ENU", mt_obj.coordinate_reference_frame)
 
     def test_initialization_datum_epsg_no_mt_list(self):
         md = MTData(datum_epsg=self.datum_epsg)

@@ -59,15 +59,9 @@ class MTData(OrderedDict, MTStations):
     """
 
     def __init__(self, mt_list=None, **kwargs):
-        if mt_list is not None:
-            for mt_obj in mt_list:
-                self.add_station(mt_obj, compute_relative_location=False)
 
-        MTStations.__init__(
-            self,
-            kwargs.pop("utm_epsg", None),
-            datum_epsg=kwargs.pop("datum_epsg", None),
-            **kwargs,
+        self._coordinate_reference_frame_options = (
+            COORDINATE_REFERENCE_FRAME_OPTIONS
         )
 
         self.z_model_error = ModelErrors(
@@ -83,6 +77,7 @@ class MTData(OrderedDict, MTStations):
             mode="tipper",
         )
         self.data_rotation_angle = 0
+        self.coordinate_reference_frame = "ned"
 
         self.model_parameters = {}
 
@@ -101,8 +96,15 @@ class MTData(OrderedDict, MTStations):
             "model_parameters",
         ]
 
-        self._coordinate_reference_frame_options = (
-            COORDINATE_REFERENCE_FRAME_OPTIONS
+        if mt_list is not None:
+            for mt_obj in mt_list:
+                self.add_station(mt_obj, compute_relative_location=False)
+
+        MTStations.__init__(
+            self,
+            kwargs.pop("utm_epsg", None),
+            datum_epsg=kwargs.pop("datum_epsg", None),
+            **kwargs,
         )
 
     def _validate_item(self, mt_obj):
@@ -218,7 +220,9 @@ class MTData(OrderedDict, MTStations):
     @property
     def coordinate_reference_frame(self):
         """coordinate reference frame ned or enu"""
-        return self._coordinate_reference_frame
+        return self._coordinate_reference_frame_options[
+            self._coordinate_reference_frame
+        ].upper()
 
     @coordinate_reference_frame.setter
     def coordinate_reference_frame(self, value):
@@ -670,9 +674,7 @@ class MTData(OrderedDict, MTStations):
                 )
 
             else:
-                mt_data.add_station(
-                    new_mt_obj, compute_relative_location=False
-                )
+                mt_data.add_station(new_mt_obj, compute_relative_location=False)
 
         if not inplace:
             return mt_data
@@ -696,9 +698,7 @@ class MTData(OrderedDict, MTStations):
             if not inplace:
                 rot_mt_obj = mt_obj.copy()
                 rot_mt_obj.rotation_angle = rotation_angle
-                mt_data.add_station(
-                    rot_mt_obj, compute_relative_location=False
-                )
+                mt_data.add_station(rot_mt_obj, compute_relative_location=False)
             else:
                 mt_obj.rotation_angle = rotation_angle
 
@@ -792,12 +792,8 @@ class MTData(OrderedDict, MTStations):
             self.t_model_error.floor = t_floor
 
         for mt_obj in self.values():
-            mt_obj.compute_model_z_errors(
-                **self.z_model_error.error_parameters
-            )
-            mt_obj.compute_model_t_errors(
-                **self.t_model_error.error_parameters
-            )
+            mt_obj.compute_model_z_errors(**self.z_model_error.error_parameters)
+            mt_obj.compute_model_t_errors(**self.t_model_error.error_parameters)
 
     def get_nearby_stations(self, station_key, radius, radius_units="m"):
         """Get stations close to a given station.
