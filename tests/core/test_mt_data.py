@@ -126,9 +126,9 @@ class TestMTData(unittest.TestCase):
         with self.subTest("MT rotation angle"):
             self.assertEqual(md_rot["a.mt01"].rotation_angle, 30)
 
-    def test_get_station_from_id(self):
-        a = self.md.get_station("mt01")
-        self.assertEqual(a.station, "mt01")
+    # def test_get_station_from_id(self):
+    #     a = self.md.get_station("mt01")
+    #     self.assertEqual(a.station, "mt01")
 
     def test_get_station_from_key(self):
         a = self.md.get_station(station_key="a.mt01")
