@@ -80,6 +80,10 @@ class Z(TFBase):
             _name="impedance",
         )
 
+        self._unit_options = ["mt", "ohm"]
+        self.units = "mt"
+        self._ohm_factor = 1.0 / np.pi * np.sqrt(5.0 / 8.0) * 10**3.5
+
     @property
     def z(self):
         """Impedance tensor
@@ -448,9 +452,7 @@ class Z(TFBase):
         res_error = self._validate_array_input(res_error, float)
         phase_error = self._validate_array_input(phase_error, float)
         res_model_error = self._validate_array_input(res_model_error, float)
-        phase_model_error = self._validate_array_input(
-            phase_model_error, float
-        )
+        phase_model_error = self._validate_array_input(phase_model_error, float)
 
         abs_z = np.sqrt(5.0 * self.frequency * (resistivity.T)).T
         self.z = abs_z * np.exp(1j * np.radians(phase))

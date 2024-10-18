@@ -74,9 +74,9 @@ class Simpeg2D:
         self.quad_tree = QuadTreeMesh(
             self.data.station_locations, self.data.frequencies, **mesh_kwargs
         )
-        self.tensor_mesh = TensorMesh(
-            self.data.station_locations, self.data.frequencies, **mesh_kwargs
-        )
+        # self.tensor_mesh = TensorMesh(
+        #     self.data.station_locations, self.data.frequencies, **mesh_kwargs
+        # )
 
         self.mesh_type = "tensor"
 
