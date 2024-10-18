@@ -63,7 +63,12 @@ class MTData(OrderedDict, MTStations):
             for mt_obj in mt_list:
                 self.add_station(mt_obj, compute_relative_location=False)
 
-        MTStations.__init__(self, None, None, **kwargs)
+        MTStations.__init__(
+            self,
+            kwargs.pop("utm_epsg", None),
+            datum_epsg=kwargs.pop("datum_epsg", None),
+            **kwargs,
+        )
 
         self.z_model_error = ModelErrors(
             error_value=5,

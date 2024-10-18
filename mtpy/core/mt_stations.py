@@ -59,6 +59,7 @@ class MTStations:
                 ("profile_offset", float),
             ]
         )
+
         self._datum_crs = CRS.from_epsg(4326)
         self._utm_crs = None
         self._center_lat = None
@@ -69,6 +70,7 @@ class MTStations:
         self.rotation_angle = 0.0
         self.mt_list = None
         self.utm_epsg = utm_epsg
+        self.datum_epsg = datum_epsg
 
         for key in list(kwargs.keys()):
             if hasattr(self, key):
@@ -491,7 +493,9 @@ class MTStations:
 
             else:
                 self.logger.debug("locating center from UTM grid")
-                center_location.east = (st_en.east.max() + st_en.east.min()) / 2
+                center_location.east = (
+                    st_en.east.max() + st_en.east.min()
+                ) / 2
                 center_location.north = (
                     st_en.north.max() + st_en.north.min()
                 ) / 2
@@ -835,28 +839,29 @@ class MTStations:
                 "intercept": profile1.intercept,
             }
 
-
-        # if the profile is closer to E-W, use minimum x to get profile ends, 
+        # if the profile is closer to E-W, use minimum x to get profile ends,
         # otherwise use minimum y
-        if -1 <= profile_line['slope'] <= 1:
-            sx = np.array([x.min(),x.max()])
-            sy = np.array([y[x.idxmin()],y[x.idxmax()]])
+        if -1 <= profile_line["slope"] <= 1:
+            sx = np.array([x.min(), x.max()])
+            sy = np.array([y[x.idxmin()], y[x.idxmax()]])
         else:
-            sy = np.array([y.min(),y.max()])
-            sx = np.array([x[y.idxmin()],x[y.idxmax()]])        
+            sy = np.array([y.min(), y.max()])
+            sx = np.array([x[y.idxmin()], x[y.idxmax()]])
 
         # get line through point perpendicular to profile
-        m2 = -1./profile_line['slope']
+        m2 = -1.0 / profile_line["slope"]
         # two intercepts associated with each end point
-        c2 = sy - m2*sx
+        c2 = sy - m2 * sx
         # get point where the lines intercept the profile line
-        x1, x2 = (c2 - profile_line['intercept'])/(profile_line['slope'] - m2)    
+        x1, x2 = (c2 - profile_line["intercept"]) / (
+            profile_line["slope"] - m2
+        )
         # compute y points
-        y1, y2 = profile_line["slope"] * np.array([x1,x2]) + profile_line["intercept"]
-            
-            
-            
-            
+        y1, y2 = (
+            profile_line["slope"] * np.array([x1, x2])
+            + profile_line["intercept"]
+        )
+
         # # to get x values of end points, need to project first station onto the line
         # # get min and max x values
         # sx = np.array([x.min(),x.max()])
@@ -865,25 +870,24 @@ class MTStations:
         # # two intercepts associated with each end point
         # c2 = (profile_line['slope'] - m2)*sx  + profile_line['intercept']
         # # get point where the two lines intercept
-        # x1,x2 = (c2 - profile_line['intercept'])/(profile_line['slope'] - m2)    
+        # x1,x2 = (c2 - profile_line['intercept'])/(profile_line['slope'] - m2)
         # # compute y points
         # y1, y2 = profile_line["slope"] * np.array([x1,x2]) + profile_line["intercept"]
-            
-        # else:
-            # # to get x values of end points, need to project first station onto the line
-            # # get min and max y values
-            # sy = np.array([y.min(),y.max()])
-            # # get line through y1 perpendicular to profile
-            # m2 = -1./profile_line['slope']
-            # # two intercepts associated with each end point
-            # c2 = sy - (m2/profile_line['slope'])*(sy - profile_line['intercept'])
-            # # get point where the two lines intercept
-            # y1,y2 = ((profile_line['intercept']/profile_line['slope']) - c2/m2)/\
-            #     (1./profile_line['slope'] - 1./m2)
-            # # compute x points
-            # x1,x2 = (np.array([y1,y2]) -  profile_line["intercept"])/profile_line["slope"]  
 
-            
+        # else:
+        # # to get x values of end points, need to project first station onto the line
+        # # get min and max y values
+        # sy = np.array([y.min(),y.max()])
+        # # get line through y1 perpendicular to profile
+        # m2 = -1./profile_line['slope']
+        # # two intercepts associated with each end point
+        # c2 = sy - (m2/profile_line['slope'])*(sy - profile_line['intercept'])
+        # # get point where the two lines intercept
+        # y1,y2 = ((profile_line['intercept']/profile_line['slope']) - c2/m2)/\
+        #     (1./profile_line['slope'] - 1./m2)
+        # # compute x points
+        # x1,x2 = (np.array([y1,y2]) -  profile_line["intercept"])/profile_line["slope"]
+
         # x1 = x.min()
         # x2 = x.max()
         # y1 = profile_line["slope"] * x1 + profile_line["intercept"]
