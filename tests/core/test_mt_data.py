@@ -57,8 +57,21 @@ class TestMTData(unittest.TestCase):
 
         self.assertNotEqual(self.md, md)
 
+    def test_deep_copy(self):
+        md = self.md.copy()
+        self.assertEqual(self.md, md)
+
     def test_utm_epsg(self):
         self.assertEqual(self.md.utm_epsg, self.utm_epsg)
+
+    def test_clone_empty(self):
+        md_empty = self.md.clone_empty()
+
+        for attr in self.md._copy_attrs:
+            with self.subTest(attr):
+                self.assertEqual(
+                    getattr(self.md, attr), getattr(md_empty, attr)
+                )
 
     def test_initialization_utm_epsg_no_mt_list(self):
         md = MTData(utm_epsg=self.utm_epsg)

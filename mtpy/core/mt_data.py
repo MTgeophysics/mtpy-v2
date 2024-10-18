@@ -211,7 +211,7 @@ class MTData(OrderedDict, MTStations):
 
         md = MTData()
         for attr in self._copy_attrs:
-            setattr(self, attr, deepcopy(getattr(self, attr)))
+            setattr(md, attr, deepcopy(getattr(self, attr)))
 
         return md
 
