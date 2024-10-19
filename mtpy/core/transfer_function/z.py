@@ -91,10 +91,10 @@ class Z(TFBase):
 
     @units.setter
     def units(self, value):
-        """impedance units setter options are [ mt | ohms ]"""
+        """impedance units setter options are [ mt | ohm ]"""
         if not isinstance(value, str):
             raise TypeError("Units input must be a string.")
-        if value.lower() not in self.unit_factors.keys():
+        if value.lower() not in self._unit_factors.keys():
             raise ValueError(
                 f"{value} is not an acceptable unit for impedance."
             )
@@ -516,12 +516,16 @@ class Z(TFBase):
                 # calculate manually:
                 # difference of determinant of z + z_error and z - z_error then divide by 2
                 det_z_error[:] = (
-                    np.abs(
-                        np.linalg.det(self.z + self.z_error)
-                        - np.linalg.det(self.z - self.z_error)
+                    self._scale_factor
+                    * (
+                        np.abs(
+                            np.linalg.det(self.z + self.z_error)
+                            - np.linalg.det(self.z - self.z_error)
+                        )
+                        / 2.0
                     )
-                    / 2.0
-                ) ** 0.5
+                    ** 0.5
+                )
         return det_z_error
 
     @property
