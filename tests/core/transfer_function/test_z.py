@@ -587,6 +587,23 @@ class TestUnits(unittest.TestCase):
         with self.subTest("bad choice"):
             self.assertRaises(ValueError, set_units, "ants")
 
+    def test_phase_tensor_equal(self):
+        z_ohm = Z(z=self.z_in_ohms, units="ohm")
+        z_mt = Z(z=self.z, units="mt")
+
+        self.assertTrue(
+            np.allclose(z_ohm.phase_tensor.pt, z_mt.phase_tensor.pt)
+        )
+
+    def test_resistivity_phase_equal(self):
+        z_ohm = Z(z=self.z_in_ohms, units="ohm")
+        z_mt = Z(z=self.z, units="mt")
+
+        with self.subTest("resistivity"):
+            self.assertTrue(np.allclose(z_ohm.resistivity, z_mt.resistivity))
+        with self.subTest("phase"):
+            self.assertTrue(np.allclose(z_ohm.phase, z_mt.phase))
+
 
 # =============================================================================
 # Run

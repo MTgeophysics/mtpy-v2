@@ -143,6 +143,7 @@ class MT(TF, MTLocation):
         new_mt_obj.model_elevation = self.model_elevation
         new_mt_obj._rotation_angle = self._rotation_angle
         new_mt_obj.profile_offset = self.profile_offset
+        new_mt_obj.impedance_units = self.impedance_units
 
         return new_mt_obj
 
@@ -307,16 +308,17 @@ class MT(TF, MTLocation):
 
     @property
     def Z(self):
-        r"""Mtpy.core.z.Z object to hold impedance tenso."""
+        r"""Mtpy.core.z.Z object to hold impedance tensor."""
 
         if self.has_impedance():
-            return Z(
-                z=self.impedance.to_numpy(),
-                z_error=self.impedance_error.to_numpy(),
-                frequency=self.frequency,
-                z_model_error=self.impedance_model_error.to_numpy(),
-                units=self.impedance_units,
-            )
+            z_object = Z(
+                    z=self.impedance.to_numpy(),
+                    z_error=self.impedance_error.to_numpy(),
+                    frequency=self.frequency,
+                    z_model_error=self.impedance_model_error.to_numpy(),
+                )
+                z_object.units = self.impedance_units
+            return z_object
         return Z()
 
     @Z.setter
@@ -325,16 +327,20 @@ class MT(TF, MTLocation):
 
         recalculate phase tensor and invariants, which shouldn't change except
         for strike angle.
+
+        Be sure to have appropriate units set
         """
         # if a z object is given the underlying data is in mt units, even
         # if the units are set to ohm.
-        z_object.units = "mt"
+        self.impedance_units = z_object.units
         if not isinstance(z_object.frequency, type(None)):
             if self.frequency.size != z_object.frequency.size:
                 self.frequency = z_object.frequency
 
             elif not (self.frequency == z_object.frequency).all():
                 self.frequency = z_object.frequency
+        # set underlying data to units of mt
+        z_object.units = "mt"
         self.impedance = z_object.z
         self.impedance_error = z_object.z_error
         self.impedance_model_error = z_object.z_model_error
@@ -703,7 +709,6 @@ class MT(TF, MTLocation):
         if self.has_impedance():
             z_object = self.Z
             z_object.units = impedance_units
-            mt_df.from_z_object(z_object)
             mt_df.from_z_object(z_object)
         if self.has_tipper():
             mt_df.from_t_object(self.Tipper)

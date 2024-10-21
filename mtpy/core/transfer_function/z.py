@@ -308,6 +308,7 @@ class Z(TFBase):
                 z_error=self.z_error,
                 frequency=self.frequency,
                 z_model_error=self.z_model_error,
+                units=self.units,
             )
 
     def remove_distortion(
@@ -365,6 +366,7 @@ class Z(TFBase):
                 z_error=z_corrected_error,
                 frequency=self.frequency,
                 z_model_error=self.z_model_error,
+                units=self.units,
             )
 
     @property
@@ -804,6 +806,7 @@ class Z(TFBase):
             new_z_object = Z(
                 z=self.z[0:nf, :, :],
                 frequency=self.frequency[0:nf],
+                units=self.units,
             )
             if self._has_tf_error():
                 new_z_object.z_error = self.z_error[0:nf]

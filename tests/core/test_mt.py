@@ -13,6 +13,7 @@ import unittest
 import numpy as np
 from mtpy import MT
 from mtpy.core.mt_dataframe import MTDataFrame
+from mtpy.core.transfer_function import MT_TO_OHM_FACTOR, Z
 
 from mt_metadata import TF_EDI_CGG
 
@@ -71,6 +72,16 @@ class TestMT(unittest.TestCase):
 
         self.assertEqual(self.mt, mt_copy)
 
+    def test_impedance_units(self):
+
+        def set_units(unit):
+            self.mt.impedance_units = unit
+
+        with self.subTest("bad type"):
+            self.assertRaises(TypeError, set_units, 4)
+        with self.subTest("bad choice"):
+            self.assertRaises(ValueError, set_units, "ants")
+
 
 class TestMTFromKWARGS(unittest.TestCase):
     def setUp(self):
@@ -123,6 +134,178 @@ class TestMTSetImpedance(unittest.TestCase):
 
     def test_impedance_error(self):
         self.assertTrue(np.allclose(self.mt.impedance_error, self.z_err))
+
+    def test_impedance_model_error(self):
+        self.assertTrue(np.allclose(self.mt.impedance_model_error, self.z_err))
+
+    def test_resistivity(self):
+        self.assertTrue(np.allclose(self.mt.Z.resistivity, self.res))
+
+    def test_resistivity_error(self):
+        self.assertTrue(np.allclose(self.mt.Z.resistivity_error, self.res_err))
+
+    def test_resistivity_model_error(self):
+        self.assertTrue(
+            np.allclose(self.mt.Z.resistivity_model_error, self.res_err)
+        )
+
+    def test_phase(self):
+        self.assertTrue(np.allclose(self.mt.Z.phase, self.phase))
+
+    def test_phase_error(self):
+        self.assertTrue(np.allclose(self.mt.Z.phase_error, self.phase_err))
+
+    def test_phase_model_error(self):
+        self.assertTrue(
+            np.allclose(self.mt.Z.phase_model_error, self.phase_err)
+        )
+
+    def test_phase_tensor(self):
+        self.assertTrue(np.allclose(self.pt, self.mt.pt.pt))
+
+    def test_phase_tensor_error(self):
+        self.assertTrue(np.allclose(self.pt_error, self.mt.pt.pt_error))
+
+    def test_phase_tensor_model_error(self):
+        self.assertTrue(np.allclose(self.pt_error, self.mt.pt.pt_model_error))
+
+    def test_phase_tensor_azimuth(self):
+        self.assertTrue(np.allclose(self.pt_azimuth, self.mt.pt.azimuth))
+
+    def test_phase_tensor_azimuth_error(self):
+        self.assertTrue(
+            np.allclose(self.pt_azimuth_error, self.mt.pt.azimuth_error)
+        )
+
+    def test_phase_tensor_azimuth_model_error(self):
+        self.assertTrue(
+            np.allclose(self.pt_azimuth_error, self.mt.pt.azimuth_model_error)
+        )
+
+    def test_phase_tensor_skew(self):
+        self.assertTrue(np.allclose(self.pt_skew, self.mt.pt.skew))
+
+    def test_phase_tensor_skew_error(self):
+        self.assertTrue(np.allclose(self.pt_skew_error, self.mt.pt.skew_error))
+
+    def test_phase_tensor_skew_model_error(self):
+        self.assertTrue(
+            np.allclose(self.pt_skew_error, self.mt.pt.skew_model_error)
+        )
+
+    def test_remove_static_shift(self):
+        new_mt = self.mt.remove_static_shift(ss_x=0.5, ss_y=1.5, inplace=False)
+
+        self.assertTrue(
+            np.allclose(
+                (self.mt.impedance.data / new_mt.impedance.data) ** 2,
+                np.array(
+                    [[[0.5 + 0.0j, 0.5 + 0.0j], [1.5 - 0.0j, 1.5 - 0.0j]]]
+                ),
+            )
+        )
+
+    def test_remove_distortion(self):
+        new_mt = self.mt.remove_distortion()
+
+        self.assertTrue(
+            np.all(
+                np.isclose(
+                    new_mt.Z.z,
+                    np.array(
+                        [
+                            [
+                                [
+                                    0.099995 - 0.099995j,
+                                    9.99949999 + 9.99949999j,
+                                ],
+                                [
+                                    -9.99949999 - 9.99949999j,
+                                    -0.099995 + 0.099995j,
+                                ],
+                            ]
+                        ]
+                    ),
+                )
+            )
+        )
+
+    def test_interpolate_fail_bad_f_type(self):
+        self.assertRaises(
+            ValueError, self.mt.interpolate, [0, 1], f_type="wrong"
+        )
+
+    def test_interpolate_fail_bad_periods(self):
+        self.assertRaises(ValueError, self.mt.interpolate, [0.1, 2])
+
+    def test_phase_flip(self):
+        new_mt = self.mt.flip_phase(zxy=True, inplace=False)
+
+        self.assertTrue(
+            np.all(np.isclose(new_mt.Z.phase_xy % 180, self.mt.Z.phase_xy))
+        )
+
+    def test_remove_component(self):
+        new_mt = self.mt.remove_component(zxx=True, inplace=False)
+
+        self.assertTrue(np.all(np.isnan(new_mt.Z.z[:, 0, 0])))
+
+
+class TestMTSetImpedanceOhm(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.z = np.array(
+            [[0.1 - 0.1j, 10 + 10j], [-10 - 10j, -0.1 + 0.1j]]
+        ).reshape((1, 2, 2))
+        self.z_ohm = self.z / MT_TO_OHM_FACTOR
+        self.z_err = np.array([[0.1, 0.05], [0.05, 0.1]]).reshape((1, 2, 2))
+        self.z_err_ohm = self.z_err / MT_TO_OHM_FACTOR
+        self.res = np.array([[[4.0e-03, 4.0e01], [4.0e01, 4.0e-03]]])
+        self.res_err = np.array(
+            [[[0.00565685, 0.28284271], [0.28284271, 0.00565685]]]
+        )
+        self.phase = np.array([[[-45.0, 45.0], [-135.0, 135.0]]])
+        self.phase_err = np.array(
+            [[[35.26438968, 0.20257033], [0.20257033, 35.26438968]]]
+        )
+
+        self.pt = np.array([[[1.00020002, -0.020002], [-0.020002, 1.00020002]]])
+        self.pt_error = np.array(
+            [[[0.01040308, 0.02020604], [0.02020604, 0.01040308]]]
+        )
+        self.pt_azimuth = np.array([315.0])
+        self.pt_azimuth_error = np.array([3.30832308])
+        self.pt_skew = np.array([0])
+        self.pt_skew_error = np.array([0.40923428])
+
+        self.z_object = Z(
+            z=self.z_ohm,
+            z_error=self.z_err_ohm,
+            z_model_error=self.z_err_ohm,
+            units="ohm",
+        )
+        self.mt = MT()
+        self.mt.station = "mt001"
+        self.mt.Z = self.z_object
+        self.z_object.units = "ohm"
+
+    def test_impedance_units(self):
+        self.assertEqual(self.mt.impedance_units, "ohm")
+
+    def test_period(self):
+        self.assertTrue((np.array([1]) == self.mt.period).all())
+
+    def test_impedance(self):
+        self.assertTrue((self.mt.impedance == self.z).all())
+
+    def test_z_impedance_ohm(self):
+        self.assertTrue((self.mt.Z.z == self.z_ohm).all())
+
+    def test_impedance_error(self):
+        self.assertTrue(np.allclose(self.mt.impedance_error, self.z_err))
+
+    def test_z_impedance_error_ohm(self):
+        self.assertTrue(np.allclose(self.mt.Z.z_error, self.z_err_ohm))
 
     def test_impedance_model_error(self):
         self.assertTrue(np.allclose(self.mt.impedance_model_error, self.z_err))
