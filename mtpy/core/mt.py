@@ -14,7 +14,11 @@ import numpy as np
 
 from mt_metadata.transfer_functions.core import TF
 
-from mtpy.core import Z, Tipper, COORDINATE_REFERENCE_FRAME_OPTIONS
+from mtpy.core import (
+    Z,
+    Tipper,
+    COORDINATE_REFERENCE_FRAME_OPTIONS,
+)
 from mtpy.core.mt_location import MTLocation
 from mtpy.core.mt_dataframe import MTDataFrame
 from mtpy.utils.estimate_tf_quality_factor import EMTFStats
@@ -1072,9 +1076,7 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j
-                * self._transfer_function.transfer_function.imag
-                * noise_imag
+                1j * self._transfer_function.transfer_function.imag * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
@@ -1088,9 +1090,7 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j
-                * self._transfer_function.transfer_function.imag
-                * noise_imag
+                1j * self._transfer_function.transfer_function.imag * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (

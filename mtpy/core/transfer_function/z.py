@@ -18,6 +18,7 @@ import copy
 import numpy as np
 
 from .base import TFBase
+from . import MT_TO_OHM_FACTOR, IMPEDANCE_UNITS
 from .pt import PhaseTensor
 from .z_analysis import (
     ZInvariants,
@@ -58,6 +59,7 @@ class Z(TFBase):
         z_error=None,
         frequency=None,
         z_model_error=None,
+        units="mt",
     ):
         """Initialize an instance of the Z class.
         :param z_model_error:
@@ -70,6 +72,9 @@ class Z(TFBase):
         :param frequency: Array of frequencyuency values corresponding to impedance
             tensor elements, defaults to None.
         :type frequency: np.ndarray(n_frequency), optional
+        :param units: units for the impedance [ "mt" [mV/km/nT] | ohm [Ohms] ]
+        :type units: str
+
         """
 
         super().__init__(
@@ -80,9 +85,9 @@ class Z(TFBase):
             _name="impedance",
         )
 
-        self._ohm_factor = 1.0 / np.pi * np.sqrt(5.0 / 8.0) * 10**3.5
-        self._unit_factors = {"mt": 1, "ohm": self._ohm_factor}
-        self.units = "mt"
+        self._ohm_factor = MT_TO_OHM_FACTOR
+        self._unit_factors = IMPEDANCE_UNITS
+        self.units = units
 
     @property
     def units(self):
