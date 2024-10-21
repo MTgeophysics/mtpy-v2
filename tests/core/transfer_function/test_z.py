@@ -10,7 +10,9 @@ Created on Tue Nov  8 13:04:38 2022
 import unittest
 import numpy as np
 
+from mtpy.core.transfer_function import MT_TO_OHM_FACTOR
 from mtpy.core.transfer_function.z import Z
+
 
 # =============================================================================
 
@@ -515,6 +517,75 @@ class TestZAnalysis(unittest.TestCase):
 
         with self.subTest("period"):
             self.assertTrue(np.all(np.isclose(doi["period"], self.z.period)))
+
+
+class TestUnits(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.z = np.array(
+            [
+                [-7.420305 - 15.02897j, 53.44306 + 114.4988j],
+                [-49.96444 - 116.4191j, 11.95081 + 21.52367j],
+            ]
+        )
+        self.z_in_ohms = self.z / MT_TO_OHM_FACTOR
+
+    def test_initialize_with_units_ohm(self):
+        z_obj = Z(z=self.z_in_ohms, units="ohm")
+        with self.subTest("data in mt units"):
+            self.assertTrue(
+                np.allclose(self.z, z_obj._dataset.transfer_function.values)
+            )
+        with self.subTest("data in mt units"):
+            self.assertTrue(np.allclose(self.z_in_ohms, z_obj.z))
+        with self.subTest("units"):
+            self.assertEqual("ohm", z_obj.units)
+
+    def test_initialize_with_units_mt(self):
+        z_obj = Z(z=self.z, units="mt")
+        with self.subTest("data in mt units"):
+            self.assertTrue(
+                np.allclose(self.z, z_obj._dataset.transfer_function.values)
+            )
+        with self.subTest("data in mt units"):
+            self.assertTrue(np.allclose(self.z, z_obj.z))
+        with self.subTest("units"):
+            self.assertEqual("mt", z_obj.units)
+
+    def test_units_change_ohm_to_mt(self):
+        z_obj = Z(z=self.z_in_ohms, units="ohm")
+        z_obj.units = "mt"
+        with self.subTest("data in mt units"):
+            self.assertTrue(
+                np.allclose(self.z, z_obj._dataset.transfer_function.values)
+            )
+        with self.subTest("data in mt units"):
+            self.assertTrue(np.allclose(self.z, z_obj.z))
+        with self.subTest("units"):
+            self.assertEqual("mt", z_obj.units)
+
+    def test_units_change_mt_to_ohm(self):
+        z_obj = Z(z=self.z, units="mt")
+        z_obj.units = "ohm"
+        with self.subTest("data in mt units"):
+            self.assertTrue(
+                np.allclose(self.z, z_obj._dataset.transfer_function.values)
+            )
+        with self.subTest("data in ohm units"):
+            self.assertTrue(np.allclose(self.z_in_ohms, z_obj.z))
+        with self.subTest("units"):
+            self.assertEqual("ohm", z_obj.units)
+
+    def test_set_unit_fail(self):
+        z_obj = Z(z=self.z)
+
+        def set_units(unit):
+            z_obj.units = unit
+
+        with self.subTest("bad type"):
+            self.assertRaises(TypeError, set_units, 4)
+        with self.subTest("bad choice"):
+            self.assertRaises(ValueError, set_units, "ants")
 
 
 # =============================================================================

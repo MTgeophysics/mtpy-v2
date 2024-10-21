@@ -14,12 +14,14 @@ import numpy as np
 
 from mt_metadata.transfer_functions.core import TF
 
+from mtpy.core.transfer_function import (
+    MT_TO_OHM_FACTOR,
+    IMPEDANCE_UNITS,
+)
 from mtpy.core import (
     Z,
     Tipper,
     COORDINATE_REFERENCE_FRAME_OPTIONS,
-    MT_TO_OHM_FACTOR,
-    IMPEDANCE_UNITS,
 )
 from mtpy.core.mt_location import MTLocation
 from mtpy.core.mt_dataframe import MTDataFrame
