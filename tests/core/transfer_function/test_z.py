@@ -62,6 +62,9 @@ class TestZInitialize(unittest.TestCase):
     def test_phase_model_error(self):
         self.assertEqual(None, self.z.phase_model_error)
 
+    def test_units(self):
+        self.assertEqual("mt", self.z.units)
+
 
 class TestZSetResPhase(unittest.TestCase):
     """

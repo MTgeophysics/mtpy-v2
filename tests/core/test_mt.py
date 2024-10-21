@@ -100,9 +100,7 @@ class TestMTSetImpedance(unittest.TestCase):
             [[[35.26438968, 0.20257033], [0.20257033, 35.26438968]]]
         )
 
-        self.pt = np.array(
-            [[[1.00020002, -0.020002], [-0.020002, 1.00020002]]]
-        )
+        self.pt = np.array([[[1.00020002, -0.020002], [-0.020002, 1.00020002]]])
         self.pt_error = np.array(
             [[[0.01040308, 0.02020604], [0.02020604, 0.01040308]]]
         )
@@ -365,6 +363,25 @@ class TestMT2DataFrame(unittest.TestCase):
 
     def test_from_dataframe_fail(self):
         self.assertRaises(TypeError, self.m1.from_dataframe, "a")
+
+
+class TestMT2DataFrameOhms(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.m1 = MT(TF_EDI_CGG)
+        self.m1.read()
+
+        self.mt_df = self.m1.to_dataframe(impedance_units="ohm")
+
+    def test_impedance_in_ohms(self):
+        z_obj = self.m1.Z
+        z_obj.units = "ohm"
+
+        self.assertEqual(z_obj, self.mt_df.to_z_object())
+
+    def test_impedance_not_equal(self):
+
+        self.assertNotEqual(self.m1.Z, self.mt_df.to_z_object())
 
 
 # =============================================================================

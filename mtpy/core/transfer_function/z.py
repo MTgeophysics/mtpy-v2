@@ -77,6 +77,19 @@ class Z(TFBase):
 
         """
 
+        self._ohm_factor = MT_TO_OHM_FACTOR
+        self._unit_factors = IMPEDANCE_UNITS
+        self.units = units
+
+        # if units input is ohms, then we want to scale them to mt units that
+        # way the underlying data is consistent in [mV/km/nT]
+        if z is not None:
+            z = z * self._scale_factor
+        if z_error is not None:
+            z_error = z_error * self._scale_factor
+        if z_model_error is not None:
+            z_model_error = z_model_error * self._scale_factor
+
         super().__init__(
             tf=z,
             tf_error=z_error,
@@ -84,10 +97,6 @@ class Z(TFBase):
             frequency=frequency,
             _name="impedance",
         )
-
-        self._ohm_factor = MT_TO_OHM_FACTOR
-        self._unit_factors = IMPEDANCE_UNITS
-        self.units = units
 
     @property
     def units(self):
@@ -122,7 +131,7 @@ class Z(TFBase):
 
     @z.setter
     def z(self, z):
-        """Set the attribute 'z'.
+        """Set the attribute 'z'. Should be in units of mt [mV/km/nT]
         :param z: Complex impedance tensor array.
         :type z: np.ndarray(nfrequency, 2, 2)
         """
