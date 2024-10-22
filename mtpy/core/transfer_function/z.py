@@ -295,10 +295,20 @@ class Z(TFBase):
 
         z_corrected = copy.copy(self.z)
 
-        z_corrected[:, 0, 0] = self.z[:, 0, 0] / x_factors
-        z_corrected[:, 0, 1] = self.z[:, 0, 1] / x_factors
-        z_corrected[:, 1, 0] = self.z[:, 1, 0] / y_factors
-        z_corrected[:, 1, 1] = self.z[:, 1, 1] / y_factors
+        z_corrected[:, 0, 0] = (
+            self.z[:, 0, 0] * self._scale_factor
+        ) / x_factors
+        z_corrected[:, 0, 1] = (
+            self.z[:, 0, 1] * self._scale_factor
+        ) / x_factors
+        z_corrected[:, 1, 0] = (
+            self.z[:, 1, 0] * self._scale_factor
+        ) / y_factors
+        z_corrected[:, 1, 1] = (
+            self.z[:, 1, 1] * self._scale_factor
+        ) / y_factors
+
+        z_corrected = z_corrected / self._scale_factor
 
         if inplace:
             self.z = z_corrected
@@ -357,17 +367,22 @@ class Z(TFBase):
             self, distortion_tensor, distortion_error_tensor, self.logger
         )
 
+        # into mt units
+        z_corrected = z_corrected * self._scale_factor
+        z_corrected_error = z_corrected_error * self._scale_factor
+
         if inplace:
             self.z = z_corrected
             self.z_error = z_corrected_error
         else:
-            return Z(
+            z_object = Z(
                 z=z_corrected,
                 z_error=z_corrected_error,
                 frequency=self.frequency,
                 z_model_error=self.z_model_error,
-                units=self.units,
             )
+            z_object.units = self.units
+            return z_object
 
     @property
     def resistivity(self):
@@ -397,7 +412,9 @@ class Z(TFBase):
                 return np.apply_along_axis(
                     lambda x: x / self.frequency * 0.2,
                     0,
-                    2 * self.z_error * np.abs(self.z * self._scale_factor),
+                    2
+                    * (self.z_error * self._scale_factor)
+                    * np.abs(self.z * self._scale_factor),
                 )
 
     @property
@@ -422,7 +439,7 @@ class Z(TFBase):
                     lambda x: x / self.frequency * 0.2,
                     0,
                     2
-                    * self.z_model_error
+                    * (self.z_model_error * self._scale_factor)
                     * np.abs(self.z * self._scale_factor),
                 )
 
@@ -804,12 +821,13 @@ class Z(TFBase):
 
         if self._has_tf():
             new_z_object = Z(
-                z=self.z[0:nf, :, :],
+                z=self._dataset.transfer_function.values[0:nf, :, :],
                 frequency=self.frequency[0:nf],
-                units=self.units,
             )
             if self._has_tf_error():
-                new_z_object.z_error = self.z_error[0:nf]
+                new_z_object.z_error = (
+                    self._dataset.transfer_function_error.values[0:nf]
+                )
 
         return find_distortion(
             new_z_object, comp=comp, only_2d=only_2d, clockwise=clockwise

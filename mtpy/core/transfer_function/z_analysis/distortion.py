@@ -99,16 +99,8 @@ def find_distortion(z_object, comp="det", only_2d=False, clockwise=True):
             dis[index] = np.mean(
                 np.array(
                     [
-                        (
-                            1.0
-                            / compr
-                            * np.dot(z_object.z.real[index], rot_mat)
-                        ),
-                        (
-                            1.0
-                            / compi
-                            * np.dot(z_object.z.imag[index], rot_mat)
-                        ),
+                        (1.0 / compr * np.dot(z_object.z.real[index], rot_mat)),
+                        (1.0 / compi * np.dot(z_object.z.imag[index], rot_mat)),
                     ]
                 ),
                 axis=0,
@@ -329,9 +321,7 @@ def find_distortion(z_object, comp="det", only_2d=False, clockwise=True):
                     ]
                 )
 
-                dis_error[index] = np.mean(
-                    np.array([dis_error_r, dis_error_i])
-                )
+                dis_error[index] = np.mean(np.array([dis_error_r, dis_error_i]))
         else:
             dis[index] = np.identity(2)
 
@@ -355,6 +345,8 @@ def remove_distortion_from_z_object(
     """Remove distortion D form an observed impedance tensor Z to obtain
     the uperturbed "correct" Z0:
     Z = D * Z0
+
+    units should be in MT units of mV/km/nT
 
     Propagation of errors/uncertainties included
     :param logger:
@@ -434,6 +426,10 @@ def remove_distortion_from_z_object(
     z_corrected = np.zeros_like(z_object.z, dtype=complex)
     z_corrected_error = np.zeros_like(z_object.z, dtype=float)
 
+    # get values in mt units
+    z = z_object._dataset.transfer_function.values.copy()
+    z_error = z_object._dataset.transfer_function_error.values.copy()
+
     for idx_f in range(len(z_object.z)):
         z_corrected[idx_f] = np.array(np.dot(DI, np.array(z_object.z[idx_f])))
         if z_object._has_tf_error():
@@ -443,10 +439,10 @@ def remove_distortion_from_z_object(
                         np.abs(
                             np.array(
                                 [
-                                    DI_error[ii, 0] * z_object.z[idx_f, 0, jj],
-                                    DI[ii, 0] * z_object.z_error[idx_f, 0, jj],
-                                    DI_error[ii, 1] * z_object.z[idx_f, 1, jj],
-                                    DI[ii, 1] * z_object.z_error[idx_f, 1, jj],
+                                    DI_error[ii, 0] * z[idx_f, 0, jj],
+                                    DI[ii, 0] * z_error[idx_f, 0, jj],
+                                    DI_error[ii, 1] * z[idx_f, 1, jj],
+                                    DI[ii, 1] * z_error[idx_f, 1, jj],
                                 ]
                             )
                         )

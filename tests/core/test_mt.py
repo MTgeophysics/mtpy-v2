@@ -381,24 +381,22 @@ class TestMTSetImpedanceOhm(unittest.TestCase):
         new_mt = self.mt.remove_distortion()
 
         self.assertTrue(
-            np.all(
-                np.isclose(
-                    new_mt.Z.z,
-                    np.array(
+            np.allclose(
+                new_mt.Z.z,
+                np.array(
+                    [
                         [
                             [
-                                [
-                                    0.099995 - 0.099995j,
-                                    9.99949999 + 9.99949999j,
-                                ],
-                                [
-                                    -9.99949999 - 9.99949999j,
-                                    -0.099995 + 0.099995j,
-                                ],
-                            ]
+                                0.00012566 - 0.00012566j,
+                                0.01256574 + 0.01256574j,
+                            ],
+                            [
+                                -0.01256574 - 0.01256574j,
+                                -0.00012566 + 0.00012566j,
+                            ],
                         ]
-                    ),
-                )
+                    ]
+                ),
             )
         )
 

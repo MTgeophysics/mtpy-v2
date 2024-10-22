@@ -312,12 +312,12 @@ class MT(TF, MTLocation):
 
         if self.has_impedance():
             z_object = Z(
-                    z=self.impedance.to_numpy(),
-                    z_error=self.impedance_error.to_numpy(),
-                    frequency=self.frequency,
-                    z_model_error=self.impedance_model_error.to_numpy(),
-                )
-                z_object.units = self.impedance_units
+                z=self.impedance.to_numpy(),
+                z_error=self.impedance_error.to_numpy(),
+                frequency=self.frequency,
+                z_model_error=self.impedance_model_error.to_numpy(),
+            )
+            z_object.units = self.impedance_units
             return z_object
         return Z()
 
@@ -340,10 +340,11 @@ class MT(TF, MTLocation):
             elif not (self.frequency == z_object.frequency).all():
                 self.frequency = z_object.frequency
         # set underlying data to units of mt
-        z_object.units = "mt"
-        self.impedance = z_object.z
-        self.impedance_error = z_object.z_error
-        self.impedance_model_error = z_object.z_model_error
+        self.impedance = z_object._dataset.transfer_function.values
+        self.impedance_error = z_object._dataset.transfer_function_error.values
+        self.impedance_model_error = (
+            z_object._dataset.transfer_function_model_error.values
+        )
 
     @property
     def Tipper(self):
