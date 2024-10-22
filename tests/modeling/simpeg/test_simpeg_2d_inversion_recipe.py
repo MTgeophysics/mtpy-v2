@@ -55,19 +55,19 @@ class TestSimpeg2DRecipe(unittest.TestCase):
     def test_active_map(self):
         self.assertEqual(
             self.simpeg_inversion.active_map.nP,
-            self.simpeg_inversion.quad_tree.number_of_active_cells,
+            self.simpeg_inversion.mesh.number_of_active_cells,
         )
 
     def test_exponent_map(self):
         self.assertEqual(
-            self.simpeg_inversion.quad_tree.active_cell_index.size,
+            self.simpeg_inversion.mesh.active_cell_index.size,
             self.simpeg_inversion.exponent_map.nP,
         )
 
     def test_conductivity_map(self):
         self.assertEqual(
             self.simpeg_inversion.conductivity_map.nP,
-            self.simpeg_inversion.quad_tree.number_of_active_cells,
+            self.simpeg_inversion.mesh.number_of_active_cells,
         )
 
     def test_tm_simulation(self):
