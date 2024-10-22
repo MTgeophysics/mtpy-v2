@@ -148,7 +148,11 @@ class Simpeg2DData:
         for ff in np.sort(self.frequencies):
             f_df = self.dataframe[self.dataframe.period == 1.0 / ff]
             obs.append(f_df[f"res_{mode}"])
-            obs.append(f_df[f"phase_{mode}"])
+            # flip into the appropriate coordinate system
+            if mode in ["xy"]:
+                obs.append(-1 * f_df[f"phase_{mode}"] + 90)
+            elif mode in ["yx"]:
+                obs.append(-1 * f_df[f"phase_{mode}"] - 270)
 
         obs = np.array(obs)
         return obs.flatten()
