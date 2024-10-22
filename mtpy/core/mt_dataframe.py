@@ -755,7 +755,7 @@ class MTDataFrame:
                 self.dataframe.station == self.station, f"z_{comp}_model_error"
             ]
 
-        z_object = Z(z, z_err, self.frequency, z_model_err, unit=units)
+        z_object = Z(z, z_err, self.frequency, z_model_err, units=units)
 
         if (z == 0).all():
             for comp in ["xx", "xy", "yx", "yy"]:

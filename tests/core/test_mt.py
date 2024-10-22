@@ -558,11 +558,11 @@ class TestMT2DataFrameOhms(unittest.TestCase):
         z_obj = self.m1.Z
         z_obj.units = "ohm"
 
-        self.assertEqual(z_obj, self.mt_df.to_z_object())
+        self.assertEqual(z_obj, self.mt_df.to_z_object(units="ohm"))
 
     def test_impedance_not_equal(self):
 
-        self.assertNotEqual(self.m1.Z, self.mt_df.to_z_object())
+        self.assertNotEqual(self.m1.Z, self.mt_df.to_z_object(units="mt"))
 
 
 # =============================================================================

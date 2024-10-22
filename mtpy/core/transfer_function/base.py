@@ -102,11 +102,16 @@ class TFBase:
 
         # loop over variables to make sure they are all the same.
         for var in list(self._dataset.data_vars):
-            try:
-                if not (self._dataset[var] == other._dataset[var]).all().data:
+            has_tf_str = f"_has_{var.replace('transfer_function', 'tf')}"
+            if getattr(self, has_tf_str):
+                if getattr(other, has_tf_str):
+                    if not np.allclose(
+                        self._dataset[var].data, other._dataset[var].data
+                    ):
+                        self.logger.info(f"Transfer functions {var} not equal")
+                        return False
+                else:
                     return False
-            except TypeError:
-                continue
         return True
 
     def __deepcopy__(self, memo):
