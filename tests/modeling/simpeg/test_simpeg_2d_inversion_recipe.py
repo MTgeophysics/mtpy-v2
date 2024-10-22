@@ -174,7 +174,9 @@ class TestSimpeg2DRecipeRun(unittest.TestCase):
         self.n_iterations = 5
 
         self.simpeg_inversion = Simpeg2D(
-            self.mt_df, max_iterations=self.n_iterations
+            self.mt_df,
+            max_iterations=self.n_iterations,
+            data_kwargs={"include_elevation": False},
         )
 
         self.inv_output = self.simpeg_inversion.run_inversion()
