@@ -79,6 +79,7 @@ class MTData(OrderedDict, MTStations):
         )
         self.data_rotation_angle = 0
         self.coordinate_reference_frame = "ned"
+        self._impedance_unit_factors = IMPEDANCE_UNITS
         self.impedance_units = "mt"
 
         self.model_parameters = {}

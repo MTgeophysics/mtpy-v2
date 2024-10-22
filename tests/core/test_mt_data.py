@@ -191,6 +191,23 @@ class TestMTDataMethods(unittest.TestCase):
         with self.subTest("fail"):
             self.assertRaises(KeyError, self.md._get_station_key, None, "a")
 
+    def test_impedance_units(self):
+
+        def set_units(unit):
+            self.md.impedance_units = unit
+
+        with self.subTest("bad type"):
+            self.assertRaises(TypeError, set_units, 4)
+        with self.subTest("bad choice"):
+            self.assertRaises(ValueError, set_units, "ants")
+
+    def test_set_impedance_units(self):
+        self.md.impedance_units = "ohm"
+
+        for mt_obj in self.md.values():
+            with self.subTest(f"mt_obj units {mt_obj.station}"):
+                self.assertEqual(mt_obj.impedance_units, "ohm")
+
 
 # =============================================================================
 #
