@@ -100,9 +100,9 @@ class Simpeg2D:
             self._solvers_dict = {}
 
         # regularization parameters
-        self.alpha_s = 1e-5
-        self.alpha_y = 1 / 5.0
-        self.alpha_z = 1.0
+        self.alpha_s = 1e-15
+        self.alpha_y = 1
+        self.alpha_z = 0.5
 
         # optimization parameters
         self.max_iterations = 30
@@ -110,6 +110,7 @@ class Simpeg2D:
         self.max_iterations_irls = 40
         self.minimum_gauss_newton_iterations = 1
         self.f_min_change = 1e-5
+        self.optimization_tolerance = 1e-30
 
         # inversion parameters
         self.use_irls = False
@@ -339,7 +340,9 @@ class Simpeg2D:
         """
 
         return optimization.InexactGaussNewton(
-            maxIter=self.max_iterations, maxIterCG=self.max_iterations_cg
+            maxIter=self.max_iterations,
+            maxIterCG=self.max_iterations_cg,
+            tolX=self.optimization_tolerance,
         )
 
     @property

@@ -18,6 +18,8 @@ from geoana.em.fdem import skin_depth
 import discretize.utils as dis_utils
 import warnings
 
+import matplotlib.pyplot as plt
+
 warnings.filterwarnings("ignore")
 # =============================================================================
 
@@ -31,7 +33,7 @@ class StructuredMesh:
         self.sigma_background = 0.01
 
         self.z_factor_min = 5
-        self.z_factor_max = 5
+        self.z_factor_max = 15
 
         self.z_geometric_factor_up = 1.5
         self.z_geometric_factor_down = 1.2
@@ -41,6 +43,9 @@ class StructuredMesh:
         self.x_spacing_factor = 4
         self.x_padding_geometric_factor = 1.5
         self.n_max = 1000
+
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
     @property
     def frequency_max(self):
@@ -208,7 +213,15 @@ class StructuredMesh:
         """
 
         if self.mesh is not None:
-            ax = self.mesh.plot_grid(**kwargs)
+            fig = plt.figure(kwargs.get("fig_num", 1))
+            ax = fig.add_subplot(1, 1, 1)
+            self.mesh.plot_image(
+                self.active_cell_index,
+                ax=ax,
+                grid=True,
+                grid_opts={"color": (0.75, 0.75, 0.75), "linewidth": 0.1},
+                **kwargs
+            )
             ax.scatter(
                 self.station_locations[:, 0],
                 self.station_locations[:, 1],
@@ -218,8 +231,13 @@ class StructuredMesh:
                 zorder=1000,
             )
             ax.set_xlim(
-                self.station_locations[:, 0].min() - (2 * self.dx),
-                self.station_locations[:, 0].max() + (2 * self.dx),
+                kwargs.get(
+                    "xlim",
+                    (
+                        self.station_locations[:, 0].min() - (2 * self.dx),
+                        self.station_locations[:, 0].max() + (2 * self.dx),
+                    ),
+                )
             )
             ax.set_ylim(kwargs.get("ylim", (-10000, 1000)))
             return ax
