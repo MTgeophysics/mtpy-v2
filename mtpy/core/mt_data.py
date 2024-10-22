@@ -18,6 +18,7 @@ import geopandas as gpd
 
 import matplotlib.pyplot as plt
 
+from mtpy.core.transfer_function import IMPEDANCE_UNITS
 from .mt import MT
 from .mt_stations import MTStations
 from mtpy.core import MTDataFrame, COORDINATE_REFERENCE_FRAME_OPTIONS
@@ -78,6 +79,7 @@ class MTData(OrderedDict, MTStations):
         )
         self.data_rotation_angle = 0
         self.coordinate_reference_frame = "ned"
+        self.impedance_units = "mt"
 
         self.model_parameters = {}
 
@@ -94,6 +96,7 @@ class MTData(OrderedDict, MTStations):
             "rotation_angle",
             "data_rotation_angle",
             "model_parameters",
+            "impedance_units",
         ]
 
         if mt_list is not None:
@@ -263,6 +266,27 @@ class MTData(OrderedDict, MTStations):
             mt_obj.coordinate_reference_frame = value
 
         self._coordinate_reference_frame = value
+
+    @property
+    def impedance_units(self):
+        """impedance units"""
+        return self._impedance_units
+
+    @impedance_units.setter
+    def impedance_units(self, value):
+        """impedance units setter options are [ mt | ohm ]"""
+        if not isinstance(value, str):
+            raise TypeError("Units input must be a string.")
+        if value.lower() not in self._impedance_unit_factors.keys():
+            raise ValueError(
+                f"{value} is not an acceptable unit for impedance."
+            )
+
+        self._impedance_units = value
+
+        if self.mt_list is not None:
+            for mt_obj in self.values():
+                mt_obj.impedance_units = self._impedance_units
 
     @property
     def mt_list(self):
@@ -521,19 +545,23 @@ class MTData(OrderedDict, MTStations):
         if self.mt_list is not None:
             return len(self.mt_list)
 
-    def to_dataframe(self, utm_crs=None, cols=None):
+    def to_dataframe(self, utm_crs=None, cols=None, impedance_units="mt"):
         """To dataframe.
 
         :param utm_crs: DESCRIPTION, defaults to None.
         :type utm_crs: TYPE, optional
         :param cols: DESCRIPTION, defaults to None.
         :type cols: TYPE, optional
+        :param impedance_units: [ "mt" [mV/km/nT] | "ohm" [Ohms] ]
+        :type impedance_units: str
         :return: DESCRIPTION.
         :rtype: TYPE
         """
 
         df_list = [
-            mt_obj.to_dataframe(utm_crs=utm_crs, cols=cols).dataframe
+            mt_obj.to_dataframe(
+                utm_crs=utm_crs, cols=cols, impedance_units=impedance_units
+            ).dataframe
             for mt_obj in self.values()
         ]
 
@@ -541,39 +569,47 @@ class MTData(OrderedDict, MTStations):
         df.reset_index(drop=True, inplace=True)
         return df
 
-    def to_mt_dataframe(self, utm_crs=None):
+    def to_mt_dataframe(self, utm_crs=None, impedance_units="mt"):
         """Create an MTDataFrame.
 
         :param utm_crs: DESCRIPTION, defaults to None.
         :type utm_crs: TYPE, optional
+        :param impedance_units: [ "mt" [mV/km/nT] | "ohm" [Ohms] ]
+        :type impedance_units: str
         :return: DESCRIPTION.
         :rtype: TYPE
         """
 
-        return MTDataFrame(self.to_dataframe(utm_crs=utm_crs))
+        return MTDataFrame(
+            self.to_dataframe(utm_crs=utm_crs, impedance_units=impedance_units)
+        )
 
-    def from_dataframe(self, df):
+    def from_dataframe(self, df, impedance_units="mt"):
         """Create an dictionary of MT objects from a dataframe.
 
         :param df: Dataframe of mt data.
         :type df: `pandas.DataFrame`
+        :param impedance_units: [ "mt" [mV/km/nT] | "ohm" [Ohms] ]
+        :type impedance_units: str
         """
 
         for station in df.station.unique():
             sdf = df.loc[df.station == station]
             mt_object = MT(period=sdf.period.unique())
-            mt_object.from_dataframe(sdf)
+            mt_object.from_dataframe(sdf, impedance_units=impedance_units)
             self.add_station(mt_object, compute_relative_location=False)
 
-    def from_mt_dataframe(self, mt_df):
+    def from_mt_dataframe(self, mt_df, impedance_units="mt"):
         """Create an dictionary of MT objects from a dataframe.
 
         :param mt_df:
         :param df: Dataframe of mt data.
         :type df: `MTDataFrame`
+        :param impedance_units: [ "mt" [mV/km/nT] | "ohm" [Ohms] ]
+        :type impedance_units: str
         """
 
-        self.from_dataframe(mt_df.dataframe)
+        self.from_dataframe(mt_df.dataframe, impedance_units=impedance_units)
 
     def to_geo_df(self, model_locations=False, data_type="station_locations"):
         """Make a geopandas dataframe for easier GIS manipulation.

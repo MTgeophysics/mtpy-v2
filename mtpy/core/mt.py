@@ -14,10 +14,7 @@ import numpy as np
 
 from mt_metadata.transfer_functions.core import TF
 
-from mtpy.core.transfer_function import (
-    MT_TO_OHM_FACTOR,
-    IMPEDANCE_UNITS,
-)
+from mtpy.core.transfer_function import IMPEDANCE_UNITS
 from mtpy.core import (
     Z,
     Tipper,
