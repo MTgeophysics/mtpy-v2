@@ -157,9 +157,9 @@ class Simpeg2DData:
             res.append(f_df[f"res_{comp}"])
             # flip into the appropriate coordinate system
             if comp in ["xy"]:
-                phase.append(1 * f_df[f"phase_{comp}"] + 90)
+                phase.append(1 * f_df[f"phase_{comp}"])
             elif comp in ["yx"]:
-                phase.append(1 * f_df[f"phase_{comp}"] - 270)
+                phase.append(1 * f_df[f"phase_{comp}"])
 
         return np.hstack((res, phase)).flatten()
 
