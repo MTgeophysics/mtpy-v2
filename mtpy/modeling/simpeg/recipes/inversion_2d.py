@@ -548,3 +548,64 @@ class Simpeg2D:
         ax.set_xlim(xlim)
         plt.tight_layout()
         plt.show()
+
+    def plot_responses(self, iteration_number, **kwargs):
+        """
+        Plot responses all together
+
+        :param iteration: DESCRIPTION
+        :type iteration: TYPE
+        :param **kwargs: DESCRIPTION
+        :type **kwargs: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        shape = (self.data.n_frequencies, 2, self.data.n_stations)
+
+        dpred = self.iterations[iteration_number]["dpred"]
+        te_pred = dpred.reshape(
+            (2, self.data.n_frequencies, 2, self.data.n_stations)
+        )[0, :, :, :]
+        tm_pred = dpred.reshape(
+            (2, self.data.n_frequencies, 2, self.data.n_stations)
+        )[1, :, :, :]
+
+        te_obs = self.data.te_data.dobs.copy().reshape(shape)
+        tm_obs = self.data.tm_data.dobs.copy().reshape(shape)
+
+        ## With these plot frequency goes from high on the left to low on the right.
+        ## Moving shallow to deep from left to right.
+
+        fig = plt.figure(figsize=(10, 3))
+        ax1 = fig.add_subplot(2, 2, 1)
+        ax2 = fig.add_subplot(2, 2, 2, sharex=ax1)
+        ax3 = fig.add_subplot(2, 2, 3, sharex=ax1)
+        ax4 = fig.add_subplot(2, 2, 4, sharex=ax1)
+
+        # plot TE Resistivity
+        ax1.semilogy(te_obs[:, 0, :].flatten(), "b.", label="observed")
+        ax1.semilogy(te_pred[:, 0, :].flatten(), "r.", label="predicted")
+        ax1.set_title("TE")
+        ax1.set_ylabel("Apparent Resistivity")
+        ax1.set_xlim((self.data.n_stations * self.data.n_frequencies, 0))
+        ax1.legend()
+
+        # plot TM Resistivity
+        ax2.semilogy(tm_obs[:, 0, :].flatten(), "b.", label="observed")
+        ax2.semilogy(tm_pred[:, 0, :].flatten(), "r.", label="predicted")
+        ax2.set_title("TM")
+        ax2.legend()
+
+        # plot TE Phase
+        ax3.plot(te_obs[:, 1, :].flatten(), "b.", label="observed")
+        ax3.plot(te_pred[:, 1, :].flatten(), "r.", label="predicted")
+        ax3.set_xlabel("data point")
+        ax3.legend()
+
+        # plot TM Phase
+        ax4.plot(tm_obs[:, 1, :].flatten(), "b.", label="observed")
+        ax4.plot(tm_pred[:, 1, :].flatten(), "r.", label="predicted")
+        ax3.legend()
+
+        # plt.ylim(10, 1000)
