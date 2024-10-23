@@ -360,22 +360,22 @@ class Simpeg2DData:
             for ii in range(self.n_stations):
                 ax_xy_res.loglog(
                     1.0 / self.frequencies,
-                    te_data[:, 0, ii],
+                    np.abs(te_data[:, 0, ii]),
                     color=(0.5, 0.5, ii / self.n_stations),
                 )
                 ax_xy_phase.loglog(
                     1.0 / self.frequencies,
-                    te_data[:, 1, ii],
+                    np.abs(te_data[:, 1, ii]),
                     color=(0.25, 0.25, ii / self.n_stations),
                 )
                 ax_yx_res.loglog(
                     1.0 / self.frequencies,
-                    tm_data[:, 0, ii],
+                    np.abs(tm_data[:, 0, ii]),
                     color=(0.5, ii / self.n_stations, 0.75),
                 )
                 ax_yx_phase.loglog(
                     1.0 / self.frequencies,
-                    tm_data[:, 1, ii],
+                    np.abs(tm_data[:, 1, ii]),
                     color=(0.25, ii / self.n_stations, 0.75),
                 )
 
