@@ -532,6 +532,16 @@ class Simpeg2D:
             mfc="r",
         )
 
+        for key in self.iterations.keys():
+            ax.text(
+                self.iterations[key]["phi_m"],
+                self.iterations[key]["phi_d"],
+                key,
+                fontdict={"size": 8},
+                ha="center",
+                va="center",
+            )
+
         ax.set_xlabel("$\phi_m$ [model smallness]")
         ax.set_ylabel("$\phi_d$ [data fit]")
         ax.set_xscale("log")
@@ -571,10 +581,10 @@ class Simpeg2D:
         te_obs = self.data.te_data.dobs.copy().reshape(shape)
         tm_obs = self.data.tm_data.dobs.copy().reshape(shape)
 
-        obs_color = kwargs.get("obs_color", (0, 178 / 255, 1))
+        obs_color = kwargs.get("obs_color", (0, 118 / 255, 1))
         pred_color = kwargs.get("pred_color", (1, 110 / 255, 0))
         obs_marker = "."
-        pred_maker = "o"
+        pred_maker = "."
 
         ## With these plot frequency goes from high on the left to low on the right.
         ## Moving shallow to deep from left to right.
@@ -712,7 +722,7 @@ class Simpeg2D:
                 label="predicted",
             )
             ax3.set_xlabel("data point")
-            ax1.set_ylabel("Imag Impedance [Ohms]")
+            ax3.set_ylabel("Imag Impedance [Ohms]")
             ax3.legend()
 
             # plot TM Phase
