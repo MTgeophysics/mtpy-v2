@@ -301,10 +301,6 @@ class Simpeg2DData:
         """
 
         fig = plt.figure(kwargs.get("fig_num", 1))
-        ax_xy_res = fig.add_subplot(2, 2, 1)
-        ax_yx_res = fig.add_subplot(2, 2, 2, sharex=ax_xy_res)
-        ax_xy_phase = fig.add_subplot(2, 2, 3, sharex=ax_xy_res)
-        ax_yx_phase = fig.add_subplot(2, 2, 4, sharex=ax_xy_res)
 
         te_data = self.te_data.dobs.reshape(
             (self.n_frequencies, 2, self.n_stations)
@@ -314,6 +310,10 @@ class Simpeg2DData:
         )
 
         if not self.invert_impedance:
+            ax_xy_res = fig.add_subplot(2, 2, 1)
+            ax_yx_res = fig.add_subplot(2, 2, 2, sharex=ax_xy_res)
+            ax_xy_phase = fig.add_subplot(2, 2, 3, sharex=ax_xy_res)
+            ax_yx_phase = fig.add_subplot(2, 2, 4, sharex=ax_xy_res)
             for ii in range(self.n_stations):
                 ax_xy_res.loglog(
                     1.0 / self.frequencies,
@@ -340,7 +340,23 @@ class Simpeg2DData:
             ax_yx_phase.set_xlabel("Period (s)")
             ax_xy_res.set_ylabel("Apparent Resistivity")
             ax_xy_phase.set_ylabel("Phase")
+
+            ax_xy_res.set_title("TE")
+            ax_yx_res.set_title("TM")
         else:
+            ax_xy_res = fig.add_subplot(2, 2, 1)
+            ax_yx_res = fig.add_subplot(
+                2, 2, 2, sharex=ax_xy_res, sharey=ax_xy_res
+            )
+            ax_xy_phase = fig.add_subplot(
+                2,
+                2,
+                3,
+                sharex=ax_xy_res,
+            )
+            ax_yx_phase = fig.add_subplot(
+                2, 2, 4, sharex=ax_xy_res, sharey=ax_xy_phase
+            )
             for ii in range(self.n_stations):
                 ax_xy_res.loglog(
                     1.0 / self.frequencies,
@@ -367,6 +383,9 @@ class Simpeg2DData:
             ax_yx_phase.set_xlabel("Period (s)")
             ax_xy_res.set_ylabel("Real Impedance [Ohms]")
             ax_xy_phase.set_ylabel("Imag Impedance [Ohms]")
+
+            ax_xy_res.set_title("Zxy (TE)")
+            ax_yx_res.set_title("Zyx (TM)")
 
         for ax in [ax_xy_res, ax_xy_phase, ax_yx_res, ax_yx_phase]:
             ax.grid(
