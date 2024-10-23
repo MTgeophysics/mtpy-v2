@@ -322,7 +322,7 @@ class Simpeg2D:
             reference_model=self.reference_model,
             alpha_s=self.alpha_s,
             alpha_x=self.alpha_y,
-            alpha_z=self.alpha_z,
+            alpha_y=self.alpha_z,
             mapping=maps.IdentityMap(nP=self.mesh.number_of_active_cells),
         )
 
@@ -425,7 +425,7 @@ class Simpeg2D:
                 self.starting_beta,
                 self.beta_schedule,
                 self.saved_model_outputs,
-                self.target_misfit,
+                # self.target_misfit,
             ]
 
     def run_inversion(self):
@@ -540,7 +540,9 @@ class Simpeg2D:
         ax.plot(
             xlim,
             np.ones(2)
-            * (self.data.te_observations.size + self.data.tm_observations.size),
+            * (
+                self.data.te_observations.size + self.data.tm_observations.size
+            ),
             "--",
         )
         ax.set_xlim(xlim)

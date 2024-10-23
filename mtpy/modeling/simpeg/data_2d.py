@@ -32,9 +32,37 @@ class Simpeg2DData:
         self.include_elevation = True
         self.invert_te = True
         self.invert_tm = True
+        self.invert_zxy = False
+        self.invert_zyx = False
+
+        self.invert_impedance = False
 
         for key, value in kwargs.items():
             setattr(self, key, value)
+
+    @property
+    def invert_impedance(self):
+        return self._invert_impedance
+
+    @invert_impedance.setter
+    def invert_impedance(self, value):
+        if not isinstance(value, bool):
+            raise TypeError(
+                f"invert_impedance must be a boolean, not type{type(value)}"
+            )
+
+        if value:
+            self.invert_zxy = True
+            self.invert_zyx = True
+            self.invert_te = False
+            self.invert_tm = False
+            self._invert_impedance = True
+        if not value:
+            self.invert_zxy = False
+            self.invert_zyx = False
+            self.invert_te = True
+            self.invert_tm = True
+            self._invert_impedance = False
 
     @property
     def station_locations(self):
@@ -91,21 +119,41 @@ class Simpeg2DData:
 
         """
         rx_locs = self.station_locations.copy()
-        rx_list = [
-            nsem.receivers.PointNaturalSource(
-                rx_locs,
-                orientation=simpeg_mode,
-                component="apparent_resistivity",
-            ),
-            nsem.receivers.PointNaturalSource(
-                rx_locs, orientation=simpeg_mode, component="phase"
-            ),
-        ]
 
-        src_list = [
-            nsem.sources.Planewave(rx_list, frequency=f)
-            for f in self.frequencies
-        ]
+        if not self.invert_impedance:
+            rx_list = [
+                nsem.receivers.PointNaturalSource(
+                    rx_locs,
+                    orientation=simpeg_mode,
+                    component="apparent_resistivity",
+                ),
+                nsem.receivers.PointNaturalSource(
+                    rx_locs, orientation=simpeg_mode, component="phase"
+                ),
+            ]
+
+            src_list = [
+                nsem.sources.Planewave(rx_list, frequency=f)
+                for f in self.frequencies
+            ]
+        else:
+            rx_list = [
+                nsem.receivers.PointNaturalSource(
+                    rx_locs,
+                    orientation=simpeg_mode,
+                    component="real",
+                ),
+                nsem.receivers.PointNaturalSource(
+                    rx_locs,
+                    orientation=simpeg_mode,
+                    component="imag",
+                ),
+            ]
+
+            src_list = [
+                nsem.sources.Planewave(rx_list, frequency=f)
+                for f in self.frequencies
+            ]
         return nsem.Survey(src_list)
 
     @property
@@ -132,7 +180,7 @@ class Simpeg2DData:
 
         return self._get_mode_sources(self.component_map["tm"]["simpeg"])
 
-    def _get_data_observations(self, mode):
+    def _get_data_observations(self, mode, impedance=False):
         """
         get data
 
@@ -154,12 +202,12 @@ class Simpeg2DData:
         phase = []
         for ff in self.frequencies:
             f_df = self.dataframe[self.dataframe.period == 1.0 / ff]
-            res.append(f_df[f"res_{comp}"])
-            # flip into the appropriate coordinate system
-            if comp in ["xy"]:
-                phase.append(1 * f_df[f"phase_{comp}"])
-            elif comp in ["yx"]:
-                phase.append(1 * f_df[f"phase_{comp}"])
+            if not self.invert_impedance:
+                res.append(f_df[f"res_{comp}"])
+                phase.append(f_df[f"phase_{comp}"])
+            else:
+                res.append(f_df[f"z_{comp}"].values.real)
+                phase.append(f_df[f"z_{comp}"].values.imag)
 
         return np.hstack((res, phase)).flatten()
 
@@ -193,8 +241,12 @@ class Simpeg2DData:
         # there is probably a more efficient method here using pandas
         for ff in np.sort(self.frequencies):
             f_df = self.dataframe[self.dataframe.period == 1.0 / ff]
-            res.append(f_df[f"res_{comp}_model_error"])
-            phase.append(f_df[f"phase_{comp}_model_error"])
+            if not self.invert_impedance:
+                res.append(f_df[f"res_{comp}_model_error"])
+                phase.append(f_df[f"phase_{comp}_model_error"])
+            else:
+                res.append(f_df[f"z_{comp}_model_error"])
+                phase.append(f_df[f"z_{comp}_model_error"])
 
         return np.hstack((res, phase)).flatten()
 
@@ -260,32 +312,61 @@ class Simpeg2DData:
         tm_data = self.tm_data.dobs.reshape(
             (self.n_frequencies, 2, self.n_stations)
         )
-        for ii in range(self.n_stations):
-            ax_xy_res.loglog(
-                1.0 / self.frequencies,
-                te_data[:, 0, ii],
-                color=(0.5, 0.5, ii / self.n_stations),
-            )
-            ax_xy_phase.semilogx(
-                1.0 / self.frequencies,
-                te_data[:, 1, ii],
-                color=(0.25, 0.25, ii / self.n_stations),
-            )
-            ax_yx_res.loglog(
-                1.0 / self.frequencies,
-                tm_data[:, 0, ii],
-                color=(0.5, ii / self.n_stations, 0.75),
-            )
-            ax_yx_phase.semilogx(
-                1.0 / self.frequencies,
-                tm_data[:, 1, ii],
-                color=(0.25, ii / self.n_stations, 0.75),
-            )
 
-        ax_xy_phase.set_xlabel("Period (s)")
-        ax_yx_phase.set_xlabel("Period (s)")
-        ax_xy_res.set_ylabel("Apparent Resistivity")
-        ax_xy_phase.set_ylabel("Phase")
+        if not self.invert_impedance:
+            for ii in range(self.n_stations):
+                ax_xy_res.loglog(
+                    1.0 / self.frequencies,
+                    te_data[:, 0, ii],
+                    color=(0.5, 0.5, ii / self.n_stations),
+                )
+                ax_xy_phase.semilogx(
+                    1.0 / self.frequencies,
+                    te_data[:, 1, ii],
+                    color=(0.25, 0.25, ii / self.n_stations),
+                )
+                ax_yx_res.loglog(
+                    1.0 / self.frequencies,
+                    tm_data[:, 0, ii],
+                    color=(0.5, ii / self.n_stations, 0.75),
+                )
+                ax_yx_phase.semilogx(
+                    1.0 / self.frequencies,
+                    tm_data[:, 1, ii],
+                    color=(0.25, ii / self.n_stations, 0.75),
+                )
+
+            ax_xy_phase.set_xlabel("Period (s)")
+            ax_yx_phase.set_xlabel("Period (s)")
+            ax_xy_res.set_ylabel("Apparent Resistivity")
+            ax_xy_phase.set_ylabel("Phase")
+        else:
+            for ii in range(self.n_stations):
+                ax_xy_res.loglog(
+                    1.0 / self.frequencies,
+                    te_data[:, 0, ii],
+                    color=(0.5, 0.5, ii / self.n_stations),
+                )
+                ax_xy_phase.loglog(
+                    1.0 / self.frequencies,
+                    te_data[:, 1, ii],
+                    color=(0.25, 0.25, ii / self.n_stations),
+                )
+                ax_yx_res.loglog(
+                    1.0 / self.frequencies,
+                    tm_data[:, 0, ii],
+                    color=(0.5, ii / self.n_stations, 0.75),
+                )
+                ax_yx_phase.loglog(
+                    1.0 / self.frequencies,
+                    tm_data[:, 1, ii],
+                    color=(0.25, ii / self.n_stations, 0.75),
+                )
+
+            ax_xy_phase.set_xlabel("Period (s)")
+            ax_yx_phase.set_xlabel("Period (s)")
+            ax_xy_res.set_ylabel("Real Impedance [Ohms]")
+            ax_xy_phase.set_ylabel("Imag Impedance [Ohms]")
 
         for ax in [ax_xy_res, ax_xy_phase, ax_yx_res, ax_yx_phase]:
             ax.grid(
