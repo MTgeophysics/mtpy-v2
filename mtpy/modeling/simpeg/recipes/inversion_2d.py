@@ -539,10 +539,7 @@ class Simpeg2D:
         xlim = ax.get_xlim()
         ax.plot(
             xlim,
-            np.ones(2)
-            * (
-                self.data.te_observations.size + self.data.tm_observations.size
-            ),
+            np.ones(2) * (self.data.te_survey.nD + self.data.tm_survey.nD),
             "--",
         )
         ax.set_xlim(xlim)
@@ -574,38 +571,161 @@ class Simpeg2D:
         te_obs = self.data.te_data.dobs.copy().reshape(shape)
         tm_obs = self.data.tm_data.dobs.copy().reshape(shape)
 
+        obs_color = kwargs.get("obs_color", (0, 178 / 255, 1))
+        pred_color = kwargs.get("pred_color", (1, 110 / 255, 0))
+        obs_marker = "."
+        pred_maker = "o"
+
         ## With these plot frequency goes from high on the left to low on the right.
         ## Moving shallow to deep from left to right.
 
         fig = plt.figure(figsize=(10, 3))
-        ax1 = fig.add_subplot(2, 2, 1)
-        ax2 = fig.add_subplot(2, 2, 2, sharex=ax1)
-        ax3 = fig.add_subplot(2, 2, 3, sharex=ax1)
-        ax4 = fig.add_subplot(2, 2, 4, sharex=ax1)
 
-        # plot TE Resistivity
-        ax1.semilogy(te_obs[:, 0, :].flatten(), "b.", label="observed")
-        ax1.semilogy(te_pred[:, 0, :].flatten(), "r.", label="predicted")
-        ax1.set_title("TE")
-        ax1.set_ylabel("Apparent Resistivity")
-        ax1.set_xlim((self.data.n_stations * self.data.n_frequencies, 0))
-        ax1.legend()
+        if not self.data.invert_impedance:
+            ax1 = fig.add_subplot(2, 2, 1)
+            ax2 = fig.add_subplot(2, 2, 2, sharex=ax1)
+            ax3 = fig.add_subplot(2, 2, 3, sharex=ax1)
+            ax4 = fig.add_subplot(2, 2, 4, sharex=ax1)
 
-        # plot TM Resistivity
-        ax2.semilogy(tm_obs[:, 0, :].flatten(), "b.", label="observed")
-        ax2.semilogy(tm_pred[:, 0, :].flatten(), "r.", label="predicted")
-        ax2.set_title("TM")
-        ax2.legend()
+            # plot TE Resistivity
+            ax1.semilogy(
+                te_obs[:, 0, :].flatten(),
+                ".",
+                color=obs_color,
+                label="observed",
+            )
+            ax1.semilogy(
+                te_pred[:, 0, :].flatten(),
+                ".",
+                color=pred_color,
+                label="predicted",
+            )
+            ax1.set_title("TE")
+            ax1.set_ylabel("Apparent Resistivity")
+            ax1.set_xlim((self.data.n_stations * self.data.n_frequencies, 0))
+            ax1.legend()
 
-        # plot TE Phase
-        ax3.plot(te_obs[:, 1, :].flatten(), "b.", label="observed")
-        ax3.plot(te_pred[:, 1, :].flatten(), "r.", label="predicted")
-        ax3.set_xlabel("data point")
-        ax3.legend()
+            # plot TM Resistivity
+            ax2.semilogy(
+                tm_obs[:, 0, :].flatten(),
+                obs_marker,
+                color=obs_color,
+                label="observed",
+            )
+            ax2.semilogy(
+                tm_pred[:, 0, :].flatten(),
+                pred_maker,
+                color=pred_color,
+                label="predicted",
+            )
+            ax2.set_title("TM")
+            ax2.legend()
 
-        # plot TM Phase
-        ax4.plot(tm_obs[:, 1, :].flatten(), "b.", label="observed")
-        ax4.plot(tm_pred[:, 1, :].flatten(), "r.", label="predicted")
-        ax3.legend()
+            # plot TE Phase
+            ax3.plot(
+                te_obs[:, 1, :].flatten(),
+                obs_marker,
+                color=obs_color,
+                label="observed",
+            )
+            ax3.plot(
+                te_pred[:, 1, :].flatten(),
+                pred_maker,
+                color=pred_color,
+                label="predicted",
+            )
+            ax3.set_xlabel("data point")
+            ax3.set_ylabel("Phase")
+            ax3.legend()
 
-        # plt.ylim(10, 1000)
+            # plot TM Phase
+            ax4.plot(
+                tm_obs[:, 1, :].flatten(),
+                obs_marker,
+                color=obs_color,
+                label="observed",
+            )
+            ax4.plot(
+                tm_pred[:, 1, :].flatten(),
+                pred_maker,
+                color=pred_color,
+                label="predicted",
+            )
+            ax3.legend()
+
+        if self.data.invert_impedance:
+            te_pred = np.abs(te_pred)
+            tm_pred = np.abs(tm_pred)
+            te_obs = np.abs(te_obs)
+            tm_obs = np.abs(tm_obs)
+
+            ax1 = fig.add_subplot(2, 2, 1)
+            ax2 = fig.add_subplot(2, 2, 2, sharex=ax1, sharey=ax1)
+            ax3 = fig.add_subplot(2, 2, 3, sharex=ax1)
+            ax4 = fig.add_subplot(2, 2, 4, sharex=ax1, sharey=ax3)
+
+            # plot TE Resistivity
+            ax1.semilogy(
+                np.abs(te_obs[:, 0, :].flatten()),
+                ".",
+                color=obs_color,
+                label="observed",
+            )
+            ax1.semilogy(
+                np.abs(te_pred[:, 0, :].flatten()),
+                ".",
+                color=pred_color,
+                label="predicted",
+            )
+            ax1.set_title("TE")
+            ax1.set_ylabel("Real Impedance [Ohms]")
+            ax1.set_xlim((self.data.n_stations * self.data.n_frequencies, 0))
+            ax1.legend()
+
+            # plot TM Resistivity
+            ax2.semilogy(
+                np.abs(tm_obs[:, 0, :].flatten()),
+                obs_marker,
+                color=obs_color,
+                label="observed",
+            )
+            ax2.semilogy(
+                np.abs(tm_pred[:, 0, :].flatten()),
+                pred_maker,
+                color=pred_color,
+                label="predicted",
+            )
+            ax2.set_title("TM")
+            ax2.legend()
+
+            # plot TE Phase
+            ax3.plot(
+                np.abs(te_obs[:, 1, :].flatten()),
+                obs_marker,
+                color=obs_color,
+                label="observed",
+            )
+            ax3.plot(
+                np.abs(te_pred[:, 1, :].flatten()),
+                pred_maker,
+                color=pred_color,
+                label="predicted",
+            )
+            ax3.set_xlabel("data point")
+            ax1.set_ylabel("Imag Impedance [Ohms]")
+            ax3.legend()
+
+            # plot TM Phase
+            ax4.plot(
+                np.abs(tm_obs[:, 1, :].flatten()),
+                obs_marker,
+                color=obs_color,
+                label="observed",
+            )
+            ax4.plot(
+                np.abs(tm_pred[:, 1, :].flatten()),
+                pred_maker,
+                color=pred_color,
+                label="predicted",
+            )
+            ax3.legend()
