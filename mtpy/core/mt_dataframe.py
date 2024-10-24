@@ -371,9 +371,9 @@ class MTDataFrame:
         """Survey name."""
         if self._has_data():
             if self.working_survey in [None, ""]:
-                self.dataframe.loc[
-                    self.dataframe.survey == "", "survey"
-                ] = value
+                self.dataframe.loc[self.dataframe.survey == "", "survey"] = (
+                    value
+                )
                 self.working_survey = value
 
     @property
@@ -389,9 +389,9 @@ class MTDataFrame:
         """Station name."""
         if self._has_data():
             if self.working_station in [None, ""]:
-                self.dataframe.loc[
-                    self.dataframe.station == "", "station"
-                ] = value
+                self.dataframe.loc[self.dataframe.station == "", "station"] = (
+                    value
+                )
                 self.working_station = value
 
     @property
@@ -638,9 +638,9 @@ class MTDataFrame:
         :rtype: TYPE
         """
 
-        self.dataframe.loc[
-            self.dataframe.station == self.station, "period"
-        ] = z_object.period
+        self.dataframe.loc[self.dataframe.station == self.station, "period"] = (
+            z_object.period
+        )
 
         # should make a copy of the phase tensor otherwise it gets calculated
         # multiple times and becomes a time sink.
@@ -697,9 +697,9 @@ class MTDataFrame:
         :return: DESCRIPTION.
         :rtype: TYPE
         """
-        self.dataframe.loc[
-            self.dataframe.station == self.station, "period"
-        ] = t_object.period
+        self.dataframe.loc[self.dataframe.station == self.station, "period"] = (
+            t_object.period
+        )
 
         for error in ["", "_error", "_model_error"]:
             if getattr(t_object, f"_has_tf{error}")():
@@ -721,7 +721,7 @@ class MTDataFrame:
                         data_array = self._get_data_array(t_object, t_attr)
                         self._fill_data(data_array, f"t_{t_attr}", None)
 
-    def to_z_object(self):
+    def to_z_object(self, units="mt"):
         """Fill z_object from dataframe
 
         Need to have the components this way for transposing the elements so
@@ -755,7 +755,7 @@ class MTDataFrame:
                 self.dataframe.station == self.station, f"z_{comp}_model_error"
             ]
 
-        z_object = Z(z, z_err, self.frequency, z_model_err)
+        z_object = Z(z, z_err, self.frequency, z_model_err, units=units)
 
         if (z == 0).all():
             for comp in ["xx", "xy", "yx", "yy"]:
@@ -781,12 +781,12 @@ class MTDataFrame:
                     f"phase_{comp}_error",
                 ]
 
-                phase_model_err[
-                    :, index["ii"], index["jj"]
-                ] = self.dataframe.loc[
-                    self.dataframe.station == self.station,
-                    f"phase_{comp}_model_error",
-                ]
+                phase_model_err[:, index["ii"], index["jj"]] = (
+                    self.dataframe.loc[
+                        self.dataframe.station == self.station,
+                        f"phase_{comp}_model_error",
+                    ]
+                )
 
             if not (res == 0).all():
                 if not (phase == 0).all():

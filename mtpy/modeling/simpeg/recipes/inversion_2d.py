@@ -43,7 +43,7 @@ except ImportError:
 
 # from dask.distributed import Client, LocalCluster
 from mtpy.modeling.simpeg.data_2d import Simpeg2DData
-from mtpy.modeling.simpeg.make_2d_mesh import QuadTreeMesh
+from mtpy.modeling.simpeg.make_2d_mesh import QuadTreeMesh, StructuredMesh
 
 warnings.filterwarnings("ignore")
 
@@ -58,13 +58,36 @@ class Simpeg2D:
     - For now the default is a quad tree mesh
     - Optimization: Inexact Gauss Newton
     - Regularization: Sparse
+
+    # change mesh to tensor mesh.
     """
 
-    def __init__(self, dataframe, data_kwargs={}, mesh_kwargs={}, **kwargs):
+    def __init__(
+        self,
+        dataframe,
+        data_kwargs={},
+        mesh_kwargs={},
+        mesh_type="tensor",
+        **kwargs,
+    ):
         self.data = Simpeg2DData(dataframe, **data_kwargs)
-        self.quad_tree = QuadTreeMesh(
-            self.data.station_locations, self.data.frequencies, **mesh_kwargs
-        )
+        if mesh_type in ["tensor"]:
+            self.mesh = StructuredMesh(
+                self.data.station_locations,
+                self.data.frequencies,
+                **mesh_kwargs,
+            )
+        elif mesh_type in ["quad", "tree", "quadtree"]:
+            self.mesh = QuadTreeMesh(
+                self.data.station_locations,
+                self.data.frequencies,
+                **mesh_kwargs,
+            )
+        else:
+            raise ValueError(f"mesh {mesh_type} is unsupported.")
+
+        self.mesh_type = mesh_type
+
         self.ax = self.make_mesh()
         self.air_conductivity = 1e-8
         self.initial_conductivity = 1e-2
@@ -77,9 +100,9 @@ class Simpeg2D:
             self._solvers_dict = {}
 
         # regularization parameters
-        self.alpha_s = 1e-5
-        self.alpha_y = 1 / 5.0
-        self.alpha_z = 1.0
+        self.alpha_s = 1e-15
+        self.alpha_y = 1
+        self.alpha_z = 0.5
 
         # optimization parameters
         self.max_iterations = 30
@@ -87,6 +110,7 @@ class Simpeg2D:
         self.max_iterations_irls = 40
         self.minimum_gauss_newton_iterations = 1
         self.f_min_change = 1e-5
+        self.optimization_tolerance = 1e-30
 
         # inversion parameters
         self.use_irls = False
@@ -149,7 +173,7 @@ class Simpeg2D:
         """
         make QuadTree Mesh
         """
-        ax = self.quad_tree.make_mesh(**kwargs)
+        ax = self.mesh.make_mesh(**kwargs)
         return ax
 
     @property
@@ -162,8 +186,8 @@ class Simpeg2D:
 
         """
         return maps.InjectActiveCells(
-            self.quad_tree.mesh,
-            self.quad_tree.active_cell_index,
+            self.mesh.mesh,
+            self.mesh.active_cell_index,
             np.log(self.air_conductivity),
         )
 
@@ -176,7 +200,7 @@ class Simpeg2D:
 
         """
 
-        return maps.ExpMap(mesh=self.quad_tree.mesh)
+        return maps.ExpMap(mesh=self.mesh.mesh)
 
     @property
     def conductivity_map(self):
@@ -206,14 +230,14 @@ class Simpeg2D:
         solver = self._get_solver()
         if solver is not None:
             return nsem.simulation.Simulation2DElectricField(
-                self.quad_tree.mesh,
+                self.mesh.mesh,
                 survey=self.data.tm_survey,
                 sigmaMap=self.conductivity_map,
                 solver=solver,
             )
         else:
             return nsem.simulation.Simulation2DElectricField(
-                self.quad_tree.mesh,
+                self.mesh.mesh,
                 survey=self.data.tm_survey,
                 sigmaMap=self.conductivity_map,
             )
@@ -226,14 +250,14 @@ class Simpeg2D:
         solver = self._get_solver()
         if solver is not None:
             return nsem.simulation.Simulation2DMagneticField(
-                self.quad_tree.mesh,
+                self.mesh.mesh,
                 survey=self.data.te_survey,
                 sigmaMap=self.conductivity_map,
                 solver=solver,
             )
         else:
             nsem.simulation.Simulation2DMagneticField(
-                self.quad_tree.mesh,
+                self.mesh.mesh,
                 survey=self.data.te_survey,
                 sigmaMap=self.conductivity_map,
             )
@@ -274,7 +298,7 @@ class Simpeg2D:
         :rtype: TYPE
 
         """
-        return np.ones(self.quad_tree.number_of_active_cells) * np.log(
+        return np.ones(self.mesh.number_of_active_cells) * np.log(
             self.initial_conductivity
         )
 
@@ -293,13 +317,13 @@ class Simpeg2D:
         """
 
         reg = regularization.Sparse(
-            self.quad_tree.mesh,
-            active_cells=self.quad_tree.active_cell_index,
+            self.mesh.mesh,
+            active_cells=self.mesh.active_cell_index,
             reference_model=self.reference_model,
             alpha_s=self.alpha_s,
             alpha_x=self.alpha_y,
-            alpha_z=self.alpha_z,
-            mapping=maps.IdentityMap(nP=self.quad_tree.number_of_active_cells),
+            alpha_y=self.alpha_z,
+            mapping=maps.IdentityMap(nP=self.mesh.number_of_active_cells),
         )
 
         if self.use_irls:
@@ -316,7 +340,9 @@ class Simpeg2D:
         """
 
         return optimization.InexactGaussNewton(
-            maxIter=self.max_iterations, maxIterCG=self.max_iterations_cg
+            maxIter=self.max_iterations,
+            maxIterCG=self.max_iterations_cg,
+            tolX=self.optimization_tolerance,
         )
 
     @property
@@ -399,7 +425,7 @@ class Simpeg2D:
                 self.starting_beta,
                 self.beta_schedule,
                 self.saved_model_outputs,
-                self.target_misfit,
+                # self.target_misfit,
             ]
 
     def run_inversion(self):
@@ -428,8 +454,8 @@ class Simpeg2D:
         ax = fig.add_subplot(1, 1, 1)
         m = self.iterations[iteration_number]["m"]
 
-        sigma = np.ones(self.quad_tree.mesh.nC) * self.air_conductivity
-        sigma[self.quad_tree.active_cell_index] = np.exp(m)
+        sigma = np.ones(self.mesh.mesh.nC) * self.air_conductivity
+        sigma[self.mesh.active_cell_index] = np.exp(m)
         if resistivity:
             sigma = 1.0 / sigma
             vmin = kwargs.get("vmin", 0.3)
@@ -439,7 +465,7 @@ class Simpeg2D:
             vmin = kwargs.get("vmin", 1e-3)
             vmax = kwargs.get("vmax", 1)
             cmap = kwargs.get("cmap", "turbo")
-        out = self.quad_tree.mesh.plot_image(
+        out = self.mesh.mesh.plot_image(
             sigma,
             grid=False,
             ax=ax,
@@ -448,12 +474,12 @@ class Simpeg2D:
                 "cmap": cmap,
             },
             range_x=(
-                self.data.station_locations[:, 0].min() - 5 * self.quad_tree.dx,
-                self.data.station_locations[:, 0].max() + 5 * self.quad_tree.dx,
+                self.data.station_locations[:, 0].min() - 5 * self.mesh.dx,
+                self.data.station_locations[:, 0].max() + 5 * self.mesh.dx,
             ),
             range_y=kwargs.get(
                 "z_limits",
-                (-self.quad_tree.mesh.h[1].sum() / 2, 500),
+                (-self.mesh.mesh.h[1].sum() / 2, 500),
             ),
         )
         cb = plt.colorbar(out[0], fraction=0.01, ax=ax)
@@ -464,7 +490,7 @@ class Simpeg2D:
         ax.set_aspect(1)
         ax.set_xlabel("Offset (m)")
         ax.set_ylabel("Elevation (m)")
-        if self.quad_tree.topography:
+        if self.mesh.topography:
             ax.scatter(
                 self.data.station_locations[:, 0],
                 self.data.station_locations[:, 1],
@@ -506,6 +532,16 @@ class Simpeg2D:
             mfc="r",
         )
 
+        for key in self.iterations.keys():
+            ax.text(
+                self.iterations[key]["phi_m"],
+                self.iterations[key]["phi_d"],
+                key,
+                fontdict={"size": 8},
+                ha="center",
+                va="center",
+            )
+
         ax.set_xlabel("$\phi_m$ [model smallness]")
         ax.set_ylabel("$\phi_d$ [data fit]")
         ax.set_xscale("log")
@@ -513,10 +549,193 @@ class Simpeg2D:
         xlim = ax.get_xlim()
         ax.plot(
             xlim,
-            np.ones(2)
-            * (self.data.te_observations.size + self.data.tm_observations.size),
+            np.ones(2) * (self.data.te_survey.nD + self.data.tm_survey.nD),
             "--",
         )
         ax.set_xlim(xlim)
         plt.tight_layout()
         plt.show()
+
+    def plot_responses(self, iteration_number, **kwargs):
+        """
+        Plot responses all together
+
+        :param iteration: DESCRIPTION
+        :type iteration: TYPE
+        :param **kwargs: DESCRIPTION
+        :type **kwargs: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+        shape = (self.data.n_frequencies, 2, self.data.n_stations)
+
+        dpred = self.iterations[iteration_number]["dpred"]
+        te_pred = dpred.reshape(
+            (2, self.data.n_frequencies, 2, self.data.n_stations)
+        )[0, :, :, :]
+        tm_pred = dpred.reshape(
+            (2, self.data.n_frequencies, 2, self.data.n_stations)
+        )[1, :, :, :]
+
+        te_obs = self.data.te_data.dobs.copy().reshape(shape)
+        tm_obs = self.data.tm_data.dobs.copy().reshape(shape)
+
+        obs_color = kwargs.get("obs_color", (0, 118 / 255, 1))
+        pred_color = kwargs.get("pred_color", (1, 110 / 255, 0))
+        obs_marker = "."
+        pred_maker = "."
+
+        ## With these plot frequency goes from high on the left to low on the right.
+        ## Moving shallow to deep from left to right.
+
+        fig = plt.figure(figsize=(10, 3))
+
+        if not self.data.invert_impedance:
+            ax1 = fig.add_subplot(2, 2, 1)
+            ax2 = fig.add_subplot(2, 2, 2, sharex=ax1)
+            ax3 = fig.add_subplot(2, 2, 3, sharex=ax1)
+            ax4 = fig.add_subplot(2, 2, 4, sharex=ax1)
+
+            # plot TE Resistivity
+            ax1.semilogy(
+                te_obs[:, 0, :].flatten(),
+                ".",
+                color=obs_color,
+                label="observed",
+            )
+            ax1.semilogy(
+                te_pred[:, 0, :].flatten(),
+                ".",
+                color=pred_color,
+                label="predicted",
+            )
+            ax1.set_title("TE")
+            ax1.set_ylabel("Apparent Resistivity")
+            ax1.set_xlim((self.data.n_stations * self.data.n_frequencies, 0))
+            ax1.legend()
+
+            # plot TM Resistivity
+            ax2.semilogy(
+                tm_obs[:, 0, :].flatten(),
+                obs_marker,
+                color=obs_color,
+                label="observed",
+            )
+            ax2.semilogy(
+                tm_pred[:, 0, :].flatten(),
+                pred_maker,
+                color=pred_color,
+                label="predicted",
+            )
+            ax2.set_title("TM")
+            ax2.legend()
+
+            # plot TE Phase
+            ax3.plot(
+                te_obs[:, 1, :].flatten(),
+                obs_marker,
+                color=obs_color,
+                label="observed",
+            )
+            ax3.plot(
+                te_pred[:, 1, :].flatten(),
+                pred_maker,
+                color=pred_color,
+                label="predicted",
+            )
+            ax3.set_xlabel("data point")
+            ax3.set_ylabel("Phase")
+            ax3.legend()
+
+            # plot TM Phase
+            ax4.plot(
+                tm_obs[:, 1, :].flatten(),
+                obs_marker,
+                color=obs_color,
+                label="observed",
+            )
+            ax4.plot(
+                tm_pred[:, 1, :].flatten(),
+                pred_maker,
+                color=pred_color,
+                label="predicted",
+            )
+            ax3.legend()
+
+        if self.data.invert_impedance:
+            te_pred = np.abs(te_pred)
+            tm_pred = np.abs(tm_pred)
+            te_obs = np.abs(te_obs)
+            tm_obs = np.abs(tm_obs)
+
+            ax1 = fig.add_subplot(2, 2, 1)
+            ax2 = fig.add_subplot(2, 2, 2, sharex=ax1, sharey=ax1)
+            ax3 = fig.add_subplot(2, 2, 3, sharex=ax1)
+            ax4 = fig.add_subplot(2, 2, 4, sharex=ax1, sharey=ax3)
+
+            # plot TE Resistivity
+            ax1.semilogy(
+                np.abs(te_obs[:, 0, :].flatten()),
+                ".",
+                color=obs_color,
+                label="observed",
+            )
+            ax1.semilogy(
+                np.abs(te_pred[:, 0, :].flatten()),
+                ".",
+                color=pred_color,
+                label="predicted",
+            )
+            ax1.set_title("TE")
+            ax1.set_ylabel("Real Impedance [Ohms]")
+            ax1.set_xlim((self.data.n_stations * self.data.n_frequencies, 0))
+            ax1.legend()
+
+            # plot TM Resistivity
+            ax2.semilogy(
+                np.abs(tm_obs[:, 0, :].flatten()),
+                obs_marker,
+                color=obs_color,
+                label="observed",
+            )
+            ax2.semilogy(
+                np.abs(tm_pred[:, 0, :].flatten()),
+                pred_maker,
+                color=pred_color,
+                label="predicted",
+            )
+            ax2.set_title("TM")
+            ax2.legend()
+
+            # plot TE Phase
+            ax3.plot(
+                np.abs(te_obs[:, 1, :].flatten()),
+                obs_marker,
+                color=obs_color,
+                label="observed",
+            )
+            ax3.plot(
+                np.abs(te_pred[:, 1, :].flatten()),
+                pred_maker,
+                color=pred_color,
+                label="predicted",
+            )
+            ax3.set_xlabel("data point")
+            ax3.set_ylabel("Imag Impedance [Ohms]")
+            ax3.legend()
+
+            # plot TM Phase
+            ax4.plot(
+                np.abs(tm_obs[:, 1, :].flatten()),
+                obs_marker,
+                color=obs_color,
+                label="observed",
+            )
+            ax4.plot(
+                np.abs(tm_pred[:, 1, :].flatten()),
+                pred_maker,
+                color=pred_color,
+                label="predicted",
+            )
+            ax3.legend()

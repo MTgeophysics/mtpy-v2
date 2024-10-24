@@ -18,6 +18,7 @@ import copy
 import numpy as np
 
 from .base import TFBase
+from . import MT_TO_OHM_FACTOR, IMPEDANCE_UNITS
 from .pt import PhaseTensor
 from .z_analysis import (
     ZInvariants,
@@ -58,6 +59,7 @@ class Z(TFBase):
         z_error=None,
         frequency=None,
         z_model_error=None,
+        units="mt",
     ):
         """Initialize an instance of the Z class.
         :param z_model_error:
@@ -70,7 +72,23 @@ class Z(TFBase):
         :param frequency: Array of frequencyuency values corresponding to impedance
             tensor elements, defaults to None.
         :type frequency: np.ndarray(n_frequency), optional
+        :param units: units for the impedance [ "mt" [mV/km/nT] | ohm [Ohms] ]
+        :type units: str
+
         """
+
+        self._ohm_factor = MT_TO_OHM_FACTOR
+        self._unit_factors = IMPEDANCE_UNITS
+        self.units = units
+
+        # if units input is ohms, then we want to scale them to mt units that
+        # way the underlying data is consistent in [mV/km/nT]
+        if z is not None:
+            z = z * self._scale_factor
+        if z_error is not None:
+            z_error = z_error * self._scale_factor
+        if z_model_error is not None:
+            z_model_error = z_model_error * self._scale_factor
 
         super().__init__(
             tf=z,
@@ -81,17 +99,39 @@ class Z(TFBase):
         )
 
     @property
+    def units(self):
+        """impedance units"""
+        return self._units
+
+    @units.setter
+    def units(self, value):
+        """impedance units setter options are [ mt | ohm ]"""
+        if not isinstance(value, str):
+            raise TypeError("Units input must be a string.")
+        if value.lower() not in self._unit_factors.keys():
+            raise ValueError(
+                f"{value} is not an acceptable unit for impedance."
+            )
+
+        self._units = value
+
+    @property
+    def _scale_factor(self):
+        """unit scale factor"""
+        return self._unit_factors[self._units]
+
+    @property
     def z(self):
         """Impedance tensor
 
         np.ndarray(nfrequency, 2, 2).
         """
         if self._has_tf():
-            return self._dataset.transfer_function.values
+            return self._dataset.transfer_function.values / self._scale_factor
 
     @z.setter
     def z(self, z):
-        """Set the attribute 'z'.
+        """Set the attribute 'z'. Should be in units of mt [mV/km/nT]
         :param z: Complex impedance tensor array.
         :type z: np.ndarray(nfrequency, 2, 2)
         """
@@ -119,7 +159,10 @@ class Z(TFBase):
     def z_error(self):
         """Error of impedance tensor array as standard deviation."""
         if self._has_tf_error():
-            return self._dataset.transfer_function_error.values
+            return (
+                self._dataset.transfer_function_error.values
+                / self._scale_factor
+            )
 
     @z_error.setter
     def z_error(self, z_error):
@@ -151,7 +194,10 @@ class Z(TFBase):
     def z_model_error(self):
         """Model error of impedance tensor array as standard deviation."""
         if self._has_tf_model_error():
-            return self._dataset.transfer_function_model_error.values
+            return (
+                self._dataset.transfer_function_model_error.values
+                / self._scale_factor
+            )
 
     @z_model_error.setter
     def z_model_error(self, z_model_error):
@@ -249,10 +295,20 @@ class Z(TFBase):
 
         z_corrected = copy.copy(self.z)
 
-        z_corrected[:, 0, 0] = self.z[:, 0, 0] / x_factors
-        z_corrected[:, 0, 1] = self.z[:, 0, 1] / x_factors
-        z_corrected[:, 1, 0] = self.z[:, 1, 0] / y_factors
-        z_corrected[:, 1, 1] = self.z[:, 1, 1] / y_factors
+        z_corrected[:, 0, 0] = (
+            self.z[:, 0, 0] * self._scale_factor
+        ) / x_factors
+        z_corrected[:, 0, 1] = (
+            self.z[:, 0, 1] * self._scale_factor
+        ) / x_factors
+        z_corrected[:, 1, 0] = (
+            self.z[:, 1, 0] * self._scale_factor
+        ) / y_factors
+        z_corrected[:, 1, 1] = (
+            self.z[:, 1, 1] * self._scale_factor
+        ) / y_factors
+
+        z_corrected = z_corrected / self._scale_factor
 
         if inplace:
             self.z = z_corrected
@@ -262,6 +318,7 @@ class Z(TFBase):
                 z_error=self.z_error,
                 frequency=self.frequency,
                 z_model_error=self.z_model_error,
+                units=self.units,
             )
 
     def remove_distortion(
@@ -310,30 +367,38 @@ class Z(TFBase):
             self, distortion_tensor, distortion_error_tensor, self.logger
         )
 
+        # into mt units
+        z_corrected = z_corrected * self._scale_factor
+        z_corrected_error = z_corrected_error * self._scale_factor
+
         if inplace:
             self.z = z_corrected
             self.z_error = z_corrected_error
         else:
-            return Z(
+            z_object = Z(
                 z=z_corrected,
                 z_error=z_corrected_error,
                 frequency=self.frequency,
                 z_model_error=self.z_model_error,
             )
+            z_object.units = self.units
+            return z_object
 
     @property
     def resistivity(self):
         """Resistivity of impedance."""
         if self.z is not None:
             return np.apply_along_axis(
-                lambda x: np.abs(x) ** 2 / self.frequency * 0.2, 0, self.z
+                lambda x: np.abs(x) ** 2 / self.frequency * 0.2,
+                0,
+                self.z * self._scale_factor,
             )
 
     @property
     def phase(self):
         """Phase of impedance."""
         if self.z is not None:
-            return np.rad2deg(np.angle(self.z))
+            return np.rad2deg(np.angle(self.z * self._scale_factor))
 
     @property
     def resistivity_error(self):
@@ -347,7 +412,9 @@ class Z(TFBase):
                 return np.apply_along_axis(
                     lambda x: x / self.frequency * 0.2,
                     0,
-                    2 * self.z_error * np.abs(self.z),
+                    2
+                    * (self.z_error * self._scale_factor)
+                    * np.abs(self.z * self._scale_factor),
                 )
 
     @property
@@ -371,7 +438,9 @@ class Z(TFBase):
                 return np.apply_along_axis(
                     lambda x: x / self.frequency * 0.2,
                     0,
-                    2 * self.z_model_error * np.abs(self.z),
+                    2
+                    * (self.z_model_error * self._scale_factor)
+                    * np.abs(self.z * self._scale_factor),
                 )
 
     @property
@@ -448,9 +517,7 @@ class Z(TFBase):
         res_error = self._validate_array_input(res_error, float)
         phase_error = self._validate_array_input(phase_error, float)
         res_model_error = self._validate_array_input(res_model_error, float)
-        phase_model_error = self._validate_array_input(
-            phase_model_error, float
-        )
+        phase_model_error = self._validate_array_input(phase_model_error, float)
 
         abs_z = np.sqrt(5.0 * self.frequency * (resistivity.T)).T
         self.z = abs_z * np.exp(1j * np.radians(phase))
@@ -464,7 +531,9 @@ class Z(TFBase):
     def det(self):
         """Determinant of impedance."""
         if self.z is not None:
-            det_z = np.array([np.linalg.det(ii) ** 0.5 for ii in self.z])
+            det_z = np.array(
+                [np.linalg.det(ii * self._scale_factor) ** 0.5 for ii in self.z]
+            )
 
             return det_z
 
@@ -480,12 +549,16 @@ class Z(TFBase):
                 # calculate manually:
                 # difference of determinant of z + z_error and z - z_error then divide by 2
                 det_z_error[:] = (
-                    np.abs(
-                        np.linalg.det(self.z + self.z_error)
-                        - np.linalg.det(self.z - self.z_error)
+                    self._scale_factor
+                    * (
+                        np.abs(
+                            np.linalg.det(self.z + self.z_error)
+                            - np.linalg.det(self.z - self.z_error)
+                        )
+                        / 2.0
                     )
-                    / 2.0
-                ) ** 0.5
+                    ** 0.5
+                )
         return det_z_error
 
     @property
@@ -748,11 +821,13 @@ class Z(TFBase):
 
         if self._has_tf():
             new_z_object = Z(
-                z=self.z[0:nf, :, :],
+                z=self._dataset.transfer_function.values[0:nf, :, :],
                 frequency=self.frequency[0:nf],
             )
             if self._has_tf_error():
-                new_z_object.z_error = self.z_error[0:nf]
+                new_z_object.z_error = (
+                    self._dataset.transfer_function_error.values[0:nf]
+                )
 
         return find_distortion(
             new_z_object, comp=comp, only_2d=only_2d, clockwise=clockwise

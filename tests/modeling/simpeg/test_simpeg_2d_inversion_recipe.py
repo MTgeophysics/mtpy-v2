@@ -55,19 +55,19 @@ class TestSimpeg2DRecipe(unittest.TestCase):
     def test_active_map(self):
         self.assertEqual(
             self.simpeg_inversion.active_map.nP,
-            self.simpeg_inversion.quad_tree.number_of_active_cells,
+            self.simpeg_inversion.mesh.number_of_active_cells,
         )
 
     def test_exponent_map(self):
         self.assertEqual(
-            self.simpeg_inversion.quad_tree.active_cell_index.size,
+            self.simpeg_inversion.mesh.active_cell_index.size,
             self.simpeg_inversion.exponent_map.nP,
         )
 
     def test_conductivity_map(self):
         self.assertEqual(
             self.simpeg_inversion.conductivity_map.nP,
-            self.simpeg_inversion.quad_tree.number_of_active_cells,
+            self.simpeg_inversion.mesh.number_of_active_cells,
         )
 
     def test_tm_simulation(self):
@@ -145,7 +145,7 @@ class TestSimpeg2DRecipe(unittest.TestCase):
             )
 
     def test_directives(self):
-        self.assertEqual(4, len(self.simpeg_inversion.directives))
+        self.assertEqual(3, len(self.simpeg_inversion.directives))
 
 
 class TestSimpeg2DRecipeRun(unittest.TestCase):
@@ -174,7 +174,9 @@ class TestSimpeg2DRecipeRun(unittest.TestCase):
         self.n_iterations = 5
 
         self.simpeg_inversion = Simpeg2D(
-            self.mt_df, max_iterations=self.n_iterations
+            self.mt_df,
+            max_iterations=self.n_iterations,
+            data_kwargs={"include_elevation": False},
         )
 
         self.inv_output = self.simpeg_inversion.run_inversion()

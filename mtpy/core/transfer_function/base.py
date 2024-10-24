@@ -102,8 +102,16 @@ class TFBase:
 
         # loop over variables to make sure they are all the same.
         for var in list(self._dataset.data_vars):
-            if not (self._dataset[var] == other._dataset[var]).all().data:
-                return False
+            has_tf_str = f"_has_{var.replace('transfer_function', 'tf')}"
+            if getattr(self, has_tf_str):
+                if getattr(other, has_tf_str):
+                    if not np.allclose(
+                        self._dataset[var].data, other._dataset[var].data
+                    ):
+                        self.logger.info(f"Transfer functions {var} not equal")
+                        return False
+                else:
+                    return False
         return True
 
     def __deepcopy__(self, memo):
@@ -164,9 +172,7 @@ class TFBase:
             tf_error = np.zeros_like(
                 tf_model_error, dtype=self._tf_dtypes["tf_error"]
             )
-            periods = self._validate_frequency(
-                periods, tf_model_error.shape[0]
-            )
+            periods = self._validate_frequency(periods, tf_model_error.shape[0])
 
         else:
             periods = self._validate_frequency(periods)

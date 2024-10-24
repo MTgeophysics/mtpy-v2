@@ -14,7 +14,12 @@ import numpy as np
 
 from mt_metadata.transfer_functions.core import TF
 
-from mtpy.core import Z, Tipper, COORDINATE_REFERENCE_FRAME_OPTIONS
+from mtpy.core.transfer_function import IMPEDANCE_UNITS
+from mtpy.core import (
+    Z,
+    Tipper,
+    COORDINATE_REFERENCE_FRAME_OPTIONS,
+)
 from mtpy.core.mt_location import MTLocation
 from mtpy.core.mt_dataframe import MTDataFrame
 from mtpy.utils.estimate_tf_quality_factor import EMTFStats
@@ -74,7 +79,7 @@ class MT(TF, MTLocation):
 
     """
 
-    def __init__(self, fn=None, **kwargs):
+    def __init__(self, fn=None, impedance_units="mt", **kwargs):
         tf_kwargs = {}
         for key in [
             "period",
@@ -113,6 +118,9 @@ class MT(TF, MTLocation):
             self.station_metadata.transfer_function.sign_convention
         )
 
+        self._impedance_unit_factors = IMPEDANCE_UNITS
+        self.impedance_units = impedance_units
+
         for key, value in kwargs.items():
             setattr(self, key, value)
 
@@ -132,6 +140,7 @@ class MT(TF, MTLocation):
         new_mt_obj.model_elevation = self.model_elevation
         new_mt_obj._rotation_angle = self._rotation_angle
         new_mt_obj.profile_offset = self.profile_offset
+        new_mt_obj.impedance_units = self.impedance_units
 
         return new_mt_obj
 
@@ -212,6 +221,23 @@ class MT(TF, MTLocation):
         self.station_metadata.transfer_function.sign_convention = value
 
     @property
+    def impedance_units(self):
+        """impedance units"""
+        return self._impedance_units
+
+    @impedance_units.setter
+    def impedance_units(self, value):
+        """impedance units setter options are [ mt | ohm ]"""
+        if not isinstance(value, str):
+            raise TypeError("Units input must be a string.")
+        if value.lower() not in self._impedance_unit_factors.keys():
+            raise ValueError(
+                f"{value} is not an acceptable unit for impedance."
+            )
+
+        self._impedance_units = value
+
+    @property
     def rotation_angle(self):
         """Rotation angle in degrees from north. In the coordinate reference frame"""
         return self._rotation_angle
@@ -279,15 +305,17 @@ class MT(TF, MTLocation):
 
     @property
     def Z(self):
-        r"""Mtpy.core.z.Z object to hold impedance tenso."""
+        r"""Mtpy.core.z.Z object to hold impedance tensor."""
 
         if self.has_impedance():
-            return Z(
+            z_object = Z(
                 z=self.impedance.to_numpy(),
                 z_error=self.impedance_error.to_numpy(),
                 frequency=self.frequency,
                 z_model_error=self.impedance_model_error.to_numpy(),
             )
+            z_object.units = self.impedance_units
+            return z_object
         return Z()
 
     @Z.setter
@@ -296,16 +324,24 @@ class MT(TF, MTLocation):
 
         recalculate phase tensor and invariants, which shouldn't change except
         for strike angle.
+
+        Be sure to have appropriate units set
         """
+        # if a z object is given the underlying data is in mt units, even
+        # if the units are set to ohm.
+        self.impedance_units = z_object.units
         if not isinstance(z_object.frequency, type(None)):
             if self.frequency.size != z_object.frequency.size:
                 self.frequency = z_object.frequency
 
             elif not (self.frequency == z_object.frequency).all():
                 self.frequency = z_object.frequency
-        self.impedance = z_object.z
-        self.impedance_error = z_object.z_error
-        self.impedance_model_error = z_object.z_model_error
+        # set underlying data to units of mt
+        self.impedance = z_object._dataset.transfer_function.values
+        self.impedance_error = z_object._dataset.transfer_function_error.values
+        self.impedance_model_error = (
+            z_object._dataset.transfer_function_model_error.values
+        )
 
     @property
     def Tipper(self):
@@ -634,7 +670,7 @@ class MT(TF, MTLocation):
 
         return PlotPenetrationDepth1D(self, **kwargs)
 
-    def to_dataframe(self, utm_crs=None, cols=None):
+    def to_dataframe(self, utm_crs=None, cols=None, impedance_units="mt"):
         """Create a dataframe from the transfer function for use with plotting
         and modeling.
         :param cols:
@@ -644,6 +680,8 @@ class MT(TF, MTLocation):
         :param eter utm_crs: The utm zone to project station to, could be a
             name, pyproj.CRS, EPSG number, or anything that pyproj.CRS can intake.
         :type eter utm_crs: string, int, :class:`pyproj.CRS`
+        :param impedance_units: ["mt" [mV/km/nT] | "ohm" [Ohms] ]
+        :type impedance_units: str
         """
         if utm_crs is not None:
             self.utm_crs = utm_crs
@@ -667,19 +705,21 @@ class MT(TF, MTLocation):
 
         mt_df.dataframe.loc[:, "period"] = self.period
         if self.has_impedance():
-            mt_df.from_z_object(self.Z)
+            z_object = self.Z
+            z_object.units = impedance_units
+            mt_df.from_z_object(z_object)
         if self.has_tipper():
             mt_df.from_t_object(self.Tipper)
 
         return mt_df
 
-    def from_dataframe(self, mt_df):
+    def from_dataframe(self, mt_df, impedance_units="mt"):
         """Fill transfer function attributes from a dataframe for a single station.
         :param mt_df:
         :param df: DESCRIPTION.
         :type df: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        :param impedance_units: ["mt" [mV/km/nT] | "ohm" [Ohms] ]
+        :type impedance_units: str
         """
 
         if not isinstance(mt_df, MTDataFrame):
@@ -713,11 +753,9 @@ class MT(TF, MTLocation):
 
         self.tf_id = self.station
 
-        # self._transfer_function = self._initialize_transfer_function(
-        #     mt_df.period
-        # )
-
-        self.Z = mt_df.to_z_object()
+        z_obj = mt_df.to_z_object()
+        z_obj.units = impedance_units
+        self.Z = z_obj
         self.Tipper = mt_df.to_t_object()
 
     def compute_model_z_errors(
@@ -1072,9 +1110,7 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j
-                * self._transfer_function.transfer_function.imag
-                * noise_imag
+                1j * self._transfer_function.transfer_function.imag * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
@@ -1088,9 +1124,7 @@ class MT(TF, MTLocation):
             ] = self._transfer_function.transfer_function.real * (
                 noise_real
             ) + (
-                1j
-                * self._transfer_function.transfer_function.imag
-                * noise_imag
+                1j * self._transfer_function.transfer_function.imag * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (

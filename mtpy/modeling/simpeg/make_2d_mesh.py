@@ -12,93 +12,235 @@ import numpy as np
 
 from discretize import TensorMesh
 from discretize import TreeMesh
-from discretize.utils import mkvc
-import matplotlib.pyplot as plt
-from discretize.utils import active_from_xyz
 
 # from dask.distributed import Client, LocalCluster
 from geoana.em.fdem import skin_depth
 import discretize.utils as dis_utils
 import warnings
 
+import matplotlib.pyplot as plt
+
 warnings.filterwarnings("ignore")
 # =============================================================================
 
 
-def generate_2d_mesh_structured(
-    rx_locs,
-    frequencies,
-    sigma_background,
-    z_factor_max=5,
-    z_factor_min=5,
-    pfz_down=1.2,
-    pfz_up=1.5,
-    npadz_up=5,
-    x_factor_max=2,
-    spacing_factor=4,
-    pfx=1.5,
-    n_max=1000,
-):
-    """Creat a 2D structured mesh, the typical way to model the data with uniform
-    horizontal cells in the station area and geometrically increasing down and
-    padding cells.
-    :param rx_locs: DESCRIPTION.
-    :type rx_locs: TYPE
-    :param frequencies: DESCRIPTION.
-    :type frequencies: TYPE
-    :param sigma_background: DESCRIPTION.
-    :type sigma_background: TYPE
-    :param z_factor_max: DESCRIPTION, defaults to 5.
-    :type z_factor_max: TYPE, optional
-    :param z_factor_min: DESCRIPTION, defaults to 5.
-    :type z_factor_min: TYPE, optional
-    :param pfz_down: DESCRIPTION2, defaults to 1.2.
-    :type pfz_down: TYPE, optional
-    :param pfz_up: DESCRIPTION5, defaults to 1.5.
-    :type pfz_up: TYPE, optional
-    :param npadz_up: DESCRIPTION, defaults to 5.
-    :type npadz_up: TYPE, optional
-    :param x_factor_max: DESCRIPTION, defaults to 2.
-    :type x_factor_max: TYPE, optional
-    :param spacing_factor: DESCRIPTION, defaults to 4.
-    :type spacing_factor: TYPE, optional
-    :param pfx: DESCRIPTION5, defaults to 1.5.
-    :type pfx: TYPE, optional
-    :param n_max: DESCRIPTION, defaults to 1000.
-    :type n_max: TYPE, optional
-    :return: DESCRIPTION.
-    :rtype: TYPE
-    """
-    # Setting the cells in depth dimension
-    f_min = frequencies.min()
-    f_max = frequencies.max()
-    dz_min = np.round(skin_depth(f_max, sigma_background) / z_factor_max)
-    lz = skin_depth(sigma_background, f_min) * z_factor_max
-    # Setting the domain length in z-direction
-    for nz_down in range(n_max):
-        hz_down = dz_min * pfz_down ** np.arange(nz_down)[::-1]
-        if hz_down.sum() > lz:
-            break
-    hz_up = [(dz_min, npadz_up, pfz_up)]
-    hz_up = dis_utils.unpack_widths(hz_up)
-    hz = np.r_[hz_down, hz_up]
-    # Setting the cells in lateral dimension
-    d_station = np.diff(rx_locs[:, 0]).min()
-    dx_min = np.round(d_station / spacing_factor)
-    lx = rx_locs[:, 0].max() - rx_locs[:, 0].min()
-    ncx = int(lx / dx_min)
-    lx_pad = skin_depth(sigma_background, f_min) * x_factor_max
-    for npadx in range(n_max):
-        hx_pad = dis_utils.meshTensor([(dx_min, npadx, -pfx)])
-        if hx_pad.sum() > lx_pad:
-            break
-    hx = [(dx_min, npadx, -pfx), (dx_min, ncx), (dx_min, npadx, pfx)]
+class StructuredMesh:
+    def __init__(self, station_locations, frequencies, **kwargs):
+        self.station_locations = station_locations
+        self.frequencies = frequencies
+        self.topography = None
 
-    mesh = TensorMesh([hx, hz])
-    mesh.origin = np.r_[
-        -mesh.hx[:npadx].sum() + rx_locs[:, 0].min(), -hz_down.sum()
-    ]
-    return mesh
+        self.sigma_background = 0.01
+
+        self.z_factor_min = 5
+        self.z_factor_max = 15
+
+        self.z_geometric_factor_up = 1.5
+        self.z_geometric_factor_down = 1.2
+
+        self.n_pad_z_up = 5
+        self.x_factor_max = 2
+        self.x_spacing_factor = 4
+        self.x_padding_geometric_factor = 1.5
+        self.n_max = 1000
+
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    @property
+    def frequency_max(self):
+        return self.frequencies.max()
+
+    @property
+    def frequency_min(self):
+        return self.frequencies.min()
+
+    @property
+    def z1_layer_thickness(self):
+        return np.round(
+            skin_depth(self.frequency_max, self.sigma_background)
+            / self.z_factor_max
+        )
+
+    @property
+    def z_bottom(self):
+        return (
+            skin_depth(self.sigma_background, self.frequency_min)
+            * self.z_factor_max
+        )
+
+    @property
+    def z_mesh_down(self):
+        for nz_down in range(self.n_max):
+            z_mesh_down = (
+                self.z1_layer_thickness
+                * self.z_geometric_factor_down ** np.arange(nz_down)[::-1]
+            )
+            if z_mesh_down.sum() > self.z_bottom:
+                break
+        return z_mesh_down
+
+    @property
+    def z_mesh_up(self):
+        z_mesh_up = [
+            (
+                self.z1_layer_thickness,
+                self.n_pad_z_up,
+                self.z_geometric_factor_up,
+            )
+        ]
+        return dis_utils.unpack_widths(z_mesh_up)
+
+    def _make_z_mesh(self):
+        """
+        create vertical mesh
+        """
+
+        return np.r_[self.z_mesh_down, self.z_mesh_up]
+
+    @property
+    def dx(self):
+        d_station = np.diff(self.station_locations[:, 0]).min()
+        return np.round(d_station / self.x_spacing_factor)
+
+    @property
+    def station_total_length(self):
+        return (
+            self.station_locations[:, 0].max()
+            - self.station_locations[:, 0].min()
+        )
+
+    @property
+    def n_station_x_cells(self):
+        return int(self.station_total_length / self.dx)
+
+    @property
+    def x_padding_cells(self):
+        return (
+            skin_depth(self.sigma_background, self.frequency_min)
+            * self.x_factor_max
+        )
+
+    @property
+    def n_x_padding(self):
+        for npadx in range(self.n_max):
+            x_pad = dis_utils.unpack_widths(
+                [
+                    (
+                        self.dx,
+                        npadx,
+                        -self.x_padding_geometric_factor,
+                    )
+                ]
+            )
+            if x_pad.sum() > self.x_padding_cells:
+                break
+        return npadx
+
+    def _make_x_mesh(self):
+        """
+        make horizontal mesh
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        return [
+            (
+                self.dx,
+                self.n_x_padding,
+                -self.x_padding_geometric_factor,
+            ),
+            (self.dx, self.n_station_x_cells),
+            (
+                self.dx,
+                self.n_x_padding,
+                self.x_padding_geometric_factor,
+            ),
+        ]
+
+    def make_mesh(self):
+        """
+        create structured mesh
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        z_mesh = self._make_z_mesh()
+        x_mesh = self._make_x_mesh()
+
+        mesh = TensorMesh([x_mesh, z_mesh])
+        mesh.origin = np.r_[
+            -mesh.h[0][: self.n_x_padding].sum()
+            + self.station_locations[:, 0].min(),
+            -self.z_mesh_down.sum(),
+        ]
+
+        self.mesh = mesh
+        return self.plot_mesh()
+
+    @property
+    def active_cell_index(self):
+        """
+        return active cell mask
+
+        TODO: include topographic surface
+
+        :return: DESCRIPTION
+        :rtype: TYPE
+
+        """
+
+        if self.topography is None:
+            return self.mesh.cell_centers[:, 1] < 0
+
+        else:
+            raise NotImplementedError("Have not included topography yet.")
+
+    @property
+    def number_of_active_cells(self):
+        """
+        number of active cells
+        """
+        return int(self.active_cell_index.sum())
+
+    def plot_mesh(self, **kwargs):
+        """
+        plot the mesh
+        """
+
+        if self.mesh is not None:
+            fig = plt.figure(kwargs.get("fig_num", 1))
+            ax = fig.add_subplot(1, 1, 1)
+            self.mesh.plot_image(
+                self.active_cell_index,
+                ax=ax,
+                grid=True,
+                grid_opts={"color": (0.75, 0.75, 0.75), "linewidth": 0.1},
+                **kwargs
+            )
+            ax.scatter(
+                self.station_locations[:, 0],
+                self.station_locations[:, 1],
+                marker=kwargs.get("marker", "v"),
+                s=kwargs.get("s", 35),
+                c=kwargs.get("c", (0, 0, 0)),
+                zorder=1000,
+            )
+            ax.set_xlim(
+                kwargs.get(
+                    "xlim",
+                    (
+                        self.station_locations[:, 0].min() - (2 * self.dx),
+                        self.station_locations[:, 0].max() + (2 * self.dx),
+                    ),
+                )
+            )
+            ax.set_ylim(kwargs.get("ylim", (-10000, 1000)))
+            return ax
 
 
 class QuadTreeMesh:

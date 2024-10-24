@@ -34,35 +34,35 @@ from mtpy.imaging.mtplot_tools import (
 class PlotMTResponse(PlotBase):
     """Plots Resistivity and phase for the different modes of the MT response.
 
-    At
-the moment it supports the input of an .edi file. Other formats that will
-    be supported are the impedance tensor and errors with an array of periods
-    and .j format.
+        At
+    the moment it supports the input of an .edi file. Other formats that will
+        be supported are the impedance tensor and errors with an array of periods
+        and .j format.
 
-    The normal use is to input an .edi file, however it would seem that not
-    everyone uses this format, so you can input the data and put it into
-    arrays or objects like class mtpy.core.z.Z.  Or if the data is in
-    resistivity and phase format they can be input as arrays or a class
-    mtpy.imaging.mtplot.ResPhase.  Or you can put it into a class
-    mtpy.imaging.mtplot.MTplot.
+        The normal use is to input an .edi file, however it would seem that not
+        everyone uses this format, so you can input the data and put it into
+        arrays or objects like class mtpy.core.z.Z.  Or if the data is in
+        resistivity and phase format they can be input as arrays or a class
+        mtpy.imaging.mtplot.ResPhase.  Or you can put it into a class
+        mtpy.imaging.mtplot.MTplot.
 
-    The plot places the apparent resistivity in log scale in the top panel(s),
-    depending on the plot_num.  The phase is below this, note that 180 degrees
-    has been added to the yx phase so the xy and yx phases plot in the same
-    quadrant.  Both the resistivity and phase share the same x-axis which is in
-    log period, short periods on the left to long periods on the right.  So
-    if you zoom in on the plot both plots will zoom in to the same
-    x-coordinates.  If there is tipper information, you can plot the tipper
-    as a third panel at the bottom, and also shares the x-axis.  The arrows are
-    in the convention of pointing towards a conductor.  The xx and yy
-    components can be plotted as well, this adds two panels on the right.
-    Here the phase is left unwrapped.  Other parameters can be added as
-    subplots such as strike, skew and phase tensor ellipses.
+        The plot places the apparent resistivity in log scale in the top panel(s),
+        depending on the plot_num.  The phase is below this, note that 180 degrees
+        has been added to the yx phase so the xy and yx phases plot in the same
+        quadrant.  Both the resistivity and phase share the same x-axis which is in
+        log period, short periods on the left to long periods on the right.  So
+        if you zoom in on the plot both plots will zoom in to the same
+        x-coordinates.  If there is tipper information, you can plot the tipper
+        as a third panel at the bottom, and also shares the x-axis.  The arrows are
+        in the convention of pointing towards a conductor.  The xx and yy
+        components can be plotted as well, this adds two panels on the right.
+        Here the phase is left unwrapped.  Other parameters can be added as
+        subplots such as strike, skew and phase tensor ellipses.
 
-    To manipulate the plot you can change any of the attributes listed below
-    and call redraw_plot().  If you know more aout matplotlib and want to
-    change axes parameters, that can be done by changing the parameters in the
-    axes attributes and then call update_plot(), note the plot must be open.
+        To manipulate the plot you can change any of the attributes listed below
+        and call redraw_plot().  If you know more aout matplotlib and want to
+        change axes parameters, that can be done by changing the parameters in the
+        axes attributes and then call update_plot(), note the plot must be open.
     """
 
     def __init__(
@@ -152,9 +152,10 @@ the moment it supports the input of an .edi file. Other formats that will
     def rotation_angle(self, theta_r):
         """Only a single value is allowed."""
         if not theta_r == 0:
-            self.Z.rotate(theta_r)
-            self.Tipper.rotate(theta_r)
-            self.pt.rotate(theta_r)
+            self.Z.rotate(theta_r, inplace=True)
+            self.Tipper.rotate(theta_r, inplace=True)
+            self.pt = self.Z.phase_tensor
+            self.pt.rotation_angle = self.Z.rotation_angle
 
             self._rotation_angle += theta_r
         else:

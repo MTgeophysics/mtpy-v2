@@ -109,7 +109,9 @@ class TestSimpeg2DData(unittest.TestCase):
 
     def test_frequencies(self):
         self.assertTrue(
-            np.allclose(1.0 / self.new_periods, self.simpeg_data.frequencies)
+            np.allclose(
+                np.sort(1.0 / self.new_periods), self.simpeg_data.frequencies
+            )
         )
 
     def test_te_survey(self):

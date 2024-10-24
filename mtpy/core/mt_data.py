@@ -18,6 +18,7 @@ import geopandas as gpd
 
 import matplotlib.pyplot as plt
 
+from mtpy.core.transfer_function import IMPEDANCE_UNITS
 from .mt import MT
 from .mt_stations import MTStations
 from mtpy.core import MTDataFrame, COORDINATE_REFERENCE_FRAME_OPTIONS
@@ -59,11 +60,10 @@ class MTData(OrderedDict, MTStations):
     """
 
     def __init__(self, mt_list=None, **kwargs):
-        if mt_list is not None:
-            for mt_obj in mt_list:
-                self.add_station(mt_obj, compute_relative_location=False)
 
-        MTStations.__init__(self, None, None, **kwargs)
+        self._coordinate_reference_frame_options = (
+            COORDINATE_REFERENCE_FRAME_OPTIONS
+        )
 
         self.z_model_error = ModelErrors(
             error_value=5,
@@ -78,6 +78,9 @@ class MTData(OrderedDict, MTStations):
             mode="tipper",
         )
         self.data_rotation_angle = 0
+        self.coordinate_reference_frame = "ned"
+        self._impedance_unit_factors = IMPEDANCE_UNITS
+        self.impedance_units = "mt"
 
         self.model_parameters = {}
 
@@ -94,10 +97,18 @@ class MTData(OrderedDict, MTStations):
             "rotation_angle",
             "data_rotation_angle",
             "model_parameters",
+            "impedance_units",
         ]
 
-        self._coordinate_reference_frame_options = (
-            COORDINATE_REFERENCE_FRAME_OPTIONS
+        if mt_list is not None:
+            for mt_obj in mt_list:
+                self.add_station(mt_obj, compute_relative_location=False)
+
+        MTStations.__init__(
+            self,
+            kwargs.pop("utm_epsg", None),
+            datum_epsg=kwargs.pop("datum_epsg", None),
+            **kwargs,
         )
 
     def _validate_item(self, mt_obj):
@@ -206,14 +217,16 @@ class MTData(OrderedDict, MTStations):
 
         md = MTData()
         for attr in self._copy_attrs:
-            setattr(self, attr, deepcopy(getattr(self, attr)))
+            setattr(md, attr, deepcopy(getattr(self, attr)))
 
         return md
 
     @property
     def coordinate_reference_frame(self):
         """coordinate reference frame ned or enu"""
-        return self._coordinate_reference_frame
+        return self._coordinate_reference_frame_options[
+            self._coordinate_reference_frame
+        ].upper()
 
     @coordinate_reference_frame.setter
     def coordinate_reference_frame(self, value):
@@ -256,6 +269,27 @@ class MTData(OrderedDict, MTStations):
         self._coordinate_reference_frame = value
 
     @property
+    def impedance_units(self):
+        """impedance units"""
+        return self._impedance_units
+
+    @impedance_units.setter
+    def impedance_units(self, value):
+        """impedance units setter options are [ mt | ohm ]"""
+        if not isinstance(value, str):
+            raise TypeError("Units input must be a string.")
+        if value.lower() not in self._impedance_unit_factors.keys():
+            raise ValueError(
+                f"{value} is not an acceptable unit for impedance."
+            )
+
+        self._impedance_units = value
+
+        if self.mt_list is not None:
+            for mt_obj in self.values():
+                mt_obj.impedance_units = self._impedance_units
+
+    @property
     def mt_list(self):
         """Mt list.
 
@@ -267,6 +301,8 @@ class MTData(OrderedDict, MTStations):
     @mt_list.setter
     def mt_list(self, value):
         """At this point not implemented, mainly here for inheritance of MTStations."""
+        if value is None:
+            return
         if len(self.values()) != 0:
             self.logger.warning("mt_list cannot be set.")
         pass
@@ -292,7 +328,9 @@ class MTData(OrderedDict, MTStations):
         survey_list = [
             mt_obj for key, mt_obj in self.items() if survey_id in key
         ]
-        return MTData(survey_list)
+        md = self.clone_empty()
+        md.add_station(survey_list)
+        return md
 
     def add_station(
         self,
@@ -323,8 +361,11 @@ class MTData(OrderedDict, MTStations):
 
         for m in mt_object:
             m = self._validate_item(m)
-            if self.utm_crs is not None:
-                m.utm_crs = self.utm_crs
+            try:
+                if self.utm_crs is not None:
+                    m.utm_crs = self.utm_crs
+            except AttributeError:
+                pass
             if survey is not None:
                 m.survey = survey
 
@@ -476,14 +517,14 @@ class MTData(OrderedDict, MTStations):
 
     def get_subset(self, station_list):
         """Get a subset of the data from a list of stations, could be station_id
-        or station_keys
+        or station_keys. Safest to use keys {survey}.{station}
 
         :param station_list: List of station keys as {survey_id}.{station_id}.
         :type station_list: list
         :return: Returns just those stations within station_list.
         :rtype: :class:`mtpy.MTData`
         """
-        mt_data = MTData()
+        mt_data = self.clone_empty()
         for station in station_list:
             if station.count(".") > 0:
                 mt_data.add_station(
@@ -505,19 +546,23 @@ class MTData(OrderedDict, MTStations):
         if self.mt_list is not None:
             return len(self.mt_list)
 
-    def to_dataframe(self, utm_crs=None, cols=None):
+    def to_dataframe(self, utm_crs=None, cols=None, impedance_units="mt"):
         """To dataframe.
 
         :param utm_crs: DESCRIPTION, defaults to None.
         :type utm_crs: TYPE, optional
         :param cols: DESCRIPTION, defaults to None.
         :type cols: TYPE, optional
+        :param impedance_units: [ "mt" [mV/km/nT] | "ohm" [Ohms] ]
+        :type impedance_units: str
         :return: DESCRIPTION.
         :rtype: TYPE
         """
 
         df_list = [
-            mt_obj.to_dataframe(utm_crs=utm_crs, cols=cols).dataframe
+            mt_obj.to_dataframe(
+                utm_crs=utm_crs, cols=cols, impedance_units=impedance_units
+            ).dataframe
             for mt_obj in self.values()
         ]
 
@@ -525,39 +570,47 @@ class MTData(OrderedDict, MTStations):
         df.reset_index(drop=True, inplace=True)
         return df
 
-    def to_mt_dataframe(self, utm_crs=None):
+    def to_mt_dataframe(self, utm_crs=None, impedance_units="mt"):
         """Create an MTDataFrame.
 
         :param utm_crs: DESCRIPTION, defaults to None.
         :type utm_crs: TYPE, optional
+        :param impedance_units: [ "mt" [mV/km/nT] | "ohm" [Ohms] ]
+        :type impedance_units: str
         :return: DESCRIPTION.
         :rtype: TYPE
         """
 
-        return MTDataFrame(self.to_dataframe(utm_crs=utm_crs))
+        return MTDataFrame(
+            self.to_dataframe(utm_crs=utm_crs, impedance_units=impedance_units)
+        )
 
-    def from_dataframe(self, df):
+    def from_dataframe(self, df, impedance_units="mt"):
         """Create an dictionary of MT objects from a dataframe.
 
         :param df: Dataframe of mt data.
         :type df: `pandas.DataFrame`
+        :param impedance_units: [ "mt" [mV/km/nT] | "ohm" [Ohms] ]
+        :type impedance_units: str
         """
 
         for station in df.station.unique():
             sdf = df.loc[df.station == station]
             mt_object = MT(period=sdf.period.unique())
-            mt_object.from_dataframe(sdf)
+            mt_object.from_dataframe(sdf, impedance_units=impedance_units)
             self.add_station(mt_object, compute_relative_location=False)
 
-    def from_mt_dataframe(self, mt_df):
+    def from_mt_dataframe(self, mt_df, impedance_units="mt"):
         """Create an dictionary of MT objects from a dataframe.
 
         :param mt_df:
         :param df: Dataframe of mt data.
         :type df: `MTDataFrame`
+        :param impedance_units: [ "mt" [mV/km/nT] | "ohm" [Ohms] ]
+        :type impedance_units: str
         """
 
-        self.from_dataframe(mt_df.dataframe)
+        self.from_dataframe(mt_df.dataframe, impedance_units=impedance_units)
 
     def to_geo_df(self, model_locations=False, data_type="station_locations"):
         """Make a geopandas dataframe for easier GIS manipulation.
@@ -658,9 +711,7 @@ class MTData(OrderedDict, MTStations):
                 )
 
             else:
-                mt_data.add_station(
-                    new_mt_obj, compute_relative_location=False
-                )
+                mt_data.add_station(new_mt_obj, compute_relative_location=False)
 
         if not inplace:
             return mt_data
@@ -682,13 +733,10 @@ class MTData(OrderedDict, MTStations):
             mt_data = self.clone_empty()
         for mt_obj in self.values():
             if not inplace:
-                rot_mt_obj = mt_obj.copy()
-                rot_mt_obj.rotation_angle = rotation_angle
-                mt_data.add_station(
-                    rot_mt_obj, compute_relative_location=False
-                )
+                rot_mt_obj = mt_obj.rotate(rotation_angle, inplace=False)
+                mt_data.add_station(rot_mt_obj, compute_relative_location=False)
             else:
-                mt_obj.rotation_angle = rotation_angle
+                mt_obj.rotate(rotation_angle)
 
         if not inplace:
             return mt_data
@@ -780,12 +828,8 @@ class MTData(OrderedDict, MTStations):
             self.t_model_error.floor = t_floor
 
         for mt_obj in self.values():
-            mt_obj.compute_model_z_errors(
-                **self.z_model_error.error_parameters
-            )
-            mt_obj.compute_model_t_errors(
-                **self.t_model_error.error_parameters
-            )
+            mt_obj.compute_model_z_errors(**self.z_model_error.error_parameters)
+            mt_obj.compute_model_t_errors(**self.t_model_error.error_parameters)
 
     def get_nearby_stations(self, station_key, radius, radius_units="m"):
         """Get stations close to a given station.

@@ -59,3 +59,13 @@ History
 * Updates by @kujaku11 in https://github.com/MTgeophysics/mtpy-v2/pull/61
 
 **Full Changelog**: https://github.com/MTgeophysics/mtpy-v2/compare/v2.0.10...v2.0.11
+
+2.0.12 (2024-10-22)
+----------------------------
+
+* Fix rotations again by @kujaku11 in https://github.com/MTgeophysics/mtpy-v2/pull/57
+* Pin numpy versions <2.0 by @kkappler in https://github.com/MTgeophysics/mtpy-v2/pull/62
+* Occam2d fixes by @alkirkby in https://github.com/MTgeophysics/mtpy-v2/pull/56
+* Updates by @kujaku11 in https://github.com/MTgeophysics/mtpy-v2/pull/61
+
+**Full Changelog**: https://github.com/MTgeophysics/mtpy-v2/compare/v2.0.10...v2.0.12
