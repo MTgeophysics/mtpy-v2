@@ -102,8 +102,8 @@ class Occam2DData:
         self.occam_dict = {
             "1": "res_xy",
             "2": "phase_xy",
-            "3": "tzx_real",
-            "4": "tzx_imag",
+            "3": "t_zy_real",
+            "4": "t_zy_imag",
             "5": "res_yx",
             "6": "phase_yx",
             "9": "res_xy",
@@ -113,7 +113,8 @@ class Occam2DData:
         self.df_dict = {
             "1": "res_xy",
             "2": "phase_xy",
-            "3": "tzx",
+            "3": "t_zy",
+            "4": "t_zy",
             "5": "res_yx",
             "6": "phase_yx",
         }
@@ -434,28 +435,60 @@ class Occam2DData:
                 entries.append(entry)
             except ValueError:
                 self.logger.debug("Could not read line {0}".format(line))
+        
 
         # format dataframe
         df = pd.DataFrame(entries)
-        df["tzx"] = df.tzx_real + 1j * df.tzx_imag
-        df["tzx_model_error"] = df.tzx_real_model_error
+        df['t_zy_real'] = df['t_zy_real'].fillna(0)
+        df['t_zy_imag'] = df['t_zy_imag'].fillna(0)
+        # print(df['t_zy_real'])
+        
+        
+        df['t_zy'] = df['t_zy_real'] + 1j*df['t_zy_imag']
+        # df["t_zy"] = df.t_zy_real + 1j * df.t_zy_imag
+        # df["t_zy_model_error"] = df.t_zy_real_model_error
         df["period"] = 1.0 / df.frequency
-        df = df.drop(
-            columns=[
-                "tzx_real",
-                "tzx_imag",
-                "tzx_real_model_error",
-                "tzx_imag_model_error",
-                "frequency",
-            ],
-            axis=1,
-        )
+        # df = df.drop(
+        #     columns=[
+        #         "t_zx_real",
+        #         "t_zx_imag",
+        #         "t_zx_real_model_error",
+        #         "t_zx_imag_model_error",
+        #         "frequency",
+        #     ],
+        #     axis=1,
+        # )
 
-        df = df.groupby(["station", "period"]).agg("first")
+        # df = df.groupby(["station", "period"]).agg("first")
+        
+        
+        
+        
         df = df.sort_values("profile_offset").reset_index()
         self.dataframe = df
+        
+        # use workaround function to group
+        self._group_df()
 
         self.model_mode = self._get_model_mode_from_data(res_log)
+        
+        
+    def _group_df(self):
+        for station in np.unique(self.dataframe['station']):
+            for period in np.unique(self.dataframe['period']):
+                filt = np.all([self.dataframe['station']==station,
+                               self.dataframe['period']==period],axis=0)           
+                
+                for key in ['res_xy','res_yx','phase_xy','phase_yx']:
+                    self.dataframe[key][filt] = np.unique(self.dataframe[key][filt])[0]
+                    
+                tx_real_vals = np.unique(np.real(self.dataframe['t_zy'][filt]))
+                tx_imag_vals = np.unique(np.imag(self.dataframe['t_zy'][filt]))
+                self.dataframe['t_zy'][filt] = tx_real_vals[tx_real_vals != 0][0] +\
+                    1j * tx_imag_vals[tx_imag_vals != 0][0]
+        
+                self.dataframe.drop(self.dataframe[filt].index[1:],inplace=True)
+
 
     def _get_model_mode_from_data(self, res_log):
         """Get inversion mode from the data.
@@ -477,9 +510,8 @@ class Occam2DData:
                         inv_list.append(5)
                     else:
                         inv_list.append(10)
-                elif comp == "tzx":
-                    inv_list.append(3)
-                    inv_list.append(4)
+                # elif comp == "t_zy":
+                #     inv_list.append(3)
                 else:
                     inv_list.append(int(inv_mode))
 
@@ -526,7 +558,8 @@ class Occam2DData:
                             value = value.imag
                             error_value = fdf[f"{comp}_model_error"].values[0]
                         elif comp_number in [6]:
-                            value = value + 180
+                            if -180 <= value <= -90:
+                                value = value + 180
                             error_value = fdf[f"{comp}_model_error"].values[0]
                         else:
                             value = value
