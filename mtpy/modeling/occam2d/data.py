@@ -439,12 +439,13 @@ class Occam2DData:
 
         # format dataframe
         df = pd.DataFrame(entries)
-        df['t_zy_real'] = df['t_zy_real'].fillna(0)
-        df['t_zy_imag'] = df['t_zy_imag'].fillna(0)
-        # print(df['t_zy_real'])
-        
-        
-        df['t_zy'] = df['t_zy_real'] + 1j*df['t_zy_imag']
+        if 't_zy_real' in list(df):
+            df['t_zy_real'] = df['t_zy_real'].fillna(0)
+            df['t_zy_imag'] = df['t_zy_imag'].fillna(0)
+            # print(df['t_zy_real'])
+            
+            
+            df['t_zy'] = df['t_zy_real'] + 1j*df['t_zy_imag']
         # df["t_zy"] = df.t_zy_real + 1j * df.t_zy_imag
         # df["t_zy_model_error"] = df.t_zy_real_model_error
         df["period"] = 1.0 / df.frequency
@@ -477,17 +478,18 @@ class Occam2DData:
         for station in np.unique(self.dataframe['station']):
             for period in np.unique(self.dataframe['period']):
                 filt = np.all([self.dataframe['station']==station,
-                               self.dataframe['period']==period],axis=0)           
-                
-                for key in ['res_xy','res_yx','phase_xy','phase_yx']:
-                    self.dataframe[key][filt] = np.unique(self.dataframe[key][filt])[0]
-                    
-                tx_real_vals = np.unique(np.real(self.dataframe['t_zy'][filt]))
-                tx_imag_vals = np.unique(np.imag(self.dataframe['t_zy'][filt]))
-                self.dataframe['t_zy'][filt] = tx_real_vals[tx_real_vals != 0][0] +\
-                    1j * tx_imag_vals[tx_imag_vals != 0][0]
-        
-                self.dataframe.drop(self.dataframe[filt].index[1:],inplace=True)
+                               self.dataframe['period']==period],axis=0)
+                if np.any(filt):
+                    for key in ['res_xy','res_yx','phase_xy','phase_yx']:
+                        self.dataframe[key][filt] = np.unique(self.dataframe[key][filt])[0]
+                        
+                    tx_real_vals = np.unique(np.real(self.dataframe['t_zy'][filt]))
+                    tx_imag_vals = np.unique(np.imag(self.dataframe['t_zy'][filt]))
+                    if np.any(tx_real_vals != 0):
+                        self.dataframe['t_zy'][filt] = tx_real_vals[tx_real_vals != 0][0] +\
+                            1j * tx_imag_vals[tx_imag_vals != 0][0]
+            
+                    self.dataframe.drop(self.dataframe[filt].index[1:],inplace=True)
 
 
     def _get_model_mode_from_data(self, res_log):
