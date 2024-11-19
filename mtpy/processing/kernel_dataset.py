@@ -373,7 +373,7 @@ class KernelDataset:
         """
         if self.remote_station_id is not None:
             return (
-                f"{self.local_station_id}-rr_{self.remote_station_id}_"
+                f"{self.local_station_id}_rr_{self.remote_station_id}_"
                 f"sr{int(self.sample_rate)}"
             )
         else:
