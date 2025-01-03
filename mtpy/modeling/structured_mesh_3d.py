@@ -2755,9 +2755,9 @@ class StructuredGrid3D:
         l1 = 0
         layers = []
         for zz in range(self.nodes_z.shape[0] - 1):
-            if not (
-                write_res_model[:, :, zz] == write_res_model[:, :, zz + 1]
-            ).all():
+            # if not (
+            #     write_res_model[:, :, zz] == write_res_model[:, :, zz + 1]
+            # ).all():
                 layers.append((l1, zz))
                 l1 = zz + 1
         # need to add on the bottom layers
@@ -2765,7 +2765,8 @@ class StructuredGrid3D:
 
         # write out the layers from resmodel
         for ll in layers:
-            lines.append(f"{ll[0] + 1} {ll[1] + 1}\n")
+            if nr > 0:
+                lines.append(f"{ll[0] + 1} {ll[1] + 1}\n")
             for nn in range(self.nodes_north.shape[0]):
                 for ee in range(self.nodes_east.shape[0]):
                     if nr > 0:
