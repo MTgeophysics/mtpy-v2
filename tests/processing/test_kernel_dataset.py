@@ -144,7 +144,7 @@ class TestKernelDataset(unittest.TestCase):
             )
 
     def test_processing_id(self):
-        self.assertEqual(self.kd.processing_id, "test1-rr_test2_sr1")
+        self.assertEqual(self.kd.processing_id, "test1_rr_test2_sr1")
 
     def test_local_survey_id(self):
         self.assertEqual("EMTF Synthetic", self.kd.local_survey_id)
