@@ -373,7 +373,7 @@ class KernelDataset:
         """
         if self.remote_station_id is not None:
             return (
-                f"{self.local_station_id}-rr_{self.remote_station_id}_"
+                f"{self.local_station_id}_rr_{self.remote_station_id}_"
                 f"sr{int(self.sample_rate)}"
             )
         else:
@@ -886,7 +886,9 @@ class KernelDataset:
             self.df["run_hdf5_reference"].at[i] = run_obj.hdf5_group.ref
 
             if row.fc:
-                msg = f"row {row} already has fcs prescribed by processing config"
+                msg = (
+                    f"row {row} already has fcs prescribed by processing config"
+                )
                 msg += "-- skipping time series initialisation"
                 logger.info(msg)
                 # see Note #3
