@@ -34,7 +34,6 @@ jobs:
       run: |
         python --version
         conda env create -f environment.yml
-        source activate mtpy-v2-test
         pip install git+https://github.com/simpeg/pydiso.git
         conda install pytest
         conda install pytest-subtests
