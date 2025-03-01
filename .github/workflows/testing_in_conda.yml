@@ -23,7 +23,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Setup Miniconda
-    - uses: conda-incubator/setup-miniconda@v3
+      uses: conda-incubator/setup-miniconda@v3
       with:
         auto-update-conda: true
         conda-channels: conda-forge
