@@ -31,7 +31,7 @@ jobs:
       run: |
         python --version
         conda env create -f environment.yml
-        source activate mtpy-v2-test
+        conda activate mtpy-v2-test
         pip install git+https://github.com/simpeg/pydiso.git
         conda install pytest
         conda install pytest-subtests
@@ -47,13 +47,13 @@ jobs:
     - name: Install Our Package
       shell: bash
       run: |
-        source activate mtpy-v2-test
+        conda activate mtpy-v2-test
         pip install -e .
         conda list
     - name: Run Tests
       shell: bash
       run: |
-        source activate mtpy-v2-test
+        conda activate mtpy-v2-test
         pytest --cov=./ --cov-report=xml --cov=mtpy
         
     - name: "Upload coverage to Codecov"
