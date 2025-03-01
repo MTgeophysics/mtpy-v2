@@ -367,7 +367,7 @@ class KernelDataset:
 
     @property
     def processing_id(self) -> str:
-        """Its difficult to come put with unique ids without crazy long names
+        """Its difficult to come up with unique ids without crazy long names
         so this is a generic id of local-remote, the station metadata
         will have run information and the config parameters.
         """

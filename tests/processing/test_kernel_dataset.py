@@ -144,7 +144,8 @@ class TestKernelDataset(unittest.TestCase):
             )
 
     def test_processing_id(self):
-        self.assertEqual(self.kd.processing_id, "test1-rr_test2_sr1")
+        expected_processing_id = "test1_rr_test2_sr1"  # changed from "test1-rr_test2_sr1" 01 Mar, 2025
+        self.assertEqual(self.kd.processing_id, expected_processing_id)
 
     def test_local_survey_id(self):
         self.assertEqual("EMTF Synthetic", self.kd.local_survey_id)
