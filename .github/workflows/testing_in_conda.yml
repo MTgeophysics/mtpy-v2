@@ -31,6 +31,7 @@ jobs:
       run: |
         python --version
         conda env create -f environment.yml
+        conda init --all
         conda activate mtpy-v2-test
         pip install git+https://github.com/simpeg/pydiso.git
         conda install pytest
@@ -53,6 +54,7 @@ jobs:
     - name: Run Tests
       shell: bash
       run: |
+        conda init --all
         conda activate mtpy-v2-test
         pytest --cov=./ --cov-report=xml --cov=mtpy
         
