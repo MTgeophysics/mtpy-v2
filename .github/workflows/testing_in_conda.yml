@@ -16,13 +16,16 @@ jobs:
       matrix:
         os: ["ubuntu-latest"]
         python-version: ["3.8", "3.9", "3.10", "3.11"]
+    defaults:
+      run:
+        shell: bash -el {0}
 
     steps:
     - uses: actions/checkout@v3
-    - name: Setup Conda
-      uses: s-weigand/setup-conda@v1
+    - name: Setup Miniconda
+    - uses: conda-incubator/setup-miniconda@v3
       with:
-        update-conda: false
+        auto-update-conda: true
         conda-channels: conda-forge
         python-version: ${{ matrix.python-version }}
 
@@ -47,13 +50,11 @@ jobs:
     - name: Install Our Package
       shell: bash
       run: |
-        source activate mtpy-v2-test
         pip install -e .
         conda list
     - name: Run Tests
       shell: bash
       run: |
-        source activate mtpy-v2-test
         pytest --cov=./ --cov-report=xml --cov=mtpy
         
     - name: "Upload coverage to Codecov"
