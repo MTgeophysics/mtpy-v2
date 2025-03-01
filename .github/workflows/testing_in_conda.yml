@@ -16,9 +16,6 @@ jobs:
       matrix:
         os: ["ubuntu-latest"]
         python-version: ["3.8", "3.9", "3.10", "3.11"]
-    defaults:
-      run:
-        shell: bash -el {0}
 
     steps:
     - uses: actions/checkout@v3
@@ -33,8 +30,8 @@ jobs:
       shell: bash
       run: |
         python --version
-        conda install conda-forge::cmake pkg-config mkl-devel
         conda env create -f environment.yml
+        source activate mtpy-v2-test
         pip install git+https://github.com/simpeg/pydiso.git
         conda install pytest
         conda install pytest-subtests
@@ -50,11 +47,13 @@ jobs:
     - name: Install Our Package
       shell: bash
       run: |
+        source activate mtpy-v2-test
         pip install -e .
         conda list
     - name: Run Tests
       shell: bash
       run: |
+        source activate mtpy-v2-test
         pytest --cov=./ --cov-report=xml --cov=mtpy
         
     - name: "Upload coverage to Codecov"
