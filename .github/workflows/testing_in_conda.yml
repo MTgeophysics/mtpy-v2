@@ -33,6 +33,7 @@ jobs:
       shell: bash
       run: |
         python --version
+        conda install conda-forge::cmake pkg-config mkl-devel
         conda env create -f environment.yml
         pip install git+https://github.com/simpeg/pydiso.git
         conda install pytest
