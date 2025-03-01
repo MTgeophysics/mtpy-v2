@@ -49,6 +49,8 @@ jobs:
     - name: Install Our Package
       shell: bash
       run: |
+        source ~/.profile
+        conda init --all
         conda activate mtpy-v2-test
         pip install -e .
         conda list
