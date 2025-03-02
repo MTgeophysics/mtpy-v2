@@ -16,3 +16,4 @@ dependencies:
   - cmake
   - cython 
   - ninja
+  - xarray=2024.7.0
