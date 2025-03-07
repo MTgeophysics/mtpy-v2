@@ -16,6 +16,7 @@ with open("HISTORY.rst") as history_file:
 requirements = [
     "numpy>=1.24,<2",
     "scipy<=1.12.0",
+    "xarray==2024.7.0",
     "matplotlib",
     "pyproj",
     "configparser",
