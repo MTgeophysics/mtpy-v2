@@ -75,16 +75,16 @@ class AuroraProcessing(BaseProcessing):
 
         self.default_window_parameters = {
             "high": {
-                "window.overlap": 256,
-                "window.num_samples": 1024,
-                "window.type": "dpss",
-                "window.additional_args": {"alpha": 2.5},
+                "stft.window.overlap": 256,
+                "stft.window.num_samples": 1024,
+                "stft.window.type": "dpss",
+                "stft.window.additional_args": {"alpha": 2.5},
             },
             "low": {
-                "window.overlap": 64,
-                "window.num_samples": 128,
-                "window.type": "dpss",
-                "window.additional_args": {"alpha": 2.5},
+                "stft.window.overlap": 64,
+                "stft.window.num_samples": 128,
+                "stft.window.type": "dpss",
+                "stft.window.additional_args": {"alpha": 2.5},
             },
         }
 
