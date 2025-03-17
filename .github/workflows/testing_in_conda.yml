@@ -38,7 +38,7 @@ jobs:
         conda install pytest
         conda install pytest-subtests
         conda install pytest-cov
-        pip install git+https://github.com/kujaku11/mt_metadata.git@main
+        pip install "mt_metadata[obspy] @ git+https://github.com/kujaku11/mt_metadata.git@patches"
         pip install git+https://github.com/kujaku11/mth5.git@processing
         pip install git+https://github.com/simpeg/aurora@processing_fix_issue_376
         git clone https://github.com/MTgeophysics/mtpy_data.git
