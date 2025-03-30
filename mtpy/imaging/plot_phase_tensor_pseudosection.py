@@ -149,7 +149,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
                 ):
                     continue
                 else:
-                    scaling = self.ellipse_size / phimax.max()
+                    scaling = self.ellipse_size / phimax[index]
                     eheight = phimin[index] * scaling
                     ewidth = phimax[index] * scaling
                     azm = 90 - azimuth[index]

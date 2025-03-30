@@ -792,25 +792,26 @@ class Data:
                 item_list = [k.strip() for k in item.split(":")]
                 if len(item_list) == 2:
                     key = item_list[0]
-                    value = item_list[1].replace("%", "").split()[0]
-                    if key in ["error_value", "data_rotation"]:
+                    if len(item_list[1]) > 0:
+                        value = item_list[1].replace("%", "").split()[0]
+                        if key in ["error_value", "data_rotation"]:
+                            try:
+                                value = float(value)
+                            except ValueError:
+                                pass
                         try:
-                            value = float(value)
-                        except ValueError:
-                            pass
-                    try:
-                        if key in ["model_epsg"]:
-                            setattr(self.center_point, "utm_epsg", value)
-                        elif "error" in key:
-                            setattr(
-                                obj,
-                                item_dict[key],
-                                value,
-                            )
-                        else:
-                            setattr(self, item_dict["key"], value)
-                    except KeyError:
-                        continue
+                            if key in ["model_epsg"]:
+                                setattr(self.center_point, "utm_epsg", value)
+                            elif "error" in key:
+                                setattr(
+                                    obj,
+                                    item_dict[key],
+                                    value,
+                                )
+                            else:
+                                setattr(self, item_dict["key"], value)
+                        except KeyError:
+                            continue
 
             ## Older files
             else:
