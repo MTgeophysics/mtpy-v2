@@ -17,5 +17,10 @@ dependencies:
   - mt-metadata
   - mth5
   - simpeg>=0.22
+  - mkl-devel
+  - pkg-config
+  - cmake
+  - cython 
+  - ninja
   - aurora
 
