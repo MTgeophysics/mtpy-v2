@@ -7,7 +7,7 @@ dependencies:
   - pip
   - matplotlib
   - numpy=1.26
-  - scipy
+  - scipy=1.13
   - pyproj
   - configparser
   - geopandas
