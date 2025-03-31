@@ -1,18 +1,21 @@
 name: mtpy-v2-test
 channels:
   - conda-forge
-  - defaults
 dependencies:
-  - matplotlib
-  - numpy=1.26
+  - python=3.11
   - git
   - pip
-  - simpeg
-  - dill
-  - jupyterlab
-  - ipywidgets
-  - mkl-devel
-  - pkg-config
-  - cmake
-  - cython 
-  - ninja
+  - matplotlib
+  - numpy=1.26
+  - scipy
+  - pyproj
+  - configparser
+  - geopandas
+  - pyevtk
+  - rasterio
+  - contextily
+  - mt-metadata
+  - mth5
+  - simpeg>=0.22
+  - aurora
+
