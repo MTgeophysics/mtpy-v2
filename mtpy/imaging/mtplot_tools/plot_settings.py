@@ -337,7 +337,7 @@ class PlotSettings(MTArrows, MTEllipse):
 
     @property
     def font_dict(self):
-        if int(matplotlib_version[2]) < 9:
+        if int(matplotlib_version.split(".")[1]) < 9:
             return {"size": self.font_size + 2, "weight": self.font_weight}
         else:
             return {
