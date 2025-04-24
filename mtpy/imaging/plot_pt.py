@@ -112,9 +112,7 @@ class PlotPhaseTensor(PlotBase):
 
         # ----set axes properties-----------------------------------------------
         # --> set tick labels and limits
-        self.ax_pt.xaxis.set_major_locator(
-            MultipleLocator(1 * self.ellipse_spacing)
-        )
+        self.ax_pt.xaxis.set_major_locator(MultipleLocator(1 * self.ellipse_spacing))
 
         self.ax_pt.set_xlim(
             np.log10(self.x_limits[0]) * self.ellipse_spacing,
@@ -131,9 +129,7 @@ class PlotPhaseTensor(PlotBase):
             )
         )
 
-        tklabels, xticks = get_log_tick_labels(
-            self.ax_pt, spacing=self.ellipse_spacing
-        )
+        tklabels, xticks = get_log_tick_labels(self.ax_pt, spacing=self.ellipse_spacing)
 
         self.ax_pt.set_xticks(xticks)
         self.ax_pt.set_xticklabels(tklabels, fontdict={"size": self.font_size})
@@ -309,9 +305,7 @@ class PlotPhaseTensor(PlotBase):
 
         self.ax_skew.set_xscale("log", nonpositive="clip")
         self.ax_skew.set_yscale("linear")
-        self.ax_skew.yaxis.set_major_locator(
-            MultipleLocator(self.ellipse_range[2])
-        )
+        self.ax_skew.yaxis.set_major_locator(MultipleLocator(self.ellipse_range[2]))
 
         if self.skew_limits is None:
             self.skew_limits = (-10, 10)
@@ -374,11 +368,12 @@ class PlotPhaseTensor(PlotBase):
 
         try:
             self.fig.suptitle(
-                "Phase Tensor Elements for: " + self.station,
+                f"Phase Tensor Elements for: {self.station}",
                 fontdict={"size": self.font_size + 3, "weight": "bold"},
             )
         except:
             self.fig.suptitle(
-                'Phase Tensor Elements for Station "unknown"',
-                fontdict={"size": self.font_size + 3, "weight": "bold"},
+                f"Phase Tensor Elements for: {self.station}",
+                fontdict={"fontsize": self.font_size + 3, "fontweight": "bold"},
             )
+        plt.show()
