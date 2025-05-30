@@ -4,7 +4,7 @@ Collection of MT stations
 
 Created on Mon Jan 11 15:36:38 2021
 
-:copyright: 
+:copyright:
     Jared Peacock (jpeacock@usgs.gov)
 
 :license: MIT
@@ -76,9 +76,7 @@ class MTCollection:
         lines = [f"Working Directory: {self.working_directory}"]
         lines.append(f"MTH5 file:         {self.mth5_filename}")
         if self.mth5_collection.h5_is_read():
-            lines.append(
-                f"\tNumber of Transfer Functions: {len(self.dataframe)}"
-            )
+            lines.append(f"\tNumber of Transfer Functions: {len(self.dataframe)}")
         return "\n".join(lines)
 
     def __repr__(self):
@@ -323,9 +321,7 @@ class MTCollection:
                 ]
                 find_df = find_df.iloc[0]
             except IndexError:
-                raise ValueError(
-                    f"Could not find {survey}.{tf_id} in collection."
-                )
+                raise ValueError(f"Could not find {survey}.{tf_id} in collection.")
 
         ref = find_df.hdf5_reference
 
@@ -357,9 +353,7 @@ class MTCollection:
         if not self.mth5_collection.h5_is_write():
             raise ValueError("Must initiate an MTH5 file first.")
         if not isinstance(filename, (str, Path)):
-            raise TypeError(
-                f"filename must be a string or Path not {type(filename)}"
-            )
+            raise TypeError(f"filename must be a string or Path not {type(filename)}")
         mt_object = MT(filename)
         mt_object.read()
 
@@ -393,9 +387,12 @@ class MTCollection:
         tf_group = self.mth5_collection.add_transfer_function(
             mt_object, update_metadata=update_metadata
         )
-        mt_object.survey = (
-            tf_group.hdf5_group.parent.parent.parent.parent.attrs["id"]
-        )
+        try:
+            mt_object.survey = tf_group.hdf5_group.parent.parent.parent.parent.attrs[
+                "id"
+            ]
+        except KeyError:
+            self.logger.warning("could not access survey.id attribute in H5.")
         self.logger.info(f"added {mt_object.survey}.{mt_object.station}")
         return mt_object.survey
 
@@ -468,12 +465,8 @@ class MTCollection:
         """
         if self.has_data():
             if locate == "location":
-                self.dataframe.latitude = np.round(
-                    self.dataframe.latitude, sig_figs
-                )
-                self.dataframe.longitude = np.round(
-                    self.dataframe.longitude, sig_figs
-                )
+                self.dataframe.latitude = np.round(self.dataframe.latitude, sig_figs)
+                self.dataframe.longitude = np.round(self.dataframe.longitude, sig_figs)
 
                 query = ["latitude", "longitude"]
             elif locate not in self.dataframe.columns:
@@ -483,18 +476,20 @@ class MTCollection:
             return self.dataframe[self.dataframe.duplicated(query)]
         return None
 
-    def apply_bbox(self, lon_min: float, lon_max: float, lat_min: float, lat_max: float) -> None:
+    def apply_bbox(
+        self, lon_min: float, lon_max: float, lat_min: float, lat_max: float
+    ) -> None:
         """
-            Sets self.working_dataframe to only stations within bounding box.
+        Sets self.working_dataframe to only stations within bounding box.
 
-            :param lon_min: Minimum longitude.
-            :type lon_min: float
-            :param lon_max: Maximum longitude.
-            :type lon_max: float
-            :param lat_min: Minimum latitude.
-            :type lat_min: float
-            :param lat_max: Maximum longitude.
-            :type lat_max: float
+        :param lon_min: Minimum longitude.
+        :type lon_min: float
+        :param lon_max: Maximum longitude.
+        :type lon_max: float
+        :param lat_min: Minimum latitude.
+        :type lat_min: float
+        :param lat_max: Maximum longitude.
+        :type lat_max: float
         """
 
         if self.has_data():
@@ -525,9 +520,7 @@ class MTCollection:
         gdf = gpd.GeoDataFrame(
             df[
                 df.columns[
-                    ~df.columns.isin(
-                        ["hdf5_reference", "station_hdf5_reference"]
-                    )
+                    ~df.columns.isin(["hdf5_reference", "station_hdf5_reference"])
                 ]
             ],
             geometry=gpd.points_from_xy(df.longitude, df.latitude),
@@ -589,12 +582,8 @@ class MTCollection:
         else:
             df = self.master_dataframe
         new_fn_list = []
-        for ee in np.arange(
-            df.longitude.min() - r / 2, df.longitude.max() + r, r
-        ):
-            for nn in np.arange(
-                df.latitude.min() - r / 2, df.latitude.max() + r, r
-            ):
+        for ee in np.arange(df.longitude.min() - r / 2, df.longitude.max() + r, r):
+            for nn in np.arange(df.latitude.min() - r / 2, df.latitude.max() + r, r):
                 bbox = (ee, ee + r, nn, nn + r)
                 self.apply_bbox(*bbox)
                 if self.dataframe is None:
@@ -610,21 +599,13 @@ class MTCollection:
                     for m in m_list:
                         f_list += m.period.tolist()
                     f = np.unique(np.array(f_list))
-                    f = np.logspace(
-                        np.log10(f.min()), np.log10(f.max()), n_periods
-                    )
+                    f = np.logspace(np.log10(f.min()), np.log10(f.max()), n_periods)
 
                     m_list_interp = []
                     for m in m_list:
-                        m_list_interp.append(
-                            m.interpolate(f, bounds_error=False)
-                        )
+                        m_list_interp.append(m.interpolate(f, bounds_error=False))
                     avg_z = np.array(
-                        [
-                            m.impedance.data
-                            for m in m_list_interp
-                            if m.has_impedance()
-                        ]
+                        [m.impedance.data for m in m_list_interp if m.has_impedance()]
                     )
 
                     avg_z_err = np.array(
@@ -638,11 +619,7 @@ class MTCollection:
                         [m.tipper.data for m in m_list_interp if m.has_tipper()]
                     )
                     avg_t_err = np.array(
-                        [
-                            m.tipper_error.data
-                            for m in m_list_interp
-                            if m.has_tipper()
-                        ]
+                        [m.tipper_error.data for m in m_list_interp if m.has_tipper()]
                     )
 
                     avg_z[np.where(avg_z == 0 + 0j)] = np.nan + 1j * np.nan
@@ -663,35 +640,24 @@ class MTCollection:
                     mt_avg.tipper = avg_t
                     mt_avg.tipper_error = avg_t_err
 
-                    mt_avg.latitude = np.mean(
-                        np.array([m.latitude for m in m_list])
-                    )
-                    mt_avg.longitude = np.mean(
-                        np.array([m.longitude for m in m_list])
-                    )
-                    mt_avg.elevation = np.mean(
-                        np.array([m.elevation for m in m_list])
-                    )
+                    mt_avg.latitude = np.mean(np.array([m.latitude for m in m_list]))
+                    mt_avg.longitude = np.mean(np.array([m.longitude for m in m_list]))
+                    mt_avg.elevation = np.mean(np.array([m.elevation for m in m_list]))
                     mt_avg.station = f"AVG{count:03}"
                     mt_avg.station_metadata.comments = (
-                        "avgeraged_stations = "
-                        + ",".join([m.station for m in m_list])
+                        "avgeraged_stations = " + ",".join([m.station for m in m_list])
                     )
                     mt_avg.survey_metadata.id = "averaged"
                     self.add_tf(mt_avg)
 
                     try:
                         if new_file:
-                            edi_obj = mt_avg.write(
-                                save_dir=self.working_directory
-                            )
+                            edi_obj = mt_avg.write(save_dir=self.working_directory)
                             self.logger.info(f"wrote average file {edi_obj.fn}")
                         new_fn_list.append(edi_obj.fn)
                         count += 1
                     except Exception as error:
-                        self.logger.exception(
-                            "Failed to average files %s", error
-                        )
+                        self.logger.exception("Failed to average files %s", error)
                 else:
                     continue
 
