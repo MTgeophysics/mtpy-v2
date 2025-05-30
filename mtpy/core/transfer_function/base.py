@@ -4,7 +4,7 @@
 .. module:: TFBase
    :synopsis: Generic Transfer Function object
 
-.. moduleauthor:: Jared Peacock <jpeacock@usgs.gov> 
+.. moduleauthor:: Jared Peacock <jpeacock@usgs.gov>
 
 Updated 11/2020 for logging and formating (J. Peacock).
     - ToDo: add functionality for covariance matrix
@@ -17,6 +17,7 @@ from copy import deepcopy
 
 import numpy as np
 import xarray as xr
+from scipy import interpolate
 from loguru import logger
 
 from mtpy.utils.calculator import (
@@ -81,9 +82,7 @@ class TFBase:
             )
             lines.append("")
             lines.append(f"\tHas {self._name}:              {self._has_tf()}")
-            lines.append(
-                f"\tHas {self._name}_error:        {self._has_tf_error()}"
-            )
+            lines.append(f"\tHas {self._name}_error:        {self._has_tf_error()}")
             lines.append(
                 f"\tHas {self._name}_model_error:  {self._has_tf_model_error()}"
             )
@@ -130,9 +129,7 @@ class TFBase:
         """Copy function."""
         return deepcopy(self)
 
-    def _initialize(
-        self, periods=[1], tf=None, tf_error=None, tf_model_error=None
-    ):
+    def _initialize(self, periods=[1], tf=None, tf_error=None, tf_model_error=None):
         """Initialized based on input channels, output channels and period."""
 
         if tf is not None:
@@ -151,9 +148,7 @@ class TFBase:
                 )
 
         elif tf_error is not None:
-            tf_error = self._validate_array_input(
-                tf_error, self._tf_dtypes["tf_error"]
-            )
+            tf_error = self._validate_array_input(tf_error, self._tf_dtypes["tf_error"])
             periods = self._validate_frequency(periods, tf_error.shape[0])
             tf = np.zeros_like(tf_error, dtype=self._tf_dtypes["tf"])
 
@@ -169,9 +164,7 @@ class TFBase:
                 tf_model_error, self._tf_dtypes["tf_model_error"]
             )
             tf = np.zeros_like(tf_model_error, dtype=self._tf_dtypes["tf"])
-            tf_error = np.zeros_like(
-                tf_model_error, dtype=self._tf_dtypes["tf_error"]
-            )
+            tf_error = np.zeros_like(tf_model_error, dtype=self._tf_dtypes["tf_error"])
             periods = self._validate_frequency(periods, tf_model_error.shape[0])
 
         else:
@@ -183,9 +176,7 @@ class TFBase:
             )
             tf = np.zeros(tf_shape, dtype=self._tf_dtypes["tf"])
             tf_error = np.zeros(tf_shape, dtype=self._tf_dtypes["tf_error"])
-            tf_model_error = np.zeros(
-                tf_shape, dtype=self._tf_dtypes["tf_model_error"]
-            )
+            tf_model_error = np.zeros(tf_shape, dtype=self._tf_dtypes["tf_model_error"])
 
         tf = xr.DataArray(
             data=tf,
@@ -261,9 +252,7 @@ class TFBase:
 
     def _has_tf_model_error(self):
         """Has tf model error."""
-        return not (
-            self._dataset.transfer_function_model_error.values == 0
-        ).all()
+        return not (self._dataset.transfer_function_model_error.values == 0).all()
 
     def _has_frequency(self):
         """Has frequency."""
@@ -304,9 +293,7 @@ class TFBase:
                 frequency, n_frequencies=self._dataset.period.shape[0]
             )
 
-            self._dataset = self._dataset.assign_coords(
-                {"period": 1.0 / frequency}
-            )
+            self._dataset = self._dataset.assign_coords({"period": 1.0 / frequency})
 
     @property
     def period(self):
@@ -463,14 +450,10 @@ class TFBase:
             inverse = self._dataset.copy()
 
             try:
-                inverse.transfer_function = np.linalg.inv(
-                    inverse.transfer_function
-                )
+                inverse.transfer_function = np.linalg.inv(inverse.transfer_function)
 
             except np.linalg.LinAlgError:
-                raise ValueError(
-                    "Transfer Function is a singular matrix cannot invert"
-                )
+                raise ValueError("Transfer Function is a singular matrix cannot invert")
 
             return inverse
 
@@ -546,15 +529,11 @@ class TFBase:
                 )
 
         if isinstance(alpha, (float, int, str)):
-            degree_angle = np.repeat(
-                validate_angle(self, alpha), self.n_periods
-            )
+            degree_angle = np.repeat(validate_angle(self, alpha), self.n_periods)
 
         elif isinstance(alpha, (list, tuple, np.ndarray)):
             if len(alpha) == 1:
-                degree_angle = np.repeat(
-                    validate_angle(self, alpha[0]), self.n_periods
-                )
+                degree_angle = np.repeat(validate_angle(self, alpha[0]), self.n_periods)
             else:
                 degree_angle = np.array(alpha, dtype=float) % 360
                 if degree_angle.size != self.n_periods:
@@ -566,9 +545,7 @@ class TFBase:
         self.rotation_angle = self.rotation_angle + degree_angle
 
         ds = self._dataset.copy()
-        rot_tf = np.zeros_like(
-            self._dataset.transfer_function.values, dtype=complex
-        )
+        rot_tf = np.zeros_like(self._dataset.transfer_function.values, dtype=complex)
         rot_tf_error = np.zeros_like(
             self._dataset.transfer_function.values, dtype=float
         )
@@ -618,6 +595,307 @@ class TFBase:
             tb._dataset = ds
             return tb
 
+    def interpolate_improved(
+        self,
+        new_periods,
+        inplace=False,
+        method="slinear",
+        extrapolate=False,
+        **kwargs,
+    ):
+        """Interpolate transfer function onto a new period range using SciPy interpolators.
+
+        This method individually interpolates the real and imaginary parts of complex data
+        and directly handles each component separately for better accuracy.
+
+        Parameters
+        ----------
+        new_periods : array_like
+            New periods to interpolate onto
+        inplace : bool, optional
+            Interpolate inplace, defaults to False
+        method : str, optional
+            Interpolation method, defaults to 'pchip'
+            Options: 'linear', 'nearest', 'zero', 'slinear', 'quadratic', 'cubic',
+            'previous', 'next', 'pchip', 'akima', 'spline', 'barycentric',
+            'polynomial', 'krogh'
+        extrapolate : bool, optional
+            Whether to extrapolate beyond original period range, defaults to False
+        **kwargs :
+            Additional kwargs passed to scipy.interpolate methods
+
+        Returns
+        -------
+        TFBase or None
+            Interpolated transfer function object if inplace=False, otherwise None
+        """
+
+        # Convert periods to array if not already
+        new_periods = np.array(new_periods, dtype=float)
+
+        # Get source periods and prepare target periods array
+        source_periods = self._dataset.period.values
+
+        # Check for overlapping ranges if not extrapolating
+        if not extrapolate:
+            min_period = np.nanmin(source_periods)
+            max_period = np.nanmax(source_periods)
+            valid_indices = (new_periods >= min_period) & (new_periods <= max_period)
+            if not all(valid_indices):
+                logger.warning(
+                    f"Some target periods outside source range ({min_period:.6g} - {max_period:.6g}s) "
+                    f"and extrapolate=False. These values will be set to NaN."
+                )
+
+        da_dict = {}
+        # Loop through each variable in the dataset
+        for var_name, da in self._dataset.data_vars.items():
+            # Create output array with same shape but for new periods
+            output_shape = (len(new_periods),) + da.shape[1:]
+            if np.issubdtype(da.dtype, np.complexfloating):
+                output_array = np.zeros(output_shape, dtype=complex)
+                is_complex = True
+            else:
+                output_array = np.zeros(output_shape, dtype=da.dtype)
+                is_complex = False
+
+            # Loop through inputs and outputs
+            for i_index, inp in enumerate(da.input.values):
+                for j_index, outp in enumerate(da.output.values):
+                    # Extract data for this component
+                    comp_data = da.sel(input=inp, output=outp).values
+
+                    # Find finite (non-NaN) values
+                    finite_mask = np.isfinite(comp_data)
+
+                    if not np.any(finite_mask):
+                        # If all NaN, keep as NaN
+                        if is_complex:
+                            output_array[:, j_index, i_index] = np.nan + 1j * np.nan
+                        else:
+                            output_array[:, j_index, i_index] = np.nan
+                        continue
+
+                    # Get periods with valid data
+                    valid_periods = source_periods[finite_mask]
+                    valid_data = comp_data[finite_mask]
+
+                    if len(valid_periods) < 2:
+                        # Need at least 2 points for interpolation
+                        if is_complex:
+                            output_array[:, j_index, i_index] = np.nan + 1j * np.nan
+                        else:
+                            output_array[:, j_index, i_index] = np.nan
+                        continue
+
+                    try:
+                        if is_complex:
+                            # Handle complex data - interpolate real and imaginary parts separately
+                            real_part = np.zeros(len(new_periods))
+                            imag_part = np.zeros(len(new_periods))
+
+                            # Create interpolators for real and imaginary parts
+                            real_interp = interpolate.interp1d(
+                                valid_periods,
+                                np.real(valid_data),
+                                kind=method,
+                                bounds_error=False,
+                                fill_value="extrapolate" if extrapolate else np.nan,
+                                **kwargs,
+                            )
+
+                            imag_interp = interpolate.interp1d(
+                                valid_periods,
+                                np.imag(valid_data),
+                                kind=method,
+                                bounds_error=False,
+                                fill_value="extrapolate" if extrapolate else np.nan,
+                                **kwargs,
+                            )
+
+                            # Apply interpolation
+                            real_part = real_interp(new_periods)
+                            imag_part = imag_interp(new_periods)
+
+                            # If not extrapolating, ensure values outside range are NaN
+                            if not extrapolate:
+                                mask = (new_periods < valid_periods.min()) | (
+                                    new_periods > valid_periods.max()
+                                )
+                                real_part[mask] = np.nan
+                                imag_part[mask] = np.nan
+
+                            # Store interpolated values
+                            output_array[:, j_index, i_index] = (
+                                real_part + 1j * imag_part
+                            )
+                        else:
+                            # Handle real data
+                            interp_func = interpolate.interp1d(
+                                valid_periods,
+                                valid_data,
+                                kind=method,
+                                bounds_error=False,
+                                fill_value="extrapolate" if extrapolate else np.nan,
+                                **kwargs,
+                            )
+
+                            # Apply interpolation
+                            result = interp_func(new_periods)
+
+                            # If not extrapolating, ensure values outside range are NaN
+                            if not extrapolate:
+                                mask = (new_periods < valid_periods.min()) | (
+                                    new_periods > valid_periods.max()
+                                )
+                                result[mask] = np.nan
+
+                            output_array[:, j_index, i_index] = result
+
+                    except Exception as e:
+                        logger.warning(
+                            f"Interpolation failed for {var_name}[{outp},{inp}]: {str(e)}"
+                        )
+                        if is_complex:
+                            output_array[:, j_index, i_index] = np.nan + 1j * np.nan
+                        else:
+                            output_array[:, j_index, i_index] = np.nan
+
+            # Create new DataArray and assign to dataset
+            new_da = xr.DataArray(
+                data=output_array,
+                dims=["period", "output", "input"],
+                coords={
+                    "period": new_periods,
+                    "output": da.output.values,
+                    "input": da.input.values,
+                },
+                name=var_name,
+            )
+            da_dict[var_name] = new_da
+
+        ds = xr.Dataset(da_dict)
+        if inplace:
+            self._dataset = ds
+            return None
+        else:
+            result = self.copy()
+            result._dataset = ds
+            return result
+
+    def _create_interpolator(
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        method: str,
+        extrapolate: bool = False,
+        **kwargs,
+    ) -> (
+        interpolate.InterpolatedUnivariateSpline
+        | interpolate.PchipInterpolator
+        | interpolate.Akima1DInterpolator
+        | interpolate.BarycentricInterpolator
+        | interpolate.KroghInterpolator
+        | interpolate.CubicSpline
+        | interpolate.interp1d
+    ):
+        """Create a scipy interpolator based on the specified method.
+
+        :param x: x values (periods)
+        :param y: y values (data)
+        :param method: interpolation method
+        :param kwargs: additional arguments for interpolator
+        :return: interpolation function
+        """
+
+        # For certain interpolators, we need to handle kwargs differently
+        if method == "spline":
+            # Default k=3 for cubic spline
+            k = kwargs.pop("k", 3)
+            # Ensure we have enough points for the requested spline order
+            if len(x) <= k:
+                # Fall back to lower order or linear if not enough points
+                k = min(len(x) - 1, 1)
+            s = kwargs.pop("s", 0)  # Smoothing factor
+            return interpolate.InterpolatedUnivariateSpline(
+                x, y, k=k, ext=int(extrapolate)
+            )
+        elif method == "pchip":
+            return interpolate.PchipInterpolator(
+                x, y, extrapolate=extrapolate, **kwargs
+            )
+        elif method == "akima":
+            # Akima doesn't support extrapolation directly, need to handle separately
+            interp = interpolate.Akima1DInterpolator(x, y, **kwargs)
+            if extrapolate:
+                # Wrap with extrapolate=True
+                return lambda xx: interp(xx, extrapolate=True)
+            else:
+                return interp
+        elif method == "barycentric":
+            # Barycentric doesn't support extrapolation, will need custom handling
+            interp = interpolate.BarycentricInterpolator(x, y, **kwargs)
+            if extrapolate:
+                # Create a function that extends beyond the bounds
+                def interp_func(xx):
+                    mask = (xx < x.min()) | (xx > x.max())
+                    result = np.empty_like(xx, dtype=float)
+                    result[~mask] = interp(xx[~mask])
+
+                    # Extrapolate using the closest points
+                    if np.any(xx < x.min()):
+                        left_idx = xx < x.min()
+                        slope = (y[1] - y[0]) / (x[1] - x[0])
+                        result[left_idx] = y[0] + slope * (xx[left_idx] - x[0])
+
+                    if np.any(xx > x.max()):
+                        right_idx = xx > x.max()
+                        slope = (y[-1] - y[-2]) / (x[-1] - x[-2])
+                        result[right_idx] = y[-1] + slope * (xx[right_idx] - x[-1])
+
+                    return result
+
+                return interp_func
+            else:
+                # Return original interpolator
+                return interp
+        elif method == "krogh":
+            # Krogh doesn't support extrapolation directly
+            interp = interpolate.KroghInterpolator(x, y, **kwargs)
+            if extrapolate:
+                # Create a function that extends beyond the bounds
+                def interp_func(xx):
+                    mask = (xx < x.min()) | (xx > x.max())
+                    result = np.empty_like(xx, dtype=float)
+                    result[~mask] = interp(xx[~mask])
+
+                    # Extrapolate using the closest points
+                    if np.any(xx < x.min()):
+                        left_idx = xx < x.min()
+                        slope = (y[1] - y[0]) / (x[1] - x[0])
+                        result[left_idx] = y[0] + slope * (xx[left_idx] - x[0])
+
+                    if np.any(xx > x.max()):
+                        right_idx = xx > x.max()
+                        slope = (y[-1] - y[-2]) / (x[-1] - x[-2])
+                        result[right_idx] = y[-1] + slope * (xx[right_idx] - x[-1])
+
+                    return result
+
+                return interp_func
+            else:
+                # Return original interpolator
+                return interp
+        elif method == "polynomial":
+            # Use CubicSpline instead of polynomial for better handling of extrapolation
+            return interpolate.CubicSpline(x, y, extrapolate=extrapolate, **kwargs)
+        else:
+            # Default to general interp1d for methods like linear, cubic, etc.
+            fill_value = "extrapolate" if extrapolate else np.nan
+            return interpolate.interp1d(
+                x, y, kind=method, bounds_error=False, fill_value=fill_value, **kwargs
+            )
+
     def interpolate(
         self,
         new_periods,
@@ -630,41 +908,41 @@ class TFBase:
     ):
         """Interpolate onto a new period range.
 
-                The way this works is that NaNs
+        The way this works is that NaNs
         are first interpolated using method `na_method` along the original
-                period map. This allows us to use xarray tools for interpolation. If we
-                drop NaNs using xarray it drops each column or row that has a single
-                NaN and removes way too much data. Therefore interpolating NaNs first
-                keeps most of the data.  Then a 1D interpolation is done for the
-                `new_periods` using method `method`.
+        period map. This allows us to use xarray tools for interpolation. If we
+        drop NaNs using xarray it drops each column or row that has a single
+        NaN and removes way too much data. Therefore interpolating NaNs first
+        keeps most of the data.  Then a 1D interpolation is done for the
+        `new_periods` using method `method`.
 
-                'pchip' seems to work best when using xr.interpolate_na
+        'pchip' seems to work best when using xr.interpolate_na
 
-                Set log_space=True if the object being interpolated is in log space,
-                like impedance. It seems that functions that are naturally in log-space
-                cause issues with the interpolators so taking the log of the function
-                seems to produce better results.
-                :param new_periods: New periods to interpolate on to.
-                :type new_periods: np.ndarray, list
-                :param inplace: Interpolate inplace, defaults to False.
-                :type inplace: bool, optional
-                :param method: Method for 1D linear interpolation options are
-                    ["linear", "nearest", "zero", "slinear", "quadratic", "cubic"],, defaults to "slinear".
-                :type method: string, optional
-                :param na_method: Method to interpolate NaNs along original periods
-                    options are {"linear", "nearest", "zero", "slinear", "quadratic",
-                    "cubic", "polynomial", "barycentric", "krogh", "pchip", "spline",
-                    "akima"}, defaults to "pchip".
-                :type na_method: string, optional
-                :param log_space: Set to true if function is naturally logarithmic,, defaults to False.
-                :type log_space: bool, optional
-                :param extrapolate: Extrapolate past original period range, default is
-                    False. If set to True be careful cause the values are not great, defaults to False.
-                :type extrapolate: bool, optional
-                :param **kwargs: Keyword args passed to interpolation methods.
-                :type **kwargs: dict
-                :return: Interpolated object.
-                :rtype: :class:`mtpy.core.transfer_fuction.base.TFBase`
+        Set log_space=True if the object being interpolated is in log space,
+        like impedance. It seems that functions that are naturally in log-space
+        cause issues with the interpolators so taking the log of the function
+        seems to produce better results.
+        :param new_periods: New periods to interpolate on to.
+        :type new_periods: np.ndarray, list
+        :param inplace: Interpolate inplace, defaults to False.
+        :type inplace: bool, optional
+        :param method: Method for 1D linear interpolation options are
+            ["linear", "nearest", "zero", "slinear", "quadratic", "cubic"],, defaults to "slinear".
+        :type method: string, optional
+        :param na_method: Method to interpolate NaNs along original periods
+            options are {"linear", "nearest", "zero", "slinear", "quadratic",
+            "cubic", "polynomial", "barycentric", "krogh", "pchip", "spline",
+            "akima"}, defaults to "pchip".
+        :type na_method: string, optional
+        :param log_space: Set to true if function is naturally logarithmic,, defaults to False.
+        :type log_space: bool, optional
+        :param extrapolate: Extrapolate past original period range, default is
+            False. If set to True be careful cause the values are not great, defaults to False.
+        :type extrapolate: bool, optional
+        :param **kwargs: Keyword args passed to interpolation methods.
+        :type **kwargs: dict
+        :return: Interpolated object.
+        :rtype: :class:`mtpy.core.transfer_fuction.base.TFBase`
         """
 
         da_dict = {}
@@ -678,9 +956,7 @@ class TFBase:
                     dim="period", method=na_method
                 )
                 da_dict[key] = np.exp(
-                    da_drop_nan.interp(
-                        period=new_periods, method=method, kwargs=kwargs
-                    )
+                    da_drop_nan.interp(period=new_periods, method=method, kwargs=kwargs)
                 )
             else:
                 da_drop_nan = self._dataset[key].interpolate_na(
@@ -694,9 +970,7 @@ class TFBase:
             # beginning and end of the data.  interpolate_na will remove these
             # and gives terrible values, so fill these back in with nans
             if not extrapolate:
-                da_dict[key] = self._backfill_nans(
-                    self._dataset[key], da_dict[key]
-                )
+                da_dict[key] = self._backfill_nans(self._dataset[key], da_dict[key])
 
         ds = xr.Dataset(da_dict)
 
@@ -725,9 +999,7 @@ class TFBase:
         for ch_in in data_array.input.data:
             for ch_out in data_array.output.data:
                 index = np.where(
-                    np.nan_to_num(
-                        data_array.loc[{"input": ch_in, "output": ch_out}]
-                    )
+                    np.nan_to_num(data_array.loc[{"input": ch_in, "output": ch_out}])
                     == 0
                 )[0]
                 if len(index) > 0:
@@ -783,13 +1055,13 @@ class TFBase:
             end = np.where(interpolated.period > entry["period_max"])
             nan_index = np.append(beginning[0], end[0])
             if "complex" in interpolated.dtype.name:
-                interpolated.loc[
-                    {"input": entry["input"], "output": entry["output"]}
-                ][nan_index] = (np.nan + 1j * np.nan)
+                interpolated.loc[{"input": entry["input"], "output": entry["output"]}][
+                    nan_index
+                ] = (np.nan + 1j * np.nan)
             else:
-                interpolated.loc[
-                    {"input": entry["input"], "output": entry["output"]}
-                ][nan_index] = np.nan
+                interpolated.loc[{"input": entry["input"], "output": entry["output"]}][
+                    nan_index
+                ] = np.nan
 
         return interpolated
 
