@@ -597,10 +597,10 @@ class TFBase:
 
     def interpolate_improved(
         self,
-        new_periods,
-        inplace=False,
-        method="slinear",
-        extrapolate=False,
+        new_periods: np.ndarray,
+        inplace: bool = False,
+        method: str = "slinear",
+        extrapolate: bool = False,
         **kwargs,
     ):
         """Interpolate transfer function onto a new period range using SciPy interpolators.
@@ -632,6 +632,22 @@ class TFBase:
 
         # Convert periods to array if not already
         new_periods = np.array(new_periods, dtype=float)
+
+        # Ensure new_periods is monotonically increasing
+        if not np.all(np.diff(new_periods) > 0):
+            sort_indices = np.argsort(new_periods)
+            new_periods = new_periods[sort_indices]
+            self.logger.debug(
+                "Sorted target periods to ensure monotonic increase for interpolation"
+            )
+
+            # We'll need to unsort the result if we sorted the input
+            need_unsort = True
+            unsort_indices = np.argsort(
+                sort_indices
+            )  # Indices to restore original order
+        else:
+            need_unsort = False
 
         # Get source periods and prepare target periods array
         source_periods = self._dataset.period.values
@@ -694,22 +710,19 @@ class TFBase:
                             real_part = np.zeros(len(new_periods))
                             imag_part = np.zeros(len(new_periods))
 
-                            # Create interpolators for real and imaginary parts
-                            real_interp = interpolate.interp1d(
+                            # create interpolation functions
+                            real_interp = self._get_interpolator(
                                 valid_periods,
                                 np.real(valid_data),
-                                kind=method,
-                                bounds_error=False,
-                                fill_value="extrapolate" if extrapolate else np.nan,
+                                method=method,
+                                extrapolate=extrapolate,
                                 **kwargs,
                             )
-
-                            imag_interp = interpolate.interp1d(
+                            imag_interp = self._get_interpolator(
                                 valid_periods,
                                 np.imag(valid_data),
-                                kind=method,
-                                bounds_error=False,
-                                fill_value="extrapolate" if extrapolate else np.nan,
+                                method=method,
+                                extrapolate=extrapolate,
                                 **kwargs,
                             )
 
@@ -731,12 +744,19 @@ class TFBase:
                             )
                         else:
                             # Handle real data
-                            interp_func = interpolate.interp1d(
+                            # interp_func = interpolate.interp1d(
+                            #     valid_periods,
+                            #     valid_data,
+                            #     kind=method,
+                            #     bounds_error=False,
+                            #     fill_value="extrapolate" if extrapolate else np.nan,
+                            #     **kwargs,
+                            # )
+                            interp_func = self._get_interpolator(
                                 valid_periods,
                                 valid_data,
-                                kind=method,
-                                bounds_error=False,
-                                fill_value="extrapolate" if extrapolate else np.nan,
+                                method=method,
+                                extrapolate=extrapolate,
                                 **kwargs,
                             )
 
@@ -775,6 +795,12 @@ class TFBase:
             da_dict[var_name] = new_da
 
         ds = xr.Dataset(da_dict)
+        # Unsort the result if we sorted the input periods
+        if need_unsort:
+            # Need to reindex the dataset to restore original order
+            # Create a new coordinate array with original order
+            original_order_periods = new_periods[unsort_indices]
+            ds = ds.reindex(period=original_order_periods)
         if inplace:
             self._dataset = ds
             return None
@@ -783,7 +809,7 @@ class TFBase:
             result._dataset = ds
             return result
 
-    def _create_interpolator(
+    def _get_interpolator(
         self,
         x: np.ndarray,
         y: np.ndarray,
@@ -803,10 +829,34 @@ class TFBase:
 
         :param x: x values (periods)
         :param y: y values (data)
-        :param method: interpolation method
+        :param method: interpolation method, options are
+         - "linear"
+         - "cubic"
+         - "nearest"
+         - "slinear"
+         - "pchip"
+         - "spline"
+         - "akima"
+         - "barycentric"
+         - "krogh"
+         - "polynomial"
         :param kwargs: additional arguments for interpolator
         :return: interpolation function
         """
+
+        # Ensure x and y are numpy arrays
+        x = np.asarray(x)
+        y = np.asarray(y)
+
+        # Check if x is monotonically increasing
+        if not np.all(np.diff(x) > 0):
+            # Sort x and y to ensure monotonically increasing order
+            indices = np.argsort(x)
+            x = x[indices]
+            y = y[indices]
+            self.logger.debug(
+                "Sorted periods to ensure monotonic increase for interpolation"
+            )
 
         # For certain interpolators, we need to handle kwargs differently
         if method == "spline":
@@ -836,24 +886,27 @@ class TFBase:
             # Barycentric doesn't support extrapolation, will need custom handling
             interp = interpolate.BarycentricInterpolator(x, y, **kwargs)
             if extrapolate:
-                # Create a function that extends beyond the bounds
-                def interp_func(xx):
-                    mask = (xx < x.min()) | (xx > x.max())
-                    result = np.empty_like(xx, dtype=float)
-                    result[~mask] = interp(xx[~mask])
+                raise ValueError(
+                    "barycentric interpolation does not support extrapolation."
+                )
+                # # Create a function that extends beyond the bounds
+                # def interp_func(xx):
+                #     mask = (xx < x.min()) | (xx > x.max())
+                #     result = np.empty_like(xx, dtype=float)
+                #     result[~mask] = interp(xx[~mask])
 
-                    # Extrapolate using the closest points
-                    if np.any(xx < x.min()):
-                        left_idx = xx < x.min()
-                        slope = (y[1] - y[0]) / (x[1] - x[0])
-                        result[left_idx] = y[0] + slope * (xx[left_idx] - x[0])
+                #     # Extrapolate using the closest points
+                #     if np.any(xx < x.min()):
+                #         left_idx = xx < x.min()
+                #         slope = (y[1] - y[0]) / (x[1] - x[0])
+                #         result[left_idx] = y[0] + slope * (xx[left_idx] - x[0])
 
-                    if np.any(xx > x.max()):
-                        right_idx = xx > x.max()
-                        slope = (y[-1] - y[-2]) / (x[-1] - x[-2])
-                        result[right_idx] = y[-1] + slope * (xx[right_idx] - x[-1])
+                #     if np.any(xx > x.max()):
+                #         right_idx = xx > x.max()
+                #         slope = (y[-1] - y[-2]) / (x[-1] - x[-2])
+                #         result[right_idx] = y[-1] + slope * (xx[right_idx] - x[-1])
 
-                    return result
+                #     return result
 
                 return interp_func
             else:
@@ -863,26 +916,27 @@ class TFBase:
             # Krogh doesn't support extrapolation directly
             interp = interpolate.KroghInterpolator(x, y, **kwargs)
             if extrapolate:
-                # Create a function that extends beyond the bounds
-                def interp_func(xx):
-                    mask = (xx < x.min()) | (xx > x.max())
-                    result = np.empty_like(xx, dtype=float)
-                    result[~mask] = interp(xx[~mask])
+                raise ValueError("Krogh interpolation does not support extrapolation.")
+                # # Create a function that extends beyond the bounds
+                # def interp_func(xx):
+                #     mask = (xx < x.min()) | (xx > x.max())
+                #     result = np.empty_like(xx, dtype=float)
+                #     result[~mask] = interp(xx[~mask])
 
-                    # Extrapolate using the closest points
-                    if np.any(xx < x.min()):
-                        left_idx = xx < x.min()
-                        slope = (y[1] - y[0]) / (x[1] - x[0])
-                        result[left_idx] = y[0] + slope * (xx[left_idx] - x[0])
+                #     # Extrapolate using the closest points
+                #     if np.any(xx < x.min()):
+                #         left_idx = xx < x.min()
+                #         slope = (y[1] - y[0]) / (x[1] - x[0])
+                #         result[left_idx] = y[0] + slope * (xx[left_idx] - x[0])
 
-                    if np.any(xx > x.max()):
-                        right_idx = xx > x.max()
-                        slope = (y[-1] - y[-2]) / (x[-1] - x[-2])
-                        result[right_idx] = y[-1] + slope * (xx[right_idx] - x[-1])
+                #     if np.any(xx > x.max()):
+                #         right_idx = xx > x.max()
+                #         slope = (y[-1] - y[-2]) / (x[-1] - x[-2])
+                #         result[right_idx] = y[-1] + slope * (xx[right_idx] - x[-1])
 
-                    return result
+                #     return result
 
-                return interp_func
+                # return interp_func
             else:
                 # Return original interpolator
                 return interp

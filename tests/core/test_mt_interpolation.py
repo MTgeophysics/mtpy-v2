@@ -135,7 +135,18 @@ class TestTFBaseInterpolate:
         )
 
         # Try different methods
-        methods = ["linear", "cubic", "nearest", "slinear"]
+        methods = [
+            "linear",
+            "cubic",
+            "nearest",
+            "slinear",
+            "pchip",
+            "spline",
+            "akima",
+            "barycentric",
+            "krogh",
+            "polynomial",
+        ]
 
         for method in methods:
             interpolated = sample_tf.interpolate_improved(new_periods, method=method)
