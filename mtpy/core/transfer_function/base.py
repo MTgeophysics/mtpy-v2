@@ -17,7 +17,7 @@ from copy import deepcopy
 
 import numpy as np
 import xarray as xr
-from scipy import interpolate
+import scipy.interpolate
 from loguru import logger
 
 from mtpy.utils.calculator import (
@@ -809,13 +809,11 @@ class TFBase:
         extrapolate: bool = False,
         **kwargs,
     ) -> (
-        interpolate.InterpolatedUnivariateSpline
-        | interpolate.PchipInterpolator
-        | interpolate.Akima1DInterpolator
-        | interpolate.BarycentricInterpolator
-        | interpolate.KroghInterpolator
-        | interpolate.CubicSpline
-        | interpolate.interp1d
+        scipy.interpolate.InterpolatedUnivariateSpline
+        | scipy.interpolate.PchipInterpolator
+        | scipy.interpolate.Akima1DInterpolator
+        | scipy.interpolate.CubicSpline
+        | scipy.interpolate.interp1d
     ):
         """Create a scipy interpolator based on the specified method.
 
@@ -857,27 +855,29 @@ class TFBase:
                 # Fall back to lower order or linear if not enough points
                 k = min(len(x) - 1, 1)
             s = kwargs.pop("s", 0)  # Smoothing factor
-            return interpolate.InterpolatedUnivariateSpline(
+            return scipy.interpolate.InterpolatedUnivariateSpline(
                 x, y, k=k, ext=int(extrapolate)
             )
         elif method == "pchip":
-            return interpolate.PchipInterpolator(
+            return scipy.interpolate.PchipInterpolator(
                 x, y, extrapolate=extrapolate, **kwargs
             )
         elif method == "akima":
             # Akima doesn't support extrapolation directly, need to handle separately
-            interp = interpolate.Akima1DInterpolator(x, y, **kwargs)
+            interp = scipy.interpolate.Akima1DInterpolator(x, y, **kwargs)
             if extrapolate:
                 # Wrap with extrapolate=True
                 return lambda xx: interp(xx, extrapolate=True)
             return interp
         elif method == "polynomial":
             # Use CubicSpline instead of polynomial for better handling of extrapolation
-            return interpolate.CubicSpline(x, y, extrapolate=extrapolate, **kwargs)
+            return scipy.interpolate.CubicSpline(
+                x, y, extrapolate=extrapolate, **kwargs
+            )
         elif method in ["linear", "cubic", "nearest", "slinear"]:
             # Default to general interp1d for methods like linear, cubic, etc.
             fill_value = "extrapolate" if extrapolate else np.nan
-            return interpolate.interp1d(
+            return scipy.interpolate.interp1d(
                 x, y, kind=method, bounds_error=False, fill_value=fill_value, **kwargs
             )
         else:

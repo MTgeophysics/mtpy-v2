@@ -39,7 +39,7 @@ class TestTFBaseInterpolate:
     def test_interpolate_same_periods(self, sample_tf):
         """Test that interpolating to the same periods returns identical values"""
         original_periods = sample_tf.period
-        interpolated = sample_tf.interpolate_improved(original_periods)
+        interpolated = sample_tf.interpolate(original_periods)
 
         # Check that all finite values are preserved
         original_data = sample_tf._dataset.transfer_function.values
@@ -64,7 +64,7 @@ class TestTFBaseInterpolate:
             np.log10(sample_tf.period.min()), np.log10(sample_tf.period.max()), 40
         )
 
-        interpolated = sample_tf.interpolate_improved(new_periods)
+        interpolated = sample_tf.interpolate(new_periods)
 
         # Check shape of interpolated result
         assert interpolated._dataset.transfer_function.shape == (40, 2, 2)
@@ -101,10 +101,10 @@ class TestTFBaseInterpolate:
         )
 
         # Without extrapolation
-        no_extrap = sample_tf.interpolate_improved(extended_periods, extrapolate=False)
+        no_extrap = sample_tf.interpolate(extended_periods, extrapolate=False)
 
         # With extrapolation
-        with_extrap = sample_tf.interpolate_improved(extended_periods, extrapolate=True)
+        with_extrap = sample_tf.interpolate(extended_periods, extrapolate=True)
 
         # Check that values outside original range are NaN when extrapolate=False
         outside_range = (extended_periods < sample_tf.period.min()) | (
@@ -143,13 +143,11 @@ class TestTFBaseInterpolate:
             "pchip",
             "spline",
             "akima",
-            "barycentric",
-            "krogh",
             "polynomial",
         ]
 
         for method in methods:
-            interpolated = sample_tf.interpolate_improved(new_periods, method=method)
+            interpolated = sample_tf.interpolate(new_periods, method=method)
 
             # Check shape and period values
             assert interpolated._dataset.transfer_function.shape == (25, 2, 2)
@@ -183,7 +181,7 @@ class TestTFBaseInterpolate:
         original = sample_tf.copy()
 
         # Perform inplace interpolation
-        result = sample_tf.interpolate_improved(new_periods, inplace=True)
+        result = sample_tf.interpolate(new_periods, inplace=True)
 
         # Check that result is None (inplace)
         assert result is None
@@ -207,7 +205,7 @@ class TestTFBaseInterpolate:
         tf_base = TFBase(tf=tf, frequency=frequencies)
 
         new_periods = np.logspace(-3, 3, 20)
-        interpolated = tf_base.interpolate_improved(new_periods)
+        interpolated = tf_base.interpolate(new_periods)
 
         # Check that all-NaN component remains all-NaN
         assert np.all(np.isnan(interpolated._dataset.transfer_function.values[:, 0, 1]))
