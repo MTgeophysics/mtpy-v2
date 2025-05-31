@@ -548,7 +548,6 @@ class MT(TF, MTLocation):
         method="slinear",
         bounds_error=True,
         f_type="period",
-        z_log_space=False,
         **kwargs,
     ):
         """Interpolate the impedance tensor onto different frequencies.
@@ -603,10 +602,7 @@ class MT(TF, MTLocation):
 
         new_m = self.clone_empty()
         if self.has_impedance():
-            # new_m.Z = self.Z.interpolate(
-            #     new_period, method=method, log_space=z_log_space, **kwargs
-            # )
-            new_m.Z = self.Z.interpolate_improved(new_period, method=method, **kwargs)
+            new_m.Z = self.Z.interpolate(new_period, method=method, **kwargs)
             if new_m.has_impedance():
                 if np.all(np.isnan(new_m.Z.z)):
                     self.logger.warning(
@@ -615,12 +611,7 @@ class MT(TF, MTLocation):
                         "See scipy.interpolate.interp1d for more information."
                     )
         if self.has_tipper():
-            # new_m.Tipper = self.Tipper.interpolate(
-            #     new_period, method=method, **kwargs
-            # )
-            new_m.Tipper = self.Tipper.interpolate_improved(
-                new_period, method=method, **kwargs
-            )
+            new_m.Tipper = self.Tipper.interpolate(new_period, method=method, **kwargs)
             if new_m.has_tipper():
                 if np.all(np.isnan(new_m.Tipper.tipper)):
                     self.logger.warning(
