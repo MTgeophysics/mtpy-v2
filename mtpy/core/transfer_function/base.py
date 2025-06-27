@@ -82,7 +82,9 @@ class TFBase:
             )
             lines.append("")
             lines.append(f"\tHas {self._name}:              {self._has_tf()}")
-            lines.append(f"\tHas {self._name}_error:        {self._has_tf_error()}")
+            lines.append(
+                f"\tHas {self._name}_error:        {self._has_tf_error()}"
+            )
             lines.append(
                 f"\tHas {self._name}_model_error:  {self._has_tf_model_error()}"
             )
@@ -129,7 +131,9 @@ class TFBase:
         """Copy function."""
         return deepcopy(self)
 
-    def _initialize(self, periods=[1], tf=None, tf_error=None, tf_model_error=None):
+    def _initialize(
+        self, periods=[1], tf=None, tf_error=None, tf_model_error=None
+    ):
         """Initialized based on input channels, output channels and period."""
 
         if tf is not None:
@@ -148,7 +152,9 @@ class TFBase:
                 )
 
         elif tf_error is not None:
-            tf_error = self._validate_array_input(tf_error, self._tf_dtypes["tf_error"])
+            tf_error = self._validate_array_input(
+                tf_error, self._tf_dtypes["tf_error"]
+            )
             periods = self._validate_frequency(periods, tf_error.shape[0])
             tf = np.zeros_like(tf_error, dtype=self._tf_dtypes["tf"])
 
@@ -164,7 +170,9 @@ class TFBase:
                 tf_model_error, self._tf_dtypes["tf_model_error"]
             )
             tf = np.zeros_like(tf_model_error, dtype=self._tf_dtypes["tf"])
-            tf_error = np.zeros_like(tf_model_error, dtype=self._tf_dtypes["tf_error"])
+            tf_error = np.zeros_like(
+                tf_model_error, dtype=self._tf_dtypes["tf_error"]
+            )
             periods = self._validate_frequency(periods, tf_model_error.shape[0])
 
         else:
@@ -176,7 +184,9 @@ class TFBase:
             )
             tf = np.zeros(tf_shape, dtype=self._tf_dtypes["tf"])
             tf_error = np.zeros(tf_shape, dtype=self._tf_dtypes["tf_error"])
-            tf_model_error = np.zeros(tf_shape, dtype=self._tf_dtypes["tf_model_error"])
+            tf_model_error = np.zeros(
+                tf_shape, dtype=self._tf_dtypes["tf_model_error"]
+            )
 
         tf = xr.DataArray(
             data=tf,
@@ -252,7 +262,9 @@ class TFBase:
 
     def _has_tf_model_error(self):
         """Has tf model error."""
-        return not (self._dataset.transfer_function_model_error.values == 0).all()
+        return not (
+            self._dataset.transfer_function_model_error.values == 0
+        ).all()
 
     def _has_frequency(self):
         """Has frequency."""
@@ -293,7 +305,9 @@ class TFBase:
                 frequency, n_frequencies=self._dataset.period.shape[0]
             )
 
-            self._dataset = self._dataset.assign_coords({"period": 1.0 / frequency})
+            self._dataset = self._dataset.assign_coords(
+                {"period": 1.0 / frequency}
+            )
 
     @property
     def period(self):
@@ -450,10 +464,14 @@ class TFBase:
             inverse = self._dataset.copy()
 
             try:
-                inverse.transfer_function = np.linalg.inv(inverse.transfer_function)
+                inverse.transfer_function = np.linalg.inv(
+                    inverse.transfer_function
+                )
 
             except np.linalg.LinAlgError:
-                raise ValueError("Transfer Function is a singular matrix cannot invert")
+                raise ValueError(
+                    "Transfer Function is a singular matrix cannot invert"
+                )
 
             return inverse
 
@@ -529,11 +547,15 @@ class TFBase:
                 )
 
         if isinstance(alpha, (float, int, str)):
-            degree_angle = np.repeat(validate_angle(self, alpha), self.n_periods)
+            degree_angle = np.repeat(
+                validate_angle(self, alpha), self.n_periods
+            )
 
         elif isinstance(alpha, (list, tuple, np.ndarray)):
             if len(alpha) == 1:
-                degree_angle = np.repeat(validate_angle(self, alpha[0]), self.n_periods)
+                degree_angle = np.repeat(
+                    validate_angle(self, alpha[0]), self.n_periods
+                )
             else:
                 degree_angle = np.array(alpha, dtype=float) % 360
                 if degree_angle.size != self.n_periods:
@@ -545,7 +567,9 @@ class TFBase:
         self.rotation_angle = self.rotation_angle + degree_angle
 
         ds = self._dataset.copy()
-        rot_tf = np.zeros_like(self._dataset.transfer_function.values, dtype=complex)
+        rot_tf = np.zeros_like(
+            self._dataset.transfer_function.values, dtype=complex
+        )
         rot_tf_error = np.zeros_like(
             self._dataset.transfer_function.values, dtype=float
         )
@@ -656,7 +680,9 @@ class TFBase:
         if not extrapolate:
             min_period = np.nanmin(source_periods)
             max_period = np.nanmax(source_periods)
-            valid_indices = (new_periods >= min_period) & (new_periods <= max_period)
+            valid_indices = (new_periods >= min_period) & (
+                new_periods <= max_period
+            )
             if not all(valid_indices):
                 logger.warning(
                     f"Some target periods outside source range ({min_period:.6g} - {max_period:.6g}s) "
@@ -687,7 +713,9 @@ class TFBase:
                     if not np.any(finite_mask):
                         # If all NaN, keep as NaN
                         if is_complex:
-                            output_array[:, j_index, i_index] = np.nan + 1j * np.nan
+                            output_array[:, j_index, i_index] = (
+                                np.nan + 1j * np.nan
+                            )
                         else:
                             output_array[:, j_index, i_index] = np.nan
                         continue
@@ -699,7 +727,9 @@ class TFBase:
                     if len(valid_periods) < 2:
                         # Need at least 2 points for interpolation
                         if is_complex:
-                            output_array[:, j_index, i_index] = np.nan + 1j * np.nan
+                            output_array[:, j_index, i_index] = (
+                                np.nan + 1j * np.nan
+                            )
                         else:
                             output_array[:, j_index, i_index] = np.nan
                         continue
@@ -769,7 +799,9 @@ class TFBase:
                             f"Interpolation failed for {var_name}[{outp},{inp}]: {str(e)}"
                         )
                         if is_complex:
-                            output_array[:, j_index, i_index] = np.nan + 1j * np.nan
+                            output_array[:, j_index, i_index] = (
+                                np.nan + 1j * np.nan
+                            )
                         else:
                             output_array[:, j_index, i_index] = np.nan
 
@@ -878,7 +910,12 @@ class TFBase:
             # Default to general interp1d for methods like linear, cubic, etc.
             fill_value = "extrapolate" if extrapolate else np.nan
             return scipy.interpolate.interp1d(
-                x, y, kind=method, bounds_error=False, fill_value=fill_value, **kwargs
+                x,
+                y,
+                kind=method,
+                bounds_error=False,
+                fill_value=fill_value,
+                **kwargs,
             )
         else:
             raise ValueError(

@@ -80,9 +80,7 @@ class Simpeg1D:
     @property
     def mesh(self):
         """Mesh function."""
-        return TensorMesh(
-            [(np.r_[self.thicknesses, self.thicknesses[-1]])], "N"
-        )
+        return TensorMesh([np.r_[self.thicknesses, self.thicknesses[-1]]], "N")
 
     @property
     def frequencies(self):
@@ -239,13 +237,11 @@ class Simpeg1D:
     @property
     def data_error(self):
         """Data error."""
-        return np.c_[
-            self._sub_df.res_error, self._sub_df.phase_error
-        ].flatten()
+        return np.c_[self._sub_df.res_error, self._sub_df.phase_error].flatten()
 
     def run_fixed_layer_inversion(
         self,
-        cull_from_difference=True,
+        cull_from_difference=False,
         maxIter=40,
         maxIterCG=30,
         alpha_s=1e-10,
