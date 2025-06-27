@@ -32,6 +32,7 @@ except ImportError:
 
 from matplotlib import pyplot as plt
 import matplotlib.gridspec as gridspec
+from matplotlib.ticker import LogLocator
 
 # =============================================================================
 
@@ -457,6 +458,10 @@ class Simpeg1D:
         ax_model.set_ylabel("Depth (km)")
         ax_model.set_xscale("log")
         ax_model.set_yscale("symlog")
+        ax_model.yaxis.set_major_locator(LogLocator(base=10.0, numticks=10))
+        ax_model.yaxis.set_minor_locator(
+            LogLocator(base=10.0, numticks=10, subs="auto")
+        )
 
         nf = len(self.frequencies)
 
