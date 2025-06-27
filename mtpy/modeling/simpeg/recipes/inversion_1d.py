@@ -254,6 +254,7 @@ class Simpeg1D:
         use_irls=False,
         p_s=2,
         p_z=2,
+        **kwargs,
     ):
         """Run fixed layer inversion."""
         receivers_list = [
@@ -453,7 +454,7 @@ class Simpeg1D:
 
         # ax_model.legend()
         ax_model.set_xlabel("Resistivity ($\Omega$m)")
-        ax_model.grid(which="both", alpha=0.5)
+
         ax_model.set_ylim((self._plot_z.max(), 0.01))
         ax_model.set_ylabel("Depth (km)")
         ax_model.set_xscale("log")
@@ -462,6 +463,11 @@ class Simpeg1D:
         ax_model.yaxis.set_minor_locator(
             LogLocator(base=10.0, numticks=10, subs="auto")
         )
+        ax_model.xaxis.set_major_locator(LogLocator(base=10.0, numticks=10))
+        ax_model.xaxis.set_minor_locator(
+            LogLocator(base=10.0, numticks=10, subs="auto")
+        )
+        ax_model.grid(which="both", alpha=0.5)
 
         nf = len(self.frequencies)
 
