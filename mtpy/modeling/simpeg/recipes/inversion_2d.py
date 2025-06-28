@@ -4,10 +4,10 @@ Created on Tue Aug 20 17:17:41 2024
 
 @author: jpeacock
 
-A vanilla recipe to invert 2D MT data.  
+A vanilla recipe to invert 2D MT data.
 
 - For now the default is a quad tree mesh
-- Optimization: Inexact Gauss Newton 
+- Optimization: Inexact Gauss Newton
 """
 
 # =============================================================================
@@ -152,15 +152,6 @@ class Simpeg2D:
             ["Attributes:"]
             + sorted(attr_list)
             + ["Properties:"]
-            + sorted(property_list)
-            + ["Methods:"]
-            + sorted(method_list)
-        )
-
-        return "\n".join(
-            ["Attributes"]
-            + sorted(attr_list)
-            + ["Properties"]
             + sorted(property_list)
             + ["Methods:"]
             + sorted(method_list)

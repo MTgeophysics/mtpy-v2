@@ -2498,7 +2498,7 @@ class StructuredGrid3D:
                     lines.append(
                         f"{yy + self.center_point.east:.3f} "
                         f"{xx + self.center_point.north:.3f} "
-                        f"{-(zz + self.center_point.elevation):.3f} "
+                        f"{-(zz):.3f} "
                         f"{self.res_model[ii, jj, kk]:.3f}"
                     )
 
