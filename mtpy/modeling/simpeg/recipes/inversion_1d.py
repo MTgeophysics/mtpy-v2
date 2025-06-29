@@ -417,7 +417,7 @@ class Simpeg1D:
         z_grid = np.r_[0.0, np.cumsum(self.thicknesses[::-1])]
         return z_grid / 1000
 
-    def plot_response(self, iteration=None, fig_num=2):
+    def plot_response(self, iteration=None, fig_num=1, **kwargs):
         """Plot response.
         :param fig_num:
             Defaults to 2.
@@ -458,7 +458,8 @@ class Simpeg1D:
         ax_model.set_ylim((self._plot_z.max(), 0.01))
         ax_model.set_ylabel("Depth (km)")
         ax_model.set_xscale("log")
-        ax_model.set_yscale("symlog")
+        yscale = kwargs.get("yscale", "symlog")
+        ax_model.set_yscale(yscale)
         ax_model.yaxis.set_major_locator(LogLocator(base=10.0, numticks=10))
         ax_model.yaxis.set_minor_locator(
             LogLocator(base=10.0, numticks=10, subs="auto")
@@ -467,6 +468,7 @@ class Simpeg1D:
         ax_model.xaxis.set_minor_locator(
             LogLocator(base=10.0, numticks=10, subs="auto")
         )
+
         ax_model.grid(which="both", alpha=0.5)
 
         nf = len(self.frequencies)
