@@ -1142,6 +1142,8 @@ class MT(TF, MTLocation):
 
         """
 
+        # bring up a gui of some sort.
+
     def to_occam1d(self, data_filename=None, mode="det"):
         """Write an Occam1DData data file.
         :param data_filename: Path to write file, if None returns Occam1DData

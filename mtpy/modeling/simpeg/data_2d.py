@@ -13,6 +13,8 @@ import numpy as np
 from simpeg.electromagnetics import natural_source as nsem
 from simpeg import data
 
+from mtpy.imaging.mtplot_tools import plot_phase, plot_resistivity
+
 import matplotlib.pyplot as plt
 
 
@@ -305,7 +307,13 @@ class Simpeg2DData:
         te_data = self.te_data.dobs.reshape(
             (self.n_frequencies, 2, self.n_stations)
         )
+        te_data_errors = self.te_data.standard_deviation.reshape(
+            (self.n_frequencies, 2, self.n_stations)
+        )
         tm_data = self.tm_data.dobs.reshape(
+            (self.n_frequencies, 2, self.n_stations)
+        )
+        tm_data_errors = self.tm_data.standard_deviation.reshape(
             (self.n_frequencies, 2, self.n_stations)
         )
 
@@ -358,26 +366,58 @@ class Simpeg2DData:
                 2, 2, 4, sharex=ax_xy_res, sharey=ax_xy_phase
             )
             for ii in range(self.n_stations):
-                ax_xy_res.loglog(
+                plot_resistivity(
+                    ax_xy_res,
                     1.0 / self.frequencies,
-                    np.abs(te_data[:, 0, ii]),
+                    te_data[:, 0, ii],
                     color=(0.5, 0.5, ii / self.n_stations),
+                    label=self.dataframe.station.unique()[ii],
+                    error=te_data_errors[:, 0, ii],
                 )
-                ax_xy_phase.loglog(
+                plot_phase(
+                    ax_xy_phase,
                     1.0 / self.frequencies,
-                    np.abs(te_data[:, 1, ii]),
+                    te_data[:, 1, ii],
                     color=(0.25, 0.25, ii / self.n_stations),
+                    label=self.dataframe.station.unique()[ii],
+                    error=te_data_errors[:, 1, ii],
                 )
-                ax_yx_res.loglog(
+                plot_resistivity(
+                    ax_yx_res,
                     1.0 / self.frequencies,
-                    np.abs(tm_data[:, 0, ii]),
+                    tm_data[:, 0, ii],
                     color=(0.5, ii / self.n_stations, 0.75),
+                    label=self.dataframe.station.unique()[ii],
+                    error=tm_data_errors[:, 0, ii],
                 )
-                ax_yx_phase.loglog(
+                plot_phase(
+                    ax_yx_phase,
                     1.0 / self.frequencies,
-                    np.abs(tm_data[:, 1, ii]),
+                    tm_data[:, 1, ii],
                     color=(0.25, ii / self.n_stations, 0.75),
+                    label=self.dataframe.station.unique()[ii],
+                    error=tm_data_errors[:, 1, ii],
                 )
+                # ax_xy_res.loglog(
+                #     1.0 / self.frequencies,
+                #     np.abs(te_data[:, 0, ii]),
+                #     color=(0.5, 0.5, ii / self.n_stations),
+                # )
+                # ax_xy_phase.loglog(
+                #     1.0 / self.frequencies,
+                #     np.abs(te_data[:, 1, ii]),
+                #     color=(0.25, 0.25, ii / self.n_stations),
+                # )
+                # ax_yx_res.loglog(
+                #     1.0 / self.frequencies,
+                #     np.abs(tm_data[:, 0, ii]),
+                #     color=(0.5, ii / self.n_stations, 0.75),
+                # )
+                # ax_yx_phase.loglog(
+                #     1.0 / self.frequencies,
+                #     np.abs(tm_data[:, 1, ii]),
+                #     color=(0.25, ii / self.n_stations, 0.75),
+                # )
 
             ax_xy_phase.set_xlabel("Period (s)")
             ax_yx_phase.set_xlabel("Period (s)")

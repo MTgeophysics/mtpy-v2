@@ -9,6 +9,8 @@ Created on Thu Nov  9 10:43:06 2023
 # =============================================================================
 
 import numpy as np
+import pandas as pd
+from numpy.typing import NDArray
 
 from discretize import TensorMesh
 from discretize import TreeMesh
@@ -25,7 +27,12 @@ warnings.filterwarnings("ignore")
 
 
 class StructuredMesh:
-    def __init__(self, station_locations, frequencies, **kwargs):
+    def __init__(
+        self,
+        station_locations: pd.DataFrame,
+        frequencies: NDArray | list[float],
+        **kwargs
+    ) -> None:
         self.station_locations = station_locations
         self.frequencies = frequencies
         self.topography = None
@@ -48,29 +55,29 @@ class StructuredMesh:
             setattr(self, key, value)
 
     @property
-    def frequency_max(self):
+    def frequency_max(self) -> float:
         return self.frequencies.max()
 
     @property
-    def frequency_min(self):
+    def frequency_min(self) -> float:
         return self.frequencies.min()
 
     @property
-    def z1_layer_thickness(self):
+    def z1_layer_thickness(self) -> float:
         return np.round(
             skin_depth(self.frequency_max, self.sigma_background)
             / self.z_factor_max
         )
 
     @property
-    def z_bottom(self):
+    def z_bottom(self) -> float:
         return (
             skin_depth(self.sigma_background, self.frequency_min)
             * self.z_factor_max
         )
 
     @property
-    def z_mesh_down(self):
+    def z_mesh_down(self) -> NDArray[np.float64]:
         for nz_down in range(self.n_max):
             z_mesh_down = (
                 self.z1_layer_thickness
@@ -81,7 +88,7 @@ class StructuredMesh:
         return z_mesh_down
 
     @property
-    def z_mesh_up(self):
+    def z_mesh_up(self) -> NDArray[np.float64]:
         z_mesh_up = [
             (
                 self.z1_layer_thickness,
@@ -91,7 +98,7 @@ class StructuredMesh:
         ]
         return dis_utils.unpack_widths(z_mesh_up)
 
-    def _make_z_mesh(self):
+    def _make_z_mesh(self) -> NDArray:
         """
         create vertical mesh
         """
@@ -99,30 +106,30 @@ class StructuredMesh:
         return np.r_[self.z_mesh_down, self.z_mesh_up]
 
     @property
-    def dx(self):
+    def dx(self) -> float:
         d_station = np.diff(self.station_locations[:, 0]).min()
         return np.round(d_station / self.x_spacing_factor)
 
     @property
-    def station_total_length(self):
+    def station_total_length(self) -> float:
         return (
             self.station_locations[:, 0].max()
             - self.station_locations[:, 0].min()
         )
 
     @property
-    def n_station_x_cells(self):
+    def n_station_x_cells(self) -> int:
         return int(self.station_total_length / self.dx)
 
     @property
-    def x_padding_cells(self):
+    def x_padding_cells(self) -> float:
         return (
             skin_depth(self.sigma_background, self.frequency_min)
             * self.x_factor_max
         )
 
     @property
-    def n_x_padding(self):
+    def n_x_padding(self) -> int:
         for npadx in range(self.n_max):
             x_pad = dis_utils.unpack_widths(
                 [
@@ -137,7 +144,7 @@ class StructuredMesh:
                 break
         return npadx
 
-    def _make_x_mesh(self):
+    def _make_x_mesh(self) -> list[tuple[float, int, float]]:
         """
         make horizontal mesh
 
