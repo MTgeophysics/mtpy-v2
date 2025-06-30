@@ -138,9 +138,7 @@ class AuroraProcessing(BaseProcessing):
             cc = ConfigCreator()
             config = cc.create_from_kernel_dataset(kernel_dataset, **kwargs)
             if kernel_dataset.sample_rate > 1000:
-                decimation_kwargs.update(
-                    self.default_window_parameters["high"]
-                )
+                decimation_kwargs.update(self.default_window_parameters["high"])
             else:
                 decimation_kwargs.update(self.default_window_parameters["low"])
             self._set_decimation_level_parameters(config, **decimation_kwargs)
@@ -158,6 +156,8 @@ class AuroraProcessing(BaseProcessing):
 
         for decimation in config.decimations:
             for key, value in kwargs.items():
+                if "stft" in key:
+                    continue  # stft is not a decimation attribute
                 decimation.set_attr_from_name(key, value)
 
     def _initialize_kernel_dataset(self, sample_rate=None):
@@ -304,9 +304,7 @@ class AuroraProcessing(BaseProcessing):
         """
 
         if sample_rates is None and processing_dict is None:
-            raise ValueError(
-                "Must set either sample rates or processing_dict."
-            )
+            raise ValueError("Must set either sample rates or processing_dict.")
 
         if processing_dict is None:
             if isinstance(sample_rates, (int, float)):

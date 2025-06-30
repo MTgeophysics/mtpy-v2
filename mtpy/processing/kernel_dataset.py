@@ -810,9 +810,12 @@ class KernelDataset:
         :rtype: None
         """
         survey_id = run_ts.survey_metadata.id
-        if i == 0:
-            self.survey_metadata[survey_id] = run_ts.survey_metadata
-        elif i > 0:
+        if survey_id not in self.survey_metadata.keys():
+            self.survey_metadata[survey_id] = mt_metadata.timeseries.Survey(
+                id=survey_id
+            )
+            self.survey_metadata[survey_id].add_station(run_ts.station_metadata)
+        else:
             if row.station in self.survey_metadata[survey_id].stations.keys():
                 self.survey_metadata[survey_id].stations[row.station].add_run(
                     run_ts.run_metadata
@@ -821,8 +824,8 @@ class KernelDataset:
                 self.survey_metadata[survey_id].add_station(
                     run_ts.station_metadata
                 )
-        if len(self.survey_metadata.keys()) > 1:
-            raise NotImplementedError
+        # if len(self.survey_metadata.keys()) > 1:
+        #     raise NotImplementedError
 
     @property
     def mth5_objs(self):
@@ -886,7 +889,9 @@ class KernelDataset:
             self.df["run_hdf5_reference"].at[i] = run_obj.hdf5_group.ref
 
             if row.fc:
-                msg = f"row {row} already has fcs prescribed by processing config"
+                msg = (
+                    f"row {row} already has fcs prescribed by processing config"
+                )
                 msg += "-- skipping time series initialisation"
                 logger.info(msg)
                 # see Note #3
