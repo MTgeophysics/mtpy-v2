@@ -1186,6 +1186,6 @@ class MT(TF, MTLocation):
         simpeg_1d = Simpeg1D(self.to_dataframe(), mode=mode, **kwargs)
         simpeg_1d.run_fixed_layer_inversion(**kwargs)
         simpeg_1d.plot_model_fitting(fig_num=1)
-        simpeg_1d.plot_response(fig_num=2)
+        simpeg_1d.plot_response(fig_num=2, **kwargs)
 
         return simpeg_1d

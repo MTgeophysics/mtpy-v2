@@ -32,7 +32,7 @@ except ImportError:
 
 from matplotlib import pyplot as plt
 import matplotlib.gridspec as gridspec
-from matplotlib.ticker import LogLocator
+from matplotlib.ticker import LogLocator, MultipleLocator
 
 # =============================================================================
 
@@ -454,20 +454,29 @@ class Simpeg1D:
 
         # ax_model.legend()
         ax_model.set_xlabel("Resistivity ($\Omega$m)")
-
-        ax_model.set_ylim((self._plot_z.max(), 0.01))
+        y_limits = kwargs.get("y_limits", (0.01, self._plot_z.max()))
+        ax_model.set_ylim(y_limits)
         ax_model.set_ylabel("Depth (km)")
         ax_model.set_xscale("log")
-        yscale = kwargs.get("yscale", "symlog")
+        yscale = kwargs.get("y_scale", "symlog")
         ax_model.set_yscale(yscale)
-        ax_model.yaxis.set_major_locator(LogLocator(base=10.0, numticks=10))
-        ax_model.yaxis.set_minor_locator(
-            LogLocator(base=10.0, numticks=10, subs="auto")
-        )
-        ax_model.xaxis.set_major_locator(LogLocator(base=10.0, numticks=10))
-        ax_model.xaxis.set_minor_locator(
-            LogLocator(base=10.0, numticks=10, subs="auto")
-        )
+        if "log" in yscale:
+            ax_model.yaxis.set_major_locator(LogLocator(base=10.0, numticks=10))
+            ax_model.yaxis.set_minor_locator(
+                LogLocator(base=10.0, numticks=10, subs="auto")
+            )
+            ax_model.xaxis.set_major_locator(LogLocator(base=10.0, numticks=10))
+            ax_model.xaxis.set_minor_locator(
+                LogLocator(base=10.0, numticks=10, subs="auto")
+            )
+        else:
+            pass
+            # ax_model.yaxis.set_major_locator(
+            #     plt.(integer=True, nbins=10)
+            # )
+            # ax_model.xaxis.set_major_locator(
+            #     plt.MaxNLocator(integer=True, nbins=10)
+            # )
 
         ax_model.grid(which="both", alpha=0.5)
 
