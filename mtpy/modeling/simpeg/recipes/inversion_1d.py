@@ -175,12 +175,8 @@ class Simpeg1D:
         :rtype: TYPE
         """
 
-        sub_df.phase[
-            np.where(abs(np.diff(sub_df.phase)) > max_diff_phase)[0] + 1
-        ] = 0
-        sub_df.phase[
-            np.where(abs(np.diff(sub_df.phase)) > max_diff_phase)[0] + 1
-        ] = 0
+        sub_df.phase[np.where(abs(np.diff(sub_df.phase)) > max_diff_phase)[0] + 1] = 0
+        sub_df.phase[np.where(abs(np.diff(sub_df.phase)) > max_diff_phase)[0] + 1] = 0
         sub_df.res[
             np.where(np.log10(abs(np.diff(sub_df.res))) > max_diff_res)[0] + 1
         ] = 0
@@ -211,10 +207,7 @@ class Simpeg1D:
         )
 
         bad_res = np.where(
-            abs(
-                interpolate.splev(sub_df.period, spline_res)
-                - sub_df.resistivity
-            )
+            abs(interpolate.splev(sub_df.period, spline_res) - sub_df.resistivity)
             > tolerance
         )
 
@@ -303,9 +296,7 @@ class Simpeg1D:
 
         # Define how the optimization problem is solved. Here we will use an inexact
         # Gauss-Newton approach that employs the conjugate gradient solver.
-        opt = optimization.InexactGaussNewton(
-            maxIter=maxIter, maxIterCG=maxIterCG
-        )
+        opt = optimization.InexactGaussNewton(maxIter=maxIter, maxIterCG=maxIterCG)
 
         # Define the inverse problem
         inv_prob = inverse_problem.BaseInvProblem(dmis, reg, opt)
@@ -402,9 +393,7 @@ class Simpeg1D:
         ax.grid(which="both", alpha=0.5)
         ax.plot(xlim, np.ones(2) * target_misfit, "--")
         ax.set_title(
-            "Iteration={:d}, Beta = {:.1e}".format(
-                iteration, betas[iteration - 1]
-            )
+            "Iteration={:d}, Beta = {:.1e}".format(iteration, betas[iteration - 1])
         )
         ax.set_xlim(xlim)
         plt.show()
@@ -447,7 +436,7 @@ class Simpeg1D:
         ax_model = fig.add_subplot(gs[:, 0])
         ax_model.step(
             (1.0 / (np.exp(m))),
-            self._plot_z,
+            self._plot_z[::-1],
             color="k",
             **{"linestyle": "-"},
         )

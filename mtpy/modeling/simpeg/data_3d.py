@@ -79,18 +79,28 @@ class Simpeg3DData:
         return just station locations in appropriate coordinates, default is
         geographic.
         """
+        station_df = self.dataframe.groupby("station").nth(0)
         if self.geographic_coordinates:
-            station_df = self.dataframe.groupby("station").nth(0)
-
             if self.include_elevation:
-                return np.c_[
-                    station_df.east, station_df.north, station_df.elevation
-                ]
+                return np.c_[station_df.east, station_df.north, station_df.elevation]
             else:
                 return np.c_[
                     station_df.east,
                     station_df.north,
                     np.zeros(station_df.elevation.size),
+                ]
+        else:
+            if self.include_elevation:
+                return np.c_[
+                    station_df.model_east,
+                    station_df.model_north,
+                    station_df.model_elevation,
+                ]
+            else:
+                return np.c_[
+                    station_df.model_east,
+                    station_df.model_north,
+                    np.zeros(station_df.model_elevation.size),
                 ]
 
     @property
@@ -190,9 +200,8 @@ class Simpeg3DData:
 
     @property
     def sources(self):
-        rx_list = self.rx_list
         return [
-            nsem.sources.PlanewaveXYPrimary(rx_list, frequency=f)
+            nsem.sources.PlanewaveXYPrimary(self._sources_list, frequency=f)
             for f in self.frequencies
         ]
 
@@ -227,15 +236,13 @@ class Simpeg3DData:
 
         return df.to_records(index=False, column_dtypes=dict(self._rec_dtypes))
 
-    def get_observations_and_erros(self):
+    def get_observations_and_errors(self):
         """build object from a dataframe"""
 
         # inverting for real and imaginary
         n_component = len(self.invert_types)
 
-        f_dict = dict(
-            [(round(ff, 5), ii) for ii, ff in enumerate(self.frequencies)]
-        )
+        f_dict = dict([(round(ff, 5), ii) for ii, ff in enumerate(self.frequencies)])
         observations = np.zeros(
             (
                 self.n_frequencies,
@@ -267,10 +274,9 @@ class Simpeg3DData:
     @property
     def data_object(self):
         """create a data object"""
-        observations, errors = self.get_observations_and_erros()
-        survey = self.get_survey()
+        observations, errors = self.get_observations_and_errors()
         return data.Data(
-            survey,
+            self.survey,
             dobs=observations.flatten(),
             standard_deviation=errors.flatten(),
         )
