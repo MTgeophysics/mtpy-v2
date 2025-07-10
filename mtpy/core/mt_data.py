@@ -61,9 +61,7 @@ class MTData(OrderedDict, MTStations):
 
     def __init__(self, mt_list=None, **kwargs):
 
-        self._coordinate_reference_frame_options = (
-            COORDINATE_REFERENCE_FRAME_OPTIONS
-        )
+        self._coordinate_reference_frame_options = COORDINATE_REFERENCE_FRAME_OPTIONS
 
         self.z_model_error = ModelErrors(
             error_value=5,
@@ -150,9 +148,7 @@ class MTData(OrderedDict, MTStations):
             value_other = getattr(other, attr)
 
             if value_og != value_other:
-                self.logger.info(
-                    f"Attribute {attr}: {value_og} != {value_other}"
-                )
+                self.logger.info(f"Attribute {attr}: {value_og} != {value_other}")
                 return False
         fail = False
         if len(self) == len(other):
@@ -279,9 +275,7 @@ class MTData(OrderedDict, MTStations):
         if not isinstance(value, str):
             raise TypeError("Units input must be a string.")
         if value.lower() not in self._impedance_unit_factors.keys():
-            raise ValueError(
-                f"{value} is not an acceptable unit for impedance."
-            )
+            raise ValueError(f"{value} is not an acceptable unit for impedance.")
 
         self._impedance_units = value
 
@@ -325,9 +319,7 @@ class MTData(OrderedDict, MTStations):
         :rtype: :class:`mtpy.MTData`
         """
 
-        survey_list = [
-            mt_obj for key, mt_obj in self.items() if survey_id in key
-        ]
+        survey_list = [mt_obj for key, mt_obj in self.items() if survey_id in key]
         md = self.clone_empty()
         md.add_station(survey_list)
         return md
@@ -477,9 +469,7 @@ class MTData(OrderedDict, MTStations):
         if station_key is not None:
             station_key = station_key
         else:
-            station_key = self._get_station_key(
-                station_id, validate_name(survey_id)
-            )
+            station_key = self._get_station_key(station_id, validate_name(survey_id))
 
         try:
             return self[station_key]
@@ -634,9 +624,7 @@ class MTData(OrderedDict, MTStations):
         elif data_type in ["both", "shapefiles"]:
             df = self.to_mt_dataframe().for_shapefiles
         else:
-            raise ValueError(
-                f"Option for 'data_type' {data_type} is unsupported."
-            )
+            raise ValueError(f"Option for 'data_type' {data_type} is unsupported.")
         if model_locations:
             gdf = gpd.GeoDataFrame(
                 df,
@@ -853,8 +841,7 @@ class MTData(OrderedDict, MTStations):
                     "Cannot estimate distances in meters without a UTM CRS. Set 'utm_crs' first."
                 )
             sdf["radius"] = np.sqrt(
-                (local_station.east - sdf.east) ** 2
-                + (local_station.north - sdf.north)
+                (local_station.east - sdf.east) ** 2 + (local_station.north - sdf.north)
             )
         elif radius_units in ["deg", "degrees"]:
             sdf["radius"] = np.sqrt(
@@ -864,9 +851,7 @@ class MTData(OrderedDict, MTStations):
 
         return [
             f"{row.survey}.{row.station}"
-            for row in sdf.loc[
-                (sdf.radius <= radius) & (sdf.radius > 0)
-            ].itertuples()
+            for row in sdf.loc[(sdf.radius <= radius) & (sdf.radius > 0)].itertuples()
         ]
 
     def estimate_spatial_static_shift(
@@ -910,8 +895,7 @@ class MTData(OrderedDict, MTStations):
 
         interp_periods = local_site.period[
             np.where(
-                (local_site.period >= period_min)
-                & (local_site.period <= period_max)
+                (local_site.period >= period_min) & (local_site.period <= period_max)
             )
         ]
 
@@ -956,9 +940,7 @@ class MTData(OrderedDict, MTStations):
         fig = plt.figure()
 
         ax = fig.add_subplot(1, 1, 1)
-        (l1,) = ax.loglog(
-            mean_rho.index, mean_rho.res_det, lw=2, color=(0.75, 0.25, 0)
-        )
+        (l1,) = ax.loglog(mean_rho.index, mean_rho.res_det, lw=2, color=(0.75, 0.25, 0))
         (l2,) = ax.loglog(
             median_rho.index, median_rho.res_det, lw=2, color=(0, 0.25, 0.75)
         )
@@ -979,9 +961,7 @@ class MTData(OrderedDict, MTStations):
         )
 
         ax.set_xlabel("Period (s)", fontdict={"size": 12, "weight": "bold"})
-        ax.set_ylabel(
-            "Resistivity (Ohm-m)", fontdict={"size": 12, "weight": "bold"}
-        )
+        ax.set_ylabel("Resistivity (Ohm-m)", fontdict={"size": 12, "weight": "bold"})
 
         ax.legend(
             [l1, l2],
@@ -1206,7 +1186,7 @@ class MTData(OrderedDict, MTStations):
           - `invert_tm` -> bool
         """
 
-        return Simpeg2DData(self.to_dataframe(), **kwargs)
+        return Simpeg2DData(self.to_dataframe(impedance_units="ohm"), **kwargs)
 
     def to_simpeg_3d(self, **kwargs):
         """Create a data object that Simpeg can work with.
@@ -1228,7 +1208,7 @@ class MTData(OrderedDict, MTStations):
           - invert_types = ["real", "imaginary"]
         """
 
-        return Simpeg3DData(self.to_dataframe(), **kwargs)
+        return Simpeg3DData(self.to_dataframe(impedance_units="ohm"), **kwargs)
 
     def plot_mt_response(
         self, station_key=None, station_id=None, survey_id=None, **kwargs
@@ -1262,9 +1242,7 @@ class MTData(OrderedDict, MTStations):
             mt_data = MTData()
             if isinstance(survey_id, (list, tuple)):
                 if len(survey_id) != len(station_key):
-                    raise ValueError(
-                        "Number of survey must match number of stations"
-                    )
+                    raise ValueError("Number of survey must match number of stations")
             elif isinstance(survey_id, (str, type(None))):
                 survey_id = [survey_id] * len(station_id)
             for survey, station in zip(survey_id, station_id):
@@ -1514,9 +1492,7 @@ class MTData(OrderedDict, MTStations):
         :rtype: dictionary
         """
 
-        sc = ShapefileCreator(
-            self.to_mt_dataframe(), output_crs, save_dir=save_dir
-        )
+        sc = ShapefileCreator(self.to_mt_dataframe(), output_crs, save_dir=save_dir)
         sc.utm = utm
         if ellipse_size is None and pt:
             sc.ellipse_size = sc.estimate_ellipse_size()
