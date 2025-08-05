@@ -5,7 +5,6 @@ import warnings
 import numpy as np
 
 from simpeg.electromagnetics import natural_source as nsem
-from simpeg import data
 
 warnings.filterwarnings("ignore")
 
@@ -35,6 +34,9 @@ class Simpeg3DData:
             "east": "x",
             "north": "y",
             "elevation": "z",
+            "model_east": "x",
+            "model_north": "y",
+            "model_elevation": "z",
         }
         self._rec_columns.update(
             dict(
@@ -132,6 +134,24 @@ class Simpeg3DData:
         return components
 
     @property
+    def _rec_components_to_invert(self) -> list[str]:
+        """get list of rec array keys to invert"""
+        return ["freq", "x", "y", "z"] + [
+            self._rec_columns[comp] for comp in self.components_to_invert
+        ]
+
+    @property
+    def _rec_dtype_to_invert(self) -> list[tuple]:
+        """get dtype of rec array keys to invert"""
+        rec_dtype = []
+        for comp in self._rec_components_to_invert:
+            for rec_type in self._rec_dtypes:
+                if rec_type[0] == comp:
+                    rec_dtype.append(rec_type)
+                    break
+        return rec_dtype
+
+    @property
     def n_orientation(self):
         """number of components to invert"""
         return len(self.components_to_invert)
@@ -192,9 +212,8 @@ class Simpeg3DData:
     def _sources_list(self):
         rx_list = []
 
-        for comp in self._component_list:
-            if getattr(self, f"invert_{comp}"):
-                rx_list += getattr(self, f"source_{comp}")
+        for comp in self.components_to_invert:
+            rx_list += getattr(self, f"source_{comp}")
 
         return rx_list
 
@@ -223,65 +242,33 @@ class Simpeg3DData:
         return nsem.Survey(self.sources[index])
 
     def to_rec_array(self):
+        cols = ["period"]
+        if self.geographic_coordinates:
+            cols += ["east", "north", "elevation"]
+        else:
+            cols += ["model_east", "model_north", "model_elevation"]
 
-        df = self.dataframe[
-            ["period", "east", "north", "elevation"] + self._component_list
-        ]
+        df = self.dataframe[cols + self.components_to_invert]
 
         df.loc[:, "frequency"] = 1.0 / df.period.to_numpy()
         df = df.drop(columns="period")
         new_column_names = [self._rec_columns[col] for col in df.columns]
         df.columns = new_column_names
-        df = df[[col[0] for col in self._rec_dtypes]]
+        df = df[new_column_names]
 
-        return df.to_records(index=False, column_dtypes=dict(self._rec_dtypes))
+        return df.to_records(index=False, column_dtypes=dict(self._rec_dtype_to_invert))
 
-    def get_observations_and_errors(self):
-        """build object from a dataframe"""
+    def standard_deviations(self):
+        """get model errors for the data"""
+        df = self.dataframe[[f"{comp}_model_error" for comp in self.component_map]]
 
-        # inverting for real and imaginary
-        n_component = len(self.invert_types)
-
-        f_dict = dict([(round(ff, 5), ii) for ii, ff in enumerate(self.frequencies)])
-        observations = np.zeros(
-            (
-                self.n_frequencies,
-                self.n_orientation,
-                n_component,
-                self.n_stations,
-            )
-        )
-        errors = np.zeros_like(observations)
-        for s_index, station in enumerate(self.station_names):
-            station_df = self.dataframe.loc[self.dataframe.station == station]
-            station_df.set_index("period", inplace=True)
-            for row in station_df.itertuples():
-                f_index = f_dict[round(1.0 / row.Index, 5)]
-                for c_index, comp in enumerate(self.components_to_invert):
-                    value = getattr(row, comp)
-                    err = getattr(row, f"{comp}_model_error")  # user_set error
-                    # err = getattr(row, f"{comp}_error") # measurement error from data statistics
-                    observations[f_index, c_index, 0, s_index] = value.real
-                    observations[f_index, c_index, 1, s_index] = value.imag
-                    errors[f_index, c_index, 0, s_index] = err
-                    errors[f_index, c_index, 1, s_index] = err
-
-        observations[np.where(np.nan_to_num(observations) == 0)] = 100
-        errors[np.where(np.nan_to_num(errors) == 0)] = np.inf
-
-        return observations, errors
-
-    @property
-    def data_object(self):
+    def get_simpeg_data_object(self) -> nsem.Data:
         """create a data object"""
-        observations, errors = self.get_observations_and_errors()
-        return data.Data(
-            self.survey,
-            dobs=observations.flatten(),
-            standard_deviation=errors.flatten(),
-        )
+        nsem_data = nsem.Data(self.survey)
 
-    def from_data_object(self, data_object):
+        return nsem_data.fromRecArray(self.to_rec_array())
+
+    def from_simpeg_data_object(self, data_object):
         """ingest a Simpeg.data.Data object into a dataframe
 
         :param data_object: _description_
