@@ -110,9 +110,7 @@ class MT(TF, MTLocation):
 
         self.save_dir = Path.cwd()
 
-        self._coordinate_reference_frame_options = (
-            COORDINATE_REFERENCE_FRAME_OPTIONS
-        )
+        self._coordinate_reference_frame_options = COORDINATE_REFERENCE_FRAME_OPTIONS
 
         self.coordinate_reference_frame = (
             self.station_metadata.transfer_function.sign_convention
@@ -231,9 +229,7 @@ class MT(TF, MTLocation):
         if not isinstance(value, str):
             raise TypeError("Units input must be a string.")
         if value.lower() not in self._impedance_unit_factors.keys():
-            raise ValueError(
-                f"{value} is not an acceptable unit for impedance."
-            )
+            raise ValueError(f"{value} is not an acceptable unit for impedance.")
 
         self._impedance_units = value
 
@@ -612,6 +608,17 @@ class MT(TF, MTLocation):
                 )
 
         new_m = self.clone_empty()
+        theta_r = 0
+        if isinstance(self._rotation_angle, (int, float)):
+            if self._rotation_angle != 0:
+                theta_r = float(self._rotation_angle)
+        elif isinstance(self._rotation_angle, np.ndarray):
+            if self._rotation_angle.mean() != 0:
+                theta_r = float(self._rotation_angle.mean())
+                self.logger.warning(
+                    f"Station {self.station}: Using mean rotation angle of {theta_r:.2f} degrees."
+                )
+        new_m._rotation_angle = np.repeat(theta_r, len(new_period))
         if self.has_impedance():
             new_m.Z = self.Z.interpolate(new_period, method=method, **kwargs)
             if new_m.has_impedance():
@@ -622,9 +629,7 @@ class MT(TF, MTLocation):
                         "See scipy.interpolate.interp1d for more information."
                     )
         if self.has_tipper():
-            new_m.Tipper = self.Tipper.interpolate(
-                new_period, method=method, **kwargs
-            )
+            new_m.Tipper = self.Tipper.interpolate(new_period, method=method, **kwargs)
             if new_m.has_tipper():
                 if np.all(np.isnan(new_m.Tipper.tipper)):
                     self.logger.warning(
@@ -1109,12 +1114,9 @@ class MT(TF, MTLocation):
         )
 
         if inplace:
-            self._transfer_function[
-                "transfer_function"
-            ] = self._transfer_function.transfer_function.real * (
-                noise_real
-            ) + (
-                1j * self._transfer_function.transfer_function.imag * noise_imag
+            self._transfer_function["transfer_function"] = (
+                self._transfer_function.transfer_function.real * (noise_real)
+                + (1j * self._transfer_function.transfer_function.imag * noise_imag)
             )
 
             self._transfer_function["transfer_function_error"] = (
@@ -1123,12 +1125,9 @@ class MT(TF, MTLocation):
 
         else:
             new_mt_obj._transfer_function = self._transfer_function.copy()
-            new_mt_obj._transfer_function[
-                "transfer_function"
-            ] = self._transfer_function.transfer_function.real * (
-                noise_real
-            ) + (
-                1j * self._transfer_function.transfer_function.imag * noise_imag
+            new_mt_obj._transfer_function["transfer_function"] = (
+                self._transfer_function.transfer_function.real * (noise_real)
+                + (1j * self._transfer_function.transfer_function.imag * noise_imag)
             )
 
             self._transfer_function["transfer_function_error"] = (
