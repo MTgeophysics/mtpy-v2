@@ -432,22 +432,23 @@ class TestTFInterpolationFillNans(unittest.TestCase):
             self.new_period
         )
 
-    def test_find_nans_index(self):
-        true_index = self.tf_base._find_nans_index(
-            self.tf_base._dataset.transfer_function
-        )
+    # function no longer exists in TFBase
+    # def test_find_nans_index(self):
+    #     true_index = self.tf_base._find_nans_index(
+    #         self.tf_base._dataset.transfer_function
+    #     )
 
-        new_index = self.tf_interpolated_same_period._find_nans_index(
-            self.tf_interpolated_same_period._dataset.transfer_function
-        )
+    #     new_index = self.tf_interpolated_same_period._find_nans_index(
+    #         self.tf_interpolated_same_period._dataset.transfer_function
+    #     )
 
-        with self.subTest("list length"):
-            self.assertEqual(len(true_index), len(new_index))
+    #     with self.subTest("list length"):
+    #         self.assertEqual(len(true_index), len(new_index))
 
-        entry_count = 0
-        for true_entry, new_entry in zip(true_index, new_index):
-            with self.subTest(entry_count):
-                self.assertDictEqual(true_entry, new_entry)
+    #     entry_count = 0
+    #     for true_entry, new_entry in zip(true_index, new_index):
+    #         with self.subTest(entry_count):
+    #             self.assertDictEqual(true_entry, new_entry)
 
 
     def test_same_tf(self):
