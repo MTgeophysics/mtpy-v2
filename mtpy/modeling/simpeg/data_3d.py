@@ -158,10 +158,10 @@ class Simpeg3DData:
 
     def _get_z_mode_sources(self, orientation):
         """Get the source for each mode"""
-        source_real = nsem.receivers.PointNaturalSource(
+        source_real = nsem.receivers.Impedance(
             self.station_locations, orientation=orientation, component="real"
         )
-        source_imag = nsem.receivers.PointNaturalSource(
+        source_imag = nsem.receivers.Impedance(
             self.station_locations, orientation=orientation, component="imag"
         )
 

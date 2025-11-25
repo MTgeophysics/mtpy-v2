@@ -124,12 +124,12 @@ class Simpeg2DData:
 
         if not self.invert_impedance:
             rx_list = [
-                nsem.receivers.PointNaturalSource(
+                nsem.receivers.Impedance(
                     rx_locs,
                     orientation=simpeg_mode,
                     component="apparent_resistivity",
                 ),
-                nsem.receivers.PointNaturalSource(
+                nsem.receivers.Impedance(
                     rx_locs, orientation=simpeg_mode, component="phase"
                 ),
             ]
@@ -140,12 +140,12 @@ class Simpeg2DData:
             ]
         else:
             rx_list = [
-                nsem.receivers.PointNaturalSource(
+                nsem.receivers.Impedance(
                     rx_locs,
                     orientation=simpeg_mode,
                     component="real",
                 ),
-                nsem.receivers.PointNaturalSource(
+                nsem.receivers.Impedance(
                     rx_locs,
                     orientation=simpeg_mode,
                     component="imag",
