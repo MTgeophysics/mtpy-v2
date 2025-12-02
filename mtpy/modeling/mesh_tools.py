@@ -34,12 +34,12 @@ def grid_centre(grid_edges):
 def get_rounding(cell_width):
     """Get the rounding number given the cell width.
 
-    Will be one significant number less
-than the cell width. This reduces weird looking meshes.
-    :param cell_width: Width of mesh cell.
-    :type cell_width: float
-    :return: Digit to round to.
-    :rtype: int
+        Will be one significant number less
+    than the cell width. This reduces weird looking meshes.
+        :param cell_width: Width of mesh cell.
+        :type cell_width: float
+        :return: Digit to round to.
+        :rtype: int
     """
 
     rounding = int(-1 * np.floor(np.log10(cell_width)))
@@ -47,9 +47,7 @@ than the cell width. This reduces weird looking meshes.
     return rounding
 
 
-def rotate_mesh(
-    grid_east, grid_north, origin, rotation_angle, return_centre=False
-):
+def rotate_mesh(grid_east, grid_north, origin, rotation_angle, return_centre=False):
     """Rotate a mesh defined by grid_east and grid_north.
     :param grid_east: 1d array defining the edges of the mesh in the east-west direction.
     :param grid_north: 1d array defining the edges of the mesh in the north-south direction.
@@ -63,8 +61,7 @@ def rotate_mesh(
     # centre of grid in relative coordinates
     if return_centre:
         gce, gcn = [
-            np.mean([arr[1:], arr[:-1]], axis=0)
-            for arr in [grid_east, grid_north]
+            np.mean([arr[1:], arr[:-1]], axis=0) for arr in [grid_east, grid_north]
         ]
     else:
         gce, gcn = grid_east, grid_north
@@ -233,6 +230,7 @@ def interpolate_elevation_to_grid(
             lon, lat, elev = mtfh.read_surface_ascii(surface_file)
         elif surface_file.suffix[1:] in ["tiff", "tif", "geotiff"]:
             lon, lat, elev = mtfh.read_geotiff(surface_file)
+            print("Read geotiff surface file")
     elif surface:
         lon, lat, elev = surface
     else:
@@ -288,9 +286,7 @@ def interpolate_elevation_to_grid(
     xi = np.vstack([arr.flatten() for arr in [grid_east, grid_north]]).T
 
     # elevation on the centre of the grid nodes
-    elev_mg = spi.griddata(points, values, xi, method=method).reshape(
-        grid_north.shape
-    )
+    elev_mg = spi.griddata(points, values, xi, method=method).reshape(grid_north.shape)
 
     return elev_mg
 
@@ -298,9 +294,9 @@ def interpolate_elevation_to_grid(
 def get_nearest_index(array, value):
     """Return the index of the nearest value to the provided value in an array:
 
-        inputs:
-            array = array or list of values
-            value = target value.
+    inputs:
+        array = array or list of values
+        value = target value.
     """
     array = np.array(array)
 
@@ -309,9 +305,7 @@ def get_nearest_index(array, value):
     return np.where(abs_diff == np.amin(abs_diff))[0][0]
 
 
-def make_log_increasing_array(
-    z1_layer, target_depth, n_layers, increment_factor=0.9
-):
+def make_log_increasing_array(z1_layer, target_depth, n_layers, increment_factor=0.9):
     """Create depth array with log increasing cells, down to target depth,
     inputs are z1_layer thickness, target depth, number of layers (n_layers)
     """
@@ -319,9 +313,7 @@ def make_log_increasing_array(
     # make initial guess for maximum cell thickness
     max_cell_thickness = target_depth
     # make initial guess for log_z
-    log_z = np.logspace(
-        np.log10(z1_layer), np.log10(max_cell_thickness), num=n_layers
-    )
+    log_z = np.logspace(np.log10(z1_layer), np.log10(max_cell_thickness), num=n_layers)
     counter = 0
 
     while np.sum(log_z) > target_depth:
@@ -356,9 +348,7 @@ def get_padding_cells(cell_width, max_distance, num_cells, stretch):
     """
 
     # compute scaling factor
-    scaling = ((max_distance) / (cell_width * stretch)) ** (
-        1.0 / (num_cells - 1)
-    )
+    scaling = ((max_distance) / (cell_width * stretch)) ** (1.0 / (num_cells - 1))
 
     # make padding cell
     padding = np.zeros(num_cells)
@@ -370,8 +360,7 @@ def get_padding_cells(cell_width, max_distance, num_cells, stretch):
 
         # calculate the cell width for a geometric increase by 1.2
         mult_pad = np.round(
-            (cell_width * stretch)
-            * ((1 - stretch ** (ii + 1)) / (1 - stretch)),
+            (cell_width * stretch) * ((1 - stretch ** (ii + 1)) / (1 - stretch)),
             get_rounding(cell_width),
         )
 
@@ -407,9 +396,7 @@ def get_padding_cells2(cell_width, core_max, max_distance, num_cells):
     return cells
 
 
-def get_station_buffer(
-    grid_east, grid_north, station_east, station_north, buf=10e3
-):
+def get_station_buffer(grid_east, grid_north, station_east, station_north, buf=10e3):
     """Get cells within a specified distance (buf) of the stations
     returns a 2D boolean (True/False) array
     """
