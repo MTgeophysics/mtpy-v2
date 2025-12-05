@@ -792,7 +792,9 @@ class Data:
                 item_list = [k.strip() for k in item.split(":")]
                 if len(item_list) == 2:
                     key = item_list[0]
-                    value = item_list[1].replace("%", "").split()[0]
+                    value = item_list[1].replace("%", "")
+                    if len(value) > 0:
+                        value = value.split()[0]
                     if key in ["error_value", "data_rotation"]:
                         try:
                             value = float(value)

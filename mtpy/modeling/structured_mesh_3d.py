@@ -2659,7 +2659,8 @@ class StructuredGrid3D:
 
         # write out the layers from resmodel
         for ll in layers:
-            lines.append(f"{ll[0] + 1} {ll[1] + 1}\n")
+            if nr > 0:
+                lines.append(f"{ll[0] + 1} {ll[1] + 1}\n")
             for nn in range(self.nodes_north.shape[0]):
                 for ee in range(self.nodes_east.shape[0]):
                     if nr > 0:
