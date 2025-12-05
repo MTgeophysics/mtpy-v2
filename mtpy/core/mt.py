@@ -290,7 +290,7 @@ class MT(TF, MTLocation):
             self._rotation_angle += theta_r
 
             self.logger.info(
-                f"Rotated transfer function by: {self._rotation_angle:.3f} "
+                f"Rotated transfer function by: {theta_r:.3f} "
                 "degrees clockwise in reference frame "
                 f"{self.coordinate_reference_frame}."
             )

@@ -114,9 +114,7 @@ class TestProcessRRCompare(unittest.TestCase):
         self.run_summary = RunSummary()
         self.run_summary.from_mth5s([self.mth5_path])
         self.kernel_dataset = KernelDataset()
-        self.kernel_dataset.from_run_summary(
-            self.run_summary, "test1", "test2"
-        )
+        self.kernel_dataset.from_run_summary(self.run_summary, "test1", "test2")
         cc = ConfigCreator()
         self.config = cc.create_from_kernel_dataset(self.kernel_dataset)
         ## need to set same config parameters

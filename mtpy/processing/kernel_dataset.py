@@ -886,7 +886,9 @@ class KernelDataset:
             self.df["run_hdf5_reference"].at[i] = run_obj.hdf5_group.ref
 
             if row.fc:
-                msg = f"row {row} already has fcs prescribed by processing config"
+                msg = (
+                    f"row {row} already has fcs prescribed by processing config"
+                )
                 msg += "-- skipping time series initialisation"
                 logger.info(msg)
                 # see Note #3
