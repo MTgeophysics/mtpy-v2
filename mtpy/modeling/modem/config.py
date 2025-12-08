@@ -15,10 +15,12 @@ ModEM
 from pathlib import Path
 
 from mtpy.utils import configfile as mtcfg
-from .exception import ModEMError
-from .data import Data
-from .model import Model
+
 from .convariance import Covariance
+from .data import Data
+from .exception import ModEMError
+from .model import Model
+
 
 # =============================================================================
 
@@ -32,9 +34,7 @@ class ModEMConfig(object):
         for key in list(kwargs.keys()):
             setattr(self, key, kwargs[key])
 
-    def write_config_file(
-        self, save_dir=None, config_fn_basename="ModEM_inv.cfg"
-    ):
+    def write_config_file(self, save_dir=None, config_fn_basename="ModEM_inv.cfg"):
         """Write a config file based on provided information."""
 
         if save_dir is None:

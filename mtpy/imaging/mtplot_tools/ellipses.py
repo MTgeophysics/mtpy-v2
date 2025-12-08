@@ -10,6 +10,7 @@ Created on Sun Sep 25 15:19:16 2022
 # =============================================================================
 import numpy as np
 
+
 # =============================================================================
 
 
@@ -93,7 +94,6 @@ class MTEllipse:
                 "normalized_skew",
                 "normalized_skew_seg",
             ]:
-
                 self.ellipse_range = (-9, 9, 3)
             elif self.ellipse_colorby == "ellipticity":
                 self.ellipse_range = (0, 1, 0.1)
@@ -124,22 +124,13 @@ class MTEllipse:
         """Get the appropriat color by array."""
 
         # get the properties to color the ellipses by
-        if (
-            self.ellipse_colorby == "phiminang"
-            or self.ellipse_colorby == "phimin"
-        ):
+        if self.ellipse_colorby == "phiminang" or self.ellipse_colorby == "phimin":
             color_array = pt_object.phimin
-        elif (
-            self.ellipse_colorby == "phimaxang"
-            or self.ellipse_colorby == "phimax"
-        ):
+        elif self.ellipse_colorby == "phimaxang" or self.ellipse_colorby == "phimax":
             color_array = pt_object.phimax
         elif self.ellipse_colorby == "phidet":
             color_array = np.sqrt(abs(pt_object.det)) * (180 / np.pi)
-        elif (
-            self.ellipse_colorby == "skew"
-            or self.ellipse_colorby == "skew_seg"
-        ):
+        elif self.ellipse_colorby == "skew" or self.ellipse_colorby == "skew_seg":
             color_array = pt_object.beta
         elif self.ellipse_colorby == "ellipticity":
             color_array = pt_object.ellipticity

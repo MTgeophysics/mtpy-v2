@@ -4,7 +4,7 @@
 Occam1D
 ==================
 
-    * Wrapper class to interact with Occam1D written by Kerry Keys at Scripps 
+    * Wrapper class to interact with Occam1D written by Kerry Keys at Scripps
       adapted from the method of Constable et al., [1987].
 
     * This class only deals with the MT functionality of the Fortran code, so
@@ -61,23 +61,20 @@ Occam1D
 
 @author: J. Peacock (Oct. 2013)
 """
-# =============================================================================
-# Imports
-# =============================================================================
-from pathlib import Path
-import time
-import subprocess
 import string
+import subprocess
 
 import numpy as np
 
-from matplotlib.ticker import MultipleLocator
-import matplotlib.gridspec as gridspec
-
-import mtpy.core.mt as mt
-import mtpy.utils.calculator as mtcc
 import mtpy.analysis.geometry as mtg
-import matplotlib.pyplot as plt
+import mtpy.core.mt as mt
+
+
+# =============================================================================
+# Imports
+# =============================================================================
+
+
 # =============================================================================
 
 
@@ -279,8 +276,7 @@ def get_strike(mt_object, fmin, fmax, strike_approx=0):
     zstrike[1] += 90
     # choose closest value to approx_strike
     zstrike = zstrike[
-        np.abs(zstrike - strike_approx)
-        - np.amin(np.abs(zstrike - strike_approx))
+        np.abs(zstrike - strike_approx) - np.amin(np.abs(zstrike - strike_approx))
         < 1e-3
     ]
 
@@ -389,8 +385,7 @@ def generate_inputfiles(**input_parameters):
                 save_path=wd,
                 startup_fn=op.join(wd, startup_fn),
                 max_iter=input_parameters["iteration_max"],
-                target_rms=input_parameters["rms_min"]
-                / input_parameters["rms_factor"],
+                target_rms=input_parameters["rms_min"] / input_parameters["rms_factor"],
             )
             rundirs[svpath].append(startup_fn)
 

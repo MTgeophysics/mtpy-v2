@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Got rid of the GDAL check because have moved geographic operations to use 
+Got rid of the GDAL check because have moved geographic operations to use
 pyproj.  There are still some functions that use GDAL, but those are for
 raster and shapefile making.  Therefore the check is not needed.
 

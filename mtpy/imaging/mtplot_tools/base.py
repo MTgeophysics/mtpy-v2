@@ -8,16 +8,16 @@ Base classes for plotting classes
 # Imports
 # =============================================================================
 from pathlib import Path
-import numpy as np
-from scipy import stats
-from scipy import interpolate
-from loguru import logger
 
 import matplotlib.pyplot as plt
+import numpy as np
+from loguru import logger
+from scipy import interpolate, stats
 
+from .map_interpolation_tools import interpolate_to_map
 from .plot_settings import PlotSettings
 from .plotters import add_raster
-from .map_interpolation_tools import interpolate_to_map
+
 
 # =============================================================================
 # Base
@@ -59,7 +59,6 @@ class PlotBase(PlotSettings):
 
     def plot(self):
         """Plot function."""
-        pass
 
     def save_plot(
         self,
@@ -325,32 +324,18 @@ class PlotBaseMaps(PlotBase):
                     [
                         tf.z_interp_dict["zxx"]["real"](1 / self.plot_period)[0]
                         + 1j
-                        * tf.z_interp_dict["zxx"]["imag"](
-                            1.0 / self.plot_period
-                        )[0],
-                        tf.z_interp_dict["zxy"]["real"](1.0 / self.plot_period)[
-                            0
-                        ]
+                        * tf.z_interp_dict["zxx"]["imag"](1.0 / self.plot_period)[0],
+                        tf.z_interp_dict["zxy"]["real"](1.0 / self.plot_period)[0]
                         + 1j
-                        * tf.z_interp_dict["zxy"]["imag"](
-                            1.0 / self.plot_period
-                        )[0],
+                        * tf.z_interp_dict["zxy"]["imag"](1.0 / self.plot_period)[0],
                     ],
                     [
-                        tf.z_interp_dict["zyx"]["real"](1.0 / self.plot_period)[
-                            0
-                        ]
+                        tf.z_interp_dict["zyx"]["real"](1.0 / self.plot_period)[0]
                         + 1j
-                        * tf.z_interp_dict["zyx"]["imag"](
-                            1.0 / self.plot_period
-                        )[0],
-                        tf.z_interp_dict["zyy"]["real"](1.0 / self.plot_period)[
-                            0
-                        ]
+                        * tf.z_interp_dict["zyx"]["imag"](1.0 / self.plot_period)[0],
+                        tf.z_interp_dict["zyy"]["real"](1.0 / self.plot_period)[0]
                         + 1j
-                        * tf.z_interp_dict["zyy"]["imag"](
-                            1.0 / self.plot_period
-                        )[0],
+                        * tf.z_interp_dict["zyy"]["imag"](1.0 / self.plot_period)[0],
                     ],
                 ]
             )
@@ -370,20 +355,12 @@ class PlotBaseMaps(PlotBase):
                 np.array(
                     [
                         [
-                            tf.z_interp_dict["zxx"]["err"](
-                                1.0 / self.plot_period
-                            )[0],
-                            tf.z_interp_dict["zxy"]["err"](
-                                1.0 / self.plot_period
-                            )[0],
+                            tf.z_interp_dict["zxx"]["err"](1.0 / self.plot_period)[0],
+                            tf.z_interp_dict["zxy"]["err"](1.0 / self.plot_period)[0],
                         ],
                         [
-                            tf.z_interp_dict["zyx"]["err"](
-                                1.0 / self.plot_period
-                            )[0],
-                            tf.z_interp_dict["zyy"]["err"](
-                                1.0 / self.plot_period
-                            )[0],
+                            tf.z_interp_dict["zyx"]["err"](1.0 / self.plot_period)[0],
+                            tf.z_interp_dict["zyy"]["err"](1.0 / self.plot_period)[0],
                         ],
                     ]
                 )
@@ -442,20 +419,16 @@ class PlotBaseMaps(PlotBase):
                 [
                     [
                         [
-                            tf.t_interp_dict["tzx"]["real"](
-                                1.0 / self.plot_period
-                            )[0]
+                            tf.t_interp_dict["tzx"]["real"](1.0 / self.plot_period)[0]
                             + 1j
-                            * tf.t_interp_dict["tzx"]["imag"](
-                                1.0 / self.plot_period
-                            )[0],
-                            tf.t_interp_dict["tzy"]["real"](
-                                1.0 / self.plot_period
-                            )[0]
+                            * tf.t_interp_dict["tzx"]["imag"](1.0 / self.plot_period)[
+                                0
+                            ],
+                            tf.t_interp_dict["tzy"]["real"](1.0 / self.plot_period)[0]
                             + 1j
-                            * tf.t_interp_dict["tzy"]["imag"](
-                                1.0 / self.plot_period
-                            )[0],
+                            * tf.t_interp_dict["tzy"]["imag"](1.0 / self.plot_period)[
+                                0
+                            ],
                         ]
                     ]
                 ]
@@ -480,12 +453,12 @@ class PlotBaseMaps(PlotBase):
                     [
                         [
                             [
-                                tf.t_interp_dict["tzx"]["err"](
-                                    1.0 / self.plot_period
-                                )[0],
-                                tf.t_interp_dict["tzy"]["err"](
-                                    1.0 / self.plot_period
-                                )[0],
+                                tf.t_interp_dict["tzx"]["err"](1.0 / self.plot_period)[
+                                    0
+                                ],
+                                tf.t_interp_dict["tzy"]["err"](1.0 / self.plot_period)[
+                                    0
+                                ],
                             ]
                         ]
                     ]
@@ -617,9 +590,7 @@ class PlotBaseProfile(PlotBase):
             self.profile_line = profile1[:2]
 
         for mt_obj in self.mt_data.values():
-            mt_obj.project_onto_profile_line(
-                self.profile_line[0], self.profile_line[1]
-            )
+            mt_obj.project_onto_profile_line(self.profile_line[0], self.profile_line[1])
 
     def _get_offset(self, tf):
         """Get approximate offset distance for the station.
@@ -649,27 +620,15 @@ class PlotBaseProfile(PlotBase):
                 [
                     [
                         tf.z_interp_dict["zxx"]["real"](1 / self.plot_period)
-                        + 1j
-                        * tf.z_interp_dict["zxx"]["imag"](
-                            1.0 / self.plot_period
-                        ),
+                        + 1j * tf.z_interp_dict["zxx"]["imag"](1.0 / self.plot_period),
                         tf.z_interp_dict["zxy"]["real"](1.0 / self.plot_period)
-                        + 1j
-                        * tf.z_interp_dict["zxy"]["imag"](
-                            1.0 / self.plot_period
-                        ),
+                        + 1j * tf.z_interp_dict["zxy"]["imag"](1.0 / self.plot_period),
                     ],
                     [
                         tf.z_interp_dict["zyx"]["real"](1.0 / self.plot_period)
-                        + 1j
-                        * tf.z_interp_dict["zyx"]["imag"](
-                            1.0 / self.plot_period
-                        ),
+                        + 1j * tf.z_interp_dict["zyx"]["imag"](1.0 / self.plot_period),
                         tf.z_interp_dict["zyy"]["real"](1.0 / self.plot_period)
-                        + 1j
-                        * tf.z_interp_dict["zyy"]["imag"](
-                            1.0 / self.plot_period
-                        ),
+                        + 1j * tf.z_interp_dict["zyy"]["imag"](1.0 / self.plot_period),
                     ],
                 ]
             )
@@ -689,20 +648,12 @@ class PlotBaseProfile(PlotBase):
                 np.array(
                     [
                         [
-                            tf.z_interp_dict["zxx"]["err"](
-                                1.0 / self.plot_period
-                            ),
-                            tf.z_interp_dict["zxy"]["err"](
-                                1.0 / self.plot_period
-                            ),
+                            tf.z_interp_dict["zxx"]["err"](1.0 / self.plot_period),
+                            tf.z_interp_dict["zxy"]["err"](1.0 / self.plot_period),
                         ],
                         [
-                            tf.z_interp_dict["zyx"]["err"](
-                                1.0 / self.plot_period
-                            ),
-                            tf.z_interp_dict["zyy"]["err"](
-                                1.0 / self.plot_period
-                            ),
+                            tf.z_interp_dict["zyx"]["err"](1.0 / self.plot_period),
+                            tf.z_interp_dict["zyy"]["err"](1.0 / self.plot_period),
                         ],
                     ]
                 )
@@ -723,20 +674,12 @@ class PlotBaseProfile(PlotBase):
                 [
                     [
                         [
-                            tf.t_interp_dict["tzx"]["real"](
-                                1.0 / self.plot_period
-                            )
+                            tf.t_interp_dict["tzx"]["real"](1.0 / self.plot_period)
                             + 1j
-                            * tf.t_interp_dict["tzx"]["imag"](
-                                1.0 / self.plot_period
-                            ),
-                            tf.t_interp_dict["tzy"]["real"](
-                                1.0 / self.plot_period
-                            )
+                            * tf.t_interp_dict["tzx"]["imag"](1.0 / self.plot_period),
+                            tf.t_interp_dict["tzy"]["real"](1.0 / self.plot_period)
                             + 1j
-                            * tf.t_interp_dict["tzy"]["imag"](
-                                1.0 / self.plot_period
-                            ),
+                            * tf.t_interp_dict["tzy"]["imag"](1.0 / self.plot_period),
                         ]
                     ]
                 ]
@@ -758,12 +701,8 @@ class PlotBaseProfile(PlotBase):
                 [
                     [
                         [
-                            tf.t_interp_dict["tzx"]["err"](
-                                1.0 / self.plot_period
-                            ),
-                            tf.t_interp_dict["tzy"]["err"](
-                                1.0 / self.plot_period
-                            ),
+                            tf.t_interp_dict["tzx"]["err"](1.0 / self.plot_period),
+                            tf.t_interp_dict["tzy"]["err"](1.0 / self.plot_period),
                         ]
                     ]
                 ]

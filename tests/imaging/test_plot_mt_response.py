@@ -9,12 +9,12 @@ Created on Tue Oct 17 14:39:46 2023
 # =============================================================================
 import unittest
 import unittest.mock
+
 import numpy as np
+from mt_metadata import TF_EDI_CGG
 
 from mtpy import MT
 from mtpy.imaging import plot_mt_response
-
-from mt_metadata import TF_EDI_CGG
 
 
 # =============================================================================
@@ -23,7 +23,6 @@ from mt_metadata import TF_EDI_CGG
 class TestPlotMTResponse(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-
         m1 = MT(TF_EDI_CGG)
         m1.read()
 
@@ -50,9 +49,7 @@ class TestPlotMTResponse(unittest.TestCase):
         self.assertEqual(self.pt_object, self.plot_object.pt)
 
     def test_period(self):
-        self.assertEqual(
-            True, (self.z_object.period == self.plot_object.period).all()
-        )
+        self.assertEqual(True, (self.z_object.period == self.plot_object.period).all())
 
     def test_set_model_error_to_true(self):
         self.plot_object.plot_model_error = True
@@ -92,9 +89,7 @@ class TestPlotMTResponse(unittest.TestCase):
 
     def test_setup_subplot_plot_num_1(self):
         self.plot_object.plot_num = 1
-        self.assertTupleEqual(
-            (-0.095, 0.5), self.plot_object._setup_subplots()
-        )
+        self.assertTupleEqual((-0.095, 0.5), self.plot_object._setup_subplots())
 
     def test_setup_subplot_plot_num_2(self):
         self.plot_object.plot_num = 2
@@ -102,9 +97,7 @@ class TestPlotMTResponse(unittest.TestCase):
 
     def test_setup_subplot_plot_num_3(self):
         self.plot_object.plot_num = 3
-        self.assertTupleEqual(
-            (-0.095, 0.5), self.plot_object._setup_subplots()
-        )
+        self.assertTupleEqual((-0.095, 0.5), self.plot_object._setup_subplots())
 
     def test_plot_resistivity_od(self):
         self.plot_object._setup_subplots()
@@ -118,9 +111,7 @@ class TestPlotMTResponse(unittest.TestCase):
             self.assertTrue(
                 np.isclose(
                     res_line.get_ydata(),
-                    self.plot_object.Z.res_xy[
-                        np.nonzero(self.plot_object.Z.res_xy)
-                    ],
+                    self.plot_object.Z.res_xy[np.nonzero(self.plot_object.Z.res_xy)],
                 ).all()
             )
         with self.subTest("res_yx"):
@@ -128,9 +119,7 @@ class TestPlotMTResponse(unittest.TestCase):
             self.assertTrue(
                 np.isclose(
                     res_line.get_ydata(),
-                    self.plot_object.Z.res_yx[
-                        np.nonzero(self.plot_object.Z.res_yx)
-                    ],
+                    self.plot_object.Z.res_yx[np.nonzero(self.plot_object.Z.res_yx)],
                 ).all(),
             )
 
@@ -152,9 +141,7 @@ class TestPlotMTResponse(unittest.TestCase):
             self.assertTrue(
                 np.isclose(
                     res_line.get_ydata(),
-                    self.plot_object.Z.res_xx[
-                        np.nonzero(self.plot_object.Z.res_xx)
-                    ],
+                    self.plot_object.Z.res_xx[np.nonzero(self.plot_object.Z.res_xx)],
                 ).all(),
             )
         with self.subTest("res_yy"):
@@ -162,9 +149,7 @@ class TestPlotMTResponse(unittest.TestCase):
             self.assertTrue(
                 np.isclose(
                     res_line.get_ydata(),
-                    self.plot_object.Z.res_yy[
-                        np.nonzero(self.plot_object.Z.res_yy)
-                    ],
+                    self.plot_object.Z.res_yy[np.nonzero(self.plot_object.Z.res_yy)],
                 ).all(),
             )
 
@@ -172,7 +157,6 @@ class TestPlotMTResponse(unittest.TestCase):
 class TestPlotMTResponsePlot(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-
         m1 = MT(TF_EDI_CGG)
         m1.read()
 

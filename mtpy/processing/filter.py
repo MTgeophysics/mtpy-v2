@@ -3,7 +3,7 @@
 """
 mtpy/processing/filter.py
 
-Functions for the frequency filtering of raw time series. 
+Functions for the frequency filtering of raw time series.
 
 @UofA, 2013
 (LK)
@@ -13,11 +13,12 @@ JP
 
 """
 
-# =================================================================
-import numpy as np
 import os
 
+# =================================================================
+import numpy as np
 import scipy.signal as signal
+
 
 # =================================================================
 
@@ -47,9 +48,7 @@ def butter_bandpass(lowcut, highcut, samplingrate, order=4):
 
     elif low <= 0.05:
         print("lowpass", high)
-        order, wn = signal.buttord(
-            high - 0.05, high + 0.05, gpass=0.0, gstop=10.0
-        )
+        order, wn = signal.buttord(high - 0.05, high + 0.05, gpass=0.0, gstop=10.0)
         b, a = signal.butter(order, wn, btype="low")
 
     return b, a
@@ -65,9 +64,7 @@ def butter_bandpass_filter(data, lowcut, highcut, samplingrate, order=4):
 def low_pass(f, low_pass_freq, cutoff_freq, sampling_rate):
     """Low pass."""
     nyq = 0.5 * sampling_rate
-    filt_order, wn = signal.buttord(
-        low_pass_freq / nyq, cutoff_freq / nyq, 3, 40
-    )
+    filt_order, wn = signal.buttord(low_pass_freq / nyq, cutoff_freq / nyq, 3, 40)
 
     b, a = signal.butter(filt_order, wn, btype="low")
     f_filt = signal.filtfilt(b, a, f)
@@ -259,36 +256,21 @@ def adaptive_notch_filter(
         else:
             fspot = int(round(notch / dfn))
             nspot = np.where(
-                abs(BX)
-                == max(
-                    abs(BX[max([fspot - dfnn, 0]) : min([fspot + dfnn, n])])
-                )
+                abs(BX) == max(abs(BX[max([fspot - dfnn, 0]) : min([fspot + dfnn, n])]))
             )[0][0]
 
             med_bx = np.median(
-                abs(
-                    BX[
-                        max([nspot - dfnn * 10, 0]) : min(
-                            [nspot + dfnn * 10, n]
-                        )
-                    ]
-                )
-                ** 2
+                abs(BX[max([nspot - dfnn * 10, 0]) : min([nspot + dfnn * 10, n])]) ** 2
             )
 
             # calculate difference between peak and surrounding spectra in dB
             dbstop = 10 * np.log10(abs(BX[nspot]) ** 2 / med_bx)
             if np.nan_to_num(dbstop) == 0.0 or dbstop < dbstop_limit:
                 filtlst.append("No need to filter \n")
-                pass
             else:
                 filtlst.append([freq[nspot], dbstop])
                 ws = 2 * np.array([freq[nspot] - fn, freq[nspot] + fn]) / df
-                wp = (
-                    2
-                    * np.array([freq[nspot] - 2 * fn, freq[nspot] + 2 * fn])
-                    / df
-                )
+                wp = 2 * np.array([freq[nspot] - 2 * fn, freq[nspot] + 2 * fn]) / df
                 ford, wn = signal.cheb1ord(wp, ws, 1, dbstop)
                 b, a = signal.cheby1(1, 0.5, wn, btype="bandstop")
                 bx = signal.filtfilt(b, a, bx)
@@ -443,10 +425,6 @@ def remove_periodic_noise(filename, dt, noiseperiods, save="n"):
             os.mkdir(savepath)
         # savepathCN=os.path.join(savepath,'CN')
         np.savetxt(os.path.join(savepath, filename), bxnf, fmt="%.7g")
-        print(
-            "Saved filtered file to {0}".format(
-                os.path.join(savepath, filename)
-            )
-        )
+        print("Saved filtered file to {0}".format(os.path.join(savepath, filename)))
     else:
         return bxnf, pn, filtlst

@@ -3,13 +3,13 @@
 # Imports
 # =============================================================================
 import unittest
-import pandas as pd
 
-from mth5.data.make_mth5_from_asc import MTH5_PATH, create_test12rr_h5
+import pandas as pd
+from mth5.data.make_mth5_from_asc import create_test12rr_h5, MTH5_PATH
 from mth5.utils.helpers import close_open_files
 
-from mtpy.processing.run_summary import RunSummary
 from mtpy.processing import RUN_SUMMARY_COLUMNS
+from mtpy.processing.run_summary import RunSummary
 
 
 # =============================================================================
@@ -29,9 +29,7 @@ class TestRunSummary(unittest.TestCase):
         self.maxDiff = None
 
     def test_df_columns(self):
-        self.assertListEqual(
-            sorted(RUN_SUMMARY_COLUMNS), sorted(self.rs.df.columns)
-        )
+        self.assertListEqual(sorted(RUN_SUMMARY_COLUMNS), sorted(self.rs.df.columns))
 
     def test_set_df_fail_bad_type(self):
         def set_df(value):

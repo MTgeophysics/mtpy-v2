@@ -9,12 +9,14 @@ Created on Tue Aug 20 13:09:02 2024
 # Imports
 # =============================================================================
 import unittest
-import numpy as np
-from mtpy import MTData
 
+import numpy as np
 from mtpy_data import PROFILE_LIST
+
+from mtpy import MTData
 from mtpy.modeling.simpeg.data_2d import Simpeg2DData
 from mtpy.modeling.simpeg.recipes.inversion_2d import Simpeg2D
+
 
 # =============================================================================
 
@@ -23,21 +25,15 @@ class TestSimpeg2DData(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         self.md = MTData()
-        self.md.add_station(
-            [fn for fn in PROFILE_LIST if fn.name.startswith("16")]
-        )
+        self.md.add_station([fn for fn in PROFILE_LIST if fn.name.startswith("16")])
         # australian epsg
         self.md.utm_epsg = 4462
 
         # extract profile
-        self.profile = self.md.get_profile(
-            149.15, -22.3257, 149.20, -22.3257, 1000
-        )
+        self.profile = self.md.get_profile(149.15, -22.3257, 149.20, -22.3257, 1000)
         # interpolate onto a common period range
         self.new_periods = np.logspace(-5, 1, 10)
-        self.profile.interpolate(
-            self.new_periods, inplace=True, bounds_error=False
-        )
+        self.profile.interpolate(self.new_periods, inplace=True, bounds_error=False)
 
         self.mt_df = self.profile.to_dataframe()
 
@@ -109,9 +105,7 @@ class TestSimpeg2DData(unittest.TestCase):
 
     def test_frequencies(self):
         self.assertTrue(
-            np.allclose(
-                np.sort(1.0 / self.new_periods), self.simpeg_data.frequencies
-            )
+            np.allclose(np.sort(1.0 / self.new_periods), self.simpeg_data.frequencies)
         )
 
     def test_te_survey(self):
@@ -137,36 +131,28 @@ class TestSimpeg2DData(unittest.TestCase):
         with self.subTest("size"):
             self.assertEqual(
                 self.simpeg_data.te_observations.size,
-                2
-                * self.simpeg_data.n_frequencies
-                * self.simpeg_data.n_stations,
+                2 * self.simpeg_data.n_frequencies * self.simpeg_data.n_stations,
             )
 
     def test_tm_observations(self):
         with self.subTest("size"):
             self.assertEqual(
                 self.simpeg_data.tm_observations.size,
-                2
-                * self.simpeg_data.n_frequencies
-                * self.simpeg_data.n_stations,
+                2 * self.simpeg_data.n_frequencies * self.simpeg_data.n_stations,
             )
 
     def test_te_data_errors(self):
         with self.subTest("size"):
             self.assertEqual(
                 self.simpeg_data.te_data_errors.size,
-                2
-                * self.simpeg_data.n_frequencies
-                * self.simpeg_data.n_stations,
+                2 * self.simpeg_data.n_frequencies * self.simpeg_data.n_stations,
             )
 
     def test_tm_data_errors(self):
         with self.subTest("size"):
             self.assertEqual(
                 self.simpeg_data.tm_data_errors.size,
-                2
-                * self.simpeg_data.n_frequencies
-                * self.simpeg_data.n_stations,
+                2 * self.simpeg_data.n_frequencies * self.simpeg_data.n_stations,
             )
 
 
@@ -174,21 +160,15 @@ class TestSimpeg2DRecipe(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         self.md = MTData()
-        self.md.add_station(
-            [fn for fn in PROFILE_LIST if fn.name.startswith("16")]
-        )
+        self.md.add_station([fn for fn in PROFILE_LIST if fn.name.startswith("16")])
         # australian epsg
         self.md.utm_epsg = 4462
 
         # extract profile
-        self.profile = self.md.get_profile(
-            149.15, -22.3257, 149.20, -22.3257, 1000
-        )
+        self.profile = self.md.get_profile(149.15, -22.3257, 149.20, -22.3257, 1000)
         # interpolate onto a common period range
         self.new_periods = np.logspace(-3, 0, 4)
-        self.profile.interpolate(
-            self.new_periods, inplace=True, bounds_error=False
-        )
+        self.profile.interpolate(self.new_periods, inplace=True, bounds_error=False)
 
         self.mt_df = self.profile.to_dataframe()
 

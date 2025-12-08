@@ -14,8 +14,9 @@ import numpy as np
 import pandas as pd
 from loguru import logger
 
-from mtpy.core import MTDataFrame
 import mtpy.utils.calculator as mtcc
+from mtpy.core import MTDataFrame
+
 
 # =============================================================================
 class Occam1DData(object):
@@ -131,7 +132,6 @@ class Occam1DData(object):
 
     @mode.setter
     def mode(self, mode):
-
         if mode not in self._acceptable_modes:
             raise ValueError(
                 f"Mode {mode} not in accetable modes {self._acceptable_modes}"
@@ -190,15 +190,11 @@ class Occam1DData(object):
             sub_df = pd.DataFrame(
                 {
                     "frequency": 1.0 / self.mt_dataframe.dataframe.period,
-                    "data_1": self.mt_dataframe.dataframe.zxy.real
-                    * np.pi
-                    * 4e-4,
+                    "data_1": self.mt_dataframe.dataframe.zxy.real * np.pi * 4e-4,
                     "data_1_error": self.mt_dataframe.dataframe.zxy_model_error
                     * np.pi
                     * 4e-4,
-                    "data_2": self.mt_dataframe.dataframe.zxy.imag
-                    * np.pi
-                    * 4e-4,
+                    "data_2": self.mt_dataframe.dataframe.zxy.imag * np.pi * 4e-4,
                     "data_2_error": self.mt_dataframe.dataframe.zxy_model_error
                     * np.pi
                     * 4e-4,
@@ -209,15 +205,11 @@ class Occam1DData(object):
             sub_df = pd.DataFrame(
                 {
                     "frequency": 1.0 / self.mt_dataframe.dataframe.period,
-                    "data_1": self.mt_dataframe.dataframe.zyx.real
-                    * np.pi
-                    * 4e-4,
+                    "data_1": self.mt_dataframe.dataframe.zyx.real * np.pi * 4e-4,
                     "data_1_error": self.mt_dataframe.dataframe.zyx_model_error
                     * np.pi
                     * 4e-4,
-                    "data_2": self.mt_dataframe.dataframe.zyx.imag
-                    * np.pi
-                    * 4e-4,
+                    "data_2": self.mt_dataframe.dataframe.zyx.imag * np.pi * 4e-4,
                     "data_2_error": self.mt_dataframe.dataframe.zyx_model_error
                     * np.pi
                     * 4e-4,
@@ -381,9 +373,7 @@ class Occam1DData(object):
         """
         # remove data points with phase out of quadrant
         if "z" in self.mode:
-            sub_df.loc[
-                (sub_df.data_1 / sub_df.data_2 > 0), ["data_1", "data_2"]
-            ] = 0
+            sub_df.loc[(sub_df.data_1 / sub_df.data_2 > 0), ["data_1", "data_2"]] = 0
 
         elif self.mode in ["det", "te", "tm"]:
             sub_df.loc[(sub_df.data_2 % 180 < 0), "data_2"] = 0
@@ -454,17 +444,13 @@ class Occam1DData(object):
                 finddict[fkey] = fvalue
 
         # get number of frequencies
-        nfreq = int(
-            dlines[finddict["Frequencies"]][2:].strip().split(":")[1].strip()
-        )
+        nfreq = int(dlines[finddict["Frequencies"]][2:].strip().split(":")[1].strip())
 
         # frequency list
         freq = np.array(
             [
                 float(ff)
-                for ff in dlines[
-                    finddict["Frequencies"] + 1 : finddict["Receivers"]
-                ]
+                for ff in dlines[finddict["Frequencies"] + 1 : finddict["Receivers"]]
             ]
         )
 
@@ -657,9 +643,7 @@ class Occam1DData(object):
                 pol = "yx"
             for ii in [0, 2]:
                 self.data["res" + pol][0 + ii] = (
-                    0.2
-                    * np.abs(self.data["z" + pol][0 + ii]) ** 2.0
-                    / self.freq
+                    0.2 * np.abs(self.data["z" + pol][0 + ii]) ** 2.0 / self.freq
                 )
                 self.data["phase" + pol][0 + ii] = np.rad2deg(
                     np.arctan(
@@ -675,15 +659,11 @@ class Occam1DData(object):
                 )
 
                 for jjj in range(len(self.freq)):
-                    self.data["phase" + pol][
-                        1 + ii, jjj
-                    ] = mtcc.z_error2r_phi_error(
+                    self.data["phase" + pol][1 + ii, jjj] = mtcc.z_error2r_phi_error(
                         self.data["z" + pol][0 + ii, jjj].real,
                         self.data["z" + pol][0 + ii, jjj].imag,
                         self.data["z" + pol][1 + ii, jjj].real,
-                    )[
-                        1
-                    ]
+                    )[1]
             if pol == "xy":
                 self.res_te = self.data["resxy"]
                 self.phase_te = self.data["phasexy"]

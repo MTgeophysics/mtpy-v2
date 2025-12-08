@@ -9,12 +9,14 @@ Created on Tue Aug 20 13:09:02 2024
 # Imports
 # =============================================================================
 import unittest
-import numpy as np
-from mtpy import MTData
 
+import numpy as np
 from mtpy_data import PROFILE_LIST
-from mtpy.modeling.simpeg.data_3d import Simpeg3DData
 from simpeg.electromagnetics.natural_source.survey import Data
+
+from mtpy import MTData
+from mtpy.modeling.simpeg.data_3d import Simpeg3DData
+
 
 # =============================================================================
 
@@ -24,9 +26,7 @@ class TestSimpeg3DData(unittest.TestCase):
     def setUpClass(self):
         self.maxDiff = None
         self.md = MTData()
-        self.md.add_station(
-            [fn for fn in PROFILE_LIST if fn.name.startswith("16")]
-        )
+        self.md.add_station([fn for fn in PROFILE_LIST if fn.name.startswith("16")])
         # australian epsg
         self.md.utm_epsg = 4462
 
@@ -64,11 +64,7 @@ class TestSimpeg3DData(unittest.TestCase):
                         5,
                     ).tolist()
                 ),
-                sorted(
-                    np.round(
-                        self.simpeg_data.station_locations[:, 0], 5
-                    ).tolist()
-                ),
+                sorted(np.round(self.simpeg_data.station_locations[:, 0], 5).tolist()),
             )
 
         with self.subTest("northing"):
@@ -86,11 +82,7 @@ class TestSimpeg3DData(unittest.TestCase):
                         5,
                     ).tolist()
                 ),
-                sorted(
-                    np.round(
-                        self.simpeg_data.station_locations[:, 1], 5
-                    ).tolist()
-                ),
+                sorted(np.round(self.simpeg_data.station_locations[:, 1], 5).tolist()),
             )
 
         with self.subTest("elevation"):

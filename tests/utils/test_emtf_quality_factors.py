@@ -9,8 +9,6 @@ Created on Wed Jun 12 15:39:08 2024
 # =============================================================================
 import unittest
 
-from mtpy import MT
-
 from mt_metadata import (
     TF_AVG,
     TF_AVG_NEWER,
@@ -34,6 +32,9 @@ from mt_metadata import (
     TF_ZSS_TIPPER,
 )
 
+from mtpy import MT
+
+
 # =============================================================================
 
 
@@ -43,14 +44,14 @@ class TestTFQualityFactory(unittest.TestCase):
         self.tf_list = [
             {"fn": TF_AVG, "rounded_qf": 3.0, "qf": 3.35},
             {"fn": TF_AVG_NEWER, "rounded_qf": 4.0, "qf": 3.525},
-            {"fn": TF_AVG_TIPPER, "rounded_qf": 2.0, "qf": 1.5},
+            {"fn": TF_AVG_TIPPER, "rounded_qf": 1.0, "qf": 1.45},
             {"fn": TF_EDI_CGG, "rounded_qf": 5.0, "qf": 4.85},
             {"fn": TF_EDI_EMPOWER, "rounded_qf": 5.0, "qf": 4.9},
             {"fn": TF_EDI_METRONIX, "rounded_qf": 4.0, "qf": 3.9},
             {"fn": TF_EDI_NO_ERROR, "rounded_qf": 2.0, "qf": 2.35},
             {"fn": TF_EDI_PHOENIX, "rounded_qf": 4.0, "qf": 4.2},
             {"fn": TF_EDI_QUANTEC, "rounded_qf": 5.0, "qf": 4.75},
-            {"fn": TF_EDI_RHO_ONLY, "rounded_qf": 4.0, "qf": 3.75},
+            {"fn": TF_EDI_RHO_ONLY, "rounded_qf": 4.0, "qf": 4.0},
             {"fn": TF_EDI_SPECTRA, "rounded_qf": 4.0, "qf": 4.0},
             {"fn": TF_JFILE, "rounded_qf": 2.0, "qf": 2.0},
             {"fn": TF_POOR_XML, "rounded_qf": 3.0, "qf": 2.8},

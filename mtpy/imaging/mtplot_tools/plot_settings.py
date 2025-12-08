@@ -5,18 +5,18 @@ Created on Sun Sep 25 15:20:43 2022
 @author: jpeacock
 """
 
+import matplotlib.colorbar as mcb
+import matplotlib.colors as colors
+
 # =============================================================================
 # Imports
 # =============================================================================
 import numpy as np
-
-import matplotlib.colors as colors
-import matplotlib.colorbar as mcb
 from matplotlib import __version__ as matplotlib_version
 
-from . import MTEllipse, MTArrows
-
 import mtpy.imaging.mtcolors as mtcl
+
+from . import MTArrows, MTEllipse
 
 
 # =============================================================================
@@ -337,7 +337,7 @@ class PlotSettings(MTArrows, MTEllipse):
 
     @property
     def font_dict(self):
-        if int(matplotlib_version[2]) < 9:
+        if int(matplotlib_version.split(".")[1]) < 9:
             return {"size": self.font_size + 2, "weight": self.font_weight}
         else:
             return {

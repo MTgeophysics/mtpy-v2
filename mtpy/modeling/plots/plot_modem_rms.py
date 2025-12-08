@@ -2,24 +2,24 @@
 """
 Created on Wed Feb 17 10:57:29 2021
 
-:copyright: 
+:copyright:
     Jared Peacock (jpeacock@usgs.gov)
 
 :license: MIT
 
 """
+import matplotlib.pyplot as plt
+
 # =============================================================================
 # Imports
 # =============================================================================
 import numpy as np
 import pandas as pd
-
-import matplotlib.pyplot as plt
-from matplotlib import colors as colors
-from matplotlib import colorbar as mcb
 from matplotlib import cm
+from matplotlib import colorbar as mcb
+from matplotlib import colors as colors
 from matplotlib import gridspec
-from matplotlib import ticker
+
 
 try:
     import contextily as cx
@@ -30,6 +30,7 @@ except ModuleNotFoundError:
 
 from mtpy.core.mt_dataframe import MTDataFrame
 from mtpy.imaging.mtplot_tools import PlotBaseMaps
+
 
 # =============================================================================
 
@@ -153,15 +154,12 @@ class PlotRMS(PlotBaseMaps):
         """
 
         cb_norm = colors.BoundaryNorm(
-            np.arange(
-                self.rms_min, self.rms_max + self.rms_step, self.rms_step
-            ),
+            np.arange(self.rms_min, self.rms_max + self.rms_step, self.rms_step),
             self.rms_cmap.N,
         )
 
         for dm, comp in zip(self.distance_multiplier, self.comp_list):
             for station in self.dataframe.station.unique():
-
                 sdf = self._mt_dataframe.get_station_df(station)
                 rms = sdf[comp].mean()
                 self.ax1.scatter(
@@ -195,9 +193,7 @@ class PlotRMS(PlotBaseMaps):
                         **cx_kwargs,
                     )
                 except Exception as error:
-                    self.logger.warning(
-                        f"Could not add base map because {error}"
-                    )
+                    self.logger.warning(f"Could not add base map because {error}")
 
         cb_ax, _ = mcb.make_axes(self.ax1, shrink=0.5)
         cb = mcb.ColorbarBase(cb_ax, cmap=self.rms_cmap, norm=cb_norm)
@@ -270,10 +266,7 @@ class PlotRMS(PlotBaseMaps):
         """
 
         period_dict = dict(
-            [
-                (f"{ff:.4g}", ii)
-                for ii, ff in enumerate(self.dataframe.period.unique())
-            ]
+            [(f"{ff:.4g}", ii) for ii, ff in enumerate(self.dataframe.period.unique())]
         )
 
         station_dict = dict(
@@ -292,9 +285,7 @@ class PlotRMS(PlotBaseMaps):
             p_index = period_dict[f"{row.period:.4g}"]
             s_index = station_dict[row.station]
 
-            for ii, comp in enumerate(
-                ["zxx", "zxy", "zyx", "zyy", "tzx", "tzy"]
-            ):
+            for ii, comp in enumerate(["zxx", "zxy", "zyx", "zyy", "tzx", "tzy"]):
                 rms_array[s_index, p_index, ii] = getattr(row, f"rms_{comp}")
 
         return rms_array
@@ -391,9 +382,7 @@ class PlotRMS(PlotBaseMaps):
         )
         ax.set_axisbelow(True)
 
-        ax.set_xticklabels(
-            [f"{float(x.get_text()):.4g}" for x in ax.get_xticklabels()]
-        )
+        ax.set_xticklabels([f"{float(x.get_text()):.4g}" for x in ax.get_xticklabels()])
         ax.tick_params(left=True)
         # ticks_loc = ax.get_yticks().tolist()
         # ax.yaxis.set_major_locator(ticker.FixedLocator(ticks_loc))
@@ -458,9 +447,7 @@ class PlotRMS(PlotBaseMaps):
         """
         self._set_subplot_params()
 
-        self.fig = plt.figure(
-            self.fig_num, figsize=self.fig_size, dpi=self.fig_dpi
-        )
+        self.fig = plt.figure(self.fig_num, figsize=self.fig_size, dpi=self.fig_dpi)
 
         plt.clf()
 

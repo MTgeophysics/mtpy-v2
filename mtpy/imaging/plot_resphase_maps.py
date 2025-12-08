@@ -2,30 +2,29 @@
 """
 Description:
     Plots resistivity and phase maps for a given frequency
-   
+
 References:
- 
+
 CreationDate:   4/19/18
 Developer:      rakib.hassan@ga.gov.au
- 
+
 Revision History:
     LastUpdate:     4/19/18   RH
                     2022-09 JP
-    
+
 
 """
 # =============================================================================
 # Imports
 # =============================================================================
 
-import numpy as np
-
 import matplotlib.pyplot as plt
-
+import numpy as np
 from matplotlib import ticker
 
 from mtpy.core import Z
 from mtpy.imaging.mtplot_tools import PlotBaseMaps
+
 
 # =============================================================================
 
@@ -322,12 +321,8 @@ class PlotResPhaseMaps(PlotBaseMaps):
             cb.ax.yaxis.set_major_formatter(ticker.FixedFormatter(labels))
         elif "phase" in component:
             cb = plt.colorbar(im_mappable, ax=ax, shrink=0.6, extend="both")
-        cb.ax.tick_params(
-            axis="both", which="major", labelsize=self.font_size - 1
-        )
-        cb.ax.tick_params(
-            axis="both", which="minor", labelsize=self.font_size - 1
-        )
+        cb.ax.tick_params(axis="both", which="major", labelsize=self.font_size - 1)
+        cb.ax.tick_params(axis="both", which="minor", labelsize=self.font_size - 1)
 
         return cb
 
@@ -341,9 +336,7 @@ class PlotResPhaseMaps(PlotBaseMaps):
         self._set_subplot_params()
 
         # make figure instance
-        self.fig = plt.figure(
-            self.fig_num, figsize=self.fig_size, dpi=self.fig_dpi
-        )
+        self.fig = plt.figure(self.fig_num, figsize=self.fig_size, dpi=self.fig_dpi)
 
         # clear the figure if there is already one up
         plt.clf()

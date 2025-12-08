@@ -7,19 +7,21 @@ Created on Mon Oct  3 15:04:12 2022
 @author: jpeacock
 """
 
+import json
+
 # =============================================================================
 # Imports
 # =============================================================================
 from copy import deepcopy
-from pyproj import CRS
+
 import numpy as np
 from loguru import logger
-import json
+from mt_metadata.transfer_functions.io.tools import get_nm_elev
+from mt_metadata.transfer_functions.tf import Run, Station, Survey
+from pyproj import CRS
 
 from mtpy.utils.gis_tools import project_point
 
-from mt_metadata.transfer_functions.tf import Station, Survey, Run
-from mt_metadata.transfer_functions.io.tools import get_nm_elev
 
 # =============================================================================
 
@@ -66,9 +68,7 @@ class MTLocation:
 
         if self.east != 0 and self.north != None:
             if self.utm_crs is None:
-                raise ValueError(
-                    "Need to input UTM CRS if only setting east and north"
-                )
+                raise ValueError("Need to input UTM CRS if only setting east and north")
 
     def _initiate_metadata(self):
         """Initiate metadata."""
@@ -134,15 +134,11 @@ class MTLocation:
 
             if isinstance(og_value, float):
                 if not np.isclose(og_value, other_value):
-                    self.logger.info(
-                        f"{key} not equal {og_value} != {other_value}"
-                    )
+                    self.logger.info(f"{key} not equal {og_value} != {other_value}")
                     return False
             else:
                 if not og_value == other_value:
-                    self.logger.info(
-                        f"{key} not equal {og_value} != {other_value}"
-                    )
+                    self.logger.info(f"{key} not equal {og_value} != {other_value}")
                     return False
         return True
 
@@ -153,9 +149,7 @@ class MTLocation:
         # not sure why this is needed, survey metadata copies fine, but here
         # it does not.
         if len(copied._survey_metadata.stations) == 0:
-            copied._survey_metadata.add_station(
-                self._survey_metadata.stations[0]
-            )
+            copied._survey_metadata.add_station(self._survey_metadata.stations[0])
         for key in self._key_attrs:
             setattr(copied, key, deepcopy(getattr(self, key)))
 
@@ -272,11 +266,7 @@ class MTLocation:
                     self.east, self.north, self._utm_crs, new_crs
                 )
 
-            if (
-                self.datum_crs is not None
-                and self.east != 0
-                and self.north != 0
-            ):
+            if self.datum_crs is not None and self.east != 0 and self.north != 0:
                 # reproject lat and lon base on new UTM datum
                 (
                     self._survey_metadata.stations[0].location.longitude,
@@ -314,17 +304,11 @@ class MTLocation:
     def east(self, value):
         """Set east."""
         self._east = value
-        if (
-            self.datum_crs is not None
-            and self.utm_crs is not None
-            and self._north != 0
-        ):
+        if self.datum_crs is not None and self.utm_crs is not None and self._north != 0:
             (
                 self._survey_metadata.stations[0].location.longitude,
                 self._survey_metadata.stations[0].location.latitude,
-            ) = project_point(
-                self._east, self._north, self.utm_crs, self.datum_crs
-            )
+            ) = project_point(self._east, self._north, self.utm_crs, self.datum_crs)
 
     @property
     def north(self):
@@ -335,17 +319,11 @@ class MTLocation:
     def north(self, value):
         """Set north."""
         self._north = value
-        if (
-            self.datum_crs is not None
-            and self.utm_crs is not None
-            and self._east != 0
-        ):
+        if self.datum_crs is not None and self.utm_crs is not None and self._east != 0:
             (
                 self._survey_metadata.stations[0].location.longitude,
                 self._survey_metadata.stations[0].location.latitude,
-            ) = project_point(
-                self._east, self._north, self.utm_crs, self.datum_crs
-            )
+            ) = project_point(self._east, self._north, self.utm_crs, self.datum_crs)
 
     @property
     def latitude(self):
@@ -464,16 +442,12 @@ class MTLocation:
         """
 
         if self.utm_crs is None:
-            raise ValueError(
-                "utm_crs is None, cannot project onto profile line."
-            )
+            raise ValueError("utm_crs is None, cannot project onto profile line.")
 
         profile_vector = np.array([1, profile_slope], dtype=float)
         profile_vector /= np.linalg.norm(profile_vector)
 
-        station_vector = np.array(
-            [self.east, self.north - profile_intersection]
-        )
+        station_vector = np.array([self.east, self.north - profile_intersection])
 
         self.profile_offset = np.linalg.norm(
             np.dot(profile_vector, station_vector) * profile_vector
@@ -482,21 +456,19 @@ class MTLocation:
     def get_elevation_from_national_map(self):
         """Get elevation from DEM data of the US National Map.
 
-        Plan to extend
-this to the globe.
+                Plan to extend
+        this to the globe.
 
-        Pulls data from the USGS national map DEM
-        :return: DESCRIPTION.
-        :rtype: TYPE
+                Pulls data from the USGS national map DEM
+                :return: DESCRIPTION.
+                :rtype: TYPE
         """
 
         elev = get_nm_elev(self.latitude, self.longitude)
         if elev != 0:
             self.elevation = elev
         else:
-            self.logger.warning(
-                "Could not get elevation data, not setting elevation"
-            )
+            self.logger.warning("Could not get elevation data, not setting elevation")
 
     def to_json(self, filename):
         """Write out information to a json file.

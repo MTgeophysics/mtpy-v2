@@ -64,7 +64,7 @@ def padzeros(f, npad=None, pad_pattern=None):
         if power != fpow:
             npad = 2 ** (fpow + 1)
         else:
-            npad = 2 ** power
+            npad = 2**power
 
     else:
         pass
@@ -305,7 +305,7 @@ def wvd_analytic_signal(fx):
     return fxa
 
 
-def stft(fx, nh=2 ** 8, tstep=2 ** 7, ng=1, df=1.0, nfbins=2 ** 10):
+def stft(fx, nh=2**8, tstep=2**7, ng=1, df=1.0, nfbins=2**10):
     """
     calculate the spectrogam of the given function by calculating the fft of
     a window of length nh at each time instance with an interval of tstep.
@@ -347,7 +347,7 @@ def stft(fx, nh=2 ** 8, tstep=2 ** 7, ng=1, df=1.0, nfbins=2 ** 10):
         **flst** : np.ndarray(nfbins/2)
                    frequency array containing only positive frequencies where
                    the Fourier coeffients were calculated
-       """
+    """
 
     # get length of input time series if there is two columns
     if isinstance(fx, list):
@@ -414,7 +414,7 @@ def stft(fx, nh=2 ** 8, tstep=2 ** 7, ng=1, df=1.0, nfbins=2 ** 10):
 
 
 def reassigned_stft(
-    fx, nh=2 ** 6 - 1, tstep=2 ** 5, nfbins=2 ** 10, df=1.0, alpha=4, threshold=None
+    fx, nh=2**6 - 1, tstep=2**5, nfbins=2**10, df=1.0, alpha=4, threshold=None
 ):
     """
     Computes the reassigned spectrogram by estimating the center of gravity of
@@ -566,7 +566,7 @@ def reassigned_stft(
     return rtfarray, tlst, return_flst, spec
 
 
-def wvd(fx, nh=2 ** 8 - 1, tstep=2 ** 5, nfbins=2 ** 10, df=1.0):
+def wvd(fx, nh=2**8 - 1, tstep=2**5, nfbins=2**10, df=1.0):
     """
     calculates the Wigner-Ville distribution of f.
 
@@ -666,7 +666,7 @@ def wvd(fx, nh=2 ** 8 - 1, tstep=2 ** 5, nfbins=2 ** 10, df=1.0):
 
 
 def spwvd(
-    fx, tstep=2 ** 5, nfbins=2 ** 10, df=1.0, nh=None, ng=None, sigmat=None, sigmaf=None
+    fx, tstep=2**5, nfbins=2**10, df=1.0, nh=None, ng=None, sigmat=None, sigmaf=None
 ):
     """
     Calculates the smoothed pseudo Wigner-Ville distribution for an array
@@ -854,10 +854,10 @@ def spwvd(
 
 def robust_wvd(
     fx,
-    nh=2 ** 7 - 1,
-    ng=2 ** 4 - 1,
-    tstep=2 ** 4,
-    nfbins=2 ** 8,
+    nh=2**7 - 1,
+    ng=2**4 - 1,
+    tstep=2**4,
+    nfbins=2**8,
     df=1.0,
     sigmat=None,
     sigmaf=None,
@@ -998,11 +998,11 @@ def robust_wvd(
 
 def specwv(
     fx,
-    tstep=2 ** 5,
-    nfbins=2 ** 10,
-    nhs=2 ** 8,
-    nhwv=2 ** 9 - 1,
-    ngwv=2 ** 3 - 1,
+    tstep=2**5,
+    nfbins=2**10,
+    nhs=2**8,
+    nhwv=2**9 - 1,
+    ngwv=2**3 - 1,
     df=1.0,
 ):
     """
@@ -1067,7 +1067,7 @@ def specwv(
     return tfarray, tlst, flst
 
 
-def modifiedb(fx, tstep=2 ** 5, nfbins=2 ** 10, df=1.0, nh=2 ** 8 - 1, beta=0.2):
+def modifiedb(fx, tstep=2**5, nfbins=2**10, df=1.0, nh=2**8 - 1, beta=0.2):
     """
     Calculates the modified b distribution as defined by cosh(n)^-2 beta
     for an array fx.  Supposed to remove cross terms in the WVD.
@@ -1168,7 +1168,7 @@ def modifiedb(fx, tstep=2 ** 5, nfbins=2 ** 10, df=1.0, nh=2 ** 8 - 1, beta=0.2)
     return tfarray, tlst, flst
 
 
-def robust_stft_median(fx, nh=2 ** 8, tstep=2 ** 5, df=1.0, nfbins=2 ** 10):
+def robust_stft_median(fx, nh=2**8, tstep=2**5, df=1.0, nfbins=2**10):
     """
     Calculates the robust spectrogram using the vector median simplification.
 
@@ -1254,7 +1254,7 @@ def robust_stft_median(fx, nh=2 ** 8, tstep=2 ** 5, df=1.0, nfbins=2 ** 10):
     return tfarray, tlst, flstp
 
 
-def robust_stft_L(fx, alpha=0.325, nh=2 ** 8, tstep=2 ** 5, df=1.0, nfbins=2 ** 10):
+def robust_stft_L(fx, alpha=0.325, nh=2**8, tstep=2**5, df=1.0, nfbins=2**10):
     """
     Calculates the robust spectrogram by estimating the vector median and
     summing terms estimated by alpha coefficients.
@@ -1355,7 +1355,7 @@ def robust_stft_L(fx, alpha=0.325, nh=2 ** 8, tstep=2 ** 5, df=1.0, nfbins=2 ** 
 
 
 def smethod(
-    fx, L=11, nh=2 ** 8, tstep=2 ** 7, ng=1, df=1.0, nfbins=2 ** 10, sigmaL=None
+    fx, L=11, nh=2**8, tstep=2**7, ng=1, df=1.0, nfbins=2**10, sigmaL=None
 ):
     """
     Calculates the smethod by estimating the STFT first and computing the WV
@@ -1468,9 +1468,9 @@ def smethod(
 def robust_smethod(
     fx,
     L=5,
-    nh=2 ** 7,
-    tstep=2 ** 5,
-    nfbins=2 ** 10,
+    nh=2**7,
+    tstep=2**5,
+    nfbins=2**10,
     df=1.0,
     robusttype="median",
     sigmaL=None,
@@ -1597,7 +1597,7 @@ def robust_smethod(
 
 
 def reassigned_smethod(
-    fx, nh=2 ** 7 - 1, tstep=2 ** 4, nfbins=2 ** 9, df=1.0, alpha=4, thresh=0.01, L=5
+    fx, nh=2**7 - 1, tstep=2**4, nfbins=2**9, df=1.0, alpha=4, thresh=0.01, L=5
 ):
     """
     Calulates the reassigned S-method as described by Djurovic[1999] by
@@ -1797,11 +1797,11 @@ def reassigned_smethod(
 def stfbss(
     X,
     nsources=5,
-    ng=2 ** 5 - 1,
-    nh=2 ** 9 - 1,
-    tstep=2 ** 6 - 1,
+    ng=2**5 - 1,
+    nh=2**9 - 1,
+    tstep=2**6 - 1,
     df=1.0,
-    nfbins=2 ** 10,
+    nfbins=2**10,
     tftol=1.0e-8,
     L=7,
     normalize=True,
@@ -1999,7 +1999,7 @@ def stfbss(
     Jft, Jff = np.gradient(gradf)
 
     # get points when L2 of gradient is smaller than tolerance level
-    smallgrad = np.where(np.sqrt(gradt ** 2 + gradf ** 2) < tftol, 1, 0)
+    smallgrad = np.where(np.sqrt(gradt**2 + gradf**2) < tftol, 1, 0)
 
     # get points where the Jacobi is negative definite
     detjacobi = Jtt * Jff - Jtf * Jft
@@ -2049,7 +2049,6 @@ def stfbss(
         upds = 0
         Vkeep = V
         for p in range(mtf):
-
             for q in range(p + 1, mtf):
                 # set up indices
                 qi = np.arange(start=q, stop=nm, step=mtf)
@@ -2059,7 +2058,7 @@ def stfbss(
                 gg = np.real(np.dot(g, g.T))
                 ton = gg[0, 0] - gg[1, 1]
                 toff = gg[0, 1] + gg[1, 0]
-                theta = 0.5 * np.arctan2(toff, ton + np.sqrt(ton ** 2 + toff ** 2))
+                theta = 0.5 * np.arctan2(toff, ton + np.sqrt(ton**2 + toff**2))
                 # Givens update
                 if abs(theta) > tftol:
                     encore = True

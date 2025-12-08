@@ -7,12 +7,12 @@ Created on Tue Nov  7 09:18:17 2023
 # ==============================================================================
 
 from pathlib import Path
+
 import numpy as np
 from loguru import logger
+from pyevtk.hl import pointsToVTK
 
 import mtpy.modeling.winglink as wl
-
-from pyevtk.hl import pointsToVTK
 
 
 # ==============================================================================
@@ -118,12 +118,8 @@ class WSStation:
                 self.elev = np.zeros_like(self.north)
 
         with open(self.station_filename, "w") as sfid:
-            sfid.write(
-                f"{'station':<14}{'east':^14}{'north':^14}{'elev':^14}\n"
-            )
-            for ee, nn, zz, ss in zip(
-                self.east, self.north, self.elev, self.names
-            ):
+            sfid.write(f"{'station':<14}{'east':^14}{'north':^14}{'elev':^14}\n")
+            for ee, nn, zz, ss in zip(self.east, self.north, self.elev, self.names):
                 ee = f"{ee:+.4e}"
                 nn = f"{nn:+.4e}"
                 zz = f"{zz:+.4e}"

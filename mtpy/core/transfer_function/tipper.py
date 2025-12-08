@@ -15,7 +15,9 @@ import math
 import numpy as np
 
 import mtpy.utils.calculator as MTcc
+
 from .base import TFBase
+
 
 # =============================================================================
 
@@ -118,18 +120,14 @@ class Tipper(TFBase):
                 self._expected_shape[1],
             )
 
-        tipper_error = self._validate_array_input(
-            tipper_error, "float", old_shape
-        )
+        tipper_error = self._validate_array_input(tipper_error, "float", old_shape)
         if tipper_error is None:
             return
 
         if self._is_empty():
             self._dataset = self._initialize(tf_error=tipper_error)
         else:
-            self._dataset["transfer_function_error"].loc[
-                self.comps
-            ] = tipper_error
+            self._dataset["transfer_function_error"].loc[self.comps] = tipper_error
 
     # ----tipper model error---------------------------------------------------------
     @property
@@ -211,25 +209,21 @@ class Tipper(TFBase):
         """
 
         if self.tipper is not None:
-
             tipper_new = copy.copy(self.tipper)
 
             if self.tipper.shape != r.shape:
                 self.logger.error(
                     'Error - shape of "r" array does not match shape of '
-                    + "tipper array: %s ; %s"
-                    % (str(r.shape), str(self.tipper.shape))
+                    + "tipper array: %s ; %s" % (str(r.shape), str(self.tipper.shape))
                 )
                 return
             if self.tipper.shape != phi.shape:
                 self.logger.error(
                     'Error - shape of "phi" array does not match shape of '
-                    + "tipper array: %s ; %s"
-                    % (str(phi.shape), str(self.tipper.shape))
+                    + "tipper array: %s ; %s" % (str(phi.shape), str(self.tipper.shape))
                 )
                 return
         else:
-
             tipper_new = np.zeros(r.shape, "complex")
 
             if r.shape != phi.shape:
@@ -303,8 +297,7 @@ class Tipper(TFBase):
         """
 
         self.tipper[:, 0, 0].real = np.sqrt(
-            (mag_real**2 * np.arctan(ang_real) ** 2)
-            / (1 - np.arctan(ang_real) ** 2)
+            (mag_real**2 * np.arctan(ang_real) ** 2) / (1 - np.arctan(ang_real) ** 2)
         )
 
         self.tipper[:, 0, 1].real = np.sqrt(
@@ -312,8 +305,7 @@ class Tipper(TFBase):
         )
 
         self.tipper[:, 0, 0].imag = np.sqrt(
-            (mag_imag**2 * np.arctan(ang_imag) ** 2)
-            / (1 - np.arctan(ang_imag) ** 2)
+            (mag_imag**2 * np.arctan(ang_imag) ** 2) / (1 - np.arctan(ang_imag) ** 2)
         )
 
         self.tipper[:, 0, 1].imag = np.sqrt(
@@ -344,9 +336,7 @@ class Tipper(TFBase):
         """Angle real."""
         if self._has_tf():
             return np.rad2deg(
-                np.arctan2(
-                    self.tipper[:, 0, 1].real, self.tipper[:, 0, 0].real
-                )
+                np.arctan2(self.tipper[:, 0, 1].real, self.tipper[:, 0, 0].real)
             )
 
     @property
@@ -354,9 +344,7 @@ class Tipper(TFBase):
         """Angle imag."""
         if self._has_tf():
             return np.rad2deg(
-                np.arctan2(
-                    self.tipper[:, 0, 1].imag, self.tipper[:, 0, 0].imag
-                )
+                np.arctan2(self.tipper[:, 0, 1].imag, self.tipper[:, 0, 0].imag)
             )
 
     @property
@@ -364,8 +352,7 @@ class Tipper(TFBase):
         """Mag error."""
         if self._has_tf_error():
             return np.sqrt(
-                self.tipper_error[:, 0, 0] ** 2
-                + self.tipper_error[:, 0, 1] ** 2
+                self.tipper_error[:, 0, 0] ** 2 + self.tipper_error[:, 0, 1] ** 2
             )
 
     @property
@@ -374,9 +361,7 @@ class Tipper(TFBase):
         if self._has_tf_error():
             return np.abs(
                 np.rad2deg(
-                    np.arctan(
-                        self.tipper_error[:, 0, 0] / self.tipper_error[:, 0, 1]
-                    )
+                    np.arctan(self.tipper_error[:, 0, 0] / self.tipper_error[:, 0, 1])
                 )
                 - 45
             )

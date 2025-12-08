@@ -9,10 +9,12 @@ Created on Tue Sep  5 16:27:01 2023
 # =============================================================================
 import unittest
 
-import pandas as pd
 import numpy as np
-from mtpy.core import MTStations, MTLocation
+import pandas as pd
+
 from mtpy import MT
+from mtpy.core import MTLocation, MTStations
+
 
 # =============================================================================
 
@@ -883,9 +885,7 @@ class TestMTStationProfile(unittest.TestCase):
                 self.profile_m[-1]["intercept"], profile[-1]["intercept"]
             )
         with self.subTest("slope"):
-            self.assertAlmostEqual(
-                self.profile_m[-1]["slope"], profile[-1]["slope"]
-            )
+            self.assertAlmostEqual(self.profile_m[-1]["slope"], profile[-1]["slope"])
 
     def test_center_point(self):
         self.assertEqual(self.center, self.stations.center_point)

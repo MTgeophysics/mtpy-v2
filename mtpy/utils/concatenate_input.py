@@ -14,13 +14,14 @@ Revision History:
     LastUpdate:     2017/10/23   RH
 """
 
+import glob
 import os
 import re
-import glob
 from collections import defaultdict
-import numpy as np
-import click
 from datetime import datetime
+
+import click
+import numpy as np
 
 
 class Data:

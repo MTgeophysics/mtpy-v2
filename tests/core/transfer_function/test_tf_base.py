@@ -9,10 +9,13 @@ Created on Fri Oct 21 13:46:49 2022
 # Imports
 # =============================================================================
 import unittest
+
 import numpy as np
 import scipy.interpolate as spi
+
 from mtpy.core.transfer_function.base import TFBase
 from mtpy.utils.calculator import rotate_matrix_with_errors
+
 
 # =============================================================================
 
@@ -41,9 +44,7 @@ class TestTFBaseTFInput(unittest.TestCase):
                 self.assertEqual((tf.values == 0).all(), v_dict["empty"])
 
     def test_frequency(self):
-        self.assertEqual(
-            (self.tf.frequency == 1.0 / np.arange(1, 3, 1)).all(), True
-        )
+        self.assertEqual((self.tf.frequency == 1.0 / np.arange(1, 3, 1)).all(), True)
 
     def test_period(self):
         self.assertEqual((self.tf.period == np.arange(1, 3, 1)).all(), True)
@@ -55,9 +56,7 @@ class TestTFBaseTFInput(unittest.TestCase):
 class TestTFBaseTFErrorInput(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        self.tf = TFBase(
-            tf_error=np.array([[[0, 1], [1, 0]], [[1, 0], [0, 1]]])
-        )
+        self.tf = TFBase(tf_error=np.array([[[0, 1], [1, 0]], [[1, 0], [0, 1]]]))
         self.expected_shape = (2, 2, 2)
         self.expected = {
             "transfer_function": {"dtype": complex, "empty": True},
@@ -78,9 +77,7 @@ class TestTFBaseTFErrorInput(unittest.TestCase):
                     self.assertEqual((tf.values == 0).all(), v_dict["empty"])
 
     def test_frequency(self):
-        self.assertEqual(
-            (self.tf.frequency == 1.0 / np.arange(1, 3, 1)).all(), True
-        )
+        self.assertEqual((self.tf.frequency == 1.0 / np.arange(1, 3, 1)).all(), True)
 
     def test_period(self):
         self.assertEqual((self.tf.period == np.arange(1, 3, 1)).all(), True)
@@ -89,9 +86,7 @@ class TestTFBaseTFErrorInput(unittest.TestCase):
 class TestTFBaseTFModelErrorInput(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        self.tf = TFBase(
-            tf_model_error=np.array([[[0, 1], [1, 0]], [[1, 0], [0, 1]]])
-        )
+        self.tf = TFBase(tf_model_error=np.array([[[0, 1], [1, 0]], [[1, 0], [0, 1]]]))
         self.expected_shape = (2, 1, 1)
         self.expected = {
             "transfer_function": {"dtype": complex, "empty": True},
@@ -112,9 +107,7 @@ class TestTFBaseTFModelErrorInput(unittest.TestCase):
                     self.assertEqual((tf.values == 0).all(), v_dict["empty"])
 
     def test_frequency(self):
-        self.assertEqual(
-            (self.tf.frequency == 1.0 / np.arange(1, 3, 1)).all(), True
-        )
+        self.assertEqual((self.tf.frequency == 1.0 / np.arange(1, 3, 1)).all(), True)
 
     def test_period(self):
         self.assertEqual((self.tf.period == np.arange(1, 3, 1)).all(), True)
@@ -320,9 +313,7 @@ class TestTFInterpolation(unittest.TestCase):
         self.new_periods = np.logspace(-3, 3, 12)
 
     def interpolate(self, interp_type, bounds_error=False):
-        interp_tf = spi.interp1d(
-            self.period, self.tf, axis=0, kind=interp_type
-        )
+        interp_tf = spi.interp1d(self.period, self.tf, axis=0, kind=interp_type)
         interp_tf_error = spi.interp1d(
             self.period, self.tf_error, axis=0, kind=interp_type
         )
@@ -437,44 +428,30 @@ class TestTFInterpolationFillNans(unittest.TestCase):
             frequency=1.0 / self.period,
         )
 
-        self.tf_interpolated_same_period = self.tf_base.interpolate(
-            self.period
-        )
+        self.tf_interpolated_same_period = self.tf_base.interpolate(self.period)
 
         self.new_period = np.logspace(-4, 4, 24)
         self.tf_interpolated_different_period = self.tf_base.interpolate(
             self.new_period
         )
 
-    def test_find_nans_index(self):
-        true_index = self.tf_base._find_nans_index(
-            self.tf_base._dataset.transfer_function
-        )
+    # function no longer exists in TFBase
+    # def test_find_nans_index(self):
+    #     true_index = self.tf_base._find_nans_index(
+    #         self.tf_base._dataset.transfer_function
+    #     )
 
-        new_index = self.tf_interpolated_same_period._find_nans_index(
-            self.tf_interpolated_same_period._dataset.transfer_function
-        )
+    #     new_index = self.tf_interpolated_same_period._find_nans_index(
+    #         self.tf_interpolated_same_period._dataset.transfer_function
+    #     )
 
-        with self.subTest("list length"):
-            self.assertEqual(len(true_index), len(new_index))
+    #     with self.subTest("list length"):
+    #         self.assertEqual(len(true_index), len(new_index))
 
-        entry_count = 0
-        for true_entry, new_entry in zip(true_index, new_index):
-            with self.subTest(entry_count):
-                self.assertDictEqual(true_entry, new_entry)
-
-    def test_backfill_nans(self):
-        new_tf = self.tf_base.interpolate(self.period, extrapolate=True)
-        new_tf_nans = self.tf_base._backfill_nans(
-            self.tf_base._dataset.transfer_function,
-            new_tf._dataset.transfer_function,
-        )
-        self.assertEqual(
-            True,
-            np.all(
-                np.isclose(np.nan_to_num(self.tf), np.nan_to_num(new_tf_nans))
-            ),
-        )
+    #     entry_count = 0
+    #     for true_entry, new_entry in zip(true_index, new_index):
+    #         with self.subTest(entry_count):
+    #             self.assertDictEqual(true_entry, new_entry)
 
     def test_same_tf(self):
         self.assertEqual(
@@ -494,9 +471,7 @@ class TestTFInterpolationFillNans(unittest.TestCase):
             True,
             np.all(
                 np.isclose(
-                    np.nan_to_num(
-                        self.tf_base._dataset.transfer_function_error
-                    ),
+                    np.nan_to_num(self.tf_base._dataset.transfer_function_error),
                     np.nan_to_num(
                         self.tf_interpolated_same_period._dataset.transfer_function_error
                     ),
@@ -509,9 +484,7 @@ class TestTFInterpolationFillNans(unittest.TestCase):
             True,
             np.all(
                 np.isclose(
-                    np.nan_to_num(
-                        self.tf_base._dataset.transfer_function_model_error
-                    ),
+                    np.nan_to_num(self.tf_base._dataset.transfer_function_model_error),
                     np.nan_to_num(
                         self.tf_interpolated_same_period._dataset.transfer_function_model_error
                     ),
@@ -519,28 +492,25 @@ class TestTFInterpolationFillNans(unittest.TestCase):
             ),
         )
 
-    def test_different_period_index(self):
-        true_index = self.tf_base._find_nans_index(
-            self.tf_base._dataset.transfer_function
-        )
+    # no longer a method of TFBase
+    # def test_different_period_index(self):
+    #     true_index = self.tf_base._find_nans_index(
+    #         self.tf_base._dataset.transfer_function
+    #     )
 
-        new_index = self.tf_interpolated_different_period._find_nans_index(
-            self.tf_interpolated_different_period._dataset.transfer_function
-        )
+    #     new_index = self.tf_interpolated_different_period._find_nans_index(
+    #         self.tf_interpolated_different_period._dataset.transfer_function
+    #     )
 
-        for true_entry, new_entry in zip(true_index, new_index):
-            with self.subTest(
-                f"period_min: in = {true_entry['input']} out = {true_entry['output']}"
-            ):
-                self.assertTrue(
-                    true_entry["period_min"] <= new_entry["period_min"]
-                )
-            with self.subTest(
-                f"period_max: in = {true_entry['input']} out = {true_entry['output']}"
-            ):
-                self.assertTrue(
-                    true_entry["period_max"] >= new_entry["period_max"]
-                )
+    #     for true_entry, new_entry in zip(true_index, new_index):
+    #         with self.subTest(
+    #             f"period_min: in = {true_entry['input']} out = {true_entry['output']}"
+    #         ):
+    #             self.assertTrue(true_entry["period_min"] <= new_entry["period_min"])
+    #         with self.subTest(
+    #             f"period_max: in = {true_entry['input']} out = {true_entry['output']}"
+    #         ):
+    #             self.assertTrue(true_entry["period_max"] >= new_entry["period_max"])
 
 
 # =============================================================================

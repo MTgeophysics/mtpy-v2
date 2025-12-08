@@ -1,0 +1,45 @@
+# .pre-commit-config.yaml
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+    -   id: trailing-whitespace
+        types: [python]
+    -   id: end-of-file-fixer
+        types: [python]
+    -   id: check-yaml
+        exclude: '^(?!.*\.py$).*$'
+
+-   repo: https://github.com/pycqa/isort
+    rev: 5.12.0
+    hooks:
+    -   id: isort
+        types: [python]
+        exclude: (__init__.py)$
+        files: \.py$
+        args: ["--profile", "black",
+               "--skip-glob","*/__init__.py",
+               "--force-alphabetical-sort-within-sections",
+               "--order-by-type",
+               "--lines-after-imports=2"]
+
+-   repo: https://github.com/psf/black
+    rev: 23.3.0
+    hooks:
+    -   id: black
+        types: [python]
+        files: \.py$
+        language_version: python3
+
+-   repo: https://github.com/pycqa/autoflake
+    rev: v2.1.1
+    hooks:
+    -   id: autoflake
+        types: [python]
+        files: \.py$
+        args: [
+            "--remove-all-unused-imports",
+            "--expand-star-imports",
+            "--ignore-init-module-imports",
+            "--in-place"
+        ]

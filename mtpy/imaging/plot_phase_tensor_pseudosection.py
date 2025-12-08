@@ -14,10 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from mtpy.imaging.mtcolors import get_plot_color
-from mtpy.imaging.mtplot_tools import (
-    PlotBaseProfile,
-    period_label_dict,
-)
+from mtpy.imaging.mtplot_tools import period_label_dict, PlotBaseProfile
 
 
 # ==============================================================================
@@ -341,15 +338,11 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
             legend_lines = []
             legend_labels = []
             if "r" in self.plot_tipper:
-                real_line = plt.Line2D(
-                    [0, 0], [0, 0], color=self.arrow_color_real
-                )
+                real_line = plt.Line2D([0, 0], [0, 0], color=self.arrow_color_real)
                 legend_lines.append(real_line)
                 legend_labels.append("Real")
             if "i" in self.plot_tipper:
-                imag_line = plt.Line2D(
-                    [0, 0], [0, 0], color=self.arrow_color_imag
-                )
+                imag_line = plt.Line2D([0, 0], [0, 0], color=self.arrow_color_imag)
                 legend_lines.append(imag_line)
                 legend_labels.append("Imag")
 
@@ -421,9 +414,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
 
         for tk in self.ax.get_yticks():
             try:
-                y_tick_labels.append(
-                    period_label_dict[int(tk / self.y_stretch)]
-                )
+                y_tick_labels.append(period_label_dict[int(tk / self.y_stretch)])
             except KeyError:
                 y_tick_labels.append("")
 
@@ -438,17 +429,13 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
         self.ax.set_xticklabels(self.station_list["station"])
 
         # set x-axis label
-        self.ax.set_xlabel(
-            "Station", fontsize=self.font_size + 2, fontweight="bold"
-        )
+        self.ax.set_xlabel("Station", fontsize=self.font_size + 2, fontweight="bold")
 
         # --> set x-limits
         if self.x_limits is None:
             self.ax.set_xlim(
-                np.floor(self.station_list["offset"].min())
-                - self.ellipse_size / 2,
-                np.ceil(self.station_list["offset"].max())
-                + self.ellipse_size / 2,
+                np.floor(self.station_list["offset"].min()) - self.ellipse_size / 2,
+                np.ceil(self.station_list["offset"].max()) + self.ellipse_size / 2,
             )
         else:
             self.ax.set_xlim(self.x_limits)
