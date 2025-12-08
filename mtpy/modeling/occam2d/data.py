@@ -15,6 +15,7 @@ from loguru import logger
 
 from mtpy.core.mt_dataframe import MTDataFrame
 
+
 # =============================================================================
 
 
@@ -53,7 +54,6 @@ class Occam2DData:
     """
 
     def __init__(self, dataframe=None, center_point=None, **kwargs):
-
         self.logger = logger
         self.dataframe = dataframe
         self.data_filename = None
@@ -102,8 +102,8 @@ class Occam2DData:
         self.occam_dict = {
             "1": "res_xy",
             "2": "phase_xy",
-            "3": "tzx_real",
-            "4": "tzx_imag",
+            "3": "t_zx_real",
+            "4": "t_zx_imag",
             "5": "res_yx",
             "6": "phase_yx",
             "9": "res_xy",
@@ -113,7 +113,8 @@ class Occam2DData:
         self.df_dict = {
             "1": "res_xy",
             "2": "phase_xy",
-            "3": "tzx",
+            "3": "t_zx",
+            "4": "t_zy",
             "5": "res_yx",
             "6": "phase_yx",
         }
@@ -207,9 +208,9 @@ class Occam2DData:
         """Offsets function."""
         return np.array(
             [
-                self.dataframe.loc[
-                    self.dataframe.station == ss, "profile_offset"
-                ].iloc[0]
+                self.dataframe.loc[self.dataframe.station == ss, "profile_offset"].iloc[
+                    0
+                ]
                 for ss in self.stations
             ]
         )
@@ -363,10 +364,7 @@ class Occam2DData:
 
         # get offsets in meters
         offsets = np.array(
-            [
-                float(dlines[ii].strip())
-                for ii in range(4 + nsites, 4 + 2 * nsites)
-            ]
+            [float(dlines[ii].strip()) for ii in range(4 + nsites, 4 + 2 * nsites)]
         )
 
         # get number of frequencies
@@ -426,9 +424,7 @@ class Occam2DData:
                 )
                 if self.profile_origin != (0, 0):
                     entry["east"] = entry["model_east"] + self.profile_origin[0]
-                    entry["north"] = (
-                        entry["model_north"] + self.profile_origin[1]
-                    )
+                    entry["north"] = entry["model_north"] + self.profile_origin[1]
                 entry[key] = value
                 entry[f"{key}_model_error"] = value_error
                 entries.append(entry)
@@ -437,25 +433,56 @@ class Occam2DData:
 
         # format dataframe
         df = pd.DataFrame(entries)
-        df["tzx"] = df.tzx_real + 1j * df.tzx_imag
-        df["tzx_model_error"] = df.tzx_real_model_error
+        if "t_zy_real" in list(df):
+            df["t_zy_real"] = df["t_zy_real"].fillna(0)
+            df["t_zy_imag"] = df["t_zy_imag"].fillna(0)
+            df["t_zy"] = df["t_zy_real"] + 1j * df["t_zy_imag"]
         df["period"] = 1.0 / df.frequency
-        df = df.drop(
-            columns=[
-                "tzx_real",
-                "tzx_imag",
-                "tzx_real_model_error",
-                "tzx_imag_model_error",
-                "frequency",
-            ],
-            axis=1,
-        )
+        # df = df.drop(
+        #     columns=[
+        #         "tzx_real",
+        #         "tzx_imag",
+        #         "tzx_real_model_error",
+        #         "tzx_imag_model_error",
+        #         "frequency",
+        #     ],
+        #     axis=1,
+        # )
 
-        df = df.groupby(["station", "period"]).agg("first")
+        # df = df.groupby(["station", "period"]).agg("first")
         df = df.sort_values("profile_offset").reset_index()
         self.dataframe = df
 
+        # use workaround function to group
+        self._group_df()
+
         self.model_mode = self._get_model_mode_from_data(res_log)
+
+    def _group_df(self):
+        for station in np.unique(self.dataframe["station"]):
+            for period in np.unique(self.dataframe["period"]):
+                filt = np.all(
+                    [
+                        self.dataframe["station"] == station,
+                        self.dataframe["period"] == period,
+                    ],
+                    axis=0,
+                )
+                if np.any(filt):
+                    for key in ["res_xy", "res_yx", "phase_xy", "phase_yx"]:
+                        self.dataframe[key][filt] = np.unique(
+                            self.dataframe[key][filt]
+                        )[0]
+
+                    tx_real_vals = np.unique(np.real(self.dataframe["t_zy"][filt]))
+                    tx_imag_vals = np.unique(np.imag(self.dataframe["t_zy"][filt]))
+                    if np.any(tx_real_vals != 0):
+                        self.dataframe["t_zy"][filt] = (
+                            tx_real_vals[tx_real_vals != 0][0]
+                            + 1j * tx_imag_vals[tx_imag_vals != 0][0]
+                        )
+
+                    self.dataframe.drop(self.dataframe[filt].index[1:], inplace=True)
 
     def _get_model_mode_from_data(self, res_log):
         """Get inversion mode from the data.
@@ -477,9 +504,9 @@ class Occam2DData:
                         inv_list.append(5)
                     else:
                         inv_list.append(10)
-                elif comp == "tzx":
-                    inv_list.append(3)
-                    inv_list.append(4)
+                # elif comp == "tzx":
+                #     inv_list.append(3)
+                #     inv_list.append(4)
                 else:
                     inv_list.append(int(inv_mode))
 
@@ -514,9 +541,9 @@ class Occam2DData:
                     value = fdf[comp].values[0]
                     if value != 0:
                         if comp_number in [1, 5]:
-                            error_value = fdf[f"{comp}_model_error"].values[
-                                0
-                            ] / np.log(10)
+                            error_value = fdf[f"{comp}_model_error"].values[0] / np.log(
+                                10
+                            )
                             value = np.log10(value)
 
                         elif comp_number in [3]:
@@ -526,7 +553,8 @@ class Occam2DData:
                             value = value.imag
                             error_value = fdf[f"{comp}_model_error"].values[0]
                         elif comp_number in [6]:
-                            value = value + 180
+                            if -180 <= value <= -90:
+                                value = value + 180
                             error_value = fdf[f"{comp}_model_error"].values[0]
                         else:
                             value = value
@@ -560,13 +588,10 @@ class Occam2DData:
                 "im_tip",
                 "re_tip",
             ]:
-
                 for i in range(len(self.freq)):
                     if self.data[i_ocdm][dmode][0][i] == 0:
                         self.data[i_ocd][dmode][0][i] = 0.0
-        self.fn_basename = (
-            self.fn_basename[:-4] + "Masked" + self.fn_basename[-4:]
-        )
+        self.fn_basename = self.fn_basename[:-4] + "Masked" + self.fn_basename[-4:]
         self.write_data_file()
 
     def _make_title(self):

@@ -4,13 +4,15 @@ Created on Tue Mar  7 18:24:58 2023
 
 @author: jpeacock
 """
+import time
+
 # =============================================================================
 # Imports
 # =============================================================================
 from pathlib import Path
-import time
 
 import numpy as np
+
 
 # =============================================================================
 class Startup(object):
@@ -173,9 +175,7 @@ class Startup(object):
         if self.model_value_steps is None:
             slines.append(f"{'!Model Value Steps:':<20}{'none'}")
         else:
-            slines.append(
-                f"{'Model Value Steps:':<20}{self.model_value_steps}"
-            )
+            slines.append(f"{'Model Value Steps:':<20}{self.model_value_steps}")
         slines.append(f"{'Debug Level:':<20}{self.debug_level}")
         slines.append(f"{'Iteration:':<20}{self.iteration}")
         slines.append(f"{'Lagrange Value:':<20}{self.lagrange_value}")
@@ -183,7 +183,7 @@ class Startup(object):
         slines.append(f"{'Misfit Value:':<20}{self.misfit_value}")
         slines.append(f"{'Misfit Reached:':<20}{self.misfit_reached}")
         slines.append(f"{'Param Count:':<20}{self.param_count}")
-        slines = [ss +'\n' for ss in slines]
+        slines = [ss + "\n" for ss in slines]
 
         # make an array of starting values if not are given
         if self.model_values is None:
@@ -209,7 +209,7 @@ class Startup(object):
         slines.append("".join(list(sline + ["\n"])))
         # --> write file
         sfid = open(self.startup_fn, "w")
-        
+
         sfid.writelines(slines)
         sfid.close()
 

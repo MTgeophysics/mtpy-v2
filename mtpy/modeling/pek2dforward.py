@@ -4,16 +4,19 @@ Created on Fri Aug 01 15:52:47 2014
 
 @author: Alison Kirkby
 """
-import mtpy.modeling.occam2d as o2d
-import mtpy.modeling.pek1dclasses as p1dc
-import numpy as np
 import os
 import os.path as op
-from . import pek2dforward as p2d
 import string
+
+import numpy as np
 import scipy.interpolate as si
-import mtpy.utils.filehandling as fh
+
 import mtpy.core.edi as mtedi
+import mtpy.modeling.occam2d as o2d
+import mtpy.modeling.pek1dclasses as p1dc
+import mtpy.utils.filehandling as fh
+
+from . import pek2dforward as p2d
 
 
 class Model:
@@ -112,7 +115,6 @@ class Model:
                     ]
                 except IOError:
                     print("failed to find edi directory")
-                    pass
 
     def build_model(self):
         """Build model file string."""
@@ -297,7 +299,7 @@ class Model:
             edifiles=self.edifiles,
             configfile=self.occam_configfile,
             strike=self.parameters_data["strike"],
-            **self.parameters_model
+            **self.parameters_model,
         )
 
         so.read_edifiles(edi_dir=self.edi_directory)
@@ -478,8 +480,8 @@ class Model:
     def force_isotropy(self):
         """Force isotropy at depths shallower than anisotropy_min_depth.
 
-        Clears
-up some bins for resistivity - these are limited
+                Clears
+        up some bins for resistivity - these are limited
         """
 
         rnew = 1.0 * self.resistivity
@@ -501,13 +503,13 @@ up some bins for resistivity - these are limited
         )
         self.strike_std = []
         for key in list(rdict.keys()):
-            rdict[key] = [10 ** r for r in rdict[key]]
+            rdict[key] = [10**r for r in rdict[key]]
             rdict[key].append(np.median(self.resistivity[:, :, -1][rmap == key]))
             self.strike_std.append(np.std(self.resistivity[:, :, -1][rmap == key]))
 
         self.resistivity_map = rmap
         self.resistivity_dict = rdict
-        self.resistivity_binned = 10 ** rbinned
+        self.resistivity_binned = 10**rbinned
 
 
 def bin_results(in_array, binsize):

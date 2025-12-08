@@ -13,6 +13,7 @@ import numpy as np
 
 from mtpy.imaging.mtplot_tools import PlotBaseMaps
 
+
 # =============================================================================
 
 
@@ -20,7 +21,6 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
     """Plot the depth of penetration based on the Niblett-Bostick approximation."""
 
     def __init__(self, mt_data, **kwargs):
-
         self.mt_data = mt_data
 
         super().__init__(**kwargs)
@@ -111,7 +111,6 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
         )
 
         for ii, tf in enumerate(self.mt_data.values()):
-
             z_object = tf.Z.interpolate([self.plot_period])
             if (np.nan_to_num(z_object.z) == 0).all():
                 continue
@@ -124,15 +123,9 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
             if tf.elevation is not None:
                 depth_array["elevation"][ii] = tf.elevation * self.depth_scale
                 elev = tf.elevation * self.depth_scale
-            depth_array["det"][ii] = (
-                d["depth_det"][0] - elev
-            ) * self.depth_scale
-            depth_array["xy"][ii] = (
-                d["depth_xy"][0] - elev
-            ) * self.depth_scale
-            depth_array["yx"][ii] = (
-                d["depth_yx"][0] - elev
-            ) * self.depth_scale
+            depth_array["det"][ii] = (d["depth_det"][0] - elev) * self.depth_scale
+            depth_array["xy"][ii] = (d["depth_xy"][0] - elev) * self.depth_scale
+            depth_array["yx"][ii] = (d["depth_yx"][0] - elev) * self.depth_scale
 
         return depth_array
 
@@ -223,9 +216,7 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
         for comp, ax in plot_components.items():
             plot_depth_array = self._filter_depth_array(depth_array, comp)
             if self.interpolation_method in ["nearest", "linear", "cubic"]:
-                plot_x, plot_y, image = self.interpolate_to_map(
-                    plot_depth_array, comp
-                )
+                plot_x, plot_y, image = self.interpolate_to_map(plot_depth_array, comp)
 
                 im = ax.pcolormesh(
                     plot_x,
@@ -287,9 +278,7 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
 
             ax.set_xlabel("Longitude (deg)", fontdict=self.font_dict)
             ax.set_ylabel("Latitude (deg)", fontdict=self.font_dict)
-            ax.set_title(
-                self.subplot_title_dict[comp], fontdict=self.font_dict
-            )
+            ax.set_title(self.subplot_title_dict[comp], fontdict=self.font_dict)
 
         self.fig.suptitle(
             f"Depth of investigation for period {self.plot_period:5g} (s)",

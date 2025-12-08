@@ -9,6 +9,7 @@ Created on Mon Oct 30 13:35:16 2023
 # Imports
 # =============================================================================
 
+
 # =============================================================================
 class Occam1DRun(object):
     """Run occam 1d from python given the correct files and location of occam1d
@@ -36,6 +37,4 @@ class Occam1DRun(object):
         )
         if test == 0:
             print("=========== Ran Inversion ==========")
-            print(
-                f"  check {os.path.dirname(self.startup_fn)} for files"
-            )
+            print(f"  check {os.path.dirname(self.startup_fn)} for files")

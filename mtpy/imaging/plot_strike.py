@@ -7,14 +7,14 @@ Created on Thu May 30 18:28:24 2013
 
 # ==============================================================================
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
-import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 
-from mtpy.imaging.mtplot_tools import PlotBase
 from mtpy.core import Tipper
+from mtpy.imaging.mtplot_tools import PlotBase
+
 
 # ==============================================================================
 
@@ -115,7 +115,6 @@ class PlotStrike(PlotBase):
     """
 
     def __init__(self, mt_data, **kwargs):
-
         self._rotation_angle = 0
         self.mt_data = mt_data
 
@@ -208,9 +207,7 @@ class PlotStrike(PlotBase):
                 # on the y
                 zs = 270 - zinv.strike
                 # make a dictionary of strikes with keys as period
-                for period, plot_strike, strike in zip(
-                    mt.period, zs, zinv.strike
-                ):
+                for period, plot_strike, strike in zip(mt.period, zs, zinv.strike):
                     entry = {
                         "estimate": "invariant",
                         "period": period,
@@ -232,9 +229,7 @@ class PlotStrike(PlotBase):
                     az[np.where(az_err > self.pt_error_floor)] = 0.0
 
                 # make a dictionary of strikes with keys as period
-                for period, plot_strike, strike in zip(
-                    mt.period, az, pt.azimuth
-                ):
+                for period, plot_strike, strike in zip(mt.period, az, pt.azimuth):
                     entry = {
                         "estimate": "pt",
                         "period": period,
@@ -268,9 +263,7 @@ class PlotStrike(PlotBase):
                 tip.angle_real[np.where(abs(tipr) == 270)] = np.nan
 
                 # make a dictionary of strikes with keys as period
-                for period, plot_strike, strike in zip(
-                    mt.period, tipr, tip.angle_real
-                ):
+                for period, plot_strike, strike in zip(mt.period, tipr, tip.angle_real):
                     entry = {
                         "estimate": "tipper",
                         "period": period,
@@ -312,9 +305,7 @@ class PlotStrike(PlotBase):
             return self.strike_df.loc[self.strike_df.estimate == estimate]
 
         else:
-            estimate_df = self.strike_df.loc[
-                self.strike_df.estimate == estimate
-            ]
+            estimate_df = self.strike_df.loc[self.strike_df.estimate == estimate]
 
             return estimate_df.loc[
                 (self.strike_df.period >= period_range[0])
@@ -402,9 +393,7 @@ class PlotStrike(PlotBase):
 
             if "h" in self.plot_orientation:
                 if self.plot_invariant:
-                    ax_inv = self.fig.add_subplot(
-                        n_subplots, nb, index, polar=True
-                    )
+                    ax_inv = self.fig.add_subplot(n_subplots, nb, index, polar=True)
                     if self.plot_pt:
                         ax_pt = self.fig.add_subplot(
                             n_subplots, nb, index + nb, polar=True
@@ -420,9 +409,7 @@ class PlotStrike(PlotBase):
                             )
                 else:
                     if self.plot_pt:
-                        ax_pt = self.fig.add_subplot(
-                            n_subplots, nb, index, polar=True
-                        )
+                        ax_pt = self.fig.add_subplot(n_subplots, nb, index, polar=True)
                         if self.plot_tipper:
                             ax_tip = self.fig.add_subplot(
                                 n_subplots, nb, index + nb, polar=True
@@ -488,11 +475,9 @@ class PlotStrike(PlotBase):
                             )
 
         elif self.plot_type == 2:
-
             nb = self._get_n_subplots()
 
             if "h" in self.plot_orientation:
-
                 if self.plot_invariant:
                     ax_inv = self.fig.add_subplot(1, nb, 1, polar=True)
                     if self.plot_pt:
@@ -511,7 +496,6 @@ class PlotStrike(PlotBase):
                         if self.plot_tipper:
                             ax_tip = self.fig.add_subplot(1, nb, 1, polar=True)
             elif "v" in self.plot_orientation:
-
                 if self.plot_invariant:
                     ax_inv = self.fig.add_subplot(nb, 1, 1, polar=True)
                     if self.plot_pt:
@@ -660,9 +644,7 @@ class PlotStrike(PlotBase):
                 # set plot labels
                 if jj == 1:
                     if "h" in self.plot_orientation:
-                        self._set_ax_label(
-                            ax_inv, "Strike (Z)", self.color_inv
-                        )
+                        self._set_ax_label(ax_inv, "Strike (Z)", self.color_inv)
                     elif "v" in self.plot_orientation:
                         self._set_ax_label(ax_inv, self.title_dict[bb], None)
 
@@ -719,9 +701,7 @@ class PlotStrike(PlotBase):
                 # need to subtract 90 again because the histogram is
                 # for ploting 0 east, 90 north measuring
                 # counter-clockwise
-                st_median, st_mode, st_mean = self.get_stats(
-                    estimate, period_range
-                )
+                st_median, st_mode, st_mean = self.get_stats(estimate, period_range)
                 if estimate == "invariant":
                     box_color = self.color_inv
                 elif estimate == "pt":
@@ -847,7 +827,6 @@ class PlotStrike(PlotBase):
                 )
             # set tipper axes properties
             elif estimate == "tipper":
-
                 axh.set_title(
                     "Tipper Strike",
                     fontdict=self.font_dict,

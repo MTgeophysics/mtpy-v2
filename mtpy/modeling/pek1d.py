@@ -6,16 +6,19 @@ Created on Fri Mar 14 10:21:05 2014
 
 """
 from __future__ import print_function
+
 import os
 import os.path as op
-import mtpy.utils.filehandling as fh
+import time
+from subprocess import call
+from sys import argv
+
+import numpy as np
 
 # import mtpy.utils.elevation_data as mted
 import pek1dclasses as pek1dc
-from sys import argv
-from subprocess import call
-import time
-import numpy as np
+
+import mtpy.utils.filehandling as fh
 
 
 def parse_arguments(arguments):
@@ -172,18 +175,18 @@ def create_inmodel_dictionary_from_file(input_file, x, y, working_directory=None
     """
     update inmodel dictionary to get elevation details from file
 
-    ------------------------------Parameters-----------------------------------    
+    ------------------------------Parameters-----------------------------------
     **input_file** full path to a csv file containing list of following parameters:
     elevation filename,offset,resmin,resmax,strike
     where:
-    elevation filename = Full path to x y z file containing elevations of the 
+    elevation filename = Full path to x y z file containing elevations of the
                          constraining layer to put into the inversions, put
                          none if providing a constant elevation.
                          Numbers are converted to absolute values internally.
     offset = Constant depth of constraining layer, if provided in addition to
-             elevation filename the offset is added/subtracted from depth 
+             elevation filename the offset is added/subtracted from depth
              from file, positive down.
-    resmin, resmax, strike = minimum and maximum resistivity values and strike 
+    resmin, resmax, strike = minimum and maximum resistivity values and strike
                              of minimum resistivity for constraining layer
     **x** x position of station in same coordinate system as elevation file
     **y** y position of station in same coordinate system as elevation file
@@ -234,7 +237,7 @@ def create_inmodel_dictionary_from_file(input_file, x, y, working_directory=None
 
 def create_filelist(wd, subfolder_list=None, subfolder_identifier=None):
     """
-    create a list of full paths to edi files    
+    create a list of full paths to edi files
 
     """
 
@@ -275,7 +278,7 @@ def update_inputs():
 
 def generate_inputfiles(epath, **input_parameters):
     """
-    generate input files for a model. 
+    generate input files for a model.
 
     -----------------------Compulsory parameter--------------------------------
     **epath** the full path to the edi file.
@@ -307,7 +310,7 @@ def generate_inputfiles(epath, **input_parameters):
 
 
 
-    inmodel_modeldir = string, folder containing previous model run with same 
+    inmodel_modeldir = string, folder containing previous model run with same
     resolution, necessary for constructing the layer depths in the inmodel file.
     inmodel_vals = dictionary structured as follows:
     {layer top depth:[minimum_resistivity, maximum_resistivity, strike]}
@@ -382,7 +385,7 @@ def generate_inputfiles(epath, **input_parameters):
             Inmodel = pek1dc.Inmodel(
                 inmodel_modeldir=input_parameters["inmodel_modeldir"],
                 inmodel_dictionary=inmodel_dict,
-                **inmodel_inputs
+                **inmodel_inputs,
             )
             Inmodel.write_inmodel()
 

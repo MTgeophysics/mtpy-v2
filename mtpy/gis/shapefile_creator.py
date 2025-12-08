@@ -14,7 +14,7 @@ Revision History:
 
     brenainn.moushall@ga.gov.au 27-03-2020 17:33:23 AEDT:
         Fix outfile/directory issue (see commit messages)
-        
+
 update to v2 jpeacock 2024-04-15
 """
 # =============================================================================
@@ -22,14 +22,14 @@ update to v2 jpeacock 2024-04-15
 # =============================================================================
 from pathlib import Path
 
-import numpy as np
 import geopandas as gpd
-from pyproj import CRS
-
+import numpy as np
 from loguru import logger
-from shapely.geometry import Polygon, LineString, LinearRing
+from pyproj import CRS
+from shapely.geometry import LinearRing, LineString, Polygon
 
 from mtpy.core import MTDataFrame
+
 
 # =============================================================================
 
@@ -204,16 +204,12 @@ class ShapefileCreator:
     def estimate_ellipse_size(self, quantile=0.015):
         """Estimate ellipse size from station distances."""
 
-        return self.mt_dataframe.get_station_distances(utm=self.utm).quantile(
-            quantile
-        )
+        return self.mt_dataframe.get_station_distances(utm=self.utm).quantile(quantile)
 
     def estimate_arrow_size(self, quantile=0.03):
         """Arrow size from station distances."""
 
-        return self.mt_dataframe.get_station_distances(utm=self.utm).quantile(
-            quantile
-        )
+        return self.mt_dataframe.get_station_distances(utm=self.utm).quantile(quantile)
 
     def _export_shapefiles(self, gpdf, element_type, period):
         """Convenience function for saving shapefiles.
@@ -234,7 +230,9 @@ class ShapefileCreator:
         if self.output_crs is not None:
             gpdf.to_crs(crs=self.output_crs, inplace=True)
 
-        filename = f"{element_type}_EPSG_{self.output_crs.to_epsg()}_Period_{period}s.shp"
+        filename = (
+            f"{element_type}_EPSG_{self.output_crs.to_epsg()}_Period_{period}s.shp"
+        )
         out_path = self.save_dir.joinpath(filename)
 
         gpdf.to_file(out_path, driver="ESRI Shapefile")
@@ -423,9 +421,7 @@ class ShapefileCreator:
 
         return shp_fn
 
-    def make_shp_files(
-        self, pt=True, tipper=True, periods=None, period_tol=None
-    ):
+    def make_shp_files(self, pt=True, tipper=True, periods=None, period_tol=None):
         """If you want all stations on the same period map need to interpolate
         before converting to an MTDataFrame
 

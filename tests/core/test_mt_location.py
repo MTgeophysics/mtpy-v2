@@ -13,6 +13,7 @@ from pathlib import Path
 
 from mtpy.core.mt_location import MTLocation
 
+
 # =============================================================================
 
 
@@ -80,9 +81,7 @@ class TestMTLocation(unittest.TestCase):
 
     def test_set_utm_coordinates_fail(self):
         self.assertRaises(
-            ValueError,
-            MTLocation,
-            **{"east": self.true_east, "north": self.true_north}
+            ValueError, MTLocation, **{"east": self.true_east, "north": self.true_north}
         )
 
     def test_set_utm_coordinates(self):

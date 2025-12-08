@@ -5,15 +5,16 @@ Created on Fri Aug  9 12:11:57 2024
 @author: jpeacock
 """
 
+import matplotlib.pyplot as plt
+
 # =============================================================================
 # Imports
 # =============================================================================
 import numpy as np
-
-from simpeg.electromagnetics import natural_source as nsem
 from simpeg import data
+from simpeg.electromagnetics import natural_source as nsem
 
-import matplotlib.pyplot as plt
+from mtpy.imaging.mtplot_tools import plot_phase, plot_resistivity
 
 
 # =============================================================================
@@ -85,9 +86,7 @@ class Simpeg2DData:
         if self.include_elevation:
             return np.c_[station_df.profile_offset, station_df.elevation]
         else:
-            return np.c_[
-                station_df.profile_offset, np.zeros(station_df.shape[0])
-            ]
+            return np.c_[station_df.profile_offset, np.zeros(station_df.shape[0])]
 
     @property
     def frequencies(self):
@@ -122,28 +121,27 @@ class Simpeg2DData:
 
         if not self.invert_impedance:
             rx_list = [
-                nsem.receivers.PointNaturalSource(
+                nsem.receivers.Impedance(
                     rx_locs,
                     orientation=simpeg_mode,
                     component="apparent_resistivity",
                 ),
-                nsem.receivers.PointNaturalSource(
+                nsem.receivers.Impedance(
                     rx_locs, orientation=simpeg_mode, component="phase"
                 ),
             ]
 
             src_list = [
-                nsem.sources.Planewave(rx_list, frequency=f)
-                for f in self.frequencies
+                nsem.sources.Planewave(rx_list, frequency=f) for f in self.frequencies
             ]
         else:
             rx_list = [
-                nsem.receivers.PointNaturalSource(
+                nsem.receivers.Impedance(
                     rx_locs,
                     orientation=simpeg_mode,
                     component="real",
                 ),
-                nsem.receivers.PointNaturalSource(
+                nsem.receivers.Impedance(
                     rx_locs,
                     orientation=simpeg_mode,
                     component="imag",
@@ -151,8 +149,7 @@ class Simpeg2DData:
             ]
 
             src_list = [
-                nsem.sources.Planewave(rx_list, frequency=f)
-                for f in self.frequencies
+                nsem.sources.Planewave(rx_list, frequency=f) for f in self.frequencies
             ]
         return nsem.Survey(src_list)
 
@@ -302,10 +299,12 @@ class Simpeg2DData:
 
         fig = plt.figure(kwargs.get("fig_num", 1))
 
-        te_data = self.te_data.dobs.reshape(
+        te_data = self.te_data.dobs.reshape((self.n_frequencies, 2, self.n_stations))
+        te_data_errors = self.te_data.standard_deviation.reshape(
             (self.n_frequencies, 2, self.n_stations)
         )
-        tm_data = self.tm_data.dobs.reshape(
+        tm_data = self.tm_data.dobs.reshape((self.n_frequencies, 2, self.n_stations))
+        tm_data_errors = self.tm_data.standard_deviation.reshape(
             (self.n_frequencies, 2, self.n_stations)
         )
 
@@ -345,39 +344,67 @@ class Simpeg2DData:
             ax_yx_res.set_title("TM")
         else:
             ax_xy_res = fig.add_subplot(2, 2, 1)
-            ax_yx_res = fig.add_subplot(
-                2, 2, 2, sharex=ax_xy_res, sharey=ax_xy_res
-            )
+            ax_yx_res = fig.add_subplot(2, 2, 2, sharex=ax_xy_res, sharey=ax_xy_res)
             ax_xy_phase = fig.add_subplot(
                 2,
                 2,
                 3,
                 sharex=ax_xy_res,
             )
-            ax_yx_phase = fig.add_subplot(
-                2, 2, 4, sharex=ax_xy_res, sharey=ax_xy_phase
-            )
+            ax_yx_phase = fig.add_subplot(2, 2, 4, sharex=ax_xy_res, sharey=ax_xy_phase)
             for ii in range(self.n_stations):
-                ax_xy_res.loglog(
+                plot_resistivity(
+                    ax_xy_res,
                     1.0 / self.frequencies,
-                    np.abs(te_data[:, 0, ii]),
+                    te_data[:, 0, ii],
                     color=(0.5, 0.5, ii / self.n_stations),
+                    label=self.dataframe.station.unique()[ii],
+                    error=te_data_errors[:, 0, ii],
                 )
-                ax_xy_phase.loglog(
+                plot_phase(
+                    ax_xy_phase,
                     1.0 / self.frequencies,
-                    np.abs(te_data[:, 1, ii]),
+                    te_data[:, 1, ii],
                     color=(0.25, 0.25, ii / self.n_stations),
+                    label=self.dataframe.station.unique()[ii],
+                    error=te_data_errors[:, 1, ii],
                 )
-                ax_yx_res.loglog(
+                plot_resistivity(
+                    ax_yx_res,
                     1.0 / self.frequencies,
-                    np.abs(tm_data[:, 0, ii]),
+                    tm_data[:, 0, ii],
                     color=(0.5, ii / self.n_stations, 0.75),
+                    label=self.dataframe.station.unique()[ii],
+                    error=tm_data_errors[:, 0, ii],
                 )
-                ax_yx_phase.loglog(
+                plot_phase(
+                    ax_yx_phase,
                     1.0 / self.frequencies,
-                    np.abs(tm_data[:, 1, ii]),
+                    tm_data[:, 1, ii],
                     color=(0.25, ii / self.n_stations, 0.75),
+                    label=self.dataframe.station.unique()[ii],
+                    error=tm_data_errors[:, 1, ii],
                 )
+                # ax_xy_res.loglog(
+                #     1.0 / self.frequencies,
+                #     np.abs(te_data[:, 0, ii]),
+                #     color=(0.5, 0.5, ii / self.n_stations),
+                # )
+                # ax_xy_phase.loglog(
+                #     1.0 / self.frequencies,
+                #     np.abs(te_data[:, 1, ii]),
+                #     color=(0.25, 0.25, ii / self.n_stations),
+                # )
+                # ax_yx_res.loglog(
+                #     1.0 / self.frequencies,
+                #     np.abs(tm_data[:, 0, ii]),
+                #     color=(0.5, ii / self.n_stations, 0.75),
+                # )
+                # ax_yx_phase.loglog(
+                #     1.0 / self.frequencies,
+                #     np.abs(tm_data[:, 1, ii]),
+                #     color=(0.25, ii / self.n_stations, 0.75),
+                # )
 
             ax_xy_phase.set_xlabel("Period (s)")
             ax_yx_phase.set_xlabel("Period (s)")

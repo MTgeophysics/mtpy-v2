@@ -7,19 +7,18 @@ Created on Sun Sep 25 15:49:01 2022
 :author: jpeacock
 """
 
+import matplotlib.colorbar as mcb
+import matplotlib.colors as colors
+
 # =============================================================================
 # Imports
 # =============================================================================
 import numpy as np
 
-import matplotlib.colors as colors
-import matplotlib.colorbar as mcb
 
 # =============================================================================
 
-period_label_dict = dict(
-    [(ii, "$10^{" + str(ii) + "}$") for ii in range(-20, 21)]
-)
+period_label_dict = dict([(ii, "$10^{" + str(ii) + "}$") for ii in range(-20, 21)])
 
 
 def get_period_limits(period):
@@ -68,9 +67,9 @@ def make_color_list(cbax, nseg, ckmin, ckmax, ckstep):
     """ """
 
     # make a color list
-    clist = [
-        (cc, cc, 1) for cc in np.arange(0, 1 + 1.0 / (nseg), 1.0 / (nseg))
-    ] + [(1, cc, cc) for cc in np.arange(1, -1.0 / (nseg), -1.0 / (nseg))]
+    clist = [(cc, cc, 1) for cc in np.arange(0, 1 + 1.0 / (nseg), 1.0 / (nseg))] + [
+        (1, cc, cc) for cc in np.arange(1, -1.0 / (nseg), -1.0 / (nseg))
+    ]
 
     # make segmented colormap
     mt_seg_bl2wh2rd = colors.ListedColormap(clist)

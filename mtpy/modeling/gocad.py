@@ -8,9 +8,10 @@ read and write gocad objects
 
 """
 
-import numpy as np
-import os.path as op
 import os
+import os.path as op
+
+import numpy as np
 
 
 class Sgrid:

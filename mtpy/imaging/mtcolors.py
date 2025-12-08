@@ -4,15 +4,14 @@ Created on Tue May 14 18:05:59 2013
 
 @author: jpeacock-pr
 """
+import numpy as np
+
 # =============================================================================
 # Imports
 # =============================================================================
+from matplotlib import cm, colormaps, colors
 from matplotlib import pyplot as plt
-from matplotlib import colors
-from matplotlib import cm
-from matplotlib import colormaps
 
-import numpy as np
 
 # ==============================================================================
 # Make some color maps for plotting
@@ -218,9 +217,7 @@ mtcmapdict3 = {
     ),
 }
 
-mt_rd2wh2bl_r = colors.LinearSegmentedColormap(
-    "mt_rd2wh2bl_r", mtcmapdict3, 256
-)
+mt_rd2wh2bl_r = colors.LinearSegmentedColormap("mt_rd2wh2bl_r", mtcmapdict3, 256)
 
 rdylbu_data = {
     "blue": [
@@ -275,9 +272,7 @@ colors_land = cm.terrain(np.linspace(0.25, 1, 200))
 
 # combine them and build a new colormap
 color_list = np.vstack((colors_undersea, colors_land))
-cut_terrain_map = colors.LinearSegmentedColormap.from_list(
-    "cut_terrain", color_list
-)
+cut_terrain_map = colors.LinearSegmentedColormap.from_list("cut_terrain", color_list)
 
 MT_CMAP_DICT = {
     "mt_yl2rd": mt_yl2rd,
@@ -379,10 +374,7 @@ def get_plot_color(colorx, comp, cmap, ckmin=None, ckmax=None, bounds=None):
         else:
             colorx = int(
                 step
-                * round(
-                    float(colorx - np.sign(colorx) * (abs(colorx) % step))
-                    / step
-                )
+                * round(float(colorx - np.sign(colorx) * (abs(colorx) % step)) / step)
             )
         return plt.get_cmap(cmap)(norm(colorx))
     else:
@@ -422,9 +414,7 @@ class FixPointNormalize(colors.Normalize):
     to a color in the blue/turquise range.
     """
 
-    def __init__(
-        self, vmin=None, vmax=None, sealevel=0, col_val=0.21875, clip=False
-    ):
+    def __init__(self, vmin=None, vmax=None, sealevel=0, col_val=0.21875, clip=False):
         # sealevel is the fix point of the colormap (in data units)
         self.sealevel = sealevel
         # col_val is the color value in the range [0,1] that should represent the sealevel.

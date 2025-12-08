@@ -1,0 +1,111 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mtpy-v2"
+version = "2.0.13"
+description = "Python toolkit for standard magnetotelluric data processing."
+readme = {file = "README.md", content-type = "text/markdown"}
+license = {file = "LICENSE"}
+authors = [
+    {name = "Jared Peacock", email = "jpeacock@usgs.gov"},
+    {name = "Alison Kirkby"},
+    {name = "Fei Zhang"},
+    {name = "Rakib Hassan"},
+    {name = "Lars Krieger"},
+    {name = "Stephan Thiel"},
+]
+keywords = ["magnetotellurics"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "scipy",
+    "xarray",
+    "matplotlib",
+    "pyproj",
+    "configparser",
+    "mt_metadata",
+    "mth5",
+    "geopandas",
+    "rasterio",
+    "contextily",
+    "pyevtk",
+    "simpeg",
+    "aurora",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=3", "pytest-cov", "pytest-mock", "pytest-subtests", "pytest-xdist"]
+
+
+
+[project.urls]
+Homepage = "https://github.com/MTgeophysics/mtpy-v2"
+Repository = "https://github.com/MTgeophysics/mtpy-v2"
+
+[tool.setuptools.packages.find]
+include = ["mtpy", "mtpy.*"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"*" = [
+    "HISTORY.rst",
+    "LICENSE",
+    "README.md",
+]
+
+[tool.pytest.ini_options]
+collect_ignore = ["setup.py"]
+testpaths = ["tests"]
+
+[tool.black]
+line-length = 88
+target-version = ['py310', 'py311']
+include = '\.pyi?$'
+skip-string-normalization = false
+
+[tool.isort]
+profile = "black"
+skip = "__init__.py"
+force_alphabetical_sort_within_sections = true
+order_by_type = true
+lines_after_imports = 2
+known_first_party = ["mtpy"]
+
+[tool.autoflake]
+remove-all-unused-imports = true
+expand-star-imports = true
+ignore-init-module-imports = true
+in-place = true
+
+[tool.bumpversion]
+current_version = "2.0.13"
+commit = true
+tag = true
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "mtpy/__init__.py"
+
+[[tool.bumpversion.files]]
+filename = "README.md"
+
+[[tool.bumpversion.files]]
+filename = "docs/source/conf.py"

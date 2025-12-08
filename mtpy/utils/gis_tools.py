@@ -3,17 +3,17 @@
 GIS_TOOLS
 ==================
 
-This module contains tools to help project between coordinate systems.  The 
-module will first use GDAL if installed.  If GDAL is not installed then 
+This module contains tools to help project between coordinate systems.  The
+module will first use GDAL if installed.  If GDAL is not installed then
 pyproj is used. A test has been made for new versions of GDAL which swap the
-input lat and lon when using transferPoint, so the user should not have to 
-worry about which version they have. 
+input lat and lon when using transferPoint, so the user should not have to
+worry about which version they have.
 
 Main functions are:
-    
+
     * project_point_ll2utm
     * project_point_utm2ll
-    
+
 These can take in a point or an array or list of points to project.
 
 latitude and longitude can be input as:
@@ -22,8 +22,8 @@ latitude and longitude can be input as:
     * float(DD.decimal_degrees)
 
 Created on Fri Apr 14 14:47:48 2017
-Revised: 5/2020 JP 
-Revised: 10/2023 JP 
+Revised: 5/2020 JP
+Revised: 10/2023 JP
 
 @author: jrpeacock
 """
@@ -33,7 +33,8 @@ Revised: 10/2023 JP
 # ==============================================================================
 import numpy as np
 from loguru import logger
-from pyproj import Transformer, CRS
+from pyproj import CRS, Transformer
+
 
 # =============================================================================
 # GIS Error container
@@ -109,9 +110,7 @@ def convert_position_str2float(position_str):
 
         position_value = sign * (abs(deg) + minutes / 60.0 + sec / 3600.0)
 
-        logger.debug(
-            "Converted {0} to {1}".format(position_str, position_value)
-        )
+        logger.debug("Converted {0} to {1}".format(position_str, position_value))
 
         return position_value
 
@@ -186,9 +185,7 @@ def assert_elevation_value(elevation):
     try:
         elev_value = float(elevation)
     except (ValueError, TypeError):
-        msg = "Could not convert {0} to a number setting to 0".format(
-            elevation
-        )
+        msg = "Could not convert {0} to a number setting to 0".format(elevation)
         logger.debug(msg)
         elev_value = 0.0
 
@@ -250,9 +247,7 @@ def validate_input_values(values, location_type=None):
     :return: Array of floats.
     :rtype: numpy.ndarray(dtype=float)
     """
-    if isinstance(
-        values, (int, float, np.float_, np.float16, np.float32, np.float64)
-    ):
+    if isinstance(values, (int, float, np.float_, np.float16, np.float32, np.float64)):
         values = np.array([values], dtype=float)
     elif isinstance(values, (list, tuple)):
         values = np.array(values, dtype=float)

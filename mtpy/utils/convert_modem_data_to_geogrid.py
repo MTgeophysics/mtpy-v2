@@ -17,18 +17,19 @@ Revision History:
     LastUpdate:     14/02/2020  BM: cleanup, add rotation and indexing
                                     by depth
 """
-import os
 import argparse
 import math
+import os
 
 import gdal
-import osr
 import numpy as np
+import osr
 from scipy.interpolate import RegularGridInterpolator
 
-from mtpy.modeling.modem import Model, Data
+from mtpy.modeling.modem import Data, Model
 from mtpy.utils import gis_tools
 from mtpy.utils.mtpylog import MtPyLog
+
 
 _logger = MtPyLog.get_mtpy_logger(__name__)
 
@@ -152,22 +153,22 @@ def _get_centers(arr):
 def _strip_padding(arr, pad, keep_start=False):
     """Strip padding cells from grid data.
 
-    Padding cells occur at the
-the start and end of north and east grid axes, and at the end of
-    grid depth axis.
+        Padding cells occur at the
+    the start and end of north and east grid axes, and at the end of
+        grid depth axis.
 
-    Note we handle the special case of `pad=0` by returning the data
-    untouched (a `slice(None)` will do nothing when used as an index
-    slice).
-    :param arr: Axis of grid data (east, north or depth).
-    :type arr: np.ndarray
-    :param pad: Number of padding cells being stripped.
-    :type pad: int
-    :param keep_start: If True, padding is only stripped from the
-        end of the data. Intended for use with depth axis, defaults to False.
-    :type keep_start: bool, optional
-    :return: A copy of `arr` with padding cells removed.
-    :rtype: np.ndarray
+        Note we handle the special case of `pad=0` by returning the data
+        untouched (a `slice(None)` will do nothing when used as an index
+        slice).
+        :param arr: Axis of grid data (east, north or depth).
+        :type arr: np.ndarray
+        :param pad: Number of padding cells being stripped.
+        :type pad: int
+        :param keep_start: If True, padding is only stripped from the
+            end of the data. Intended for use with depth axis, defaults to False.
+        :type keep_start: bool, optional
+        :return: A copy of `arr` with padding cells removed.
+        :rtype: np.ndarray
     """
     if keep_start:
         pad = slice(None) if pad == 0 else slice(None, -pad)

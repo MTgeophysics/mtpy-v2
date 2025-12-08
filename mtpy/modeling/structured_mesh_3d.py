@@ -15,23 +15,23 @@ ModEM
 # Imports
 # =============================================================================
 from pathlib import Path
+
 import numpy as np
 import xarray as xr
-from scipy import stats as stats
-from scipy import interpolate
 from loguru import logger
+from pyevtk.hl import gridToVTK
+from scipy import interpolate
+from scipy import stats as stats
 
-import mtpy.modeling.mesh_tools as mtmesh
 import mtpy.modeling.gocad as mtgocad
+import mtpy.modeling.mesh_tools as mtmesh
 import mtpy.utils.calculator as mtcc
 import mtpy.utils.filehandling as mtfh
-
-from mtpy.utils.gis_tools import project_point
-from mtpy.modeling.plots.plot_mesh import PlotMesh
 from mtpy.core.mt_location import MTLocation
 from mtpy.gis.raster_tools import array2raster
+from mtpy.modeling.plots.plot_mesh import PlotMesh
+from mtpy.utils.gis_tools import project_point
 
-from pyevtk.hl import gridToVTK
 
 # =============================================================================
 
@@ -289,9 +289,7 @@ class StructuredGrid3D:
                 f"\tStations rotated by: {self.mesh_rotation_angle:.1f} deg clockwise positive from N"
             )
 
-            lines.append(
-                " ** Note rotations are assumed to have stations rotated."
-            )
+            lines.append(" ** Note rotations are assumed to have stations rotated.")
             lines.append("    All coordinates are aligned to geographic N, E")
             lines.append(
                 "    therefore rotating the stations will have a similar effect"
@@ -364,9 +362,7 @@ class StructuredGrid3D:
         nodes = np.array(nodes)
         self._nodes_east = nodes
         self.grid_east = np.array(
-            [
-                nodes[0:ii].sum() for ii in range(nodes.size + 1)
-            ]  # -nodes.sum() / 2 +
+            [nodes[0:ii].sum() for ii in range(nodes.size + 1)]  # -nodes.sum() / 2 +
         )  # + [shift])#[nodes.sum() / 2]
 
     # Nodes North
@@ -388,9 +384,7 @@ class StructuredGrid3D:
         nodes = np.array(nodes)
         self._nodes_north = nodes
         self.grid_north = np.array(
-            [
-                nodes[0:ii].sum() for ii in range(nodes.size + 1)
-            ]  # -nodes.sum() / 2 +
+            [nodes[0:ii].sum() for ii in range(nodes.size + 1)]  # -nodes.sum() / 2 +
         )  # + [shift])#[nodes.sum() / 2]
 
     @property
@@ -429,19 +423,14 @@ class StructuredGrid3D:
     def plot_north(self):
         """Plot north."""
         plot_north = np.array(
-            [
-                self.nodes_north[0:ii].sum()
-                for ii in range(self.nodes_north.size)
-            ]
+            [self.nodes_north[0:ii].sum() for ii in range(self.nodes_north.size)]
         )
         return plot_north - plot_north[-1] / 2.0
 
     @property
     def plot_z(self):
         """Plot z."""
-        return np.array(
-            [self.nodes_z[0:ii].sum() for ii in range(self.nodes_z.size)]
-        )
+        return np.array([self.nodes_z[0:ii].sum() for ii in range(self.nodes_z.size)])
 
     def make_mesh(self, verbose=True):
         """Create finite element mesh according to user-input parameters.
@@ -549,9 +538,7 @@ class StructuredGrid3D:
                 self.cell_size_north, self.pad_stretch_h, self.pad_north
             )
         else:
-            raise NameError(
-                f'Padding method "{self.pad_method}" is not supported'
-            )
+            raise NameError(f'Padding method "{self.pad_method}" is not supported')
 
         # make the horizontal grid
         self.grid_east = np.append(
@@ -559,9 +546,7 @@ class StructuredGrid3D:
             padding_east + inner_east.max(),
         )
         self.grid_north = np.append(
-            np.append(
-                -1 * padding_north[::-1] + inner_north.min(), inner_north
-            ),
+            np.append(-1 * padding_north[::-1] + inner_north.min(), inner_north),
             padding_north + inner_north.max(),
         )
 
@@ -582,8 +567,7 @@ class StructuredGrid3D:
         for s_north in sorted(self.station_locations.model_north):
             try:
                 node_index = np.where(
-                    abs(s_north - self.grid_north)
-                    < 0.02 * self.cell_size_north
+                    abs(s_north - self.grid_north) < 0.02 * self.cell_size_north
                 )[0][0]
                 if s_north - self.grid_north[node_index] > 0:
                     self.grid_north[node_index] -= 0.02 * self.cell_size_north
@@ -607,17 +591,11 @@ class StructuredGrid3D:
         elif self.z_mesh_method == "default":
             self.nodes_z, z_grid = self.make_z_mesh()
         else:
-            raise NameError(
-                f'Z mesh method "{self.z_mesh_method}" is not supported'
-            )
+            raise NameError(f'Z mesh method "{self.z_mesh_method}" is not supported')
 
         # compute grid center
-        center_east = np.round(
-            self.grid_east.min() - self.grid_east.mean(), -1
-        )
-        center_north = np.round(
-            self.grid_north.min() - self.grid_north.mean(), -1
-        )
+        center_east = np.round(self.grid_east.min() - self.grid_east.mean(), -1)
+        center_north = np.round(self.grid_north.min() - self.grid_north.mean(), -1)
         center_z = 0
 
         # this is the value to the lower left corner from the center.
@@ -652,9 +630,7 @@ class StructuredGrid3D:
                 decimals=-int(np.floor(np.log10(self.z1_layer))),
             )
             # round any values greater than or equal to 100 to the nearest 100
-            z_nodes = np.append(
-                z_nodes, np.around(log_z[log_z >= 100], decimals=-2)
-            )
+            z_nodes = np.append(z_nodes, np.around(log_z[log_z >= 100], decimals=-2))
 
         # index of top of padding
         # itp = len(z_nodes) - 1
@@ -669,15 +645,11 @@ class StructuredGrid3D:
         # z_nodes = np.hstack([[z1_layer] * n_air, z_nodes])
 
         # make an array of absolute values
-        z_grid = np.array(
-            [z_nodes[:ii].sum() for ii in range(z_nodes.shape[0] + 1)]
-        )
+        z_grid = np.array([z_nodes[:ii].sum() for ii in range(z_nodes.shape[0] + 1)])
 
         return z_nodes, z_grid
 
-    def add_layers_to_mesh(
-        self, n_add_layers=None, layer_thickness=None, where="top"
-    ):
+    def add_layers_to_mesh(self, n_add_layers=None, layer_thickness=None, where="top"):
         """Function to add constant thickness layers to the top or bottom of mesh.
 
         Note: It is assumed these layers are added before the topography. If
@@ -702,9 +674,7 @@ class StructuredGrid3D:
                 )
             n_add_layers = len(add_layers)
         else:
-            add_layers = np.arange(
-                0, n_add_layers * layer_thickness, layer_thickness
-            )
+            add_layers = np.arange(0, n_add_layers * layer_thickness, layer_thickness)
 
         # create a new z grid
         self.grid_z = np.hstack(
@@ -738,9 +708,7 @@ class StructuredGrid3D:
 
         gcz = np.mean([self.grid_z[:-1], self.grid_z[1:]], axis=0)
 
-        self._logger.debug(
-            f"gcz is the cells centre coordinates: {len(gcz)}, {gcz}"
-        )
+        self._logger.debug(f"gcz is the cells centre coordinates: {len(gcz)}, {gcz}")
 
         # assign resistivity value
         for j in range(len(self.res_model)):
@@ -809,34 +777,23 @@ class StructuredGrid3D:
         )
 
         # write S --> N node block
-        lines.append(
-            "".join([f"{abs(nnode):>12.3f}" for nnode in self.nodes_north])
-        )
+        lines.append("".join([f"{abs(nnode):>12.3f}" for nnode in self.nodes_north]))
 
         # write W --> E node block
-        lines.append(
-            "".join([f"{abs(enode):>12.3f}" for enode in self.nodes_east])
-        )
+        lines.append("".join([f"{abs(enode):>12.3f}" for enode in self.nodes_east]))
 
         # write top --> bottom node block
-        lines.append(
-            "".join([f"{abs(znode):>12.3f}" for znode in self.nodes_z])
-        )
+        lines.append("".join([f"{abs(znode):>12.3f}" for znode in self.nodes_z]))
 
         # write the resistivity in log e format
         if self.res_scale.lower() == "loge":
             write_res_model = np.log(self.res_model[::-1, :, :])
-        elif (
-            self.res_scale.lower() == "log"
-            or self.res_scale.lower() == "log10"
-        ):
+        elif self.res_scale.lower() == "log" or self.res_scale.lower() == "log10":
             write_res_model = np.log10(self.res_model[::-1, :, :])
         elif self.res_scale.lower() == "linear":
             write_res_model = self.res_model[::-1, :, :]
         else:
-            raise ValueError(
-                f'resistivity scale "{self.res_scale}" is not supported.'
-            )
+            raise ValueError(f'resistivity scale "{self.res_scale}" is not supported.')
 
         # write out the layers from resmodel
         for zz in range(self.nodes_z.size):
@@ -934,15 +891,9 @@ class StructuredGrid3D:
         log_yn = nsize[4]
 
         # get nodes
-        self.nodes_north = np.array(
-            [float(nn) for nn in ilines[2].strip().split()]
-        )
-        self.nodes_east = np.array(
-            [float(nn) for nn in ilines[3].strip().split()]
-        )
-        self.nodes_z = np.array(
-            [float(nn) for nn in ilines[4].strip().split()]
-        )
+        self.nodes_north = np.array([float(nn) for nn in ilines[2].strip().split()])
+        self.nodes_east = np.array([float(nn) for nn in ilines[3].strip().split()])
+        self.nodes_z = np.array([float(nn) for nn in ilines[4].strip().split()])
 
         self.res_model = np.zeros((n_north, n_east, n_z))
 
@@ -1061,9 +1012,7 @@ class StructuredGrid3D:
                     try:
                         topo[ii, jj] = (
                             -1
-                            * self.grid_z[
-                                np.where(self.res_model[ii, jj] > 1e6)[0][-1]
-                            ]
+                            * self.grid_z[np.where(self.res_model[ii, jj] > 1e6)[0][-1]]
                         )
                     except IndexError:
                         topo[ii, jj] = -1 * self.grid_z[0]
@@ -1153,8 +1102,7 @@ class StructuredGrid3D:
         east, north = np.broadcast_arrays(
             self.grid_north[pad_north : -(pad_north + 1), None]
             + self.center_point.north,
-            self.grid_east[None, pad_east : -(pad_east + 1)]
-            + self.center_point.east,
+            self.grid_east[None, pad_east : -(pad_east + 1)] + self.center_point.east,
         )
 
         lat, lon = project_point(
@@ -1170,9 +1118,7 @@ class StructuredGrid3D:
 
         # need to depth, latitude, longitude for NetCDF
         x_res = np.swapaxes(
-            np.log10(
-                self.res_model[pad_north:-pad_north, pad_east:-pad_east, :]
-            ),
+            np.log10(self.res_model[pad_north:-pad_north, pad_east:-pad_east, :]),
             0,
             1,
         ).T
@@ -1214,9 +1160,9 @@ class StructuredGrid3D:
 
         ds.attrs["Conventions"] = "CF-1.0"
         ds.attrs["Metadata_Conventions"] = "Unidata Dataset Discovery v1.0"
-        ds.attrs["NCO"] = (
-            "netCDF Operators version 4.7.5 (Homepage = http://nco.sf.net, Code=http://github/nco/nco"
-        )
+        ds.attrs[
+            "NCO"
+        ] = "netCDF Operators version 4.7.5 (Homepage = http://nco.sf.net, Code=http://github/nco/nco"
 
         for key, value in metadata.items():
             ds.attrs[key] = value
@@ -1242,9 +1188,7 @@ class StructuredGrid3D:
 
         return ds
 
-    def to_gocad_sgrid(
-        self, fn=None, origin=[0, 0, 0], clip=0, no_data_value=-99999
-    ):
+    def to_gocad_sgrid(self, fn=None, origin=[0, 0, 0], clip=0, no_data_value=-99999):
         """Write a model to gocad sgrid
 
         optional inputs:
@@ -1333,9 +1277,7 @@ class StructuredGrid3D:
         self.res_model = sg_obj.resistivity
 
         # get nodes and grid locations
-        grideast, gridnorth, gridz = [
-            np.unique(sg_obj.grid_xyz[i]) for i in range(3)
-        ]
+        grideast, gridnorth, gridz = [np.unique(sg_obj.grid_xyz[i]) for i in range(3)]
         # check if sgrid is positive up and convert to positive down if it is
         # (ModEM grid is positive down)
         if sgrid_positive_up:
@@ -1612,8 +1554,7 @@ class StructuredGrid3D:
             self.surface_dict["topography"] = topography_array
         else:
             raise ValueError(
-                "'topography_file', 'surface' or "
-                + "topography_array must be provided"
+                "'topography_file', 'surface' or " + "topography_array must be provided"
             )
 
         if self.n_air_layers is None or self.n_air_layers == 0:
@@ -1635,8 +1576,7 @@ class StructuredGrid3D:
             # get core cells
             if topography_buffer is None:
                 topography_buffer = (
-                    5
-                    * (self.cell_size_east**2 + self.cell_size_north**2) ** 0.5
+                    5 * (self.cell_size_east**2 + self.cell_size_north**2) ** 0.5
                 )
             core_cells = mtmesh.get_station_buffer(
                 gcx,
@@ -1664,9 +1604,7 @@ class StructuredGrid3D:
                 # adjust level to topography min
                 if max_elev is not None:
                     self.grid_z -= max_elev
-                    ztops = np.where(
-                        self.surface_dict["topography"] > max_elev
-                    )
+                    ztops = np.where(self.surface_dict["topography"] > max_elev)
                     self.surface_dict["topography"][ztops] = max_elev
                 else:
                     self.grid_z -= topo_core.max()
@@ -1680,17 +1618,12 @@ class StructuredGrid3D:
                     air_cell_thickness = np.ceil(
                         (topo_core.max() - topo_core_min) / self.n_air_layers
                     )
-                new_air_nodes = np.array(
-                    [air_cell_thickness] * self.n_air_layers
-                )
+                new_air_nodes = np.array([air_cell_thickness] * self.n_air_layers)
 
             if "down" not in airlayer_type:
                 # sum to get grid cell locations
                 new_airlayers = np.array(
-                    [
-                        new_air_nodes[:ii].sum()
-                        for ii in range(len(new_air_nodes) + 1)
-                    ]
+                    [new_air_nodes[:ii].sum() for ii in range(len(new_air_nodes) + 1)]
                 )
                 # maximum topography cell on the grid
                 topo_max_grid = topo_core_min + new_airlayers[-1]
@@ -1729,9 +1662,7 @@ class StructuredGrid3D:
         bottom = -self.surface_dict["topography"]
         self.assign_resistivity_from_surface_data(top, bottom, air_resistivity)
         # assign bathymetry
-        self.assign_resistivity_from_surface_data(
-            np.zeros_like(top), bottom, 0.3
-        )
+        self.assign_resistivity_from_surface_data(np.zeros_like(top), bottom, 0.3)
 
         return
 
@@ -1755,9 +1686,7 @@ class StructuredGrid3D:
             )
             self.ns_ext = np.ceil(extent_ratio * inner_ns_ext)
 
-    def interpolate_to_even_grid(
-        self, cell_size, pad_north=None, pad_east=None
-    ):
+    def interpolate_to_even_grid(self, cell_size, pad_north=None, pad_east=None):
         """Interpolate the model onto an even grid for plotting as a raster or
         netCDF.
         :param cell_size: DESCRIPTION.
@@ -1792,9 +1721,7 @@ class StructuredGrid3D:
             self.grid_east[None, :-1],
         )
 
-        new_res_arr = np.zeros(
-            (new_north.size, new_east.size, self.nodes_z.size)
-        )
+        new_res_arr = np.zeros((new_north.size, new_east.size, self.nodes_z.size))
 
         for z_index in range(self.grid_z.shape[0] - 1):
             res = self.res_model[:, :, z_index]
@@ -1806,9 +1733,7 @@ class StructuredGrid3D:
 
         return new_north, new_east, new_res_arr
 
-    def get_lower_left_corner(
-        self, pad_east, pad_north, shift_east=0, shift_north=0
-    ):
+    def get_lower_left_corner(self, pad_east, pad_north, shift_east=0, shift_north=0):
         """Get the lower left corner in UTM coordinates for raster.
         :param shift_north:
             Defaults to 0.
@@ -1828,9 +1753,7 @@ class StructuredGrid3D:
         lower_left = MTLocation()
         lower_left.utm_crs = self.center_point.utm_crs
         lower_left.datum_crs = self.center_point.datum_crs
-        lower_left.east = (
-            self.center_point.east + self.grid_east[pad_east] + shift_east
-        )
+        lower_left.east = self.center_point.east + self.grid_east[pad_east] + shift_east
         lower_left.north = (
             self.center_point.north + self.grid_north[pad_north] + shift_north
         )
@@ -1849,9 +1772,7 @@ class StructuredGrid3D:
             try:
                 depth_min = np.where(self.grid_z >= depth_min)[0][0]
             except IndexError:
-                raise IndexError(
-                    f"Could not locate depths deeper than {depth_min}."
-                )
+                raise IndexError(f"Could not locate depths deeper than {depth_min}.")
         return depth_min
 
     def _get_depth_max_index(self, depth_max):
@@ -1866,9 +1787,7 @@ class StructuredGrid3D:
             try:
                 depth_max = np.where(self.grid_z <= depth_max)[0][-1]
             except IndexError:
-                raise IndexError(
-                    f"Could not locate depths shallower than {depth_max}."
-                )
+                raise IndexError(f"Could not locate depths shallower than {depth_max}.")
         return depth_max
 
     def _get_pad_slice(self, pad):
@@ -2128,9 +2047,9 @@ class StructuredGrid3D:
                 index_min = np.where(self.grid_z <= z.min())[0][-1]
             index_max = np.where(self.grid_z >= z.max())[0][0]
 
-            conductance = (
-                1.0 / raster_array[:, :, index_min:index_max]
-            ) * abs(self.grid_z[index_min:index_max])
+            conductance = (1.0 / raster_array[:, :, index_min:index_max]) * abs(
+                self.grid_z[index_min:index_max]
+            )
             conductance = np.log10(np.nansum(conductance, axis=2))
             try:
                 raster_fn = self.save_path.joinpath(
@@ -2149,9 +2068,7 @@ class StructuredGrid3D:
                 )
                 raster_fn_list.append(raster_fn)
                 if verbose:
-                    self._logger.info(
-                        f"Wrote conductance {key} to {raster_fn}"
-                    )
+                    self._logger.info(f"Wrote conductance {key} to {raster_fn}")
             except IndexError:
                 break
 
@@ -2344,9 +2261,7 @@ class StructuredGrid3D:
         if vtk_fn.suffix != "":
             vtk_fn = vtk_fn.parent.joinpath(vtk_fn.stem)
 
-        vtk_x, vtk_y, vtk_z, resistivity = self._to_output_coordinates(
-            **kwargs
-        )
+        vtk_x, vtk_y, vtk_z, resistivity = self._to_output_coordinates(**kwargs)
 
         label = kwargs.get("model_units", "resistivity")
         cell_data = {label: resistivity}
@@ -2428,10 +2343,7 @@ class StructuredGrid3D:
         if geographic:
             shift_north = self.center_point.north
             shift_east = self.center_point.east
-            if self.grid_z[0] == self.center_point.elevation:
-                shift_z = 0
-            else:
-                shift_z = self.center_point.elevation
+            shift_z = 0  # elevation is already included in the model
 
             if "+" in coordinate_system:
                 y = (self.grid_east[east_slice] + shift_east) * scale
@@ -2442,9 +2354,7 @@ class StructuredGrid3D:
                 y = (self.grid_north[north_slice] + shift_north) * scale
                 depth = -1 * (self.grid_z[z_slice] - shift_z) * scale
 
-            resistivity = self._rotate_res_model()[
-                east_slice, north_slice, z_slice
-            ]
+            resistivity = self._rotate_res_model()[east_slice, north_slice, z_slice]
 
         # use cellData, this makes the grid properly as grid is n+1
         else:
@@ -2458,9 +2368,7 @@ class StructuredGrid3D:
                 y = (self.grid_north[north_slice] + shift_north) * scale
                 x = (self.grid_east[east_slice] + shift_east) * scale
                 depth = -1 * (self.grid_z[z_slice] - shift_z) * scale
-                resistivity = self._rotate_res_model()[
-                    east_slice, north_slice, z_slice
-                ]
+                resistivity = self._rotate_res_model()[east_slice, north_slice, z_slice]
 
         return x, y, depth, resistivity
 
@@ -2498,7 +2406,7 @@ class StructuredGrid3D:
                     lines.append(
                         f"{yy + self.center_point.east:.3f} "
                         f"{xx + self.center_point.north:.3f} "
-                        f"{-(zz + self.center_point.elevation):.3f} "
+                        f"{-(zz):.3f} "
                         f"{self.res_model[ii, jj, kk]:.3f}"
                     )
 
@@ -2544,19 +2452,11 @@ class StructuredGrid3D:
 
         shift_east = (
             self.center_point.east
-            - (
-                self.nodes_east[0]
-                - self.nodes_east[1] / 2
-                - self.grid_center[1] / 2
-            )
+            - (self.nodes_east[0] - self.nodes_east[1] / 2 - self.grid_center[1] / 2)
         ) / 1000.0
         shift_north = (
             self.center_point.north
-            + (
-                self.nodes_north[0]
-                - self.nodes_north[1] / 2
-                - self.grid_center[0] / 2
-            )
+            + (self.nodes_north[0] - self.nodes_north[1] / 2 - self.grid_center[0] / 2)
         ) / 1000.0
 
         shift_elevation = self.center_point.elevation / 1000.0
@@ -2627,9 +2527,7 @@ class StructuredGrid3D:
         """
 
         # write mesh first
-        lines = [
-            f"{self.nodes_east.size} {self.nodes_north.size} {self.nodes_z.size}"
-        ]
+        lines = [f"{self.nodes_east.size} {self.nodes_north.size} {self.nodes_z.size}"]
         lines.append(
             str(self.nodes_east.tolist())
             .replace("[", "")
@@ -2664,9 +2562,7 @@ class StructuredGrid3D:
         if res_list is None:
             return res_model_int
         # make a dictionary of values to write to file.
-        res_dict = dict(
-            [(res, ii) for ii, res in enumerate(sorted(res_list), 1)]
-        )
+        res_dict = dict([(res, ii) for ii, res in enumerate(sorted(res_list), 1)])
 
         for ii, res in enumerate(res_list):
             indexes = np.where(self.res_model == res)
@@ -2755,9 +2651,7 @@ class StructuredGrid3D:
         l1 = 0
         layers = []
         for zz in range(self.nodes_z.shape[0] - 1):
-            if not (
-                write_res_model[:, :, zz] == write_res_model[:, :, zz + 1]
-            ).all():
+            if not (write_res_model[:, :, zz] == write_res_model[:, :, zz + 1]).all():
                 layers.append((l1, zz))
                 l1 = zz + 1
         # need to add on the bottom layers
@@ -2765,7 +2659,8 @@ class StructuredGrid3D:
 
         # write out the layers from resmodel
         for ll in layers:
-            lines.append(f"{ll[0] + 1} {ll[1] + 1}\n")
+            if nr > 0:
+                lines.append(f"{ll[0] + 1} {ll[1] + 1}\n")
             for nn in range(self.nodes_north.shape[0]):
                 for ee in range(self.nodes_east.shape[0]):
                     if nr > 0:
@@ -2850,9 +2745,7 @@ class StructuredGrid3D:
                 count_e += 1
             line_index += 1
         self.grid_east = np.insert(np.cumsum(self.nodes_east), 0, 0)
-        self.grid_east = (
-            self.grid_east - (self.grid_east[-1] - self.grid_east[0]) / 2
-        )
+        self.grid_east = self.grid_east - (self.grid_east[-1] - self.grid_east[0]) / 2
 
         count_z = 0  # number of vertical nodes
         while count_z < n_z:
@@ -2937,9 +2830,7 @@ class StructuredGrid3D:
             lagrange = 1.0
 
         # get lengths of things
-        n_north, n_east, n_z, n_res = np.array(
-            mlines[1].strip().split(), dtype=int
-        )
+        n_north, n_east, n_z, n_res = np.array(mlines[1].strip().split(), dtype=int)
 
         # make empty arrays to put stuff into
         self._nodes_north = np.zeros(n_north)
@@ -2969,9 +2860,7 @@ class StructuredGrid3D:
                 count_e += 1
             line_index += 1
         self.grid_east = np.insert(np.cumsum(self.nodes_east), 0, 0)
-        self.grid_east = (
-            self.grid_east - (self.grid_east[-1] - self.grid_east[0]) / 2
-        )
+        self.grid_east = self.grid_east - (self.grid_east[-1] - self.grid_east[0]) / 2
 
         count_z = 0  # number of vertical nodes
         zdep = 0

@@ -9,20 +9,21 @@ Created on Tue Aug 20 13:09:02 2024
 # Imports
 # =============================================================================
 import unittest
+
 import numpy as np
-
-from mtpy import MTData
 from mtpy_data import PROFILE_LIST
-from mtpy.modeling.simpeg.recipes.inversion_2d import Simpeg2D
-
-from simpeg.electromagnetics import natural_source as nsem
 from simpeg import (
-    optimization,
-    inverse_problem,
-    directives,
     data_misfit,
+    directives,
+    inverse_problem,
+    optimization,
     regularization,
 )
+from simpeg.electromagnetics import natural_source as nsem
+
+from mtpy import MTData
+from mtpy.modeling.simpeg.recipes.inversion_2d import Simpeg2D
+
 
 # =============================================================================
 
@@ -31,21 +32,15 @@ class TestSimpeg2DRecipe(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         self.md = MTData()
-        self.md.add_station(
-            [fn for fn in PROFILE_LIST if fn.name.startswith("16")]
-        )
+        self.md.add_station([fn for fn in PROFILE_LIST if fn.name.startswith("16")])
         # australian epsg
         self.md.utm_epsg = 4462
 
         # extract profile
-        self.profile = self.md.get_profile(
-            149.15, -22.3257, 149.20, -22.3257, 1000
-        )
+        self.profile = self.md.get_profile(149.15, -22.3257, 149.20, -22.3257, 1000)
         # interpolate onto a common period range
         self.new_periods = np.logspace(-3, 0, 4)
-        self.profile.interpolate(
-            self.new_periods, inplace=True, bounds_error=False
-        )
+        self.profile.interpolate(self.new_periods, inplace=True, bounds_error=False)
         self.profile.compute_model_errors()
 
         self.mt_df = self.profile.to_dataframe()
@@ -152,21 +147,15 @@ class TestSimpeg2DRecipeRun(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         self.md = MTData()
-        self.md.add_station(
-            [fn for fn in PROFILE_LIST if fn.name.startswith("16")]
-        )
+        self.md.add_station([fn for fn in PROFILE_LIST if fn.name.startswith("16")])
         # australian epsg
         self.md.utm_epsg = 4462
 
         # extract profile
-        self.profile = self.md.get_profile(
-            149.15, -22.3257, 149.20, -22.3257, 1000
-        )
+        self.profile = self.md.get_profile(149.15, -22.3257, 149.20, -22.3257, 1000)
         # interpolate onto a common period range
         self.new_periods = np.logspace(-3, 0, 4)
-        self.profile.interpolate(
-            self.new_periods, inplace=True, bounds_error=False
-        )
+        self.profile.interpolate(self.new_periods, inplace=True, bounds_error=False)
         self.profile.compute_model_errors()
 
         self.mt_df = self.profile.to_dataframe()

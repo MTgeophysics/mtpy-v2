@@ -18,8 +18,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .data import Data
 from mtpy.modeling.plots import PlotRMS
+
+from .data import Data
+
 
 # =============================================================================
 

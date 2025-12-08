@@ -9,7 +9,9 @@ Created on Tue Nov  7 09:33:52 2023
 # =============================================================================
 
 from pathlib import Path
+
 from loguru import logger
+
 
 # =============================================================================
 
@@ -123,16 +125,12 @@ class WSStartup:
         else:
             slines.append(f"{'DATA_FILE':<20}{self.data_fn}\n")
             if len(self.data_fn) > 70:
-                print(
-                    "Data file is too long, going to get an error at runtime"
-                )
+                print("Data file is too long, going to get an error at runtime")
 
         slines.append(f"{'OUTPUT_FILE':<20}{self.output_stem}\n")
 
         if self.startup_fn.parent == self.initial_fn.parent:
-            slines.append(
-                f"{'INITIAL_MODEL_FILE':<20}{self.initial_fn.name}\n"
-            )
+            slines.append(f"{'INITIAL_MODEL_FILE':<20}{self.initial_fn.name}\n")
         else:
             slines.append(f"{'INITIAL_MODEL_FILE':<20}{self.initial_fn}\n")
         slines.append(f"{'PRIOR_MODEL_FILE':<20}{self.apriori_fn}\n")

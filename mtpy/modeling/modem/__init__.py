@@ -23,5 +23,4 @@ __all__ = [
     "ControlFwd",
     "Covariance",
     "ModEMConfig",
-
 ]
