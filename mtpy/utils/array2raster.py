@@ -9,14 +9,16 @@ Created on Sun May 11 12:15:37 2014
 # Imports
 # =============================================================================
 try:
-    from osgeo import ogr, gdal, osr
+    from osgeo import gdal, ogr, osr
 except ImportError:
     raise ImportError(
         "Did not find GDAL, be sure it is installed correctly and "
         "all the paths are correct."
     )
 import numpy as np
+
 from mtpy import MTLocation
+
 
 ogr.UseExceptions()
 # =============================================================================

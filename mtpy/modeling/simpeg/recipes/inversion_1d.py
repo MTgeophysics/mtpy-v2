@@ -14,24 +14,27 @@ from loguru import logger
 from mtpy.core import MTDataFrame
 from mtpy.imaging.mtplot_tools.plotters import plot_errorbar
 
+
 try:
     from discretize import TensorMesh
-    from simpeg.electromagnetics import natural_source as nsem
     from simpeg import (
-        maps,
         data,
         data_misfit,
-        regularization,
-        optimization,
+        directives,
         inverse_problem,
         inversion,
-        directives,
+        maps,
+        optimization,
+        regularization,
     )
+    from simpeg.electromagnetics import natural_source as nsem
 except ImportError:
     logger.warning("Could not import Simpeg.")
 
-from matplotlib import pyplot as plt
 import matplotlib.gridspec as gridspec
+from matplotlib import pyplot as plt
+from matplotlib.ticker import LogLocator
+
 
 # =============================================================================
 
@@ -80,9 +83,7 @@ class Simpeg1D:
     @property
     def mesh(self):
         """Mesh function."""
-        return TensorMesh(
-            [(np.r_[self.thicknesses, self.thicknesses[-1]])], "N"
-        )
+        return TensorMesh([np.r_[self.thicknesses, self.thicknesses[-1]]], "N")
 
     @property
     def frequencies(self):
@@ -176,12 +177,8 @@ class Simpeg1D:
         :rtype: TYPE
         """
 
-        sub_df.phase[
-            np.where(abs(np.diff(sub_df.phase)) > max_diff_phase)[0] + 1
-        ] = 0
-        sub_df.phase[
-            np.where(abs(np.diff(sub_df.phase)) > max_diff_phase)[0] + 1
-        ] = 0
+        sub_df.phase[np.where(abs(np.diff(sub_df.phase)) > max_diff_phase)[0] + 1] = 0
+        sub_df.phase[np.where(abs(np.diff(sub_df.phase)) > max_diff_phase)[0] + 1] = 0
         sub_df.res[
             np.where(np.log10(abs(np.diff(sub_df.res))) > max_diff_res)[0] + 1
         ] = 0
@@ -212,10 +209,7 @@ class Simpeg1D:
         )
 
         bad_res = np.where(
-            abs(
-                interpolate.splev(sub_df.period, spline_res)
-                - sub_df.resistivity
-            )
+            abs(interpolate.splev(sub_df.period, spline_res) - sub_df.resistivity)
             > tolerance
         )
 
@@ -229,7 +223,6 @@ class Simpeg1D:
 
         if self.output_dict is None:
             raise ValueError("Must run an inversion first")
-        pass
 
     @property
     def data(self):
@@ -239,13 +232,11 @@ class Simpeg1D:
     @property
     def data_error(self):
         """Data error."""
-        return np.c_[
-            self._sub_df.res_error, self._sub_df.phase_error
-        ].flatten()
+        return np.c_[self._sub_df.res_error, self._sub_df.phase_error].flatten()
 
     def run_fixed_layer_inversion(
         self,
-        cull_from_difference=True,
+        cull_from_difference=False,
         maxIter=40,
         maxIterCG=30,
         alpha_s=1e-10,
@@ -257,6 +248,7 @@ class Simpeg1D:
         use_irls=False,
         p_s=2,
         p_z=2,
+        **kwargs,
     ):
         """Run fixed layer inversion."""
         receivers_list = [
@@ -305,9 +297,7 @@ class Simpeg1D:
 
         # Define how the optimization problem is solved. Here we will use an inexact
         # Gauss-Newton approach that employs the conjugate gradient solver.
-        opt = optimization.InexactGaussNewton(
-            maxIter=maxIter, maxIterCG=maxIterCG
-        )
+        opt = optimization.InexactGaussNewton(maxIter=maxIter, maxIterCG=maxIterCG)
 
         # Define the inverse problem
         inv_prob = inverse_problem.BaseInvProblem(dmis, reg, opt)
@@ -404,9 +394,7 @@ class Simpeg1D:
         ax.grid(which="both", alpha=0.5)
         ax.plot(xlim, np.ones(2) * target_misfit, "--")
         ax.set_title(
-            "Iteration={:d}, Beta = {:.1e}".format(
-                iteration, betas[iteration - 1]
-            )
+            "Iteration={:d}, Beta = {:.1e}".format(iteration, betas[iteration - 1])
         )
         ax.set_xlim(xlim)
         plt.show()
@@ -419,7 +407,7 @@ class Simpeg1D:
         z_grid = np.r_[0.0, np.cumsum(self.thicknesses[::-1])]
         return z_grid / 1000
 
-    def plot_response(self, iteration=None, fig_num=2):
+    def plot_response(self, iteration=None, fig_num=1, **kwargs):
         """Plot response.
         :param fig_num:
             Defaults to 2.
@@ -449,18 +437,38 @@ class Simpeg1D:
         ax_model = fig.add_subplot(gs[:, 0])
         ax_model.step(
             (1.0 / (np.exp(m))),
-            self._plot_z,
+            self._plot_z[::-1],
             color="k",
             **{"linestyle": "-"},
         )
 
         # ax_model.legend()
         ax_model.set_xlabel("Resistivity ($\Omega$m)")
-        ax_model.grid(which="both", alpha=0.5)
-        ax_model.set_ylim((self._plot_z.max(), 0.01))
+        y_limits = kwargs.get("y_limits", (0.01, self._plot_z.max()))
+        ax_model.set_ylim(y_limits)
         ax_model.set_ylabel("Depth (km)")
         ax_model.set_xscale("log")
-        ax_model.set_yscale("symlog")
+        yscale = kwargs.get("y_scale", "symlog")
+        ax_model.set_yscale(yscale)
+        if "log" in yscale:
+            ax_model.yaxis.set_major_locator(LogLocator(base=10.0, numticks=10))
+            ax_model.yaxis.set_minor_locator(
+                LogLocator(base=10.0, numticks=10, subs="auto")
+            )
+            ax_model.xaxis.set_major_locator(LogLocator(base=10.0, numticks=10))
+            ax_model.xaxis.set_minor_locator(
+                LogLocator(base=10.0, numticks=10, subs="auto")
+            )
+        else:
+            pass
+            # ax_model.yaxis.set_major_locator(
+            #     plt.(integer=True, nbins=10)
+            # )
+            # ax_model.xaxis.set_major_locator(
+            #     plt.MaxNLocator(integer=True, nbins=10)
+            # )
+
+        ax_model.grid(which="both", alpha=0.5)
 
         nf = len(self.frequencies)
 

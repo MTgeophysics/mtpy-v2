@@ -1,17 +1,15 @@
 # =============================================================================
 # Imports
 # =============================================================================
-from pathlib import Path
-import pandas as pd
 import unittest
+from pathlib import Path
 
-from mth5.data.make_mth5_from_asc import MTH5_PATH, create_test12rr_h5
+import pandas as pd
+from mth5.data.make_mth5_from_asc import create_test12rr_h5, MTH5_PATH
 
 from mtpy.processing import KERNEL_DATASET_COLUMNS, KernelDataset, RunSummary
-from mtpy.processing.kernel_dataset import (
-    intervals_overlap,
-    overlap,
-)
+from mtpy.processing.kernel_dataset import intervals_overlap, overlap
+
 
 # =============================================================================
 
@@ -49,9 +47,7 @@ class TestKernelDataset(unittest.TestCase):
             self.assertEqual(new_df.end.dtype.type, pd.Timestamp)
 
     def test_df_columns(self):
-        self.assertListEqual(
-            sorted(KERNEL_DATASET_COLUMNS), sorted(self.kd.df.columns)
-        )
+        self.assertListEqual(sorted(KERNEL_DATASET_COLUMNS), sorted(self.kd.df.columns))
 
     def test_set_df_fail_bad_type(self):
         def set_df(value):
@@ -104,14 +100,10 @@ class TestKernelDataset(unittest.TestCase):
         self.assertEqual("test1", self.kd.local_station_id)
 
     def test_set_local_station_id_fail(self):
-        self.assertRaises(
-            NameError, self.kd.__setattr__, "local_station_id", "test3"
-        )
+        self.assertRaises(NameError, self.kd.__setattr__, "local_station_id", "test3")
 
     def test_set_remote_station_id_fail(self):
-        self.assertRaises(
-            NameError, self.kd.__setattr__, "remote_station_id", "test3"
-        )
+        self.assertRaises(NameError, self.kd.__setattr__, "remote_station_id", "test3")
 
     def test_str(self):
         mini_df = self.kd.mini_summary
@@ -129,9 +121,7 @@ class TestKernelDataset(unittest.TestCase):
         with self.subTest("local station only length"):
             self.assertEqual(len(self.kd.local_df.station.unique()), 1)
         with self.subTest("local station only"):
-            self.assertListEqual(
-                list(self.kd.local_df.station.unique()), ["test1"]
-            )
+            self.assertListEqual(list(self.kd.local_df.station.unique()), ["test1"])
 
     def test_remote_df(self):
         with self.subTest("shape"):
@@ -139,12 +129,12 @@ class TestKernelDataset(unittest.TestCase):
         with self.subTest("remote station only length"):
             self.assertEqual(len(self.kd.remote_df.station.unique()), 1)
         with self.subTest("remote station only"):
-            self.assertListEqual(
-                list(self.kd.remote_df.station.unique()), ["test2"]
-            )
+            self.assertListEqual(list(self.kd.remote_df.station.unique()), ["test2"])
 
     def test_processing_id(self):
-        expected_processing_id = "test1_rr_test2_sr1"  # changed from "test1-rr_test2_sr1" 01 Mar, 2025
+        expected_processing_id = (
+            "test1_rr_test2_sr1"  # changed from "test1-rr_test2_sr1" 01 Mar, 2025
+        )
         self.assertEqual(self.kd.processing_id, expected_processing_id)
 
     def test_local_survey_id(self):
@@ -231,9 +221,7 @@ class TestOverlapFunctions(unittest.TestCase):
 
         """
         # This test corresponds to the second line in the if/elif logic.
-        tmp = overlap(
-            self.ti1_start, self.ti1_end, self.ti2_start, self.ti2_end
-        )
+        tmp = overlap(self.ti1_start, self.ti1_end, self.ti2_start, self.ti2_end)
         self.assertTrue(
             tmp[0] == self.ti1_start + pd.Timedelta(hours=self.shift_1_hours)
         )
@@ -289,9 +277,7 @@ class TestKernelDatasetMethods(unittest.TestCase):
         self.assertFalse((self.kd.df.duration == 0).all())
 
     def test_from_run_summary_has_all_columns(self):
-        self.assertListEqual(
-            sorted(self.kd.df.columns), sorted(KERNEL_DATASET_COLUMNS)
-        )
+        self.assertListEqual(sorted(self.kd.df.columns), sorted(KERNEL_DATASET_COLUMNS))
 
     def test_from_run_summary_local_mth5_path(self):
         self.assertEqual(self.kd.local_mth5_path, Path("path"))

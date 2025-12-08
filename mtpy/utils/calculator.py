@@ -14,8 +14,10 @@ Helper functions for standard calculations, e.g. error propagation
 # =================================================================
 
 
+import cmath
+import math
+
 import numpy as np
-import math, cmath
 
 import mtpy.utils.exceptions as MTex
 
@@ -32,9 +34,7 @@ mu0 = 4e-7 * np.pi
 
 def centre_point(xarray, yarray):
     """Get the centre point of arrays of x and y values."""
-    return (xarray.max() + xarray.min()) / 2.0, (
-        yarray.max() + yarray.min()
-    ) / 2.0
+    return (xarray.max() + xarray.min()) / 2.0, (yarray.max() + yarray.min()) / 2.0
 
 
 def roundsf(number, sf):
@@ -113,9 +113,7 @@ def nearest_index(val, array):
     return np.where(diff == min(diff))[0][0]
 
 
-def make_log_increasing_array(
-    z1_layer, target_depth, n_layers, increment_factor=0.999
-):
+def make_log_increasing_array(z1_layer, target_depth, n_layers, increment_factor=0.999):
     """Create depth array with log increasing cells, down to target depth,
     inputs are z1_layer thickness, target depth, number of layers (n_layers)
     """
@@ -123,9 +121,7 @@ def make_log_increasing_array(
     # make initial guess for maximum cell thickness
     max_cell_thickness = target_depth
     # make initial guess for log_z
-    log_z = np.logspace(
-        np.log10(z1_layer), np.log10(max_cell_thickness), num=n_layers
-    )
+    log_z = np.logspace(np.log10(z1_layer), np.log10(max_cell_thickness), num=n_layers)
     counter = 0
 
     while np.sum(log_z) > target_depth:
@@ -146,9 +142,7 @@ def invertmatrix_incl_errors(inmatrix, inmatrix_error=None):
     if inmatrix is None:
         raise MTex.MTpyError_input_arguments("Matrix must be defined")
 
-    if (inmatrix_error is not None) and (
-        inmatrix.shape != inmatrix_error.shape
-    ):
+    if (inmatrix_error is not None) and (inmatrix.shape != inmatrix_error.shape):
         raise MTex.MTpyError_input_arguments(
             "Matrix and err-matrix shapes do not match: %s - %s"
             % (str(inmatrix.shape), str(inmatrix_error.shape))
@@ -193,9 +187,7 @@ def invertmatrix_incl_errors(inmatrix, inmatrix_error=None):
                         # each entry has 4 summands
 
                         err += np.abs(
-                            -inv_matrix[i, k]
-                            * inv_matrix[l, j]
-                            * inmatrix_error[k, l]
+                            -inv_matrix[i, k] * inv_matrix[l, j] * inmatrix_error[k, l]
                         )
 
                 inv_matrix_err[i, j] = err
@@ -219,9 +211,7 @@ def rhophi2z(rho, phi, freq):
     try:
         if rho.shape != (2, 2) or phi.shape != (2, 2):
             raise
-        if not (
-            rho.dtype in ["float", "int"] and phi.dtype in ["float", "int"]
-        ):
+        if not (rho.dtype in ["float", "int"] and phi.dtype in ["float", "int"]):
             raise
 
     except:
@@ -238,9 +228,7 @@ def rhophi2z(rho, phi, freq):
     return z
 
 
-def compute_determinant_error(
-    z_array, z_err_array, method="theoretical", repeats=1000
-):
+def compute_determinant_error(z_array, z_err_array, method="theoretical", repeats=1000):
     """Compute the error of the determinant of z using a stochastic method
     seed random z arrays with a normal distribution around the input array
     :param repeats:
@@ -258,9 +246,7 @@ def compute_determinant_error(
         arraylist = []
 
         for r in range(repeats):
-            errmag = np.random.normal(
-                loc=0, scale=z_err_array, size=z_array.shape
-            )
+            errmag = np.random.normal(loc=0, scale=z_err_array, size=z_array.shape)
             arraylist = np.append(arraylist, z_array + errmag * (1.0 + 1j))
 
         arraylist = arraylist.reshape(repeats, z_array.shape[0], 2, 2)
@@ -607,9 +593,7 @@ def multiplymatrices_incl_errors(
     """Multiplymatrices incl errors."""
 
     if inmatrix1 is None or inmatrix2 is None:
-        raise MTex.MTpyError_input_arguments(
-            "ERROR - two 2x2 arrays needed as input"
-        )
+        raise MTex.MTpyError_input_arguments("ERROR - two 2x2 arrays needed as input")
 
     if inmatrix1.shape != inmatrix2.shape:
         raise MTex.MTpyError_input_arguments(

@@ -5,15 +5,15 @@ Created on Sun Sep 25 15:06:58 2022
 @author: jpeacock
 """
 
+import matplotlib.tri as tri
+
 # =============================================================================
 # Imports
 # =============================================================================
 import numpy as np
-
-import matplotlib.tri as tri
-
-from scipy.spatial import Delaunay, cKDTree
 from scipy import interpolate
+from scipy.spatial import cKDTree, Delaunay
+
 
 # =============================================================================
 def in_hull(p, hull):
@@ -63,11 +63,7 @@ def get_plot_xy(plot_array, cell_size, n_padding_cells):
     # create uniform x, y to plot on.
     ds = cell_size * n_padding_cells
     n_points = int(
-        abs(
-            plot_array["longitude"].max()
-            - plot_array["longitude"].min()
-            + 2 * ds
-        )
+        abs(plot_array["longitude"].max() - plot_array["longitude"].min() + 2 * ds)
         / cell_size
     )
     plot_x = np.linspace(
@@ -77,9 +73,7 @@ def get_plot_xy(plot_array, cell_size, n_padding_cells):
     )
 
     n_points = int(
-        abs(
-            plot_array["latitude"].max() - plot_array["latitude"].min() + 2 * ds
-        )
+        abs(plot_array["latitude"].max() - plot_array["latitude"].min() + 2 * ds)
         / cell_size
     )
     plot_y = np.linspace(
@@ -91,9 +85,7 @@ def get_plot_xy(plot_array, cell_size, n_padding_cells):
     return plot_x, plot_y
 
 
-def griddata_interpolate(
-    x, y, values, new_x, new_y, interpolation_method="cubic"
-):
+def griddata_interpolate(x, y, values, new_x, new_y, interpolation_method="cubic"):
     """Griddata interpolate.
     :param values:
     :param x: DESCRIPTION.

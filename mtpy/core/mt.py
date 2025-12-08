@@ -6,32 +6,23 @@
 .. moduleauthor:: Jared Peacock <jpeacock@usgs.gov>
 """
 
-# =============================================================================
-from pathlib import Path
 from copy import deepcopy
 
-import numpy as np
+# =============================================================================
+from pathlib import Path
 
+import numpy as np
 from mt_metadata.transfer_functions.core import TF
 
-from mtpy.core.transfer_function import IMPEDANCE_UNITS
-from mtpy.core import (
-    Z,
-    Tipper,
-    COORDINATE_REFERENCE_FRAME_OPTIONS,
-)
-from mtpy.core.mt_location import MTLocation
+from mtpy.core import COORDINATE_REFERENCE_FRAME_OPTIONS, Tipper, Z
 from mtpy.core.mt_dataframe import MTDataFrame
-from mtpy.utils.estimate_tf_quality_factor import EMTFStats
-
-from mtpy.imaging import (
-    PlotMTResponse,
-    PlotPhaseTensor,
-    PlotPenetrationDepth1D,
-)
+from mtpy.core.mt_location import MTLocation
+from mtpy.core.transfer_function import IMPEDANCE_UNITS
+from mtpy.imaging import PlotMTResponse, PlotPenetrationDepth1D, PlotPhaseTensor
 from mtpy.modeling.errors import ModelErrors
 from mtpy.modeling.occam1d import Occam1DData
 from mtpy.modeling.simpeg.recipes.inversion_1d import Simpeg1D
+from mtpy.utils.estimate_tf_quality_factor import EMTFStats
 
 
 # =============================================================================
@@ -110,9 +101,7 @@ class MT(TF, MTLocation):
 
         self.save_dir = Path.cwd()
 
-        self._coordinate_reference_frame_options = (
-            COORDINATE_REFERENCE_FRAME_OPTIONS
-        )
+        self._coordinate_reference_frame_options = COORDINATE_REFERENCE_FRAME_OPTIONS
 
         self.coordinate_reference_frame = (
             self.station_metadata.transfer_function.sign_convention
@@ -164,17 +153,17 @@ class MT(TF, MTLocation):
     @property
     def coordinate_reference_frame(self):
         f"""Coordinate reference frame of the transfer function
-        
+
         Deafualt is NED
 
          - x = North
          - y = East
          - z = + down
-         
+
         Options are:
-            
+
             {self._coordinate_reference_frame_options}
-        
+
         """
 
         return self._coordinate_reference_frame_options[
@@ -231,9 +220,7 @@ class MT(TF, MTLocation):
         if not isinstance(value, str):
             raise TypeError("Units input must be a string.")
         if value.lower() not in self._impedance_unit_factors.keys():
-            raise ValueError(
-                f"{value} is not an acceptable unit for impedance."
-            )
+            raise ValueError(f"{value} is not an acceptable unit for impedance.")
 
         self._impedance_units = value
 
@@ -289,11 +276,18 @@ class MT(TF, MTLocation):
 
             self._rotation_angle += theta_r
 
-            self.logger.info(
-                f"Rotated transfer function by: {theta_r:.3f} "
-                "degrees clockwise in reference frame "
-                f"{self.coordinate_reference_frame}."
-            )
+            if isinstance(self._rotation_angle, (float, int)):
+                self.logger.info(
+                    f"Rotated transfer function by: {self._rotation_angle:.3f} "
+                    "degrees clockwise in reference frame "
+                    f"{self.coordinate_reference_frame}."
+                )
+            else:
+                self.logger.info(
+                    f"Rotated transfer function by: {self._rotation_angle.mean():.3f} "
+                    "degrees clockwise in reference frame "
+                    f"{self.coordinate_reference_frame}."
+                )
         else:
             new_m = self.clone_empty()
             if self.has_impedance():
@@ -552,7 +546,6 @@ class MT(TF, MTLocation):
         method="slinear",
         bounds_error=True,
         f_type="period",
-        z_log_space=False,
         **kwargs,
     ):
         """Interpolate the impedance tensor onto different frequencies.
@@ -606,10 +599,19 @@ class MT(TF, MTLocation):
                 )
 
         new_m = self.clone_empty()
+        theta_r = 0
+        if isinstance(self._rotation_angle, (int, float)):
+            if self._rotation_angle != 0:
+                theta_r = float(self._rotation_angle)
+        elif isinstance(self._rotation_angle, np.ndarray):
+            if self._rotation_angle.mean() != 0:
+                theta_r = float(self._rotation_angle.mean())
+                self.logger.warning(
+                    f"Station {self.station}: Using mean rotation angle of {theta_r:.2f} degrees."
+                )
+        new_m._rotation_angle = np.repeat(theta_r, len(new_period))
         if self.has_impedance():
-            new_m.Z = self.Z.interpolate(
-                new_period, method=method, log_space=z_log_space, **kwargs
-            )
+            new_m.Z = self.Z.interpolate(new_period, method=method, **kwargs)
             if new_m.has_impedance():
                 if np.all(np.isnan(new_m.Z.z)):
                     self.logger.warning(
@@ -618,9 +620,7 @@ class MT(TF, MTLocation):
                         "See scipy.interpolate.interp1d for more information."
                     )
         if self.has_tipper():
-            new_m.Tipper = self.Tipper.interpolate(
-                new_period, method=method, **kwargs
-            )
+            new_m.Tipper = self.Tipper.interpolate(new_period, method=method, **kwargs)
             if new_m.has_tipper():
                 if np.all(np.isnan(new_m.Tipper.tipper)):
                     self.logger.warning(
@@ -1107,9 +1107,7 @@ class MT(TF, MTLocation):
         if inplace:
             self._transfer_function[
                 "transfer_function"
-            ] = self._transfer_function.transfer_function.real * (
-                noise_real
-            ) + (
+            ] = self._transfer_function.transfer_function.real * (noise_real) + (
                 1j * self._transfer_function.transfer_function.imag * noise_imag
             )
 
@@ -1121,9 +1119,7 @@ class MT(TF, MTLocation):
             new_mt_obj._transfer_function = self._transfer_function.copy()
             new_mt_obj._transfer_function[
                 "transfer_function"
-            ] = self._transfer_function.transfer_function.real * (
-                noise_real
-            ) + (
+            ] = self._transfer_function.transfer_function.real * (noise_real) + (
                 1j * self._transfer_function.transfer_function.imag * noise_imag
             )
 
@@ -1137,6 +1133,8 @@ class MT(TF, MTLocation):
         try to remove bad points in a scientific way.
 
         """
+
+        # bring up a gui of some sort.
 
     def to_occam1d(self, data_filename=None, mode="det"):
         """Write an Occam1DData data file.
@@ -1180,6 +1178,6 @@ class MT(TF, MTLocation):
         simpeg_1d = Simpeg1D(self.to_dataframe(), mode=mode, **kwargs)
         simpeg_1d.run_fixed_layer_inversion(**kwargs)
         simpeg_1d.plot_model_fitting(fig_num=1)
-        simpeg_1d.plot_response(fig_num=2)
+        simpeg_1d.plot_response(fig_num=2, **kwargs)
 
         return simpeg_1d

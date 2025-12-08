@@ -11,11 +11,12 @@ ModEM
 # revised by JP 2022 to work with new structure of a central object
 
 """
+from pathlib import Path
+
 # =============================================================================
 # Imports
 # =============================================================================
 import numpy as np
-from pathlib import Path
 import pandas as pd
 from loguru import logger
 
@@ -135,9 +136,7 @@ class Data:
             lines += [
                 f"\tNumber of impedance stations: {self.get_n_stations('impedance')}"
             ]
-            lines += [
-                f"\tNumber of tipper stations: {self.get_n_stations('vertical')}"
-            ]
+            lines += [f"\tNumber of tipper stations: {self.get_n_stations('vertical')}"]
             lines += [
                 f"\tNumber of phase tensor stations: {self.get_n_stations('phase_tensor')}"
             ]
@@ -161,12 +160,8 @@ class Data:
             ]
             lines += [f"\t\tElevation:  {self.center_point.elevation:.1f} m"]
 
-            lines += [
-                f"\tImpedance data:     {self.dataframe.z_xy.mean() != 0.0}"
-            ]
-            lines += [
-                f"\tTipper data:        {self.dataframe.t_zx.mean() != 0.0}"
-            ]
+            lines += [f"\tImpedance data:     {self.dataframe.z_xy.mean() != 0.0}"]
+            lines += [f"\tTipper data:        {self.dataframe.t_zx.mean() != 0.0}"]
             lines += [
                 f"\tInversion Mode:   {', '.join(self.inv_mode_dict[self.inv_mode])}"
             ]
@@ -271,8 +266,7 @@ class Data:
             elif "vertical" in mode.lower():
                 return (
                     self.dataframe.loc[
-                        (self.dataframe.t_zx != 0)
-                        | (self.dataframe.t_zy != 0),
+                        (self.dataframe.t_zx != 0) | (self.dataframe.t_zy != 0),
                         "station",
                     ]
                     .unique()
@@ -479,9 +473,7 @@ class Data:
                 )
 
             if np.isinf(err) or np.isnan(err):
-                err = 10 ** (
-                    np.floor(np.log10(abs(max([float(rea), float(ima)]))))
-                )
+                err = 10 ** (np.floor(np.log10(abs(max([float(rea), float(ima)])))))
             abs_err = f"{err:> 14.6e}"
 
             return "".join(
@@ -509,9 +501,7 @@ class Data:
 
         ## check for zeros in model error
         for comp in ["z_xx", "z_xy", "z_yx", "z_yy", "t_zx", "t_zy"]:
-            find_zeros = np.where(self.dataframe[f"{comp}_model_error"] == 0)[
-                0
-            ]
+            find_zeros = np.where(self.dataframe[f"{comp}_model_error"] == 0)[0]
             find_zeros_data = np.where(self.dataframe[f"{comp}"] == 0)[0]
 
             if find_zeros.shape == find_zeros_data.shape:
@@ -528,9 +518,7 @@ class Data:
                     f"{error_percent}."
                 )
 
-                self.dataframe.loc[
-                    find_zeros.tolist(), f"{comp}_model_error"
-                ] = (
+                self.dataframe.loc[find_zeros.tolist(), f"{comp}_model_error"] = (
                     abs(self.dataframe[f"{comp}"].iloc[list(find_zeros)])
                     * error_percent
                 )
@@ -540,9 +528,7 @@ class Data:
 
         for comp in ["z_xx", "z_xy", "z_yx", "z_yy", "t_zx", "t_zy"]:
             find_small = np.where(
-                self.dataframe[f"{comp}_model_error"]
-                / abs(self.dataframe[comp])
-                < tol
+                self.dataframe[f"{comp}_model_error"] / abs(self.dataframe[comp]) < tol
             )[0]
             if find_small.shape[0] > 0:
                 if comp.startswith("z"):
@@ -555,9 +541,7 @@ class Data:
                     f"{len(find_small)} times. Setting error as {comp} x "
                     f"{error_percent}."
                 )
-                self.dataframe.loc[
-                    find_small.tolist(), f"{comp}_model_error"
-                ] = (
+                self.dataframe.loc[find_small.tolist(), f"{comp}_model_error"] = (
                     abs(self.dataframe[f"{comp}"].iloc[list(find_small)])
                     * error_percent
                 )
@@ -572,21 +556,15 @@ class Data:
                     f"Found values in {comp} larger than {tol} "
                     f"{len(find_big)} times. Setting to nan"
                 )
-                self.dataframe.loc[find_big.tolist(), comp] = (
-                    np.nan + 1j * np.nan
-                )
-                self.dataframe.loc[
-                    find_big.tolist(), f"{comp}_model_error"
-                ] = np.nan
+                self.dataframe.loc[find_big.tolist(), comp] = np.nan + 1j * np.nan
+                self.dataframe.loc[find_big.tolist(), f"{comp}_model_error"] = np.nan
 
     def _check_for_too_small_values(self, tol=1e-10):
         """Check for too small of errors relative to the error floor."""
 
         for comp in ["z_xx", "z_xy", "z_yx", "z_yy", "t_zx", "t_zy"]:
             find_small = np.where(np.abs(self.dataframe[comp]) < tol)[0]
-            find_zeros_data = np.where(
-                np.nan_to_num(self.dataframe[f"{comp}"]) == 0
-            )[0]
+            find_zeros_data = np.where(np.nan_to_num(self.dataframe[f"{comp}"]) == 0)[0]
             if find_small.shape == find_zeros_data.shape:
                 continue
             if find_small.shape[0] > 0:
@@ -594,12 +572,8 @@ class Data:
                     f"Found values in {comp} smaller than {tol} "
                     f"{len(find_small)} times. Setting to nan"
                 )
-                self.dataframe.loc[find_small.tolist(), comp] = (
-                    np.nan + 1j * np.nan
-                )
-                self.dataframe.loc[
-                    find_small.tolist(), f"{comp}_model_error"
-                ] = np.nan
+                self.dataframe.loc[find_small.tolist(), comp] = np.nan + 1j * np.nan
+                self.dataframe.loc[find_small.tolist(), f"{comp}_model_error"] = np.nan
 
     def write_data_file(
         self,
@@ -653,9 +627,7 @@ class Data:
 
             else:
                 # maybe error here
-                raise NotImplementedError(
-                    f"inv_mode {inv_mode} is not supported yet"
-                )
+                raise NotImplementedError(f"inv_mode {inv_mode} is not supported yet")
 
         comps = self._get_components()
         # Iterate over stations and sort by period
@@ -677,9 +649,7 @@ class Data:
         with open(self.data_filename, "w") as dfid:
             dfid.write("\n".join(z_lines + t_lines))
 
-        self.logger.info(
-            "Wrote ModEM data file to {0}".format(self.data_filename)
-        )
+        self.logger.info("Wrote ModEM data file to {0}".format(self.data_filename))
         return self.data_filename
 
     def _read_header(self, header_lines):
@@ -728,13 +698,8 @@ class Data:
                     elif mode in ["vertical"]:
                         self.wave_sign_tipper = hline[hline.find("(") + 1]
 
-                elif (
-                    len(hline[1:].strip().split()) >= 2
-                    and hline.count(".") > 0
-                ):
-                    value_list = [
-                        float(value) for value in hline[1:].strip().split()
-                    ]
+                elif len(hline[1:].strip().split()) >= 2 and hline.count(".") > 0:
+                    value_list = [float(value) for value in hline[1:].strip().split()]
                     if value_list[0] != 0.0:
                         self.center_point.latitude = value_list[0]
                     if value_list[1] != 0.0:
@@ -743,9 +708,7 @@ class Data:
                         self.center_point.elevation = value_list[2]
                     except IndexError:
                         self.center_point.elevation = 0.0
-                        self.logger.debug(
-                            "Did not find center elevation in data file"
-                        )
+                        self.logger.debug("Did not find center elevation in data file")
                 elif len(hline[1:].strip().split()) < 2:
                     try:
                         self.rotation_angle = float(hline[1:].strip())
@@ -950,9 +913,7 @@ class Data:
         full_df = pd.DataFrame(entries)
 
         # group by period and station so that there is 1 row per period per station
-        combined_df = full_df.groupby(
-            ["station", "period"], as_index=False
-        ).first()
+        combined_df = full_df.groupby(["station", "period"], as_index=False).first()
 
         # combine real and imaginary
         cols = [c.split("_")[0] for c in combined_df.columns if "real" in c]
@@ -960,9 +921,7 @@ class Data:
             combined_df[col] = (
                 combined_df[f"{col}_real"] + 1j * combined_df[f"{col}_imag"]
             )
-            combined_df.drop(
-                [f"{col}_real", f"{col}_imag"], axis=1, inplace=True
-            )
+            combined_df.drop([f"{col}_real", f"{col}_imag"], axis=1, inplace=True)
 
         combined_df["elevation"] = -1 * combined_df["model_elevation"]
 
@@ -1004,9 +963,7 @@ class Data:
 
         def fix_line(line_list):
             """Fix line."""
-            return (
-                " ".join("".join(line_list).replace("\n", "").split()) + "\n"
-            )
+            return " ".join("".join(line_list).replace("\n", "").split()) + "\n"
 
         h1 = fix_line(lines[0:n])
         h2 = fix_line(lines[n : 2 * n])
@@ -1022,10 +979,7 @@ class Data:
             h4 = fix_line(lines[find + n : find + 2 * n])
 
             new_lines = (
-                [h1, h2]
-                + lines[2 * n : find]
-                + [h3, h4]
-                + lines[find + 2 * n :]
+                [h1, h2] + lines[2 * n : find] + [h3, h4] + lines[find + 2 * n :]
             )
         else:
             new_lines = [h1, h2] + lines[2 * n :]

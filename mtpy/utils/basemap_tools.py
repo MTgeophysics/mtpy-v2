@@ -1,6 +1,6 @@
-import numpy as np
 import matplotlib.pyplot as plt
-from mtpy.modeling.modem import Data
+import numpy as np
+
 from mtpy.utils.calculator import nearest_index
 
 

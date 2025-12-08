@@ -16,14 +16,16 @@ Created on Fri Jun 07 18:20:00 2013
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 try:
     import contextily as cx
 
     has_cx = True
 except ModuleNotFoundError:
     has_cx = False
-from mtpy.imaging.mtplot_tools import PlotBase
 import mtpy.utils.exceptions as mtex
+from mtpy.imaging.mtplot_tools import PlotBase
+
 
 # ==============================================================================
 
@@ -31,13 +33,16 @@ import mtpy.utils.exceptions as mtex
 class PlotStations(PlotBase):
     """Plot station locations in map view.
 
+    Can set `x_limits` and `y_limits` to zoom in on a specific area.
+    or set `image_extent` to plot an image in the background.
+    or set `pad` to set the padding around the stations.
+
     Uses contextily to get the basemap.
     See https://contextily.readthedocs.io/en/latest/index.html for more
     information about options.
     """
 
     def __init__(self, geo_df, **kwargs):
-
         # --> set plot properties
         self.plot_title = None
         self.station_id = None
@@ -67,9 +72,7 @@ class PlotStations(PlotBase):
         if self.image_file is not None:
             if self.image_extent is None:
                 raise mtex.MTpyError_inputarguments(
-                    "Need to input extents "
-                    + "of the image as"
-                    + "(x0, y0, x1, y1)"
+                    "Need to input extents " + "of the image as" + "(x0, y0, x1, y1)"
                 )
         # --> plot if desired
         if self.show_plot:
@@ -87,10 +90,8 @@ class PlotStations(PlotBase):
         """Get pad."""
         return max(
             [
-                np.abs(self.gdf.geometry.x.min() - self.gdf.geometry.x.max())
-                * 0.05,
-                np.abs(self.gdf.geometry.y.min() - self.gdf.geometry.y.max())
-                * 0.05,
+                np.abs(self.gdf.geometry.x.min() - self.gdf.geometry.x.max()) * 0.05,
+                np.abs(self.gdf.geometry.y.min() - self.gdf.geometry.y.max()) * 0.05,
             ]
         )
 
@@ -115,15 +116,37 @@ class PlotStations(PlotBase):
         # make a figure instance
         self.fig = plt.figure(self.fig_num, self.fig_size, dpi=self.fig_dpi)
 
+        if self.pad is None:
+            self.pad = self._get_pad()
+
+        if self.image_extent:
+            x_limits = (self.image_extent[0], self.image_extent[2])
+            y_limits = (self.image_extent[1], self.image_extent[3])
+        elif self.x_limits is not None:
+            x_limits = self.x_limits
+            if self.y_limits is None:
+                y_limits = self._get_ylimits(self.gdf.geometry.y)
+            else:
+                y_limits = self.y_limits
+        elif self.y_limits is not None:
+            y_limits = self.y_limits
+            if self.x_limits is None:
+                x_limits = self._get_xlimits(self.gdf.geometry.x)
+            else:
+                x_limits = self.x_limits
+        else:
+            x_limits = self._get_xlimits(self.gdf.geometry.x)
+            y_limits = self._get_ylimits(self.gdf.geometry.y)
+
         # add and axes
         self.ax = self.fig.add_subplot(1, 1, 1, aspect="equal")
+        self.ax.set_xlim(x_limits)
+        self.ax.set_ylim(y_limits)
 
         # --> plot the background image if desired-----------------------
         if self.image_file is not None:
             im = plt.imread(self.image_file)
-            self.ax.imshow(
-                im, origin="lower", extent=self.image_extent, aspect="auto"
-            )
+            self.ax.imshow(im, origin="lower", extent=self.image_extent, aspect="auto")
         # plot stations
         gax = self.gdf.plot(
             ax=self.ax,
@@ -160,12 +183,8 @@ class PlotStations(PlotBase):
                         **cx_kwargs,
                     )
                 except Exception as error:
-                    self.logger.warning(
-                        f"Could not add base map because {error}"
-                    )
+                    self.logger.warning(f"Could not add base map because {error}")
 
-        if self.pad is None:
-            self.pad = self._get_pad()
         # set axis properties
         if self.plot_cx:
             self.ax.set_ylabel("latitude (deg)", fontdict=self.font_dict)
@@ -174,8 +193,6 @@ class PlotStations(PlotBase):
             self.ax.set_xlabel("relative east (m)", fontdict=self.font_dict)
             self.ax.set_ylabel("relative north (m)", fontdict=self.font_dict)
         self.ax.grid(alpha=0.35, color=(0.35, 0.35, 0.35), lw=0.35)
-        self.ax.set_xlim(self._get_xlimits(self.gdf.geometry.x))
-        self.ax.set_ylim(self._get_ylimits(self.gdf.geometry.y))
         self.ax.set_axisbelow(True)
 
         plt.show()

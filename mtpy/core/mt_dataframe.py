@@ -12,7 +12,8 @@ import numpy as np
 import pandas as pd
 from scipy.spatial.distance import pdist
 
-from . import Z, Tipper
+from . import Tipper, Z
+
 
 # =============================================================================
 
@@ -220,9 +221,7 @@ class MTDataFrame:
 
         if self._has_data():
             cols = [
-                dtype[0]
-                for dtype in self._dtype_list[14:]
-                if "error" not in dtype[0]
+                dtype[0] for dtype in self._dtype_list[14:] if "error" not in dtype[0]
             ]
 
             return np.count_nonzero(self.dataframe[cols])
@@ -247,9 +246,7 @@ class MTDataFrame:
             df = data.dataframe
 
         else:
-            raise TypeError(
-                f"Input data must be a pandas.DataFrame not {type(data)}"
-            )
+            raise TypeError(f"Input data must be a pandas.DataFrame not {type(data)}")
 
         for col in self._dtype_list:
             if col[0] not in df.columns:
@@ -263,9 +260,7 @@ class MTDataFrame:
 
     def _get_initial_df(self, n_entries=0):
         """Get initial df."""
-        return pd.DataFrame(
-            np.empty(n_entries, dtype=np.dtype(self._dtype_list))
-        )
+        return pd.DataFrame(np.empty(n_entries, dtype=np.dtype(self._dtype_list)))
 
     def _has_data(self):
         """Has data."""
@@ -291,9 +286,7 @@ class MTDataFrame:
                     f"Could not find station {self.working_station} in dataframe."
                 )
 
-            return self.dataframe[
-                self.dataframe.station == self.working_station
-            ]
+            return self.dataframe[self.dataframe.station == self.working_station]
 
     @property
     def size(self):
@@ -350,8 +343,7 @@ class MTDataFrame:
         if tol is not None:
             return MTDataFrame(
                 self.dataframe[
-                    (self.dataframe.period > period * (1 - tol))
-                    & self.dataframe.period
+                    (self.dataframe.period > period * (1 - tol)) & self.dataframe.period
                     < period * (1 + tol)
                 ]
             )
@@ -371,9 +363,7 @@ class MTDataFrame:
         """Survey name."""
         if self._has_data():
             if self.working_survey in [None, ""]:
-                self.dataframe.loc[self.dataframe.survey == "", "survey"] = (
-                    value
-                )
+                self.dataframe.loc[self.dataframe.survey == "", "survey"] = value
                 self.working_survey = value
 
     @property
@@ -389,9 +379,7 @@ class MTDataFrame:
         """Station name."""
         if self._has_data():
             if self.working_station in [None, ""]:
-                self.dataframe.loc[self.dataframe.station == "", "station"] = (
-                    value
-                )
+                self.dataframe.loc[self.dataframe.station == "", "station"] = value
                 self.working_station = value
 
     @property
@@ -470,9 +458,7 @@ class MTDataFrame:
     def east(self, value):
         """East."""
         if self._has_data():
-            self.dataframe.loc[
-                self.dataframe.station == self.station, "east"
-            ] = value
+            self.dataframe.loc[self.dataframe.station == self.station, "east"] = value
 
     @property
     def north(self):
@@ -486,9 +472,7 @@ class MTDataFrame:
     def north(self, value):
         """North."""
         if self._has_data():
-            self.dataframe.loc[
-                self.dataframe.station == self.station, "north"
-            ] = value
+            self.dataframe.loc[self.dataframe.station == self.station, "north"] = value
 
     @property
     def utm_epsg(self):
@@ -638,9 +622,9 @@ class MTDataFrame:
         :rtype: TYPE
         """
 
-        self.dataframe.loc[self.dataframe.station == self.station, "period"] = (
-            z_object.period
-        )
+        self.dataframe.loc[
+            self.dataframe.station == self.station, "period"
+        ] = z_object.period
 
         # should make a copy of the phase tensor otherwise it gets calculated
         # multiple times and becomes a time sink.
@@ -662,9 +646,7 @@ class MTDataFrame:
                         #         z_object, f"{obj_key}{error}"
                         #     )
 
-                        self._fill_data(
-                            data_array, f"{key}_{comp}{error}", index
-                        )
+                        self._fill_data(data_array, f"{key}_{comp}{error}", index)
 
                 ## phase tensor
                 data_array = getattr(pt_object, f"pt{error}")
@@ -680,9 +662,7 @@ class MTDataFrame:
                     "ellipticity",
                     "det",
                 ]:
-                    data_array = self._get_data_array(
-                        pt_object, f"{pt_attr}{error}"
-                    )
+                    data_array = self._get_data_array(pt_object, f"{pt_attr}{error}")
                     self._fill_data(data_array, f"pt_{pt_attr}{error}", None)
 
     def from_t_object(self, t_object):
@@ -697,18 +677,16 @@ class MTDataFrame:
         :return: DESCRIPTION.
         :rtype: TYPE
         """
-        self.dataframe.loc[self.dataframe.station == self.station, "period"] = (
-            t_object.period
-        )
+        self.dataframe.loc[
+            self.dataframe.station == self.station, "period"
+        ] = t_object.period
 
         for error in ["", "_error", "_model_error"]:
             if getattr(t_object, f"_has_tf{error}")():
                 obj_key = self._key_dict["t"]
                 for comp in ["zx", "zy"]:
                     index = self._get_index(comp)
-                    data_array = self._get_data_array(
-                        t_object, f"{obj_key}{error}"
-                    )
+                    data_array = self._get_data_array(t_object, f"{obj_key}{error}")
                     self._fill_data(data_array, f"t_{comp}{error}", index)
 
                 if error in [""]:
@@ -781,12 +759,10 @@ class MTDataFrame:
                     f"phase_{comp}_error",
                 ]
 
-                phase_model_err[:, index["ii"], index["jj"]] = (
-                    self.dataframe.loc[
-                        self.dataframe.station == self.station,
-                        f"phase_{comp}_model_error",
-                    ]
-                )
+                phase_model_err[:, index["ii"], index["jj"]] = self.dataframe.loc[
+                    self.dataframe.station == self.station,
+                    f"phase_{comp}_model_error",
+                ]
 
             if not (res == 0).all():
                 if not (phase == 0).all():
@@ -800,9 +776,7 @@ class MTDataFrame:
                         phase_model_error=phase_model_err,
                     )
                 else:
-                    raise ValueError(
-                        "cannot estimate Z without phase information"
-                    )
+                    raise ValueError("cannot estimate Z without phase information")
 
         return z_object
 

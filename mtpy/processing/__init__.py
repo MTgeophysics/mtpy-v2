@@ -8,9 +8,7 @@ ADDED_KERNEL_DATASET_DTYPE = [
     ("stft", object),
     ("mth5_obj", object),
 ]
-ADDED_KERNEL_DATASET_COLUMNS = [
-    entry[0] for entry in ADDED_KERNEL_DATASET_DTYPE
-]
+ADDED_KERNEL_DATASET_COLUMNS = [entry[0] for entry in ADDED_KERNEL_DATASET_DTYPE]
 
 KERNEL_DATASET_DTYPE = RUN_SUMMARY_DTYPE + ADDED_KERNEL_DATASET_DTYPE
 KERNEL_DATASET_COLUMNS = [entry[0] for entry in KERNEL_DATASET_DTYPE]
@@ -26,6 +24,7 @@ MINI_SUMMARY_COLUMNS = [
 
 from .run_summary import RunSummary
 from .kernel_dataset import KernelDataset
+
 try:
     from .aurora.process_aurora import AuroraProcessing
 except ImportError:

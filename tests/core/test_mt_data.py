@@ -11,6 +11,7 @@ import unittest
 
 from mtpy import MT, MTData
 
+
 # =============================================================================
 
 
@@ -46,9 +47,7 @@ class TestMTData(unittest.TestCase):
         self.assertRaises(TypeError, self.md._validate_item, 10)
 
     def test_eq(self):
-        md = MTData(
-            mt_list=self.mt_list_01 + self.mt_list_02, utm_epsg=self.utm_epsg
-        )
+        md = MTData(mt_list=self.mt_list_01 + self.mt_list_02, utm_epsg=self.utm_epsg)
 
         self.assertEqual(self.md, md)
 
@@ -69,9 +68,7 @@ class TestMTData(unittest.TestCase):
 
         for attr in self.md._copy_attrs:
             with self.subTest(attr):
-                self.assertEqual(
-                    getattr(self.md, attr), getattr(md_empty, attr)
-                )
+                self.assertEqual(getattr(self.md, attr), getattr(md_empty, attr))
 
     def test_initialization_utm_epsg_no_mt_list(self):
         md = MTData(utm_epsg=self.utm_epsg)
@@ -192,7 +189,6 @@ class TestMTDataMethods(unittest.TestCase):
             self.assertRaises(KeyError, self.md._get_station_key, None, "a")
 
     def test_impedance_units(self):
-
         def set_units(unit):
             self.md.impedance_units = unit
 

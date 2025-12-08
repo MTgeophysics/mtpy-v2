@@ -11,10 +11,11 @@ Created on Mon Apr 22 12:06:57 2024
 import unittest
 from pathlib import Path
 
+from mtpy_data import FWD_CONDUCTIVE_CUBE_GRID_LIST
+
 from mtpy import MTData
 from mtpy.gis.shapefile_creator import ShapefileCreator
 
-from mtpy_data import FWD_CONDUCTIVE_CUBE_GRID_LIST
 
 # =============================================================================
 
@@ -35,9 +36,7 @@ class TestShapefileCreator(unittest.TestCase):
 
         self.save_dir = Path().cwd().joinpath("shp_test")
 
-        self.sc = ShapefileCreator(
-            self.mt_df, self.md.utm_epsg, save_dir=self.save_dir
-        )
+        self.sc = ShapefileCreator(self.mt_df, self.md.utm_epsg, save_dir=self.save_dir)
 
     def test_mt_dataframe(self):
         self.assertEqual(self.mt_df, self.sc.mt_dataframe)

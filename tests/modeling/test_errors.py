@@ -10,14 +10,15 @@ Created on Thu Feb 16 13:09:59 2023
 import unittest
 
 import numpy as np
+
 from mtpy.modeling.errors import ModelErrors
+
 
 # =============================================================================
 
 
 class TestErrorEstimationZ(unittest.TestCase):
     def setUp(self):
-
         self.data = np.array(
             [
                 [[0.1 - 0.1j, 10 + 10j], [-20 - 20j, -0.3 + 0.3j]],
@@ -30,13 +31,11 @@ class TestErrorEstimationZ(unittest.TestCase):
         self.m = ModelErrors(self.data, self.data_error)
 
     def test_bad_shape(self):
-
         self.assertRaises(
             ValueError, self.m.validate_array_shape, np.random.rand(3, 3, 3)
         )
 
     def test_bad_shape_error(self):
-
         self.assertRaises(
             ValueError, self.m.validate_array_shape, np.random.rand(3, 3, 3)
         )
@@ -64,9 +63,7 @@ class TestErrorEstimationZ(unittest.TestCase):
         self.assertEqual(0.05, self.m.error_value)
 
     def test_compute_percent_error(self):
-        err = self.m.compute_error(
-            error_type="percent", error_value=5, floor=False
-        )
+        err = self.m.compute_error(error_type="percent", error_value=5, floor=False)
         est = np.array(
             [
                 [[0.00707107, 0.70710678], [1.41421356, 0.0212132]],
@@ -77,9 +74,7 @@ class TestErrorEstimationZ(unittest.TestCase):
         self.assertTrue(np.allclose(err, est))
 
     def test_compute_percent_error_floor(self):
-        err = self.m.compute_error(
-            error_type="percent", error_value=5, floor=True
-        )
+        err = self.m.compute_error(error_type="percent", error_value=5, floor=True)
         est = np.array(
             [
                 [[0.1, 0.70710678], [1.41421356, 0.25]],
@@ -126,9 +121,7 @@ class TestErrorEstimationZ(unittest.TestCase):
     def test_compute_median_floor(self):
         err = self.m.compute_error(error_type="median", floor=True)
 
-        est = np.array(
-            [[[0.1, 0.02], [0.07, 0.25]], [[0.05, 0.1], [0.03, 0.025]]]
-        )
+        est = np.array([[[0.1, 0.02], [0.07, 0.25]], [[0.05, 0.1], [0.03, 0.025]]])
         self.assertTrue(np.allclose(err, est))
 
     def test_compute_eigen(self):
@@ -190,23 +183,18 @@ class TestErrorEstimationZ(unittest.TestCase):
     def test_compute_absolute(self):
         err = self.m.compute_error(error_type="absolute", floor=False)
 
-        est = np.array(
-            [[[0.05, 0.05], [0.05, 0.05]], [[0.05, 0.05], [0.05, 0.05]]]
-        )
+        est = np.array([[[0.05, 0.05], [0.05, 0.05]], [[0.05, 0.05], [0.05, 0.05]]])
         self.assertTrue(np.allclose(err, est))
 
     def test_compute_absolute_floor(self):
         err = self.m.compute_error(error_type="absolute", floor=True)
 
-        est = np.array(
-            [[[0.1, 0.05], [0.07, 0.25]], [[0.05, 0.1], [0.05, 0.05]]]
-        )
+        est = np.array([[[0.1, 0.05], [0.07, 0.25]], [[0.05, 0.1], [0.05, 0.05]]])
         self.assertTrue(np.allclose(err, est))
 
 
 class TestErrorEstimationT(unittest.TestCase):
     def setUp(self):
-
         self.data = np.array(
             [[[0.25 - 0.2j, 0.25 + 0.2j]], [[0.15 - 0.3j, 0.75 + 0.8j]]]
         )
@@ -214,13 +202,11 @@ class TestErrorEstimationT(unittest.TestCase):
         self.m = ModelErrors(self.data, self.data_error, mode="tipper")
 
     def test_bad_shape(self):
-
         self.assertRaises(
             ValueError, self.m.validate_array_shape, np.random.rand(3, 3, 3)
         )
 
     def test_bad_shape_error(self):
-
         self.assertRaises(
             ValueError, self.m.validate_array_shape, np.random.rand(3, 3, 3)
         )
@@ -248,19 +234,13 @@ class TestErrorEstimationT(unittest.TestCase):
         self.assertEqual(0.05, self.m.error_value)
 
     def test_compute_percent_error(self):
-        err = self.m.compute_error(
-            error_type="percent", error_value=5, floor=False
-        )
-        est = np.array(
-            [[[0.01600781, 0.01600781]], [[0.01677051, 0.05482928]]]
-        )
+        err = self.m.compute_error(error_type="percent", error_value=5, floor=False)
+        est = np.array([[[0.01600781, 0.01600781]], [[0.01677051, 0.05482928]]])
 
         self.assertTrue(np.allclose(err, est))
 
     def test_compute_percent_error_floor(self):
-        err = self.m.compute_error(
-            error_type="percent", error_value=5, floor=True
-        )
+        err = self.m.compute_error(error_type="percent", error_value=5, floor=True)
         est = np.array([[[0.03, 0.01600781]], [[0.05, 0.09]]])
 
         self.assertTrue(np.allclose(err, est))
@@ -301,9 +281,7 @@ class TestErrorEstimationT(unittest.TestCase):
     def test_compute_geometric_mean(self):
         err = self.m.compute_error(error_type="geometric_mean", floor=False)
 
-        est = np.array(
-            [[[0.01600781, 0.01600781]], [[0.03032351, 0.03032351]]]
-        )
+        est = np.array([[[0.01600781, 0.01600781]], [[0.03032351, 0.03032351]]])
         self.assertTrue(np.allclose(err, est))
 
     def test_compute_geometric_mean_floor(self):
@@ -315,9 +293,7 @@ class TestErrorEstimationT(unittest.TestCase):
     def test_compute_by_row(self):
         err = self.m.compute_error(error_type="row", floor=False)
 
-        est = np.array(
-            [[[0.01600781, 0.01600781]], [[0.01677051, 0.05482928]]]
-        )
+        est = np.array([[[0.01600781, 0.01600781]], [[0.01677051, 0.05482928]]])
         self.assertTrue(np.allclose(err, est))
 
     def test_compute_by_row_floor(self):

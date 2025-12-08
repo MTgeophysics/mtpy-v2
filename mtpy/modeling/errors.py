@@ -9,6 +9,7 @@ Created on Tue Oct 11 16:01:37 2022
 # =============================================================================
 import numpy as np
 
+
 # =============================================================================
 
 
@@ -66,9 +67,7 @@ class ModelErrors:
     def __eq__(self, other):
         """Eq function."""
         if not isinstance(other, ModelErrors):
-            raise TypeError(
-                f"Cannot compare ModelErrors to type {type(other)}"
-            )
+            raise TypeError(f"Cannot compare ModelErrors to type {type(other)}")
 
         for key in ["error_value", "error_type", "floor", "mode"]:
             value_og = getattr(self, key)
@@ -169,10 +168,7 @@ class ModelErrors:
         if data.shape == expected_shape:
             data = data.reshape((1, expected_shape[0], expected_shape[1]))
 
-        if (
-            data.shape[1] != expected_shape[0]
-            or data.shape[2] != expected_shape[1]
-        ):
+        if data.shape[1] != expected_shape[0] or data.shape[2] != expected_shape[1]:
             raise ValueError(
                 f"Shape {data.shape} is not expected shape of (n, "
                 f"{expected_shape[0]}, {expected_shape[1]})"
@@ -246,7 +242,6 @@ class ModelErrors:
         """
 
         if self.measurement_error is not None:
-
             index = np.where(error_array < self.measurement_error)
             error_array[index] = self.measurement_error[index]
 
@@ -283,17 +278,11 @@ class ModelErrors:
         """
 
         if self.data.shape[1] < 2:
-            od = self.mask_zeros(
-                np.array([self.data[:, 0, 0], self.data[:, 0, 1]])
-            )
+            od = self.mask_zeros(np.array([self.data[:, 0, 0], self.data[:, 0, 1]]))
 
         else:
-            od = self.mask_zeros(
-                np.array([self.data[:, 0, 1], self.data[:, 1, 0]])
-            )
-        err = self.resize_output(
-            self.error_value * np.ma.mean(np.ma.abs(od), axis=0)
-        )
+            od = self.mask_zeros(np.array([self.data[:, 0, 1], self.data[:, 1, 0]]))
+        err = self.resize_output(self.error_value * np.ma.mean(np.ma.abs(od), axis=0))
 
         if self.floor:
             err = self.set_floor(err)
@@ -345,9 +334,7 @@ class ModelErrors:
         data = self.mask_zeros(self.data)
 
         try:
-            err = self.error_value * np.abs(np.linalg.eigvals(data)).mean(
-                axis=1
-            )
+            err = self.error_value * np.abs(np.linalg.eigvals(data)).mean(axis=1)
         except Exception:
             data_shape = data.shape
             err = (
@@ -388,8 +375,7 @@ class ModelErrors:
             data = self.mask_zeros(data)
 
             err = self.resize_output(
-                self.error_value
-                * np.ma.sqrt(np.ma.abs(data[:, 0, 0] * data[:, 0, 1]))
+                self.error_value * np.ma.sqrt(np.ma.abs(data[:, 0, 0] * data[:, 0, 1]))
             )
 
         else:
@@ -402,8 +388,7 @@ class ModelErrors:
             data = self.mask_zeros(data)
 
             err = self.resize_output(
-                self.error_value
-                * np.ma.sqrt(np.ma.abs(data[:, 0, 1] * data[:, 1, 0]))
+                self.error_value * np.ma.sqrt(np.ma.abs(data[:, 0, 1] * data[:, 1, 0]))
             )
 
         if self.floor:
@@ -465,9 +450,7 @@ class ModelErrors:
             err = self.set_floor(err)
         return err
 
-    def compute_error(
-        self, data=None, error_type=None, error_value=None, floor=None
-    ):
+    def compute_error(self, data=None, error_type=None, error_value=None, floor=None):
         """Compute error.
         :param data: DESCRIPTION, defaults to None.
         :type data: TYPE, optional

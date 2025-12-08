@@ -16,11 +16,11 @@
 # relative to the documentation root, use os.path.abspath to make it
 # absolute, like shown here.
 #
-#import os
-#import sys
+# import os
+# import sys
 
-#sys.path.insert(0, os.path.abspath("."))
-#sys.path.insert(0, os.path.abspath("../"))
+# sys.path.insert(0, os.path.abspath("."))
+# sys.path.insert(0, os.path.abspath("../"))
 
 # -- General configuration ---------------------------------------------
 
@@ -51,7 +51,7 @@ templates_path = ["../_templates"]
 # You can specify multiple suffix as a list of string:
 #
 # source_suffix = ['.rst', '.md']
-source_suffix = [".rst", ".md"] 
+source_suffix = [".rst", ".md"]
 
 # The master toctree document.
 master_doc = "index"

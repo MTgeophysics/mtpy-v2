@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 
 from mtpy.imaging.mtplot_tools import PlotBase
 
+
 # =============================================================================
 
 
@@ -18,7 +19,6 @@ class PlotPenetrationDepth1D(PlotBase):
     """Plot the depth of penetration based on the Niblett-Bostick approximation."""
 
     def __init__(self, tf, **kwargs):
-
         self.tf = tf
 
         super().__init__(**kwargs)
@@ -86,9 +86,7 @@ class PlotPenetrationDepth1D(PlotBase):
 
             line_list.append(line)
 
-        self.ax.set_xlabel(
-            f"Depth ({self.depth_units})", fontdict=self.font_dict
-        )
+        self.ax.set_xlabel(f"Depth ({self.depth_units})", fontdict=self.font_dict)
         self.ax.set_ylabel("Period (s)", fontdict=self.font_dict)
 
         self.ax.set_ylim(self.set_period_limits(depth_array["period"])[::-1])

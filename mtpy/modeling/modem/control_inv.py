@@ -17,6 +17,7 @@ from pathlib import Path
 
 from mtpy.utils import exceptions as mtex
 
+
 # =============================================================================
 
 
@@ -125,9 +126,7 @@ class ControlInv(object):
             self.save_path = value.parent
             self.fn_basename = value.name
 
-    def write_control_file(
-        self, control_fn=None, save_path=None, fn_basename=None
-    ):
+    def write_control_file(self, control_fn=None, save_path=None, fn_basename=None):
         """Write control file.
 
         Arguments::
@@ -204,7 +203,6 @@ class ControlInv(object):
             for cline in clines:
                 clist = cline.strip().split(":")
                 if len(clist) == 2:
-
                     try:
                         self._control_dict[clist[0].strip()] = float(clist[1])
                     except ValueError:

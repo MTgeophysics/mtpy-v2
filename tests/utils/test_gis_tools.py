@@ -6,9 +6,11 @@ tests update to v2
 # Imports
 # =============================================================================
 import unittest
+
 import numpy as np
 
 from mtpy.utils import gis_tools
+
 
 # =============================================================================
 
@@ -16,7 +18,6 @@ from mtpy.utils import gis_tools
 class TestGisTools(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-
         self.lat_hhmmss = "-34:17:57.99"
         self.lat_str = "-34.299442"
         self.lat_fail = "-34:29.9442"
@@ -112,8 +113,7 @@ class TestGisTools(unittest.TestCase):
         in_array = np.array([1, 20, 45, 67.2342])
         self.assertTrue(
             (
-                in_array
-                == gis_tools.validate_input_values(in_array.tolist(), "lat")
+                in_array == gis_tools.validate_input_values(in_array.tolist(), "lat")
             ).all()
         )
 
@@ -122,9 +122,7 @@ class TestGisTools(unittest.TestCase):
         self.assertTrue(
             (
                 in_array
-                == gis_tools.validate_input_values(
-                    in_array.tolist(), "latitude"
-                )
+                == gis_tools.validate_input_values(in_array.tolist(), "latitude")
             ).all()
         )
 
@@ -132,8 +130,7 @@ class TestGisTools(unittest.TestCase):
         in_array = np.array([1, 20, 45, 67.2342])
         self.assertTrue(
             (
-                in_array
-                == gis_tools.validate_input_values(in_array.tolist(), "lon")
+                in_array == gis_tools.validate_input_values(in_array.tolist(), "lon")
             ).all()
         )
 
@@ -142,9 +139,7 @@ class TestGisTools(unittest.TestCase):
         self.assertTrue(
             (
                 in_array
-                == gis_tools.validate_input_values(
-                    in_array.tolist(), "longitude"
-                )
+                == gis_tools.validate_input_values(in_array.tolist(), "longitude")
             ).all()
         )
 
@@ -153,9 +148,7 @@ class TestGisTools(unittest.TestCase):
         self.assertTrue(
             (
                 in_array
-                == gis_tools.validate_input_values(
-                    in_array.astype(str).tolist(), "lat"
-                )
+                == gis_tools.validate_input_values(in_array.astype(str).tolist(), "lat")
             ).all()
         )
 
@@ -169,24 +162,16 @@ class TestGisTools(unittest.TestCase):
         )
 
     def test_project_point_fail_old_epsg(self):
-        self.assertRaises(
-            ValueError, gis_tools.project_point, 1, 2, None, None
-        )
+        self.assertRaises(ValueError, gis_tools.project_point, 1, 2, None, None)
 
     def test_project_point_fail_new_epsg(self):
-        self.assertRaises(
-            ValueError, gis_tools.project_point, 1, 2, 4326, None
-        )
+        self.assertRaises(ValueError, gis_tools.project_point, 1, 2, 4326, None)
 
     def test_project_point_fail_x_zeros(self):
-        self.assertRaises(
-            ValueError, gis_tools.project_point, 0, 10, 4326, 32611
-        )
+        self.assertRaises(ValueError, gis_tools.project_point, 0, 10, 4326, 32611)
 
     def test_project_point_fail_y_zeros(self):
-        self.assertRaises(
-            ValueError, gis_tools.project_point, 10, 0, 4326, 32611
-        )
+        self.assertRaises(ValueError, gis_tools.project_point, 10, 0, 4326, 32611)
 
     def test_project_point(self):
         point = gis_tools.project_point(
@@ -243,30 +228,22 @@ class TestGisTools(unittest.TestCase):
         if np.isclose(points.easting[0], self.easting):
             with self.subTest("easting"):
                 self.assertTrue(
-                    np.isclose(
-                        np.repeat(self.easting, 5), points.easting
-                    ).all()
+                    np.isclose(np.repeat(self.easting, 5), points.easting).all()
                 )
 
             with self.subTest("northing"):
                 self.assertTrue(
-                    np.isclose(
-                        np.repeat(self.northing, 5), points.northing
-                    ).all()
+                    np.isclose(np.repeat(self.northing, 5), points.northing).all()
                 )
         else:
             with self.subTest("easting"):
                 self.assertTrue(
-                    np.isclose(
-                        np.repeat(self.easting_36, 5), points.easting
-                    ).all()
+                    np.isclose(np.repeat(self.easting_36, 5), points.easting).all()
                 )
 
             with self.subTest("northing"):
                 self.assertTrue(
-                    np.isclose(
-                        np.repeat(self.northing_36, 5), points.northing
-                    ).all()
+                    np.isclose(np.repeat(self.northing_36, 5), points.northing).all()
                 )
         with self.subTest("elevation"):
             self.assertTrue(np.isclose(np.repeat(0, 5), points.elev).all())
@@ -301,9 +278,7 @@ class TestGisTools(unittest.TestCase):
             self.assertIsInstance(points, np.recarray)
 
         with self.subTest("lat"):
-            self.assertTrue(
-                np.isclose(np.repeat(self.lat_d, 5), points.latitude).all()
-            )
+            self.assertTrue(np.isclose(np.repeat(self.lat_d, 5), points.latitude).all())
         with self.subTest("lon"):
             self.assertTrue(
                 np.isclose(np.repeat(self.lon_d, 5), points.longitude).all()

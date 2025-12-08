@@ -27,9 +27,9 @@ maximize coverage of the local station runs is generated
 Development Notes:
     TODO: consider adding methods:
      - drop_runs_shorter_than": removes short runs from summary
-     - fill_gaps_by_time_interval": allows runs to be merged if gaps between 
+     - fill_gaps_by_time_interval": allows runs to be merged if gaps between
        are short
-     - fill_gaps_by_run_names": allows runs to be merged if gaps between are 
+     - fill_gaps_by_run_names": allows runs to be merged if gaps between are
        short
     TODO: Consider whether this should return a copy or modify in-place when
     querying the df.
@@ -42,13 +42,13 @@ Development Notes:
 import copy
 from typing import Optional, Union
 
+import mth5
 import pandas as pd
 from loguru import logger
-
-from mtpy.processing import RUN_SUMMARY_COLUMNS, MINI_SUMMARY_COLUMNS
-
-import mth5
 from mth5.utils.helpers import initialize_mth5
+
+from mtpy.processing import MINI_SUMMARY_COLUMNS, RUN_SUMMARY_COLUMNS
+
 
 # =============================================================================
 
@@ -196,9 +196,7 @@ class RunSummary:
             return new_rs
 
 
-def extract_run_summary_from_mth5(
-    mth5_obj, summary_type: Optional[str] = "run"
-):
+def extract_run_summary_from_mth5(mth5_obj, summary_type: Optional[str] = "run"):
     """Given a single mth5 object, get the channel_summary and compress it to a
     run_summary.
 
@@ -226,9 +224,7 @@ def extract_run_summary_from_mth5(
     return out_df
 
 
-def extract_run_summaries_from_mth5s(
-    mth5_list, summary_type="run", deduplicate=True
-):
+def extract_run_summaries_from_mth5s(mth5_list, summary_type="run", deduplicate=True):
     """Given a list of mth5's, iterate over them, extracting run_summaries and
     merging into one big table.
 
