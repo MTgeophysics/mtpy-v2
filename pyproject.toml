@@ -46,7 +46,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=3"]
+test = ["pytest>=3", "pytest-cov", "pytest-mock", "pytest-subtests", "pytest-xdist"]
+
+
 
 [project.urls]
 Homepage = "https://github.com/MTgeophysics/mtpy-v2"
