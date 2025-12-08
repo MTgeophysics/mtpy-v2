@@ -15,28 +15,28 @@ Created on Mon Jan 11 15:36:38 2021
 # =============================================================================
 from pathlib import Path
 
-from loguru import logger
+import geopandas as gpd
 import numpy as np
 import pandas as pd
-import geopandas as gpd
+from loguru import logger
+from mth5.mth5 import MTH5
 
 from mtpy import MT
 from mtpy.core.mt_data import MTData
 from mtpy.imaging import (
-    PlotStations,
     PlotMultipleResponses,
-    PlotResidualPTMaps,
-    PlotResidualPTPseudoSection,
-    PlotPhaseTensorMaps,
-    PlotPhaseTensorPseudoSection,
-    PlotStrike,
     PlotPenetrationDepth1D,
     PlotPenetrationDepthMap,
+    PlotPhaseTensorMaps,
+    PlotPhaseTensorPseudoSection,
+    PlotResidualPTMaps,
+    PlotResidualPTPseudoSection,
     PlotResPhaseMaps,
     PlotResPhasePseudoSection,
+    PlotStations,
+    PlotStrike,
 )
 
-from mth5.mth5 import MTH5
 
 # =============================================================================
 #

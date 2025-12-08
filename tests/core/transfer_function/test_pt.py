@@ -8,9 +8,11 @@ Created on Tue Nov  8 13:04:38 2022
 # Imports
 # =============================================================================
 import unittest
+
 import numpy as np
 
 from mtpy.core.transfer_function.pt import PhaseTensor
+
 
 # =============================================================================
 
@@ -82,9 +84,7 @@ class TestZSetResPhase(unittest.TestCase):
 
     def test_pt_error(self):
         self.assertTrue(
-            np.isclose(
-                self.pt.pt_error, np.array([[[0.1, 0.2], [0.2, 0.1]]])
-            ).all()
+            np.isclose(self.pt.pt_error, np.array([[[0.1, 0.2], [0.2, 0.1]]])).all()
         )
 
     def test_pt_model_error(self):
@@ -131,14 +131,10 @@ class TestZSetResPhase(unittest.TestCase):
         self.assertTrue(np.all(np.isnan(self.pt.azimuth_error)))
 
     def test_beta_error(self):
-        self.assertTrue(
-            np.isclose(self.pt.beta_error, np.array([4.05142342])).all()
-        )
+        self.assertTrue(np.isclose(self.pt.beta_error, np.array([4.05142342])).all())
 
     def test_skew_error(self):
-        self.assertTrue(
-            np.isclose(self.pt.skew_error, np.array([4.05142342])).all()
-        )
+        self.assertTrue(np.isclose(self.pt.skew_error, np.array([4.05142342])).all())
 
     def test_ellipticity_error(self):
         self.assertTrue(np.all(np.isnan(self.pt.ellipticity_error)))

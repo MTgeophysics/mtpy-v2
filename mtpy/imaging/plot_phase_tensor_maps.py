@@ -9,23 +9,25 @@ Revision History:
 
     brenainn.moushall 26-03-2020 15:07:14 AEDT:
         Add plotting of geotiff as basemap background.
-        
+
     Updated 2022 by J. Peacock to work with v2
-        
+
         - Using rasterio to plot geotiffs
         - factorized
         - using interp function for faster plotting.
-    
+
 """
+import matplotlib.colorbar as mcb
+import matplotlib.colors as colors
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
+
 # =============================================================================
 # Imports
 # =============================================================================
 import numpy as np
 from matplotlib.ticker import FormatStrFormatter
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import matplotlib.colorbar as mcb
-import matplotlib.colors as colors
+
 
 try:
     import contextily as cx
@@ -33,10 +35,10 @@ try:
     has_cx = True
 except ModuleNotFoundError:
     has_cx = False
-from mtpy.imaging.mtplot_tools import PlotBaseMaps, add_raster
 from mtpy.core import Tipper
-from mtpy.imaging import mtcolors
 from mtpy.core.transfer_function import PhaseTensor
+from mtpy.imaging import mtcolors
+from mtpy.imaging.mtplot_tools import add_raster, PlotBaseMaps
 
 
 # ==============================================================================
@@ -269,9 +271,7 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
             plot_y = tf.latitude - self.reference_point[1]
         # if map scale is in meters easting and northing
         elif self.map_scale in ["m", "km"]:
-            tf.project_point_ll2utm(
-                epsg=self.map_epsg, utm_zone=self.map_utm_zone
-            )
+            tf.project_point_ll2utm(epsg=self.map_epsg, utm_zone=self.map_utm_zone)
 
             plot_x = tf.east - self.reference_point[0]
             plot_y = tf.north - self.reference_point[1]
@@ -622,9 +622,7 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
             cmap = getattr(self, dict_key)
             cmap_input = mtcolors.cm.get_cmap(cmap)
             if "seg" in cmap and "ellipse" in key:
-                norms = colors.BoundaryNorm(
-                    self.ellipse_cmap_bounds, cmap_input.N
-                )
+                norms = colors.BoundaryNorm(self.ellipse_cmap_bounds, cmap_input.N)
                 self.cb = mcb.ColorbarBase(
                     ax,
                     cmap=cmap_input,
@@ -633,9 +631,7 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
                     ticks=self.ellipse_cmap_bounds,
                 )
             elif "skew" in key:
-                norms = colors.BoundaryNorm(
-                    self.skew_cmap_bounds, cmap_input.N
-                )
+                norms = colors.BoundaryNorm(self.skew_cmap_bounds, cmap_input.N)
                 cb = mcb.ColorbarBase(
                     ax,
                     cmap=cmap_input,
@@ -678,15 +674,11 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
             legend_lines = []
             legend_labels = []
             if "r" in self.plot_tipper:
-                real_line = plt.Line2D(
-                    [0, 0], [0, 0], color=self.arrow_color_real
-                )
+                real_line = plt.Line2D([0, 0], [0, 0], color=self.arrow_color_real)
                 legend_lines.append(real_line)
                 legend_labels.append("Real")
             if "i" in self.plot_tipper:
-                imag_line = plt.Line2D(
-                    [0, 0], [0, 0], color=self.arrow_color_imag
-                )
+                imag_line = plt.Line2D([0, 0], [0, 0], color=self.arrow_color_imag)
                 legend_lines.append(imag_line)
                 legend_labels.append("Imag")
 
@@ -722,9 +714,7 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
         self._set_subplot_params()
 
         # make figure instance
-        self.fig = plt.figure(
-            self.fig_num, figsize=self.fig_size, dpi=self.fig_dpi
-        )
+        self.fig = plt.figure(self.fig_num, figsize=self.fig_size, dpi=self.fig_dpi)
 
         # clear the figure if there is already one up
         plt.clf()
@@ -791,9 +781,7 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
                         **cx_kwargs,
                     )
                 except Exception as error:
-                    self.logger.warning(
-                        f"Could not add base map because {error}"
-                    )
+                    self.logger.warning(f"Could not add base map because {error}")
         # --> set title in period or frequency
         titlefreq = "{0:.5g} (s)".format(self.plot_period)
 
@@ -810,9 +798,7 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
                 fontweight="bold",
             )
         # make a grid with color lines
-        self.ax.grid(
-            True, alpha=0.3, which="major", color=(0.5, 0.5, 0.5), lw=0.75
-        )
+        self.ax.grid(True, alpha=0.3, which="major", color=(0.5, 0.5, 0.5), lw=0.75)
         self.ax.grid(
             True,
             alpha=0.3,

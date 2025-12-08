@@ -1,6 +1,7 @@
 from __future__ import division
-import os
+
 import glob
+import os
 import re
 
 import matplotlib.pyplot as plt
@@ -24,12 +25,12 @@ def _an_sort(collection):
 def concatenate_log_files(directory):
     """Any file of the pattern '*.log' will be included.
 
-    The files are
-sorted alphanumerically and this is the order they will be
-    concatenated in. It is up to the user to ensure that the files are
-    named correctly to achieve the desired order.
-    :param directory:
-    :type directory: str
+        The files are
+    sorted alphanumerically and this is the order they will be
+        concatenated in. It is up to the user to ensure that the files are
+        named correctly to achieve the desired order.
+        :param directory:
+        :type directory: str
     """
     directory = os.path.abspath(directory)
     files = _an_sort(glob.glob(os.path.join(directory, "*.log")))
@@ -56,11 +57,11 @@ sorted alphanumerically and this is the order they will be
 def read(logfile):
     """Get a sequence of values from a ModEM logfile.
 
-    Each type of value
-present in the logfile is collected and ordered by iteration.
-    :param logfile:
-    :param Returns: Dict of str, float: A dictionary containing lists of metric
-        values.
+        Each type of value
+    present in the logfile is collected and ordered by iteration.
+        :param logfile:
+        :param Returns: Dict of str, float: A dictionary containing lists of metric
+            values.
     """
     lf = open(logfile, "r")
     lines = lf.readlines()

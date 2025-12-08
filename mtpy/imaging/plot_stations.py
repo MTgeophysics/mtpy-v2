@@ -16,14 +16,16 @@ Created on Fri Jun 07 18:20:00 2013
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 try:
     import contextily as cx
 
     has_cx = True
 except ModuleNotFoundError:
     has_cx = False
-from mtpy.imaging.mtplot_tools import PlotBase
 import mtpy.utils.exceptions as mtex
+from mtpy.imaging.mtplot_tools import PlotBase
+
 
 # ==============================================================================
 
@@ -41,7 +43,6 @@ class PlotStations(PlotBase):
     """
 
     def __init__(self, geo_df, **kwargs):
-
         # --> set plot properties
         self.plot_title = None
         self.station_id = None
@@ -71,9 +72,7 @@ class PlotStations(PlotBase):
         if self.image_file is not None:
             if self.image_extent is None:
                 raise mtex.MTpyError_inputarguments(
-                    "Need to input extents "
-                    + "of the image as"
-                    + "(x0, y0, x1, y1)"
+                    "Need to input extents " + "of the image as" + "(x0, y0, x1, y1)"
                 )
         # --> plot if desired
         if self.show_plot:
@@ -91,10 +90,8 @@ class PlotStations(PlotBase):
         """Get pad."""
         return max(
             [
-                np.abs(self.gdf.geometry.x.min() - self.gdf.geometry.x.max())
-                * 0.05,
-                np.abs(self.gdf.geometry.y.min() - self.gdf.geometry.y.max())
-                * 0.05,
+                np.abs(self.gdf.geometry.x.min() - self.gdf.geometry.x.max()) * 0.05,
+                np.abs(self.gdf.geometry.y.min() - self.gdf.geometry.y.max()) * 0.05,
             ]
         )
 
@@ -149,9 +146,7 @@ class PlotStations(PlotBase):
         # --> plot the background image if desired-----------------------
         if self.image_file is not None:
             im = plt.imread(self.image_file)
-            self.ax.imshow(
-                im, origin="lower", extent=self.image_extent, aspect="auto"
-            )
+            self.ax.imshow(im, origin="lower", extent=self.image_extent, aspect="auto")
         # plot stations
         gax = self.gdf.plot(
             ax=self.ax,
@@ -188,9 +183,7 @@ class PlotStations(PlotBase):
                         **cx_kwargs,
                     )
                 except Exception as error:
-                    self.logger.warning(
-                        f"Could not add base map because {error}"
-                    )
+                    self.logger.warning(f"Could not add base map because {error}")
 
         # set axis properties
         if self.plot_cx:

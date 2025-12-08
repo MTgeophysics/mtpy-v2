@@ -6,17 +6,15 @@ Created on Thu Jun 05 13:55:13 2014
 
 """
 
-import mtpy.core.edi as mtedi
-import os
-import os.path as op
-import numpy as np
-import matplotlib.pyplot as plt
-import scipy.interpolate as si
-import mtpy.utils.exceptions as MTex
-import mtpy.utils.calculator as MTcc
-import mtpy.analysis.geometry as MTg
 import cmath
 import math
+import os
+
+import numpy as np
+
+import mtpy.analysis.geometry as MTg
+import mtpy.core.edi as mtedi
+import mtpy.utils.calculator as MTcc
 
 
 class Control:
@@ -291,7 +289,6 @@ class Data:
         calculate resistivity and phase
         """
         if self.datafile is None:
-
             default_files = [
                 "ai1dat.dat",
                 "ai1mod.dat",
@@ -419,7 +416,6 @@ class Response:
     """Deals with responses from 1d inversions."""
 
     def __init__(self, wkdir, **input_parameters):
-
         self.working_directory = wkdir
         self.respfile = "ai1dat.dat"
         self.misfit_threshold = 1.1
@@ -498,7 +494,6 @@ class Fit:
     """Deals with outputs from 1d inversions."""
 
     def __init__(self, wkdir, **input_parameters):
-
         self.working_directory = wkdir
         self.fitfile = "ai1fit.dat"
         self.respfile = "ai1dat.dat"
@@ -571,7 +566,6 @@ class Model:
     """Deals with outputs from 1d inversions."""
 
     def __init__(self, wkdir, **input_parameters):
-
         self.working_directory = wkdir
         self.modelfile = "ai1mod.dat"
         self.respfile = "ai1dat.dat"
@@ -634,7 +628,6 @@ class Model:
     def read_datafile(self):
         """Read datafile."""
         if self.Data is None:
-
             self.Data = Data(
                 working_directory=self.working_directory, **self.input_parameters
             )
@@ -705,7 +698,6 @@ class Model:
         while not self.check_consistent_strike(
             depth_aniso_max, window=strike_window, threshold=strike_threshold
         ):
-
             aniso[aniso == aniso_max] = 1.0
             aniso_max = np.amax(aniso)
             depth_aniso_max = model_filt[:, 1][aniso == aniso_max][0]
@@ -896,7 +888,6 @@ def _compute_res_phase(z, z_err, freq):
                 phase[idx_f, i, j] = math.degrees(cmath.phase(z[idx_f, i, j]))
 
                 if z_err is not None:
-
                     r_err, phi_err = MTcc.z_error2r_phi_error(
                         np.real(z[idx_f, i, j]),
                         z_err[idx_f, i, j],

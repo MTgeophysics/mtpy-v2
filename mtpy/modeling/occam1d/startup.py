@@ -5,15 +5,17 @@ Created on Mon Oct 30 13:32:42 2023
 @author: jpeacock
 """
 
+import time
+
 # =============================================================================
 # Imports
 # =============================================================================
 from pathlib import Path
-import time
 
 import numpy as np
 
 from mtpy.modeling.occam1d import Occam1DData, Occam1DModel
+
 
 # =============================================================================
 class Occam1DStartup(object):

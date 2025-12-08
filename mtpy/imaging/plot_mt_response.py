@@ -10,21 +10,22 @@ Created 2017
 
 @author: jpeacock
 """
+import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
+
 # ==============================================================================
 import numpy as np
-
-import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
-import matplotlib.gridspec as gridspec
 
 from mtpy.imaging.mtplot_tools import (
-    PlotBase,
-    plot_pt_lateral,
     get_log_tick_labels,
-    plot_resistivity,
     plot_phase,
+    plot_pt_lateral,
+    plot_resistivity,
     plot_tipper_lateral,
+    PlotBase,
 )
+
 
 # ==============================================================================
 #  Plot apparent resistivity and phase

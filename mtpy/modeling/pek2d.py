@@ -135,7 +135,6 @@ class Model:
                     ]
                 except IOError:
                     print("failed to find edi directory")
-                    pass
 
     def build_inputfiles(self):
         """Build inputfiles."""
@@ -469,7 +468,7 @@ class Model:
                         if z_err[iz, i, i] < z_err[iz, i, 1 - i]:
                             z_err[iz, i, i] = z_err[iz, i, 1 - i]
 
-            zvar = z_err ** 2
+            zvar = z_err**2
 
             # create interpolation functions to interpolate z and tipper values
             properties = dict(

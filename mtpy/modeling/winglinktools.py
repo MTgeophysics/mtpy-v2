@@ -5,10 +5,10 @@ Created on Mon Aug 22 15:19:30 2011
 @author: a1185872
 """
 
-import numpy as np
-import os
-import matplotlib.pyplot as plt
+
 import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.ticker import MultipleLocator
 
 

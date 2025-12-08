@@ -5,22 +5,22 @@ Created on Thu May 30 18:39:58 2013
 @author: jpeacock-pr
 """
 
+import matplotlib.pyplot as plt
+
 # =============================================================================
 # Imports
 # =============================================================================
 import numpy as np
 import pandas as pd
-
-import matplotlib.pyplot as plt
 from matplotlib import ticker
-
 from scipy import signal
 
 from mtpy.imaging.mtplot_tools import (
-    PlotBaseProfile,
     griddata_interpolate,
+    PlotBaseProfile,
     triangulate_interpolation,
 )
+
 
 # ==============================================================================
 
@@ -245,8 +245,7 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
                 station[self.station_id[0] : self.station_id[1]]
             )
             plot_dict["offset"].append(
-                df.loc[df.station == station, "offset"].unique()[0]
-                * self.x_stretch
+                df.loc[df.station == station, "offset"].unique()[0] * self.x_stretch
             )
 
         plot_dict["station"] = np.array(plot_dict["station"])
@@ -310,12 +309,8 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
                 label=self.label_dict[component],
             )
 
-        cb.ax.tick_params(
-            axis="both", which="major", labelsize=self.font_size - 1
-        )
-        cb.ax.tick_params(
-            axis="both", which="minor", labelsize=self.font_size - 1
-        )
+        cb.ax.tick_params(axis="both", which="major", labelsize=self.font_size - 1)
+        cb.ax.tick_params(axis="both", which="minor", labelsize=self.font_size - 1)
 
         return cb
 
@@ -335,9 +330,7 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
         self._set_subplot_params()
 
         # make figure instance
-        self.fig = plt.figure(
-            self.fig_num, figsize=self.fig_size, dpi=self.fig_dpi
-        )
+        self.fig = plt.figure(self.fig_num, figsize=self.fig_size, dpi=self.fig_dpi)
 
         # clear the figure if there is already one up
         plt.clf()
@@ -351,11 +344,8 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
             cmap = self._get_cmap(comp)
 
             # get nonzero elements of the component
-            comp_df = self.data_df.iloc[
-                self.data_df.res_xx.to_numpy().nonzero()
-            ]
+            comp_df = self.data_df.iloc[self.data_df.res_xx.to_numpy().nonzero()]
             if self.interpolation_method in ["nearest", "linear", "cubic"]:
-
                 x, y, image = griddata_interpolate(
                     comp_df.offset * self.x_stretch,
                     comp_df.period * self.y_stretch,

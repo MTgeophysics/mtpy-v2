@@ -2,9 +2,10 @@
 # Imports
 # =============================================================================
 import warnings
-import numpy as np
 
+import numpy as np
 from simpeg.electromagnetics import natural_source as nsem
+
 
 warnings.filterwarnings("ignore")
 
@@ -16,7 +17,6 @@ class Simpeg3DData:
     """ """
 
     def __init__(self, dataframe, **kwargs):
-
         # nez+ as keys then enz- as values
         self.component_map = {
             "z_xx": {"simpeg": "zyy", "z+": "z_xx"},

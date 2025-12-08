@@ -11,8 +11,9 @@ Revised by J. Peacock 2023 to fit with version 2.
 # =============================================================================
 # Imports
 # =============================================================================
-import copy
+
 import numpy as np
+
 
 # =============================================================================
 
@@ -55,7 +56,6 @@ class ZInvariants:
         self,
         z=None,
     ):
-
         self.z = z
 
     def __str__(self):
@@ -231,11 +231,9 @@ class ZInvariants:
                 * np.rad2deg(
                     np.arctan2(
                         (self._x1 * self._e2 - self._x2 * self._e1) / self._ex
-                        - (self._x3 * self._e4 - self._x4 * self._e3)
-                        / self._ex,
+                        - (self._x3 * self._e4 - self._x4 * self._e3) / self._ex,
                         (self._x1 * self._e3 - self._x3 * self._e1) / self._ex
-                        + (self._x2 * self._e4 - self._x4 * self._e2)
-                        / self._ex,
+                        + (self._x2 * self._e4 - self._x4 * self._e2) / self._ex,
                     )
                 )
                 % 360

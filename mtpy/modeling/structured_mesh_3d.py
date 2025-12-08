@@ -15,23 +15,23 @@ ModEM
 # Imports
 # =============================================================================
 from pathlib import Path
+
 import numpy as np
 import xarray as xr
-from scipy import stats as stats
-from scipy import interpolate
 from loguru import logger
+from pyevtk.hl import gridToVTK
+from scipy import interpolate
+from scipy import stats as stats
 
-import mtpy.modeling.mesh_tools as mtmesh
 import mtpy.modeling.gocad as mtgocad
+import mtpy.modeling.mesh_tools as mtmesh
 import mtpy.utils.calculator as mtcc
 import mtpy.utils.filehandling as mtfh
-
-from mtpy.utils.gis_tools import project_point
-from mtpy.modeling.plots.plot_mesh import PlotMesh
 from mtpy.core.mt_location import MTLocation
 from mtpy.gis.raster_tools import array2raster
+from mtpy.modeling.plots.plot_mesh import PlotMesh
+from mtpy.utils.gis_tools import project_point
 
-from pyevtk.hl import gridToVTK
 
 # =============================================================================
 
@@ -1160,9 +1160,9 @@ class StructuredGrid3D:
 
         ds.attrs["Conventions"] = "CF-1.0"
         ds.attrs["Metadata_Conventions"] = "Unidata Dataset Discovery v1.0"
-        ds.attrs["NCO"] = (
-            "netCDF Operators version 4.7.5 (Homepage = http://nco.sf.net, Code=http://github/nco/nco"
-        )
+        ds.attrs[
+            "NCO"
+        ] = "netCDF Operators version 4.7.5 (Homepage = http://nco.sf.net, Code=http://github/nco/nco"
 
         for key, value in metadata.items():
             ds.attrs[key] = value

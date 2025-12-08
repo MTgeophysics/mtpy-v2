@@ -7,13 +7,15 @@ deal with output files from winglink.
 @author: jp
 """
 
-import numpy as np
 import os
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-from matplotlib.ticker import MultipleLocator
+
 import matplotlib.colorbar as mcb
+import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.colors import Normalize
+from matplotlib.ticker import MultipleLocator
+
 
 # ------------------------------------------------------------------------------
 
@@ -301,7 +303,6 @@ class PlotResponse:
     """
 
     def __init__(self, wl_data_fn=None, resp_fn=None, **kwargs):
-
         self.wl_data_fn = wl_data_fn
 
         self.color_mode = kwargs.pop("color_mode", "color")
@@ -436,9 +437,7 @@ class PlotResponse:
 
         # loop over each station to plot
         for ii, jj in enumerate(pstation_list):
-            fig = plt.figure(
-                self.station_list[jj], self.fig_size, dpi=self.fig_dpi
-            )
+            fig = plt.figure(self.station_list[jj], self.fig_size, dpi=self.fig_dpi)
             plt.clf()
 
             # --> set subplot instances
@@ -777,15 +776,11 @@ class PlotResponse:
 
                 # put on a grid
                 axr.grid(True, alpha=0.3, which="both", lw=0.5 * self.lw)
-                axr.yaxis.set_label_coords(
-                    self.ylabel_coord[0], self.ylabel_coord[1]
-                )
+                axr.yaxis.set_label_coords(self.ylabel_coord[0], self.ylabel_coord[1])
 
                 # set resistivity limits if desired
                 if self.res_limits != None:
-                    axr.set_ylim(
-                        10 ** self.res_limits[0], 10 ** self.res_limits[1]
-                    )
+                    axr.set_ylim(10 ** self.res_limits[0], 10 ** self.res_limits[1])
 
                 # set the tick labels to invisible
                 plt.setp(axr.xaxis.get_ticklabels(), visible=False)
@@ -867,9 +862,7 @@ class PlotResponse:
                     )
 
                 # put the y label on the far left plot
-                axp.yaxis.set_label_coords(
-                    self.ylabel_coord[0], self.ylabel_coord[1]
-                )
+                axp.yaxis.set_label_coords(self.ylabel_coord[0], self.ylabel_coord[1])
                 if aa == 0:
                     axp.set_ylabel(
                         "Phase (deg)",
@@ -989,9 +982,7 @@ class PlotResponse:
         plt.close("all")
         self.plot()
 
-    def save_figures(
-        self, save_path, fig_fmt="pdf", fig_dpi=None, close_fig="y"
-    ):
+    def save_figures(self, save_path, fig_fmt="pdf", fig_dpi=None, close_fig="y"):
         """
         save all the figure that are in self.fig_list
 
@@ -1009,9 +1000,7 @@ class PlotResponse:
 
         for fdict in self.fig_list:
             svfn = "{0}_resp.{1}".format(fdict["station"], fig_fmt)
-            fdict["fig"].savefig(
-                os.path.join(save_path, svfn), dpi=self.fig_dpi
-            )
+            fdict["fig"].savefig(os.path.join(save_path, svfn), dpi=self.fig_dpi)
             if close_fig == "y":
                 plt.close(fdict["fig"])
 
@@ -1094,7 +1083,6 @@ class PlotPseudoSection(object):
     """
 
     def __init__(self, wl_data_fn=None, **kwargs):
-
         self.wl_data_fn = wl_data_fn
 
         self.plot_resp = kwargs.pop("plot_resp", "y")
@@ -1259,9 +1247,7 @@ class PlotPseudoSection(object):
         # make list for station labels
         sindex_1 = self.station_id[0]
         sindex_2 = self.station_id[1]
-        slabel = [
-            stations[ss][sindex_1:sindex_2] for ss in range(0, ns, self.ml)
-        ]
+        slabel = [stations[ss][sindex_1:sindex_2] for ss in range(0, ns, self.ml)]
 
         xloc = offset_list[0] + abs(offset_list[0] - offset_list[1]) / 5
         yloc = 1.10 * periods[-2]
@@ -1488,9 +1474,7 @@ class PlotPseudoSection(object):
                 ax.set_xlim(offset_list.min(), offset_list.max())
                 if np.remainder(xx, 2.0) == 1:
                     plt.setp(ax.yaxis.get_ticklabels(), visible=False)
-                    cbx = mcb.make_axes(
-                        ax, shrink=self.cb_shrink, pad=self.cb_pad
-                    )
+                    cbx = mcb.make_axes(ax, shrink=self.cb_shrink, pad=self.cb_pad)
                 if xx == 2 or xx == 6 or xx == 8 or xx == 10:
                     plt.setp(ax.yaxis.get_ticklabels(), visible=False)
 
@@ -1744,9 +1728,7 @@ class PlotPseudoSection(object):
                         ),
                     )
                     cb.set_ticks(
-                        np.arange(
-                            self.res_limits_te[0], self.res_limits_te[1] + 1
-                        )
+                        np.arange(self.res_limits_te[0], self.res_limits_te[1] + 1)
                     )
                     cb.set_ticklabels(log_labels_te)
                 elif xx == 1:
@@ -1769,9 +1751,7 @@ class PlotPseudoSection(object):
                         },
                     )
                     cb.set_ticks(
-                        np.arange(
-                            self.res_limits_tm[0], self.res_limits_tm[1] + 1
-                        )
+                        np.arange(self.res_limits_tm[0], self.res_limits_tm[1] + 1)
                     )
                     cb.set_ticklabels(log_labels_tm)
                 elif xx == 2:
@@ -2098,7 +2078,6 @@ class PlotMisfitPseudoSection(object):
     """
 
     def __init__(self, data_fn, resp_fn, **kwargs):
-
         self.data_fn = data_fn
         self.resp_fn = resp_fn
 
@@ -2517,9 +2496,7 @@ class PlotMisfitPseudoSection(object):
             )
 
         else:
-            save_fn = os.path.join(
-                save_fn, "OccamMisfitPseudoSection." + file_format
-            )
+            save_fn = os.path.join(save_fn, "OccamMisfitPseudoSection." + file_format)
             self.fig.savefig(
                 save_fn,
                 dpi=fig_dpi,

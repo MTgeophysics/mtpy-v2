@@ -6,32 +6,23 @@
 .. moduleauthor:: Jared Peacock <jpeacock@usgs.gov>
 """
 
-# =============================================================================
-from pathlib import Path
 from copy import deepcopy
 
-import numpy as np
+# =============================================================================
+from pathlib import Path
 
+import numpy as np
 from mt_metadata.transfer_functions.core import TF
 
-from mtpy.core.transfer_function import IMPEDANCE_UNITS
-from mtpy.core import (
-    Z,
-    Tipper,
-    COORDINATE_REFERENCE_FRAME_OPTIONS,
-)
-from mtpy.core.mt_location import MTLocation
+from mtpy.core import COORDINATE_REFERENCE_FRAME_OPTIONS, Tipper, Z
 from mtpy.core.mt_dataframe import MTDataFrame
-from mtpy.utils.estimate_tf_quality_factor import EMTFStats
-
-from mtpy.imaging import (
-    PlotMTResponse,
-    PlotPhaseTensor,
-    PlotPenetrationDepth1D,
-)
+from mtpy.core.mt_location import MTLocation
+from mtpy.core.transfer_function import IMPEDANCE_UNITS
+from mtpy.imaging import PlotMTResponse, PlotPenetrationDepth1D, PlotPhaseTensor
 from mtpy.modeling.errors import ModelErrors
 from mtpy.modeling.occam1d import Occam1DData
 from mtpy.modeling.simpeg.recipes.inversion_1d import Simpeg1D
+from mtpy.utils.estimate_tf_quality_factor import EMTFStats
 
 
 # =============================================================================
@@ -162,17 +153,17 @@ class MT(TF, MTLocation):
     @property
     def coordinate_reference_frame(self):
         f"""Coordinate reference frame of the transfer function
-        
+
         Deafualt is NED
 
          - x = North
          - y = East
          - z = + down
-         
+
         Options are:
-            
+
             {self._coordinate_reference_frame_options}
-        
+
         """
 
         return self._coordinate_reference_frame_options[
@@ -285,13 +276,12 @@ class MT(TF, MTLocation):
 
             self._rotation_angle += theta_r
 
-
             if isinstance(self._rotation_angle, (float, int)):
                 self.logger.info(
                     f"Rotated transfer function by: {self._rotation_angle:.3f} "
                     "degrees clockwise in reference frame "
                     f"{self.coordinate_reference_frame}."
-                )   
+                )
             else:
                 self.logger.info(
                     f"Rotated transfer function by: {self._rotation_angle.mean():.3f} "
@@ -1115,9 +1105,10 @@ class MT(TF, MTLocation):
         )
 
         if inplace:
-            self._transfer_function["transfer_function"] = (
-                self._transfer_function.transfer_function.real * (noise_real)
-                + (1j * self._transfer_function.transfer_function.imag * noise_imag)
+            self._transfer_function[
+                "transfer_function"
+            ] = self._transfer_function.transfer_function.real * (noise_real) + (
+                1j * self._transfer_function.transfer_function.imag * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
@@ -1126,9 +1117,10 @@ class MT(TF, MTLocation):
 
         else:
             new_mt_obj._transfer_function = self._transfer_function.copy()
-            new_mt_obj._transfer_function["transfer_function"] = (
-                self._transfer_function.transfer_function.real * (noise_real)
-                + (1j * self._transfer_function.transfer_function.imag * noise_imag)
+            new_mt_obj._transfer_function[
+                "transfer_function"
+            ] = self._transfer_function.transfer_function.real * (noise_real) + (
+                1j * self._transfer_function.transfer_function.imag * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (

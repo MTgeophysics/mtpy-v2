@@ -10,21 +10,23 @@ ModEM
 
 """
 
+from copy import deepcopy
+
 # =============================================================================
 # Imports
 # =============================================================================
 from pathlib import Path
-from copy import deepcopy
+
+import geopandas as gpd
 import numpy as np
 import pandas as pd
-from pyproj import CRS
-import geopandas as gpd
-from scipy import stats
 from loguru import logger
+from pyevtk.hl import pointsToVTK
+from pyproj import CRS
+from scipy import stats
 
 from mtpy.core.mt_location import MTLocation
 
-from pyevtk.hl import pointsToVTK
 
 # =============================================================================
 
@@ -472,18 +474,12 @@ class MTStations:
 
             st_en = st_df.loc[(st_df.east != 0) & (st_df.north != 0)]
             if st_en.empty:
-                st_ll = st_df.loc[
-                    (st_df.latitude != 0) & (st_df.longitude != 0)
-                ]
+                st_ll = st_df.loc[(st_df.latitude != 0) & (st_df.longitude != 0)]
                 if st_ll.empty:
-                    raise ValueError(
-                        "Station locations are all 0 cannot find center."
-                    )
+                    raise ValueError("Station locations are all 0 cannot find center.")
 
                 else:
-                    self.logger.debug(
-                        "locating center from latitude and longitude"
-                    )
+                    self.logger.debug("locating center from latitude and longitude")
                     center_location.latitude = (
                         st_ll.latitude.max() + st_ll.latitude.min()
                     ) / 2
@@ -493,12 +489,8 @@ class MTStations:
 
             else:
                 self.logger.debug("locating center from UTM grid")
-                center_location.east = (
-                    st_en.east.max() + st_en.east.min()
-                ) / 2
-                center_location.north = (
-                    st_en.north.max() + st_en.north.min()
-                ) / 2
+                center_location.east = (st_en.east.max() + st_en.east.min()) / 2
+                center_location.north = (st_en.north.max() + st_en.north.min()) / 2
 
             center_location.model_east = center_location.east
             center_location.model_north = center_location.north
@@ -560,19 +552,11 @@ class MTStations:
         """
 
         for mt_obj in self.mt_list:
-            e_index = (
-                np.where(model_obj.grid_east >= mt_obj.model_east)[0][0] - 1
-            )
-            n_index = (
-                np.where(model_obj.grid_north >= mt_obj.model_north)[0][0] - 1
-            )
+            e_index = np.where(model_obj.grid_east >= mt_obj.model_east)[0][0] - 1
+            n_index = np.where(model_obj.grid_north >= mt_obj.model_north)[0][0] - 1
 
-            mt_obj.model_east = model_obj.grid_east[
-                e_index : e_index + 2
-            ].mean()
-            mt_obj.model_north = model_obj.grid_north[
-                n_index : n_index + 2
-            ].mean()
+            mt_obj.model_east = model_obj.grid_east[e_index : e_index + 2].mean()
+            mt_obj.model_north = model_obj.grid_north[n_index : n_index + 2].mean()
 
     def project_stations_on_topography(
         self,
@@ -604,8 +588,7 @@ class MTStations:
 
             # indices of stations on model grid
             sxi = np.where(
-                (sx <= model_object.grid_east[1:])
-                & (sx > model_object.grid_east[:-1])
+                (sx <= model_object.grid_east[1:]) & (sx > model_object.grid_east[:-1])
             )[0][0]
 
             syi = np.where(
@@ -614,15 +597,10 @@ class MTStations:
             )[0][0]
 
             # first, check if there are any air cells
-            if np.any(
-                model_object.res_model[syi, sxi] > 0.95 * air_resistivity
-            ):
+            if np.any(model_object.res_model[syi, sxi] > 0.95 * air_resistivity):
                 szi = np.amin(
                     np.where(
-                        (
-                            model_object.res_model[syi, sxi]
-                            < 0.95 * air_resistivity
-                        )
+                        (model_object.res_model[syi, sxi] < 0.95 * air_resistivity)
                     )[0]
                 )
             # otherwise place station at the top of the model
@@ -633,12 +611,9 @@ class MTStations:
             if ocean_bottom:
                 if np.any(model_object.res_model[syi, sxi] <= sea_resistivity):
                     szi = np.amax(
-                        np.where(
-                            (
-                                model_object.res_model[syi, sxi]
-                                <= sea_resistivity
-                            )
-                        )[0]
+                        np.where((model_object.res_model[syi, sxi] <= sea_resistivity))[
+                            0
+                        ]
                     )
 
             # get relevant grid point elevation
@@ -853,14 +828,9 @@ class MTStations:
         # two intercepts associated with each end point
         c2 = sy - m2 * sx
         # get point where the lines intercept the profile line
-        x1, x2 = (c2 - profile_line["intercept"]) / (
-            profile_line["slope"] - m2
-        )
+        x1, x2 = (c2 - profile_line["intercept"]) / (profile_line["slope"] - m2)
         # compute y points
-        y1, y2 = (
-            profile_line["slope"] * np.array([x1, x2])
-            + profile_line["intercept"]
-        )
+        y1, y2 = profile_line["slope"] * np.array([x1, x2]) + profile_line["intercept"]
 
         # # to get x values of end points, need to project first station onto the line
         # # get min and max x values
@@ -957,12 +927,8 @@ class MTStations:
         if np.abs(x2 - x1) < 100:
             if self.utm_crs is None:
                 raise ValueError("Must input UTM CRS or EPSG.")
-            point_1 = MTLocation(
-                longitude=x1, latitude=y1, utm_crs=self.utm_crs
-            )
-            point_2 = MTLocation(
-                longitude=x2, latitude=y2, utm_crs=self.utm_crs
-            )
+            point_1 = MTLocation(longitude=x1, latitude=y1, utm_crs=self.utm_crs)
+            point_2 = MTLocation(longitude=x2, latitude=y2, utm_crs=self.utm_crs)
             x1 = point_1.east
             y1 = point_1.north
             x2 = point_2.east
@@ -973,9 +939,9 @@ class MTStations:
 
         def distance(x, y):
             """Distance function."""
-            return np.abs(
-                (x2 - x1) * (y1 - y) - (x1 - x) * (y2 - y1)
-            ) / np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+            return np.abs((x2 - x1) * (y1 - y) - (x1 - x) * (y2 - y1)) / np.sqrt(
+                (x2 - x1) ** 2 + (y2 - y1) ** 2
+            )
 
         slope = (y2 - y1) / (x2 - x1)
         intersection = y1 - slope * x1

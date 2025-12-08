@@ -14,22 +14,21 @@ A vanilla recipe to invert 2D MT data.
 # Imports
 # =============================================================================
 import warnings
-import numpy as np
-
 
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.colors import LogNorm
-
-from simpeg.electromagnetics import natural_source as nsem
 from simpeg import (
+    data_misfit,
+    directives,
+    inverse_problem,
+    inversion,
     maps,
     optimization,
-    inversion,
-    inverse_problem,
-    directives,
-    data_misfit,
     regularization,
 )
+from simpeg.electromagnetics import natural_source as nsem
+
 
 try:
     from pymatsolver import Pardiso
@@ -44,6 +43,7 @@ except ImportError:
 # from dask.distributed import Client, LocalCluster
 from mtpy.modeling.simpeg.data_2d import Simpeg2DData
 from mtpy.modeling.simpeg.make_2d_mesh import QuadTreeMesh, StructuredMesh
+
 
 warnings.filterwarnings("ignore")
 
@@ -141,9 +141,7 @@ class Simpeg2D:
             if isinstance(getattr(type(self), key, None), property):
                 property_list.append(f"\t{key}: {value}")
             else:
-                if isinstance(
-                    value, (float, int, str, bool, list, tuple, dict)
-                ):
+                if isinstance(value, (float, int, str, bool, list, tuple, dict)):
                     attr_list.append(f"\t{key}: {value}")
                 else:
                     method_list.append(f"\t{key}")
@@ -359,9 +357,7 @@ class Simpeg2D:
 
         """
 
-        return directives.BetaEstimate_ByEig(
-            beta0_ratio=self.beta_starting_ratio
-        )
+        return directives.BetaEstimate_ByEig(beta0_ratio=self.beta_starting_ratio)
 
     @property
     def beta_schedule(self):
@@ -562,12 +558,12 @@ class Simpeg2D:
         shape = (self.data.n_frequencies, 2, self.data.n_stations)
 
         dpred = self.iterations[iteration_number]["dpred"]
-        te_pred = dpred.reshape(
-            (2, self.data.n_frequencies, 2, self.data.n_stations)
-        )[0, :, :, :]
-        tm_pred = dpred.reshape(
-            (2, self.data.n_frequencies, 2, self.data.n_stations)
-        )[1, :, :, :]
+        te_pred = dpred.reshape((2, self.data.n_frequencies, 2, self.data.n_stations))[
+            0, :, :, :
+        ]
+        tm_pred = dpred.reshape((2, self.data.n_frequencies, 2, self.data.n_stations))[
+            1, :, :, :
+        ]
 
         te_obs = self.data.te_data.dobs.copy().reshape(shape)
         tm_obs = self.data.tm_data.dobs.copy().reshape(shape)

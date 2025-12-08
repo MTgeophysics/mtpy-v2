@@ -12,8 +12,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from mtpy.imaging.mtplot_tools import PlotBase
 from mtpy.imaging.mtcolors import FixPointNormalize
+from mtpy.imaging.mtplot_tools import PlotBase
+
 
 # =============================================================================
 
@@ -40,15 +41,12 @@ class PlotMesh(PlotBase):
         """
 
         if not "topography" in self.model_obj.surface_dict.keys():
-
             topo = self.model_obj._get_topography_from_model()
             if topo is not None:
                 self.model_obj.surface_dict["topography"] = topo
 
             else:
-                self.logger.warning(
-                    "Cannot find topography information, skipping"
-                )
+                self.logger.warning("Cannot find topography information, skipping")
                 return
 
         x, y = np.meshgrid(self.model_obj.grid_east, self.model_obj.grid_north)
@@ -57,9 +55,7 @@ class PlotMesh(PlotBase):
             vmax=np.round(self.model_obj.surface_dict["topography"].max(), -2),
             vmin=min(
                 [
-                    np.round(
-                        self.model_obj.surface_dict["topography"].min(), -2
-                    ),
+                    np.round(self.model_obj.surface_dict["topography"].min(), -2),
                     0,
                 ]
             ),
@@ -85,15 +81,12 @@ class PlotMesh(PlotBase):
         """
 
         if not "topography" in self.model_obj.surface_dict.keys():
-
             topo = self.model_obj._get_topography_from_model()
             if topo is not None:
                 self.model_obj.surface_dict["topography"] = topo
 
             else:
-                self.logger.warning(
-                    "Cannot find topography information, skipping"
-                )
+                self.logger.warning("Cannot find topography information, skipping")
                 return
 
         # x, y = np.meshgrid(
@@ -119,9 +112,7 @@ class PlotMesh(PlotBase):
         """
 
         self._set_subplot_params()
-        self.fig = plt.figure(
-            self.fig_num, figsize=self.fig_size, dpi=self.fig_dpi
-        )
+        self.fig = plt.figure(self.fig_num, figsize=self.fig_size, dpi=self.fig_dpi)
         plt.clf()
 
         # make a rotation matrix to rotate data

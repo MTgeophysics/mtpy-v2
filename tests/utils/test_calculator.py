@@ -6,9 +6,11 @@
 # imports
 # =============================================================================
 import unittest
+
 import numpy as np
 
 from mtpy.utils import calculator
+
 
 # =============================================================================
 
@@ -39,7 +41,6 @@ class TestRoundsf(unittest.TestCase):
 class TestErrorCalculation(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-
         self.z = np.array(
             [
                 [
@@ -67,9 +68,7 @@ class TestErrorCalculation(unittest.TestCase):
         # relative error in resistivity is 2 * relative error in z
         self.res_rel_err_test = 2.0 * self.z_err / np.abs(self.z)
 
-        self.phase_err_test = np.rad2deg(
-            np.arctan(self.z_err / np.abs(self.z))
-        )
+        self.phase_err_test = np.rad2deg(np.arctan(self.z_err / np.abs(self.z)))
         self.phase_err_test[self.res_rel_err_test > 1.0] = 90.0
 
         # test providing an array
@@ -78,9 +77,7 @@ class TestErrorCalculation(unittest.TestCase):
         )
 
     def test_resistivity(self):
-        self.assertTrue(
-            np.isclose(self.res_rel_err, self.res_rel_err_test).all()
-        )
+        self.assertTrue(np.isclose(self.res_rel_err, self.res_rel_err_test).all())
 
     def test_phase(self):
         self.assertTrue(np.isclose(self.phase_err, self.phase_err_test).all())
@@ -89,11 +86,9 @@ class TestErrorCalculation(unittest.TestCase):
 class TestGetIndex(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-
         self.freq = np.array([100.0, 10.0, 1.0])
 
     def test_nearest_index(self):
-
         for index, freq in zip([1, 2, 0], [8, 1.2, 1000]):
             self.assertEqual(calculator.nearest_index(freq, self.freq), index)
 
@@ -107,7 +102,6 @@ class TestMakeLogIncreasing(unittest.TestCase):
         self.increment_factor = 0.999
 
     def test_make_log_increasing_array(self):
-
         array1 = calculator.make_log_increasing_array(
             self.z1_layer,
             self.target_depth,
@@ -116,8 +110,7 @@ class TestMakeLogIncreasing(unittest.TestCase):
         )
 
         self.assertTrue(
-            np.abs(array1.sum() / self.target_depth - 1.0)
-            < 1.0 - self.increment_factor
+            np.abs(array1.sum() / self.target_depth - 1.0) < 1.0 - self.increment_factor
         )
 
 
@@ -185,7 +178,6 @@ class TestGetPeriod(unittest.TestCase):
         )
 
     def test_get_period_list_include(self):
-
         test_array = calculator.get_period_list(
             0.02, 400, 4, include_outside_range=True
         )
@@ -200,9 +192,7 @@ class TestGetPeriod(unittest.TestCase):
 
     def test_get_period_list_exact_include(self):
         # test with ends of input range on an exact decade
-        test_array = calculator.get_period_list(
-            0.1, 100, 3, include_outside_range=True
-        )
+        test_array = calculator.get_period_list(0.1, 100, 3, include_outside_range=True)
         self.assertTrue(np.isclose(test_array, self.array3).all())
 
     def test_get_period_list_exact_not_include(self):
@@ -220,18 +210,15 @@ class TestRotation(unittest.TestCase):
 
     def compute_azimuth(self, array):
         return np.degrees(
-            0.5
-            * np.arctan2(array[0, 1] + array[1, 0], array[0, 0] - array[1, 1])
+            0.5 * np.arctan2(array[0, 1] + array[1, 0], array[0, 0] - array[1, 1])
         )
 
     def compute_strike(self, array):
         return np.degrees(
             0.25
             * np.arctan2(
-                (array[0, 0] - array[1, 1])
-                * np.conj(array[0, 1] + array[1, 0])
-                + np.conj(array[0, 0] - array[1, 1])
-                * (array[0, 1] + array[1, 0]),
+                (array[0, 0] - array[1, 1]) * np.conj(array[0, 1] + array[1, 0])
+                + np.conj(array[0, 0] - array[1, 1]) * (array[0, 1] + array[1, 0]),
                 (
                     abs(array[0, 0] - array[1, 1]) ** 2
                     - abs(array[0, 1] - array[1, 0]) ** 2
@@ -242,9 +229,7 @@ class TestRotation(unittest.TestCase):
     def test_get_rotation_matrix_0_clockwise(self):
         expected_rot = np.array([[1.0, 0.0], [-0.0, 1.0]])
 
-        self.assertTrue(
-            np.allclose(expected_rot, calculator.get_rotation_matrix(0))
-        )
+        self.assertTrue(np.allclose(expected_rot, calculator.get_rotation_matrix(0)))
 
     def test_get_rotation_matrix_0_counterclockwise(self):
         expected_rot = np.array([[1.0, -0.0], [0.0, 1.0]])
@@ -263,9 +248,7 @@ class TestRotation(unittest.TestCase):
         # we are rotating clockwise so in the reference frame towards zero,
         # therefore we need to subtract
         with self.subTest("azimuth"):
-            self.assertAlmostEqual(
-                self.azimuth - angle, self.compute_azimuth(ar)
-            )
+            self.assertAlmostEqual(self.azimuth - angle, self.compute_azimuth(ar))
 
         r = calculator.get_rotation_matrix(angle, clockwise=True)
         b = r @ self.a @ r.T
@@ -279,9 +262,7 @@ class TestRotation(unittest.TestCase):
         # we are rotating clockwise so in the reference frame away from zero,
         # therefore we need to add
         with self.subTest("azimuth"):
-            self.assertAlmostEqual(
-                self.azimuth - angle, self.compute_azimuth(ar)
-            )
+            self.assertAlmostEqual(self.azimuth - angle, self.compute_azimuth(ar))
 
         r = calculator.get_rotation_matrix(angle, clockwise=True)
         b = r @ self.a @ r.T

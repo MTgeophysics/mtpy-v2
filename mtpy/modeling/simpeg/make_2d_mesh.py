@@ -8,19 +8,18 @@ Created on Thu Nov  9 10:43:06 2023
 # Imports
 # =============================================================================
 
+import warnings
+
+import discretize.utils as dis_utils
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from numpy.typing import NDArray
-
-from discretize import TensorMesh
-from discretize import TreeMesh
+from discretize import TensorMesh, TreeMesh
 
 # from dask.distributed import Client, LocalCluster
 from geoana.em.fdem import skin_depth
-import discretize.utils as dis_utils
-import warnings
+from numpy.typing import NDArray
 
-import matplotlib.pyplot as plt
 
 warnings.filterwarnings("ignore")
 # =============================================================================
@@ -31,7 +30,7 @@ class StructuredMesh:
         self,
         station_locations: pd.DataFrame,
         frequencies: NDArray | list[float],
-        **kwargs
+        **kwargs,
     ) -> None:
         self.station_locations = station_locations
         self.frequencies = frequencies
@@ -65,16 +64,12 @@ class StructuredMesh:
     @property
     def z1_layer_thickness(self) -> float:
         return np.round(
-            skin_depth(self.frequency_max, self.sigma_background)
-            / self.z_factor_max
+            skin_depth(self.frequency_max, self.sigma_background) / self.z_factor_max
         )
 
     @property
     def z_bottom(self) -> float:
-        return (
-            skin_depth(self.sigma_background, self.frequency_min)
-            * self.z_factor_max
-        )
+        return skin_depth(self.sigma_background, self.frequency_min) * self.z_factor_max
 
     @property
     def z_mesh_down(self) -> NDArray[np.float64]:
@@ -112,10 +107,7 @@ class StructuredMesh:
 
     @property
     def station_total_length(self) -> float:
-        return (
-            self.station_locations[:, 0].max()
-            - self.station_locations[:, 0].min()
-        )
+        return self.station_locations[:, 0].max() - self.station_locations[:, 0].min()
 
     @property
     def n_station_x_cells(self) -> int:
@@ -123,10 +115,7 @@ class StructuredMesh:
 
     @property
     def x_padding_cells(self) -> float:
-        return (
-            skin_depth(self.sigma_background, self.frequency_min)
-            * self.x_factor_max
-        )
+        return skin_depth(self.sigma_background, self.frequency_min) * self.x_factor_max
 
     @property
     def n_x_padding(self) -> int:
@@ -181,8 +170,7 @@ class StructuredMesh:
 
         mesh = TensorMesh([x_mesh, z_mesh])
         mesh.origin = np.r_[
-            -mesh.h[0][: self.n_x_padding].sum()
-            + self.station_locations[:, 0].min(),
+            -mesh.h[0][: self.n_x_padding].sum() + self.station_locations[:, 0].min(),
             -self.z_mesh_down.sum(),
         ]
 
@@ -227,7 +215,7 @@ class StructuredMesh:
                 ax=ax,
                 grid=True,
                 grid_opts={"color": (0.75, 0.75, 0.75), "linewidth": 0.1},
-                **kwargs
+                **kwargs,
             )
             ax.scatter(
                 self.station_locations[:, 0],
@@ -307,9 +295,7 @@ class QuadTreeMesh:
         get the total distance in the horizontal direction.
         """
         return (
-            self.station_locations.max()
-            - self.station_locations.min()
-            + self.x_pad * 2
+            self.station_locations.max() - self.station_locations.min() + self.x_pad * 2
         )
 
     @property
@@ -339,9 +325,7 @@ class QuadTreeMesh:
 
     @property
     def dx(self):
-        return np.diff(
-            self.station_locations[:, 0] / self.factor_spacing
-        ).mean()
+        return np.diff(self.station_locations[:, 0] / self.factor_spacing).mean()
 
     @property
     def dz(self):
@@ -370,9 +354,7 @@ class QuadTreeMesh:
         create mesh
         """
 
-        mesh = TreeMesh(
-            [[(self.dx, self.nx)], [(self.dz, self.nz)]], x0=self.origin
-        )
+        mesh = TreeMesh([[(self.dx, self.nx)], [(self.dz, self.nz)]], x0=self.origin)
 
         # Refine surface topography
         if self.topography is not None and self.update_from_topography:
@@ -386,9 +368,7 @@ class QuadTreeMesh:
 
         # Refine mesh near points
         if self.update_from_stations:
-            pts = np.c_[
-                self.station_locations[:, 0], self.station_locations[:, 1]
-            ]
+            pts = np.c_[self.station_locations[:, 0], self.station_locations[:, 1]]
             mesh.refine_points(
                 pts,
                 level=self.station_level,

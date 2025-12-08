@@ -9,10 +9,13 @@ Created on Fri Oct 21 13:46:49 2022
 # Imports
 # =============================================================================
 import unittest
+
 import numpy as np
 import scipy.interpolate as spi
+
 from mtpy.core.transfer_function.base import TFBase
 from mtpy.utils.calculator import rotate_matrix_with_errors
+
 
 # =============================================================================
 
@@ -449,7 +452,6 @@ class TestTFInterpolationFillNans(unittest.TestCase):
     #     for true_entry, new_entry in zip(true_index, new_index):
     #         with self.subTest(entry_count):
     #             self.assertDictEqual(true_entry, new_entry)
-
 
     def test_same_tf(self):
         self.assertEqual(

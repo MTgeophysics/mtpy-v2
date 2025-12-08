@@ -8,7 +8,7 @@ The methods used follow Bibby et al 2005.
 As it has been pointed out in that paper, there are various possibilities for
 constrainincomp the solution, esp. in the 2D case.
 
-Here we just implement the 'most basic' variety for the calculation of the 
+Here we just implement the 'most basic' variety for the calculation of the
 distortion tensor. Other methods can be implemented, but since the optimal assumptions and
 constraints depend on the application, the actual place for further functions
 is in an independent, personalised module.
@@ -43,6 +43,7 @@ Edited by JP, 2016
 import numpy as np
 
 import mtpy.utils.calculator as MTcc
+
 
 # =============================================================================
 
@@ -84,14 +85,9 @@ def find_distortion(z_object, comp="det", only_2d=False, clockwise=True):
             continue
 
         if dim == 1:
-
             if comp in ["01", "10"]:
-                compr = np.abs(
-                    z_object.z.real[index, int(comp[0]), int(comp[1])]
-                )
-                compi = np.abs(
-                    z_object.z.imag[index, int(comp[0]), int(comp[1])]
-                )
+                compr = np.abs(z_object.z.real[index, int(comp[0]), int(comp[1])])
+                compi = np.abs(z_object.z.imag[index, int(comp[0]), int(comp[1])])
             else:
                 compr = np.sqrt(np.linalg.det(z_object.z.real[index]))
                 compi = np.sqrt(np.linalg.det(z_object.z.imag[index]))
@@ -115,9 +111,7 @@ def find_distortion(z_object, comp="det", only_2d=False, clockwise=True):
                 compi_error = 1.0 / compi * np.abs(z_object.z_error[index])
                 compi_error[np.where(compi_error == 0.0)] = 1.0
 
-                dis_error[index] = np.mean(
-                    np.array([compi_error, compr_error]), axis=0
-                )
+                dis_error[index] = np.mean(np.array([compi_error, compr_error]), axis=0)
 
         elif dim == 2:
             P = 1
@@ -140,12 +134,8 @@ def find_distortion(z_object, comp="det", only_2d=False, clockwise=True):
 
             tetm_r = tetm_array.real
             tetm_i = tetm_array.imag
-            t_array_r = (
-                -4 * P * tetm_r[0, 1] * tetm_r[1, 0] / np.linalg.det(tetm_r)
-            )
-            t_array_i = (
-                -4 * P * tetm_i[0, 1] * tetm_i[1, 0] / np.linalg.det(tetm_i)
-            )
+            t_array_r = -4 * P * tetm_r[0, 1] * tetm_r[1, 0] / np.linalg.det(tetm_r)
+            t_array_i = -4 * P * tetm_i[0, 1] * tetm_i[1, 0] / np.linalg.det(tetm_i)
 
             try:
                 T = np.sqrt(max([t_array_r, t_array_i])) + 0.001
@@ -153,12 +143,10 @@ def find_distortion(z_object, comp="det", only_2d=False, clockwise=True):
                 T = 2
 
             sr = np.sqrt(
-                T**2
-                + 4 * P * tetm_r[0, 1] * tetm_r[1, 0] / np.linalg.det(tetm_r)
+                T**2 + 4 * P * tetm_r[0, 1] * tetm_r[1, 0] / np.linalg.det(tetm_r)
             )
             si = np.sqrt(
-                T**2
-                + 4 * P * tetm_i[0, 1] * tetm_i[1, 0] / np.linalg.det(tetm_i)
+                T**2 + 4 * P * tetm_i[0, 1] * tetm_i[1, 0] / np.linalg.det(tetm_i)
             )
 
             par_r = 2 * tetm_r[0, 1] / (T - sr)
@@ -377,10 +365,7 @@ def remove_distortion_from_z_object(
             if logger is not None:
                 logger.error(msg)
             raise ValueError(msg)
-        if (
-            len(distortion_tensor.shape) == 3
-            or len(distortion_error_tensor.shape) == 3
-        ):
+        if len(distortion_tensor.shape) == 3 or len(distortion_error_tensor.shape) == 3:
             if logger is not None:
                 logger.info(
                     "Distortion is not time-dependent - taking only first"
@@ -408,9 +393,7 @@ def remove_distortion_from_z_object(
     try:
         DI = np.linalg.inv(distortion_tensor)
     except np.linalg.LinAlgError:
-        raise ValueError(
-            "The provided distortion tensor is singular cannot be used."
-        )
+        raise ValueError("The provided distortion tensor is singular cannot be used.")
     # propagation of errors (using 1-norm) - step 1 - inversion of D:
     DI_error = np.zeros_like(distortion_error_tensor)
 

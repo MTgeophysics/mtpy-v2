@@ -11,8 +11,9 @@ Created on Wed Feb 22 14:13:57 2023
 import numpy as np
 from loguru import logger
 
-from mtpy.core.transfer_function.pt import PhaseTensor
 import mtpy.utils.calculator as MTcc
+from mtpy.core.transfer_function.pt import PhaseTensor
+
 
 # =============================================================================
 class ResidualPhaseTensor:
@@ -20,9 +21,7 @@ class ResidualPhaseTensor:
     DeltaPhi = 1 - Phi1^-1*Phi2
     """
 
-    def __init__(
-        self, pt_object1=None, pt_object2=None, residual_type="heise"
-    ):
+    def __init__(self, pt_object1=None, pt_object2=None, residual_type="heise"):
         """Initialise an instance of the ResidualPhaseTensor class.
 
         Optional input:
@@ -51,8 +50,7 @@ class ResidualPhaseTensor:
             ):
                 self.logger.warning(type(pt_object1), type(pt_object2))
                 raise TypeError(
-                    "ERROR - arguments must be instances "
-                    "of the PhaseTensor class"
+                    "ERROR - arguments must be instances " "of the PhaseTensor class"
                 )
 
             self.pt1 = pt_object1
@@ -185,9 +183,7 @@ class ResidualPhaseTensor:
                     else:
                         self.rpt_error = np.zeros((1, 2, 2))
                         try:
-                            with np.errstate(
-                                divide="ignore", invalid="ignore"
-                            ):
+                            with np.errstate(divide="ignore", invalid="ignore"):
                                 self.rpt_error[0] = np.eye(2) - 0.5 * np.array(
                                     np.dot(
                                         np.matrix(self.pt2.pt).I,

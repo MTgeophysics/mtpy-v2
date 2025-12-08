@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Helper functions for the handling of configuration files 
+Helper functions for the handling of configuration files
 (survey.cfg  and BIRRP.cfg style).
 
 
@@ -13,14 +13,16 @@ Helper functions for the handling of configuration files
 
 # =================================================================
 
-import sys
-import os
-import os.path as op
 import configparser
 import copy
 import io
+import os
+import os.path as op
+import sys
+
 import mtpy.utils.exceptions as MTex
 import mtpy.utils.gis_tools as gis_tools
+
 
 # =================================================================
 
@@ -138,9 +140,7 @@ def read_configfile(filename):
 
     # check, if file is present
     if not op.isfile(filename):
-        raise MTex.MTpyError_inputarguments(
-            "File does not exist: {0}".format(filename)
-        )
+        raise MTex.MTpyError_inputarguments("File does not exist: {0}".format(filename))
 
     # try to parse file - exit, if not a config file
     try:
@@ -160,8 +160,7 @@ def read_configfile(filename):
             configobject.readfp(FH)
         except:
             raise MTex.MTpyError_inputarguments(
-                "File is not a proper "
-                "configuration file: {0}".format(filename)
+                "File is not a proper " "configuration file: {0}".format(filename)
             )
 
     config_dict = configobject._sections
@@ -330,14 +329,9 @@ def read_survey_configfile(filename):
                 found = False
                 # import ipdb
                 # ipdb.set_trace()
-                if (
-                    fromglobals(req_keyword, stationdict, globaldict)[0]
-                    is False
-                ):
+                if fromglobals(req_keyword, stationdict, globaldict)[0] is False:
                     # try short form instead
-                    found, value = fromglobals(
-                        shortform, stationdict, globaldict
-                    )
+                    found, value = fromglobals(shortform, stationdict, globaldict)
                     # print shortform,value
 
                     if found is True:
@@ -369,9 +363,7 @@ def read_survey_configfile(filename):
                     except:
                         raise MTex.MTpyError_config_file(
                             "Error - wrong "
-                            "coordinate format for station {0}".format(
-                                stationname
-                            )
+                            "coordinate format for station {0}".format(stationname)
                         )
 
                     stationdict[req_keyword] = new_value
@@ -456,15 +448,9 @@ def read_survey_configfile(filename):
             except:
                 try:
                     # read from other config dict entry
-                    stationdict["rr_latitude"] = config_dict[rem_station][
-                        "latitude"
-                    ]
-                    stationdict["rr_longitude"] = config_dict[rem_station][
-                        "longitude"
-                    ]
-                    stationdict["rr_elevation"] = config_dict[rem_station][
-                        "elevation"
-                    ]
+                    stationdict["rr_latitude"] = config_dict[rem_station]["latitude"]
+                    stationdict["rr_longitude"] = config_dict[rem_station]["longitude"]
+                    stationdict["rr_elevation"] = config_dict[rem_station]["elevation"]
 
                 except:
                     # if finally failed to read rr_station info,\
@@ -680,7 +666,6 @@ def read_survey_txt_file(survey_file, delimiter=None):
     # print skeys, len(skeys)
 
     for ss, sline in enumerate(slines[1:]):
-
         sstr = sline.strip()
         if sstr[0] == "#":
             continue
@@ -740,7 +725,6 @@ def read_survey_txt_file(survey_file, delimiter=None):
         # sys.exit()
         # assigne values to the standard keys
         for key in list(sdict.keys()):
-
             if key.lower() in ["ex", "e_xaxis_length"]:
                 val = copy.copy(sdict[key])
                 sdict.pop(key)
@@ -838,9 +822,7 @@ def read_survey_txt_file(survey_file, delimiter=None):
 
 
 # ==============================================================================
-def write_config_from_survey_txt_file(
-    survey_file, save_name=None, delimiter="\t"
-):
+def write_config_from_survey_txt_file(survey_file, save_name=None, delimiter="\t"):
     """Write a survey configuration file from a survey txt file .
 
     Arguments::

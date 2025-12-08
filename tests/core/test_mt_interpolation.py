@@ -1,6 +1,6 @@
-import pytest
 import numpy as np
-import xarray as xr
+import pytest
+
 from mtpy.core.transfer_function.base import TFBase
 
 

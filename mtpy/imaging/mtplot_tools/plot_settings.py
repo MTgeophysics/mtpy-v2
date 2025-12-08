@@ -5,18 +5,18 @@ Created on Sun Sep 25 15:20:43 2022
 @author: jpeacock
 """
 
+import matplotlib.colorbar as mcb
+import matplotlib.colors as colors
+
 # =============================================================================
 # Imports
 # =============================================================================
 import numpy as np
-
-import matplotlib.colors as colors
-import matplotlib.colorbar as mcb
 from matplotlib import __version__ as matplotlib_version
 
-from . import MTEllipse, MTArrows
-
 import mtpy.imaging.mtcolors as mtcl
+
+from . import MTArrows, MTEllipse
 
 
 # =============================================================================

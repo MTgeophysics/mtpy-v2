@@ -18,9 +18,11 @@ Revised by J. Peacock 2022 to fit with version 2.
 # Imports
 # =============================================================================
 import copy
+
 import numpy as np
 
 from .base import TFBase
+
 
 # =============================================================================
 
@@ -114,20 +116,16 @@ class PhaseTensor(TFBase):
                 )
 
             pt_array[:, 0, 0] = (
-                z_real[:, 1, 1] * z_imag[:, 0, 0]
-                - z_real[:, 0, 1] * z_imag[:, 1, 0]
+                z_real[:, 1, 1] * z_imag[:, 0, 0] - z_real[:, 0, 1] * z_imag[:, 1, 0]
             )
             pt_array[:, 0, 1] = (
-                z_real[:, 1, 1] * z_imag[:, 0, 1]
-                - z_real[:, 0, 1] * z_imag[:, 1, 1]
+                z_real[:, 1, 1] * z_imag[:, 0, 1] - z_real[:, 0, 1] * z_imag[:, 1, 1]
             )
             pt_array[:, 1, 0] = (
-                z_real[:, 0, 0] * z_imag[:, 1, 0]
-                - z_real[:, 1, 0] * z_imag[:, 0, 0]
+                z_real[:, 0, 0] * z_imag[:, 1, 0] - z_real[:, 1, 0] * z_imag[:, 0, 0]
             )
             pt_array[:, 1, 1] = (
-                z_real[:, 0, 0] * z_imag[:, 1, 1]
-                - z_real[:, 1, 0] * z_imag[:, 0, 1]
+                z_real[:, 0, 0] * z_imag[:, 1, 1] - z_real[:, 1, 0] * z_imag[:, 0, 1]
             )
 
             pt_array = np.apply_along_axis(lambda x: x / det_real, 0, pt_array)
@@ -168,9 +166,7 @@ class PhaseTensor(TFBase):
             det_real = np.abs(np.linalg.det(z_real))
             pt_error[:, 0, 0] = (
                 np.abs(-pt_array[:, 0, 0] * z_real[:, 1, 1] * z_error[:, 0, 0])
-                + np.abs(
-                    pt_array[:, 0, 0] * z_real[:, 0, 1] * z_error[:, 1, 0]
-                )
+                + np.abs(pt_array[:, 0, 0] * z_real[:, 0, 1] * z_error[:, 1, 0])
                 + np.abs(
                     (z_imag[:, 0, 0] - pt_array[:, 0, 0] * z_real[:, 0, 0])
                     * z_error[:, 1, 1]
@@ -185,9 +181,7 @@ class PhaseTensor(TFBase):
 
             pt_error[:, 0, 1] = (
                 np.abs(-pt_array[:, 0, 1] * z_real[:, 1, 1] * z_error[:, 0, 0])
-                + np.abs(
-                    pt_array[:, 0, 1] * z_real[:, 0, 1] * z_error[:, 1, 0]
-                )
+                + np.abs(pt_array[:, 0, 1] * z_real[:, 0, 1] * z_error[:, 1, 0])
                 + np.abs(
                     (z_imag[:, 0, 1] - pt_array[:, 0, 1] * z_real[:, 0, 0])
                     * z_error[:, 1, 1]
@@ -205,16 +199,12 @@ class PhaseTensor(TFBase):
                     (z_imag[:, 1, 0] - pt_array[:, 1, 0] * z_real[:, 1, 1])
                     * z_error[:, 0, 0]
                 )
-                + np.abs(
-                    pt_array[:, 1, 0] * z_real[:, 1, 0] * z_error[:, 0, 1]
-                )
+                + np.abs(pt_array[:, 1, 0] * z_real[:, 1, 0] * z_error[:, 0, 1])
                 + np.abs(
                     (-z_imag[:, 0, 0] + pt_array[:, 1, 0] * z_real[:, 0, 1])
                     * z_error[:, 1, 0]
                 )
-                + np.abs(
-                    -pt_array[:, 1, 0] * z_real[:, 0, 0] * z_error[:, 1, 1]
-                )
+                + np.abs(-pt_array[:, 1, 0] * z_real[:, 0, 0] * z_error[:, 1, 1])
                 + np.abs(z_real[:, 0, 0] * z_error[:, 1, 0])
                 + np.abs(-z_real[:, 1, 0] * z_error[:, 0, 0])
             ) / det_real
@@ -224,16 +214,12 @@ class PhaseTensor(TFBase):
                     (z_imag[:, 1, 1] - pt_array[:, 1, 1] * z_real[:, 1, 1])
                     * z_error[:, 0, 0]
                 )
-                + np.abs(
-                    pt_array[:, 1, 1] * z_real[:, 1, 0] * z_error[:, 0, 1]
-                )
+                + np.abs(pt_array[:, 1, 1] * z_real[:, 1, 0] * z_error[:, 0, 1])
                 + np.abs(
                     (-z_imag[:, 0, 1] + pt_array[:, 1, 1] * z_real[:, 0, 1])
                     * z_error[:, 1, 0]
                 )
-                + np.abs(
-                    -pt_array[:, 1, 1] * z_real[:, 0, 0] * z_error[:, 1, 1]
-                )
+                + np.abs(-pt_array[:, 1, 1] * z_real[:, 0, 0] * z_error[:, 1, 1])
                 + np.abs(z_real[:, 0, 0] * z_error[:, 1, 1])
                 + np.abs(-z_real[:, 1, 0] * z_error[:, 0, 1])
             ) / det_real
@@ -319,9 +305,7 @@ class PhaseTensor(TFBase):
         if not self._has_tf_error():
             old_shape = self._dataset.transfer_function_model_error.shape
 
-        pt_model_error = self._validate_array_input(
-            pt_model_error, "float", old_shape
-        )
+        pt_model_error = self._validate_array_input(pt_model_error, "float", old_shape)
         if pt_model_error is None:
             return
 
@@ -442,13 +426,9 @@ class PhaseTensor(TFBase):
 
         if self._has_tf_error():
             y = self.pt[:, 0, 1] - self.pt[:, 1, 0]
-            yerr = np.sqrt(
-                self.pt_error[:, 0, 1] ** 2 + self.pt_error[:, 1, 0] ** 2
-            )
+            yerr = np.sqrt(self.pt_error[:, 0, 1] ** 2 + self.pt_error[:, 1, 0] ** 2)
             x = self.pt[:, 0, 0] + self.pt[:, 1, 1]
-            xerr = np.sqrt(
-                self.pt_error[:, 0, 0] ** 2 + self.pt_error[:, 1, 1] ** 2
-            )
+            xerr = np.sqrt(self.pt_error[:, 0, 0] ** 2 + self.pt_error[:, 1, 1] ** 2)
 
             beta_error = np.degrees(
                 0.5
@@ -464,13 +444,11 @@ class PhaseTensor(TFBase):
         if self._has_tf_error():
             y = self.pt[:, 0, 1] - self.pt[:, 1, 0]
             yerr = np.sqrt(
-                self.pt_model_error[:, 0, 1] ** 2
-                + self.pt_model_error[:, 1, 0] ** 2
+                self.pt_model_error[:, 0, 1] ** 2 + self.pt_model_error[:, 1, 0] ** 2
             )
             x = self.pt[:, 0, 0] + self.pt[:, 1, 1]
             xerr = np.sqrt(
-                self.pt_model_error[:, 0, 0] ** 2
-                + self.pt_model_error[:, 1, 1] ** 2
+                self.pt_model_error[:, 0, 0] ** 2 + self.pt_model_error[:, 1, 1] ** 2
             )
 
             beta_model_error = np.degrees(
@@ -592,7 +570,7 @@ class PhaseTensor(TFBase):
     def _pi1(self):
         """Pi1 is calculated according to Bibby et al. 2005:
 
-            Pi1 = 0.5 * sqrt(PT[0,0] - PT[1,1])**2 + (PT[0,1] + PT[1,0])**2).
+        Pi1 = 0.5 * sqrt(PT[0,0] - PT[1,1])**2 + (PT[0,1] + PT[1,0])**2).
         """
         # after bibby et al. 2005
 
@@ -611,15 +589,9 @@ class PhaseTensor(TFBase):
                     / (4 * self._pi1)
                     * np.sqrt(
                         (self.pt[:, 0, 0] - self.pt[:, 1, 1]) ** 2
-                        * (
-                            self.pt_error[:, 0, 0] ** 2
-                            + self.pt_error[:, 1, 1] ** 2
-                        )
+                        * (self.pt_error[:, 0, 0] ** 2 + self.pt_error[:, 1, 1] ** 2)
                         + (self.pt[:, 0, 1] + self.pt[:, 1, 0]) ** 2
-                        * (
-                            self.pt_error[:, 0, 1] ** 2
-                            + self.pt_error[:, 1, 0] ** 2
-                        )
+                        * (self.pt_error[:, 0, 1] ** 2 + self.pt_error[:, 1, 0] ** 2)
                     )
                 )
 
@@ -633,10 +605,7 @@ class PhaseTensor(TFBase):
                     / (4 * self._pi1)
                     * np.sqrt(
                         (self.pt[:, 0, 0] - self.pt[:, 1, 1]) ** 2
-                        * (
-                            self.pt_error[:, 0, 0] ** 2
-                            + self.pt_error[:, 1, 1] ** 2
-                        )
+                        * (self.pt_error[:, 0, 0] ** 2 + self.pt_error[:, 1, 1] ** 2)
                         + (self.pt[:, 0, 1] + self.pt[:, 1, 0]) ** 2
                         * (
                             self.pt_model_error[:, 0, 1] ** 2
@@ -650,7 +619,7 @@ class PhaseTensor(TFBase):
     def _pi2(self):
         """Pi2 is calculated according to Bibby et al. 2005:
 
-            Pi2 = 0.5 * sqrt(PT[0,0] + PT[1,1])**2 + (PT[0,1] - PT[1,0])**2).
+        Pi2 = 0.5 * sqrt(PT[0,0] + PT[1,1])**2 + (PT[0,1] - PT[1,0])**2).
         """
         # after bibby et al. 2005
 
@@ -670,15 +639,9 @@ class PhaseTensor(TFBase):
                     / (4 * self._pi2)
                     * np.sqrt(
                         (self.pt[:, 0, 0] + self.pt[:, 1, 1]) ** 2
-                        * (
-                            self.pt_error[:, 0, 0] ** 2
-                            + self.pt_error[:, 1, 1] ** 2
-                        )
+                        * (self.pt_error[:, 0, 0] ** 2 + self.pt_error[:, 1, 1] ** 2)
                         + (self.pt[:, 0, 1] - self.pt[:, 1, 0]) ** 2
-                        * (
-                            self.pt_error[:, 0, 1] ** 2
-                            + self.pt_error[:, 1, 0] ** 2
-                        )
+                        * (self.pt_error[:, 0, 1] ** 2 + self.pt_error[:, 1, 0] ** 2)
                     )
                 )
 
@@ -710,7 +673,7 @@ class PhaseTensor(TFBase):
     def phimin(self):
         """Minimum phase calculated according to Bibby et al. 2005:
 
-            Phi_min = Pi2 - Pi1.
+        Phi_min = Pi2 - Pi1.
         """
 
         if self._has_tf():
@@ -730,9 +693,7 @@ class PhaseTensor(TFBase):
         if self._has_tf_model_error():
             return np.degrees(
                 np.arctan(
-                    np.sqrt(
-                        self._pi2_model_error**2 + self._pi1_model_error**2
-                    )
+                    np.sqrt(self._pi2_model_error**2 + self._pi1_model_error**2)
                 )
             )
 
@@ -741,7 +702,7 @@ class PhaseTensor(TFBase):
     def phimax(self):
         """Maximum phase calculated according to Bibby et al. 2005:
 
-            Phi_max = Pi2 + Pi1.
+        Phi_max = Pi2 + Pi1.
         """
 
         if self._has_tf():
@@ -761,9 +722,7 @@ class PhaseTensor(TFBase):
         if self._has_tf_model_error():
             return np.degrees(
                 np.arctan(
-                    np.sqrt(
-                        self._pi2_model_error**2 + self._pi1_model_error**2
-                    )
+                    np.sqrt(self._pi2_model_error**2 + self._pi1_model_error**2)
                 )
             )
 

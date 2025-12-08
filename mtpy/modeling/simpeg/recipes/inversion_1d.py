@@ -14,25 +14,27 @@ from loguru import logger
 from mtpy.core import MTDataFrame
 from mtpy.imaging.mtplot_tools.plotters import plot_errorbar
 
+
 try:
     from discretize import TensorMesh
-    from simpeg.electromagnetics import natural_source as nsem
     from simpeg import (
-        maps,
         data,
         data_misfit,
-        regularization,
-        optimization,
+        directives,
         inverse_problem,
         inversion,
-        directives,
+        maps,
+        optimization,
+        regularization,
     )
+    from simpeg.electromagnetics import natural_source as nsem
 except ImportError:
     logger.warning("Could not import Simpeg.")
 
-from matplotlib import pyplot as plt
 import matplotlib.gridspec as gridspec
-from matplotlib.ticker import LogLocator, MultipleLocator
+from matplotlib import pyplot as plt
+from matplotlib.ticker import LogLocator
+
 
 # =============================================================================
 
@@ -221,7 +223,6 @@ class Simpeg1D:
 
         if self.output_dict is None:
             raise ValueError("Must run an inversion first")
-        pass
 
     @property
     def data(self):

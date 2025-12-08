@@ -9,6 +9,7 @@ Created on Mon Oct 30 13:29:22 2023
 # Imports
 # =============================================================================
 
+
 # =============================================================================
 class Occam1DModel(object):
     """
@@ -82,9 +83,7 @@ class Occam1DModel(object):
         self.model_preference_penalty = None
         self.num_params = None
 
-    def _set_layerdepth_defaults(
-        self, z1_threshold=3.0, bottomlayer_threshold=2.0
-    ):
+    def _set_layerdepth_defaults(self, z1_threshold=3.0, bottomlayer_threshold=2.0):
         """
         set target depth, bottom layer and z1 layer, making sure all the layers
         are consistent with each other and will work in the inversion
@@ -101,9 +100,7 @@ class Occam1DModel(object):
         if self.bottom_layer is None:
             self.bottom_layer = 5.0 * self.target_depth
         # if bottom layer less than a factor of 2 greater than target depth then adjust deeper
-        elif (
-            float(self.bottom_layer) / self.target_depth < bottomlayer_threshold
-        ):
+        elif float(self.bottom_layer) / self.target_depth < bottomlayer_threshold:
             self.bottom_layer = bottomlayer_threshold * self.target_depth
             print(
                 "bottom layer not deep enough for target depth, set to {} m".format(
@@ -179,9 +176,7 @@ class Occam1DModel(object):
                 ),
                 num=self.n_layers - self.pad_z,
             )
-            ztarget = np.array(
-                [zz - zz % 10 ** np.floor(np.log10(zz)) for zz in log_z]
-            )
+            ztarget = np.array([zz - zz % 10 ** np.floor(np.log10(zz)) for zz in log_z])
             log_zpad = np.logspace(
                 np.log10(self.target_depth),
                 np.log10(
@@ -214,12 +209,8 @@ class Occam1DModel(object):
             "!penalize between 1 and 0,"
             + "0 allowing jump between layers and 1 smooth. \n"
         )
-        modfid.write(
-            "!preference is the assumed resistivity on linear scale. \n"
-        )
-        modfid.write(
-            "!pref_penalty needs to be put if preference is not 0 [0,1]. \n"
-        )
+        modfid.write("!preference is the assumed resistivity on linear scale. \n")
+        modfid.write("!pref_penalty needs to be put if preference is not 0 [0,1]. \n")
         modfid.write(
             "! {0}\n".format(
                 self._ss.join(
@@ -247,9 +238,7 @@ class Occam1DModel(object):
             )
         )
         modfid.write(
-            self._ss.join(
-                ["0", "-1", "0", "0", "0", "!first ground layer", "\n"]
-            )
+            self._ss.join(["0", "-1", "0", "0", "0", "!first ground layer", "\n"])
         )
         for ll in self.model_depth:
             modfid.write(

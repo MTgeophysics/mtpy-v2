@@ -3,23 +3,21 @@
 Created on Wed Mar  6 09:43:07 2019
 
 Estimate Transfer Function Quality
-    
+
     * based on simple statistics
 
 @author: jpeacock
 """
+
 # =============================================================================
 # Imports
 # =============================================================================
-import os
-import glob
 import warnings
 
 import numpy as np
 import pandas as pd
-from scipy import interpolate
-
 from loguru import logger
+from scipy import interpolate
 
 
 # =============================================================================
@@ -158,20 +156,14 @@ class EMTFStats:
                 l_index -= 1
         else:
             while r_index < array.shape[0]:
-                if (
-                    abs(array[r_index] - array[r_index - 1])
-                    > factor * array[r_index]
-                ):
+                if abs(array[r_index] - array[r_index - 1]) > factor * array[r_index]:
                     bad_points.append(r_index)
                 r_index += 1
 
             # go to the left
             l_index = m_index - 1
             while l_index > -1:
-                if (
-                    abs(array[l_index] - array[l_index - 1])
-                    > factor * array[l_index]
-                ):
+                if abs(array[l_index] - array[l_index - 1]) > factor * array[l_index]:
                     bad_points.append(l_index)
                 l_index -= 1
 
@@ -216,14 +208,10 @@ class EMTFStats:
                     stat_array[0][f"bad_points_phase_{comp}"] = max(
                         [1, len(bad_points_res)]
                     )
-                    bad_points = np.unique(
-                        np.append(bad_points_res, bad_points_phase)
-                    )
+                    bad_points = np.unique(np.append(bad_points_res, bad_points_phase))
                     ### need to get the data points that are within the reasonable range
                     ### and not 0
-                    nz_index = np.nonzero(
-                        self.z_object.resistivity[:, ii, jj]
-                    )[0]
+                    nz_index = np.nonzero(self.z_object.resistivity[:, ii, jj])[0]
                     nz_mask = np.isin(nz_index, bad_points)
                     nz_index = np.delete(nz_index, nz_mask)
 
@@ -233,16 +221,12 @@ class EMTFStats:
                         break
                     res = self.z_object.resistivity[nz_index, ii, jj]
                     if self.z_object.resistivity_error is not None:
-                        res_error = self.z_object.resistivity_error[
-                            nz_index, ii, jj
-                        ]
+                        res_error = self.z_object.resistivity_error[nz_index, ii, jj]
                     else:
                         res_error = np.zeros_like(res)
                     phase = self.z_object.phase[nz_index, ii, jj]
                     if self.z_object.phase_error is not None:
-                        phase_error = self.z_object.phase_error[
-                            nz_index, ii, jj
-                        ]
+                        phase_error = self.z_object.phase_error[nz_index, ii, jj]
                     else:
                         phase_error = np.zeros_like(phase)
 
@@ -271,12 +255,8 @@ class EMTFStats:
                         ls_phase = interpolate.make_lsq_spline(f, phase, t, k)
 
                         ### compute a standard deviation between the ls fit and data
-                        stat_array[0][f"res_{comp}_fit"] = (
-                            res - ls_res(f)
-                        ).std()
-                        stat_array[0][f"phase_{comp}_fit"] = (
-                            phase - ls_phase(f)
-                        ).std()
+                        stat_array[0][f"res_{comp}_fit"] = (res - ls_res(f)).std()
+                        stat_array[0][f"phase_{comp}_fit"] = (phase - ls_phase(f)).std()
                     except (ValueError, np.linalg.LinAlgError) as error:
                         stat_array[0][f"res_{comp}_fit"] = np.NaN
                         stat_array[0][f"phase_{comp}_fit"] = np.NaN
@@ -286,17 +266,15 @@ class EMTFStats:
                     stat_array[0][f"phase_{comp}_std"] = np.median(phase_error)
 
                     ### estimate smoothness
-                    stat_array[0][f"res_{comp}_corr"] = np.corrcoef(
-                        res[0:-1], res[1:]
-                    )[0, 1]
+                    stat_array[0][f"res_{comp}_corr"] = np.corrcoef(res[0:-1], res[1:])[
+                        0, 1
+                    ]
                     stat_array[0][f"phase_{comp}_corr"] = np.corrcoef(
                         phase[0:-1], phase[1:]
                     )[0, 1]
 
                     ### estimate smoothness with difference
-                    stat_array[0][f"res_{comp}_diff"] = np.abs(
-                        np.median(np.diff(res))
-                    )
+                    stat_array[0][f"res_{comp}_diff"] = np.abs(np.median(np.diff(res)))
                     stat_array[0][f"phase_{comp}_diff"] = np.abs(
                         np.median(np.diff(phase))
                     )
@@ -315,23 +293,17 @@ class EMTFStats:
                     stat_array[0][f"bad_points_tipper_{tcomp}"] = max(
                         [1, len(bad_points_t)]
                     )
-                    t_index = np.delete(
-                        t_index, np.isin(t_index, bad_points_t)
-                    )
+                    t_index = np.delete(t_index, np.isin(t_index, bad_points_t))
                     if t_index.size == 0:
                         continue
                     else:
                         tip_f = self.t_object.frequency[t_index]
                         if len(tip_f) < 2:
-                            logger.warning(
-                                f"Could not compute stats for T{comp}"
-                            )
+                            logger.warning(f"Could not compute stats for T{comp}")
                             break
                         tmag = self.t_object.amplitude[t_index, 0, jj]
                         if self.t_object.amplitude_error is not None:
-                            tmag_error = self.t_object.amplitude_error[
-                                t_index, 0, jj
-                            ]
+                            tmag_error = self.t_object.amplitude_error[t_index, 0, jj]
                         else:
                             tmag_error = np.zeros_like(tmag)
 
@@ -352,9 +324,7 @@ class EMTFStats:
                             (tip_f[-1],) * (k + 1),
                         ]
                         try:
-                            ls_tmag = interpolate.make_lsq_spline(
-                                tip_f, tmag, tip_t, k
-                            )
+                            ls_tmag = interpolate.make_lsq_spline(tip_f, tmag, tip_t, k)
                             stat_array[0][f"tipper_{tcomp}_fit"] = np.std(
                                 tmag - ls_tmag(tip_f)
                             )
@@ -364,9 +334,7 @@ class EMTFStats:
                         ) as error:
                             stat_array[0][f"tipper_{tcomp}_fit"] = np.NaN
                             logger.warning(f"T{tcomp}: {error}")
-                        stat_array[0][
-                            f"tipper_{tcomp}_std"
-                        ] = tmag_error.mean()
+                        stat_array[0][f"tipper_{tcomp}_std"] = tmag_error.mean()
                         stat_array[0][f"tipper_{tcomp}_corr"] = np.corrcoef(
                             tmag[0:-1], tmag[1:]
                         )[0, 1]
@@ -443,24 +411,12 @@ class EMTFStats:
         ### compute median value
         ### need to weight things differently
         with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore", r"All-NaN (slice|axis) encountered"
-            )
-            bad_df = quality_df[
-                [col for col in quality_df.columns if "bad" in col]
-            ]
-            diff_df = quality_df[
-                [col for col in quality_df.columns if "diff" in col]
-            ]
-            fit_df = quality_df[
-                [col for col in quality_df.columns if "fit" in col]
-            ]
-            corr_df = quality_df[
-                [col for col in quality_df.columns if "corr" in col]
-            ]
-            std_df = quality_df[
-                [col for col in quality_df.columns if "std" in col]
-            ]
+            warnings.filterwarnings("ignore", r"All-NaN (slice|axis) encountered")
+            bad_df = quality_df[[col for col in quality_df.columns if "bad" in col]]
+            diff_df = quality_df[[col for col in quality_df.columns if "diff" in col]]
+            fit_df = quality_df[[col for col in quality_df.columns if "fit" in col]]
+            corr_df = quality_df[[col for col in quality_df.columns if "corr" in col]]
+            std_df = quality_df[[col for col in quality_df.columns if "std" in col]]
 
             qf_df = np.nansum(
                 np.array(
@@ -493,14 +449,10 @@ class EMTFStats:
         qualities_df = self.estimate_data_quality(self.compute_statistics())
         if round_qf:
             return round(
-                self.summarize_data_quality(
-                    quality_df=qualities_df, weights=weights
-                )
+                self.summarize_data_quality(quality_df=qualities_df, weights=weights)
             )
         else:
-            return self.summarize_data_quality(
-                quality_df=qualities_df, weights=weights
-            )
+            return self.summarize_data_quality(quality_df=qualities_df, weights=weights)
 
 
 # =============================================================================

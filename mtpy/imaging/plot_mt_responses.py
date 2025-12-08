@@ -17,12 +17,12 @@ import numpy as np
 from matplotlib.ticker import MultipleLocator
 
 from mtpy.imaging.mtplot_tools import (
-    PlotBase,
-    plot_pt_lateral,
     get_log_tick_labels,
-    plot_resistivity,
     plot_phase,
+    plot_pt_lateral,
+    plot_resistivity,
     plot_tipper_lateral,
+    PlotBase,
 )
 
 
@@ -124,9 +124,7 @@ class PlotMultipleResponses(PlotBase):
 
         self._plot_model_error = value
 
-    def _plot_resistivity(
-        self, axr, period, z_obj, mode="od", index=0, axr2=None
-    ):
+    def _plot_resistivity(self, axr, period, z_obj, mode="od", index=0, axr2=None):
         """Plot resistivity."""
         if mode == "od":
             comps = ["xy", "yx"]
@@ -321,9 +319,7 @@ class PlotMultipleResponses(PlotBase):
             axt.set_xlabel("")
         return tip_list, tip_label
 
-    def _plot_pt(
-        self, axpt, period, pt_obj, index=0, y_shift=0, edge_color=None
-    ):
+    def _plot_pt(self, axpt, period, pt_obj, index=0, y_shift=0, edge_color=None):
         """Plot pt."""
         # ----plot phase tensor ellipse---------------------------------------
         if self.plot_pt:
@@ -510,9 +506,7 @@ class PlotMultipleResponses(PlotBase):
 
             # plot apparent resistivity od
             if self.plot_num == 1:
-                self._plot_resistivity(
-                    axr, mt.period, mt.Z, mode="od", index=ii
-                )
+                self._plot_resistivity(axr, mt.period, mt.Z, mode="od", index=ii)
                 if self.res_limits is not None:
                     axr.set_ylim(self.res_limits)
                 # plot phase od
@@ -522,9 +516,7 @@ class PlotMultipleResponses(PlotBase):
             # Plot Determinant
             elif self.plot_num == 3:
                 # plot apparent resistivity od
-                self._plot_resistivity(
-                    axr, mt.period, mt.Z, mode="det", index=ii
-                )
+                self._plot_resistivity(axr, mt.period, mt.Z, mode="det", index=ii)
                 if self.res_limits is not None:
                     axr.set_ylim(self.res_limits)
                 # plot phase od
@@ -534,9 +526,7 @@ class PlotMultipleResponses(PlotBase):
             # plot diagonal components
             if self.plot_num == 2:
                 # plot apparent resistivity od
-                self._plot_resistivity(
-                    axr2, mt.period, mt.Z, mode="d", index=ii
-                )
+                self._plot_resistivity(axr2, mt.period, mt.Z, mode="d", index=ii)
 
                 # plot phase od
                 self._plot_phase(axp2, mt.period, mt.Z, mode="d", index=ii)
@@ -547,9 +537,7 @@ class PlotMultipleResponses(PlotBase):
             # plot phase tensor
             self._plot_pt(axpt, mt.period, mt.pt, index=ii)
 
-            axr.set_title(
-                mt.station, fontsize=self.font_size, fontweight="bold"
-            )
+            axr.set_title(mt.station, fontsize=self.font_size, fontweight="bold")
 
     def _plot_compare(self):
         """Plot compare."""
@@ -564,9 +552,7 @@ class PlotMultipleResponses(PlotBase):
         cxy = [(0, 0 + float(cc) / ns, 1 - float(cc) / ns) for cc in range(ns)]
         cyx = [(1, float(cc) / ns, 0) for cc in range(ns)]
         cdet = [(0, 1 - float(cc) / ns, 0) for cc in range(ns)]
-        ctipr = [
-            (0.75 * cc / ns, 0.75 * cc / ns, 0.75 * cc / ns) for cc in range(ns)
-        ]
+        ctipr = [(0.75 * cc / ns, 0.75 * cc / ns, 0.75 * cc / ns) for cc in range(ns)]
         ctipi = [(float(cc) / ns, 1 - float(cc) / ns, 0.25) for cc in range(ns)]
 
         # make marker lists for the different components
@@ -629,9 +615,7 @@ class PlotMultipleResponses(PlotBase):
                 )
 
                 # plot phase od
-                self._plot_phase(
-                    axp, mt.period, mt.Z, mode="od", index=ii, axp2=axp2
-                )
+                self._plot_phase(axp, mt.period, mt.Z, mode="od", index=ii, axp2=axp2)
             # Plot Determinant
             elif self.plot_num == 3:
                 # plot apparent resistivity od
@@ -691,9 +675,7 @@ class PlotMultipleResponses(PlotBase):
                 ax.set_xlim(period_limits)
         if ax in [axt, axpt]:
             if ax is not None:
-                ax.set_xlim(
-                    [np.log10(period_limits[0]), np.log10(period_limits[1])]
-                )
+                ax.set_xlim([np.log10(period_limits[0]), np.log10(period_limits[1])])
 
         # make legend
         if self.plot_num == 1:

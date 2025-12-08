@@ -17,11 +17,11 @@ from pathlib import Path
 
 import numpy as np
 from loguru import logger
+from pyevtk.hl import gridToVTK
 
 from .exception import CovarianceError
 from .model import Model
 
-from pyevtk.hl import gridToVTK
 
 # =============================================================================
 
@@ -114,7 +114,7 @@ class Covariance(object):
         res_model=None,
         sea_water=0.3,
         air=1.0e12,
-    ):  
+    ):
         """Writes a ModEM covariance (.cov) file.
         :param cov_fn: Name for the covariance file. *default* is None, defaults to None.
         :type cov_fn: str | Path, optional
@@ -142,15 +142,12 @@ class Covariance(object):
             self.mask_arr[np.where(res_model >= air * 0.9)] = 0
             self.mask_arr[
                 np.where(
-                    (res_model <= sea_water * 1.1)
-                    & (res_model >= sea_water * 0.9)
+                    (res_model <= sea_water * 1.1) & (res_model >= sea_water * 0.9)
                 )
             ] = 9
 
         if self.grid_dimensions is None:
-            raise CovarianceError(
-                "Grid dimensions are None, input as (Nx, Ny, Nz)"
-            )
+            raise CovarianceError("Grid dimensions are None, input as (Nx, Ny, Nz)")
 
         if cov_fn is not None:
             self.cov_fn = cov_fn
@@ -266,11 +263,7 @@ class Covariance(object):
                 ):
                     self.smoothing_num = int(line_list[0])
                     num_find = True
-                elif (
-                    len(line_list) == 1
-                    and num_find
-                    and line_list[0].find(".") == -1
-                ):
+                elif len(line_list) == 1 and num_find and line_list[0].find(".") == -1:
                     self.exceptions_num = int(line_list[0])
                 elif len(line_list) == 1 and line_list[0].find(".") >= 0:
                     self.smoothing_z = float(line_list[0])
@@ -294,9 +287,7 @@ class Covariance(object):
                     line_list = np.array(line_list, dtype=int)
                     line_list = line_list.reshape((ny, 1))
 
-                    self.mask_arr[
-                        count, :, index_00 : index_01 + 1
-                    ] = line_list
+                    self.mask_arr[count, :, index_00 : index_01 + 1] = line_list
                     count += 1
 
     def get_parameters(self):

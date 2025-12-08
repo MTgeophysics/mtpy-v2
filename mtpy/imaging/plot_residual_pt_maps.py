@@ -4,27 +4,28 @@ PlotResidualPhaseTensor
 =======================
 
     *plots the residual phase tensor for two different sets of measurments
-    
-    
+
+
 Created on Wed Oct 16 14:56:04 2013
 
 @author: jpeacock-pr
 """
+import matplotlib.colorbar as mcb
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
+
 # =============================================================================
 # Imports
 # =============================================================================
 import numpy as np
 import scipy.signal as sps
-
-import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
-import matplotlib.patches as patches
-import matplotlib.colorbar as mcb
 
 import mtpy.utils.gis_tools as gis_tools
+from mtpy.analysis.residual_phase_tensor import ResidualPhaseTensor
 from mtpy.imaging import mtcolors
 from mtpy.imaging.mtplot_tools import PlotBase
-from mtpy.analysis.residual_phase_tensor import ResidualPhaseTensor
+
 
 try:
     import contextily as cx
@@ -248,9 +249,7 @@ class PlotResidualPTMaps(PlotBase):
                             two_found.append(mt2.tf_id)
                         break
             if not station_find:
-                self.logger.warning(
-                    f"Could not find tf {mt1.tf_id} in second list"
-                )
+                self.logger.warning(f"Could not find tf {mt1.tf_id} in second list")
 
         return matches
 
@@ -338,18 +337,10 @@ class PlotResidualPTMaps(PlotBase):
         kernel is (station, frequency).
         """
 
-        filt_phimin_arr = sps.medfilt2d(
-            self.rpt_array["phimin"], kernel_size=kernel
-        )
-        filt_phimax_arr = sps.medfilt2d(
-            self.rpt_array["phimax"], kernel_size=kernel
-        )
-        filt_skew_arr = sps.medfilt2d(
-            self.rpt_array["skew"], kernel_size=kernel
-        )
-        filt_azimuth_arr = sps.medfilt2d(
-            self.rpt_array["azimuth"], kernel_size=kernel
-        )
+        filt_phimin_arr = sps.medfilt2d(self.rpt_array["phimin"], kernel_size=kernel)
+        filt_phimax_arr = sps.medfilt2d(self.rpt_array["phimax"], kernel_size=kernel)
+        filt_skew_arr = sps.medfilt2d(self.rpt_array["skew"], kernel_size=kernel)
+        filt_azimuth_arr = sps.medfilt2d(self.rpt_array["azimuth"], kernel_size=kernel)
 
         self.rpt_array["phimin"] = filt_phimin_arr
         self.rpt_array["phimax"] = filt_phimax_arr
@@ -457,9 +448,7 @@ class PlotResidualPTMaps(PlotBase):
 
         # make figure instance
 
-        self.fig = plt.figure(
-            self._get_title(), self.fig_size, dpi=self.fig_dpi
-        )
+        self.fig = plt.figure(self._get_title(), self.fig_size, dpi=self.fig_dpi)
 
         # clear the figure if there is already one up
         plt.clf()
@@ -470,9 +459,7 @@ class PlotResidualPTMaps(PlotBase):
         # --> plot the background image if desired-----------------------
         try:
             im = plt.imread(self.image_file)
-            self.ax.imshow(
-                im, origin="lower", extent=self.image_extent, aspect="auto"
-            )
+            self.ax.imshow(im, origin="lower", extent=self.image_extent, aspect="auto")
         except AttributeError:
             pass
 
@@ -563,9 +550,7 @@ class PlotResidualPTMaps(PlotBase):
                         **cx_kwargs,
                     )
                 except Exception as error:
-                    self.logger.warning(
-                        f"Could not add base map because {error}"
-                    )
+                    self.logger.warning(f"Could not add base map because {error}")
 
         # --> set axes properties depending on map scale------------------------
         self.ax.set_xlabel(self.x_label, fontdict=self.font_dict)

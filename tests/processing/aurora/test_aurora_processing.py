@@ -9,19 +9,17 @@ Created on Thu Aug 15 16:09:12 2024
 # =============================================================================
 import unittest
 
-from loguru import logger
-
-from mth5.data.make_mth5_from_asc import MTH5_PATH, create_test12rr_h5
-from mth5.utils.helpers import close_open_files
-from mth5.mth5 import MTH5
-
-from mtpy.processing.run_summary import RunSummary
-from mtpy.processing.kernel_dataset import KernelDataset
-from mtpy import MT
-
 from aurora.config.config_creator import ConfigCreator
 from aurora.pipelines.process_mth5 import process_mth5
+from loguru import logger
+from mth5.data.make_mth5_from_asc import create_test12rr_h5, MTH5_PATH
+from mth5.mth5 import MTH5
+from mth5.utils.helpers import close_open_files
+
+from mtpy import MT
 from mtpy.processing.aurora.process_aurora import AuroraProcessing
+from mtpy.processing.kernel_dataset import KernelDataset
+from mtpy.processing.run_summary import RunSummary
 
 
 # =============================================================================
@@ -36,9 +34,7 @@ class TestProcessSingleStationCompare(unittest.TestCase):
         self.ap = AuroraProcessing()
         self.ap.local_station_id = "test1"
         self.ap.local_mth5_path = self.mth5_path
-        self.processed = self.ap.process(
-            sample_rates=1, merge=True, save_to_mth5=True
-        )
+        self.processed = self.ap.process(sample_rates=1, merge=True, save_to_mth5=True)
         self.mt_obj_new = self.processed[1]["tf"]
 
         # process with aurora infrastructure
@@ -62,9 +58,7 @@ class TestProcessSingleStationCompare(unittest.TestCase):
         self.mt_obj_legacy = MT(survey_metadata=self.tf_obj.survey_metadata)
         self.mt_obj_legacy._transfer_function = self.tf_obj._transfer_function
 
-        self.mt_obj_legacy.survey_metadata.id = (
-            self.mt_obj_new.survey_metadata.id
-        )
+        self.mt_obj_legacy.survey_metadata.id = self.mt_obj_new.survey_metadata.id
 
     def test_tfs_equal(self):
         self.assertEqual(self.mt_obj_new, self.mt_obj_legacy)
@@ -80,8 +74,12 @@ class TestProcessSingleStationCompare(unittest.TestCase):
                 self.assertIn("test1", tf_df.station.tolist())
             with self.subTest("tf's are equal"):
                 tf = m.get_transfer_function("test1", "test1_sr1")
-                logger.error("Forcing southeast corners to match")  # see mt_metadata issue #253
-                tf.survey_metadata.southeast_corner = self.tf_obj.survey_metadata.southeast_corner
+                logger.error(
+                    "Forcing southeast corners to match"
+                )  # see mt_metadata issue #253
+                tf.survey_metadata.southeast_corner = (
+                    self.tf_obj.survey_metadata.southeast_corner
+                )
                 self.assertEqual(self.tf_obj, tf)
 
     def test_processed_dict(self):
@@ -105,9 +103,7 @@ class TestProcessRRCompare(unittest.TestCase):
         self.ap.local_mth5_path = self.mth5_path
         self.ap.remote_station_id = "test2"
         self.ap.remote_mth5_path = self.mth5_path
-        self.processed = self.ap.process(
-            sample_rates=1, merge=True, save_to_mth5=True
-        )
+        self.processed = self.ap.process(sample_rates=1, merge=True, save_to_mth5=True)
         self.mt_obj_new = self.processed[1]["tf"]
 
         # process with aurora infrastructure
@@ -131,9 +127,7 @@ class TestProcessRRCompare(unittest.TestCase):
         self.mt_obj_legacy = MT(survey_metadata=self.tf_obj.survey_metadata)
         self.mt_obj_legacy._transfer_function = self.tf_obj._transfer_function
 
-        self.mt_obj_legacy.survey_metadata.id = (
-            self.mt_obj_new.survey_metadata.id
-        )
+        self.mt_obj_legacy.survey_metadata.id = self.mt_obj_new.survey_metadata.id
 
     def test_tfs_equal(self):
         self.assertEqual(self.mt_obj_new, self.mt_obj_legacy)
@@ -150,8 +144,12 @@ class TestProcessRRCompare(unittest.TestCase):
             with self.subTest("tf's are equal"):
                 expected_processing_id = "test1_rr_test2_sr1"  # changed from "test1-rr_test2_sr1" 01 Mar, 2025
                 tf = m.get_transfer_function("test1", expected_processing_id)
-                logger.error("Forcing southeast corners to match")  # see mt_metadata issue #253
-                tf.survey_metadata.southeast_corner = self.tf_obj.survey_metadata.southeast_corner
+                logger.error(
+                    "Forcing southeast corners to match"
+                )  # see mt_metadata issue #253
+                tf.survey_metadata.southeast_corner = (
+                    self.tf_obj.survey_metadata.southeast_corner
+                )
                 self.assertEqual(self.tf_obj, tf)
 
     def test_processed_dict(self):

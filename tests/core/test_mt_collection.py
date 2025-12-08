@@ -15,12 +15,11 @@ Created on Mon Jan 11 15:36:38 2021
 # =============================================================================
 import unittest
 
+import mt_metadata
 import pandas as pd
+from mth5.helpers import validate_name
 
 from mtpy import MT, MTCollection, MTData
-
-import mt_metadata
-from mth5.helpers import validate_name
 
 
 # =============================================================================
@@ -491,9 +490,11 @@ class TestMTCollection(unittest.TestCase):
 
         mt_data_01["CONUS_South.NMX20"].survey_metadata.update_bounding_box()
 
-        mt_data_02["unknown_survey_009.SAGE_2005_out"].station_metadata.runs = (
-            mt_data_01["unknown_survey_009.SAGE_2005_out"].station_metadata.runs
-        )
+        mt_data_02[
+            "unknown_survey_009.SAGE_2005_out"
+        ].station_metadata.runs = mt_data_01[
+            "unknown_survey_009.SAGE_2005_out"
+        ].station_metadata.runs
 
         with self.subTest("mt_data equal"):
             self.assertListEqual(sorted(mt_data_01.keys()), sorted(mt_data_02.keys()))

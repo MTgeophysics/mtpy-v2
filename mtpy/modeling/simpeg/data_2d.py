@@ -5,17 +5,16 @@ Created on Fri Aug  9 12:11:57 2024
 @author: jpeacock
 """
 
+import matplotlib.pyplot as plt
+
 # =============================================================================
 # Imports
 # =============================================================================
 import numpy as np
-
-from simpeg.electromagnetics import natural_source as nsem
 from simpeg import data
+from simpeg.electromagnetics import natural_source as nsem
 
 from mtpy.imaging.mtplot_tools import plot_phase, plot_resistivity
-
-import matplotlib.pyplot as plt
 
 
 # =============================================================================
@@ -87,9 +86,7 @@ class Simpeg2DData:
         if self.include_elevation:
             return np.c_[station_df.profile_offset, station_df.elevation]
         else:
-            return np.c_[
-                station_df.profile_offset, np.zeros(station_df.shape[0])
-            ]
+            return np.c_[station_df.profile_offset, np.zeros(station_df.shape[0])]
 
     @property
     def frequencies(self):
@@ -135,8 +132,7 @@ class Simpeg2DData:
             ]
 
             src_list = [
-                nsem.sources.Planewave(rx_list, frequency=f)
-                for f in self.frequencies
+                nsem.sources.Planewave(rx_list, frequency=f) for f in self.frequencies
             ]
         else:
             rx_list = [
@@ -153,8 +149,7 @@ class Simpeg2DData:
             ]
 
             src_list = [
-                nsem.sources.Planewave(rx_list, frequency=f)
-                for f in self.frequencies
+                nsem.sources.Planewave(rx_list, frequency=f) for f in self.frequencies
             ]
         return nsem.Survey(src_list)
 
@@ -304,15 +299,11 @@ class Simpeg2DData:
 
         fig = plt.figure(kwargs.get("fig_num", 1))
 
-        te_data = self.te_data.dobs.reshape(
-            (self.n_frequencies, 2, self.n_stations)
-        )
+        te_data = self.te_data.dobs.reshape((self.n_frequencies, 2, self.n_stations))
         te_data_errors = self.te_data.standard_deviation.reshape(
             (self.n_frequencies, 2, self.n_stations)
         )
-        tm_data = self.tm_data.dobs.reshape(
-            (self.n_frequencies, 2, self.n_stations)
-        )
+        tm_data = self.tm_data.dobs.reshape((self.n_frequencies, 2, self.n_stations))
         tm_data_errors = self.tm_data.standard_deviation.reshape(
             (self.n_frequencies, 2, self.n_stations)
         )
@@ -353,18 +344,14 @@ class Simpeg2DData:
             ax_yx_res.set_title("TM")
         else:
             ax_xy_res = fig.add_subplot(2, 2, 1)
-            ax_yx_res = fig.add_subplot(
-                2, 2, 2, sharex=ax_xy_res, sharey=ax_xy_res
-            )
+            ax_yx_res = fig.add_subplot(2, 2, 2, sharex=ax_xy_res, sharey=ax_xy_res)
             ax_xy_phase = fig.add_subplot(
                 2,
                 2,
                 3,
                 sharex=ax_xy_res,
             )
-            ax_yx_phase = fig.add_subplot(
-                2, 2, 4, sharex=ax_xy_res, sharey=ax_xy_phase
-            )
+            ax_yx_phase = fig.add_subplot(2, 2, 4, sharex=ax_xy_res, sharey=ax_xy_phase)
             for ii in range(self.n_stations):
                 plot_resistivity(
                     ax_xy_res,

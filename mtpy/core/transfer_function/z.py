@@ -4,7 +4,7 @@
 Z
 ===
 
-Container for the Impedance Tensor 
+Container for the Impedance Tensor
 
 Originally written by Jared Peacock Lars Krieger
 Updated 2022 by J. Peacock to work with new framework
@@ -15,16 +15,17 @@ Updated 2022 by J. Peacock to work with new framework
 # Imports
 # =============================================================================
 import copy
+
 import numpy as np
 
+from . import IMPEDANCE_UNITS, MT_TO_OHM_FACTOR
 from .base import TFBase
-from . import MT_TO_OHM_FACTOR, IMPEDANCE_UNITS
 from .pt import PhaseTensor
 from .z_analysis import (
-    ZInvariants,
+    calculate_depth_of_investigation,
     find_distortion,
     remove_distortion_from_z_object,
-    calculate_depth_of_investigation,
+    ZInvariants,
 )
 
 
@@ -109,9 +110,7 @@ class Z(TFBase):
         if not isinstance(value, str):
             raise TypeError("Units input must be a string.")
         if value.lower() not in self._unit_factors.keys():
-            raise ValueError(
-                f"{value} is not an acceptable unit for impedance."
-            )
+            raise ValueError(f"{value} is not an acceptable unit for impedance.")
 
         self._units = value
 
@@ -159,10 +158,7 @@ class Z(TFBase):
     def z_error(self):
         """Error of impedance tensor array as standard deviation."""
         if self._has_tf_error():
-            return (
-                self._dataset.transfer_function_error.values
-                / self._scale_factor
-            )
+            return self._dataset.transfer_function_error.values / self._scale_factor
 
     @z_error.setter
     def z_error(self, z_error):
@@ -195,8 +191,7 @@ class Z(TFBase):
         """Model error of impedance tensor array as standard deviation."""
         if self._has_tf_model_error():
             return (
-                self._dataset.transfer_function_model_error.values
-                / self._scale_factor
+                self._dataset.transfer_function_model_error.values / self._scale_factor
             )
 
     @z_model_error.setter
@@ -218,9 +213,7 @@ class Z(TFBase):
                 self._expected_shape[1],
             )
 
-        z_model_error = self._validate_array_input(
-            z_model_error, "float", old_shape
-        )
+        z_model_error = self._validate_array_input(z_model_error, "float", old_shape)
 
         if z_model_error is None:
             return
@@ -295,18 +288,10 @@ class Z(TFBase):
 
         z_corrected = copy.copy(self.z)
 
-        z_corrected[:, 0, 0] = (
-            self.z[:, 0, 0] * self._scale_factor
-        ) / x_factors
-        z_corrected[:, 0, 1] = (
-            self.z[:, 0, 1] * self._scale_factor
-        ) / x_factors
-        z_corrected[:, 1, 0] = (
-            self.z[:, 1, 0] * self._scale_factor
-        ) / y_factors
-        z_corrected[:, 1, 1] = (
-            self.z[:, 1, 1] * self._scale_factor
-        ) / y_factors
+        z_corrected[:, 0, 0] = (self.z[:, 0, 0] * self._scale_factor) / x_factors
+        z_corrected[:, 0, 1] = (self.z[:, 0, 1] * self._scale_factor) / x_factors
+        z_corrected[:, 1, 0] = (self.z[:, 1, 0] * self._scale_factor) / y_factors
+        z_corrected[:, 1, 1] = (self.z[:, 1, 1] * self._scale_factor) / y_factors
 
         z_corrected = z_corrected / self._scale_factor
 
@@ -448,9 +433,7 @@ class Z(TFBase):
         """Phase model error of impedance."""
         if self.z is not None and self.z_model_error is not None:
             with np.errstate(divide="ignore", invalid="ignore"):
-                return np.degrees(
-                    np.arctan(self.z_model_error / np.abs(self.z))
-                )
+                return np.degrees(np.arctan(self.z_model_error / np.abs(self.z)))
 
     def _compute_z_error(self, res_error, phase_error):
         """Compute z error from apparent resistivity and phase.
@@ -523,9 +506,7 @@ class Z(TFBase):
         self.z = abs_z * np.exp(1j * np.radians(phase))
 
         self.z_error = self._compute_z_error(res_error, phase_error)
-        self.z_model_error = self._compute_z_error(
-            res_model_error, phase_model_error
-        )
+        self.z_model_error = self._compute_z_error(res_model_error, phase_model_error)
 
     @property
     def det(self):
@@ -610,9 +591,7 @@ class Z(TFBase):
         """Resistivity error determinant."""
         if self.det_error is not None:
             return (
-                0.2
-                * (1.0 / self.frequency)
-                * np.abs(self.det + self.det_error) ** 2
+                0.2 * (1.0 / self.frequency) * np.abs(self.det + self.det_error) ** 2
                 - self.res_det
             )
 
@@ -778,9 +757,7 @@ class Z(TFBase):
         """Weaver Invariants."""
         return ZInvariants(z=self.z)
 
-    def estimate_dimensionality(
-        self, skew_threshold=5, eccentricity_threshold=0.1
-    ):
+    def estimate_dimensionality(self, skew_threshold=5, eccentricity_threshold=0.1):
         """Estimate dimensionality of the impedance tensor from parameters such
         as strike and phase tensor eccentricity
         :return: DESCRIPTION.
@@ -793,9 +770,7 @@ class Z(TFBase):
         dimensionality[
             np.where(self.phase_tensor.eccentricity > eccentricity_threshold)
         ] = 2
-        dimensionality[
-            np.where(np.abs(self.phase_tensor.skew) > skew_threshold)
-        ] = 3
+        dimensionality[np.where(np.abs(self.phase_tensor.skew) > skew_threshold)] = 3
 
         return dimensionality
 
@@ -825,9 +800,9 @@ class Z(TFBase):
                 frequency=self.frequency[0:nf],
             )
             if self._has_tf_error():
-                new_z_object.z_error = (
-                    self._dataset.transfer_function_error.values[0:nf]
-                )
+                new_z_object.z_error = self._dataset.transfer_function_error.values[
+                    0:nf
+                ]
 
         return find_distortion(
             new_z_object, comp=comp, only_2d=only_2d, clockwise=clockwise

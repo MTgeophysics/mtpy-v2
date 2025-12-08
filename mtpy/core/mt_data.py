@@ -5,43 +5,43 @@ Created on Mon Oct 10 11:58:56 2022
 @author: jpeacock
 """
 
+from collections import OrderedDict
+from copy import deepcopy
+
 # =============================================================================
 # Imports
 # =============================================================================
 from pathlib import Path
-from collections import OrderedDict
-from copy import deepcopy
 
+import geopandas as gpd
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import geopandas as gpd
+from mth5.helpers import validate_name
 
-import matplotlib.pyplot as plt
-
+from mtpy.core import COORDINATE_REFERENCE_FRAME_OPTIONS, MTDataFrame
 from mtpy.core.transfer_function import IMPEDANCE_UNITS
-from .mt import MT
-from .mt_stations import MTStations
-from mtpy.core import MTDataFrame, COORDINATE_REFERENCE_FRAME_OPTIONS
-
+from mtpy.gis.shapefile_creator import ShapefileCreator
+from mtpy.imaging import (
+    PlotMultipleResponses,
+    PlotPenetrationDepthMap,
+    PlotPhaseTensorMaps,
+    PlotPhaseTensorPseudoSection,
+    PlotResidualPTMaps,
+    PlotResPhaseMaps,
+    PlotResPhasePseudoSection,
+    PlotStations,
+    PlotStrike,
+)
 from mtpy.modeling.errors import ModelErrors
 from mtpy.modeling.modem import Data
 from mtpy.modeling.occam2d import Occam2DData
 from mtpy.modeling.simpeg.data_2d import Simpeg2DData
 from mtpy.modeling.simpeg.data_3d import Simpeg3DData
-from mtpy.gis.shapefile_creator import ShapefileCreator
-from mtpy.imaging import (
-    PlotStations,
-    PlotMultipleResponses,
-    PlotPhaseTensorMaps,
-    PlotPhaseTensorPseudoSection,
-    PlotStrike,
-    PlotPenetrationDepthMap,
-    PlotResPhaseMaps,
-    PlotResPhasePseudoSection,
-    PlotResidualPTMaps,
-)
 
-from mth5.helpers import validate_name
+from .mt import MT
+from .mt_stations import MTStations
+
 
 # =============================================================================
 
@@ -60,7 +60,6 @@ class MTData(OrderedDict, MTStations):
     """
 
     def __init__(self, mt_list=None, **kwargs):
-
         self._coordinate_reference_frame_options = COORDINATE_REFERENCE_FRAME_OPTIONS
 
         self.z_model_error = ModelErrors(
@@ -299,7 +298,6 @@ class MTData(OrderedDict, MTStations):
             return
         if len(self.values()) != 0:
             self.logger.warning("mt_list cannot be set.")
-        pass
 
     @property
     def survey_ids(self):

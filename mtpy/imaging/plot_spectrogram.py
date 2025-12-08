@@ -14,14 +14,16 @@ Created on Mon Aug 19 16:24:29 2013
 
 # =================================================================
 
-import numpy as np
-from scipy import signal
-import matplotlib.pyplot as plt
-from matplotlib.ticker import MultipleLocator
-import mtpy.processing.tf as mttf
 import os
 
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.ticker import MultipleLocator
+from scipy import signal
+
+import mtpy.processing.tf as mttf
 import mtpy.utils.exceptions as mtex
+
 
 # =================================================================
 
@@ -30,7 +32,6 @@ class PlotTF(object):
     """Class to plot Time-Frequency."""
 
     def __init__(self, time_series, tf_type="smethod", **kwargs):
-
         self.time_series = time_series
         self.tf_type = tf_type
 
@@ -40,8 +41,8 @@ class PlotTF(object):
 
         self.tf_nh = kwargs.pop("nh", None)
         self.tf_ng = kwargs.pop("ng", None)
-        self.tf_tstep = kwargs.pop("tstep", 2 ** 5)
-        self.tf_nfbins = kwargs.pop("nfbins", 2 ** 9)
+        self.tf_tstep = kwargs.pop("tstep", 2**5)
+        self.tf_nfbins = kwargs.pop("nfbins", 2**9)
         self.tf_L = kwargs.pop("L", 11)
         self.tf_beta = kwargs.pop("beta", 0.2)
         self.tf_alpha = kwargs.pop("alpha", None)
@@ -113,7 +114,7 @@ class PlotTF(object):
         # --> short time fourier transform
         if self.tf_type == "stft":
             if self.tf_nh == None:
-                self.tf_nh = 2 ** 8
+                self.tf_nh = 2**8
             if self.tf_ng == None:
                 self.tf_ng = 1
 
@@ -133,7 +134,7 @@ class PlotTF(object):
         # --> reassigned stft
         elif self.tf_type == "reassigned_stft":
             if self.tf_nh == None:
-                self.tf_nh = 2 ** 6 - 1
+                self.tf_nh = 2**6 - 1
             if self.tf_alpha == None:
                 self.tf_alpha = 4.0
             if self.tf_thresh == None:
@@ -156,7 +157,7 @@ class PlotTF(object):
         # --> Wigner-ville distribution
         elif self.tf_type == "wvd":
             if self.tf_nh == None:
-                self.tf_nh = 2 ** 8 - 1
+                self.tf_nh = 2**8 - 1
 
             kwargs = {
                 "nh": self.tf_nh,
@@ -190,9 +191,9 @@ class PlotTF(object):
         # --> robust wigner ville-distribution
         elif self.tf_type == "robust_wvd":
             if self.tf_nh == None:
-                self.tf_nh = 2 ** 7 - 1
+                self.tf_nh = 2**7 - 1
             if self.tf_ng == None:
-                self.tf_ng = 2 ** 4 - 1
+                self.tf_ng = 2**4 - 1
 
             kwargs = {
                 "nh": self.tf_nh,
@@ -211,11 +212,11 @@ class PlotTF(object):
         # --> robust wigner ville-distribution
         elif self.tf_type == "specwv":
             if self.tf_nh == None:
-                self.tf_nh = 2 ** 8
+                self.tf_nh = 2**8
             if self.tf_nhwv == None:
-                self.tf_nhwv = 2 ** 9 - 1
+                self.tf_nhwv = 2**9 - 1
             if self.tf_ngwv == None:
-                self.tf_ngwv = 2 ** 3 - 1
+                self.tf_ngwv = 2**3 - 1
 
             kwargs = {
                 "nhs": self.tf_nh,
@@ -236,7 +237,7 @@ class PlotTF(object):
         # --> modified b
         elif self.tf_type == "modifiedb":
             if self.tf_nh == None:
-                self.tf_nh = 2 ** 8 - 1
+                self.tf_nh = 2**8 - 1
 
             kwargs = {
                 "nh": self.tf_nh,
@@ -254,7 +255,7 @@ class PlotTF(object):
         # --> robust stft with vector median filter
         elif self.tf_type == "robust_stft_median":
             if self.tf_nh == None:
-                self.tf_nh = 2 ** 8
+                self.tf_nh = 2**8
 
             kwargs = {
                 "nh": self.tf_nh,
@@ -271,7 +272,7 @@ class PlotTF(object):
         # --> robust stft with L-distribution
         elif self.tf_type == "robust_stft_L":
             if self.tf_nh == None:
-                self.tf_nh = 2 ** 8
+                self.tf_nh = 2**8
             if self.tf_alpha == None:
                 self.tf_alpha = 0.325
 
@@ -291,7 +292,7 @@ class PlotTF(object):
         # --> smethod
         elif self.tf_type == "smethod":
             if self.tf_nh == None:
-                self.tf_nh = 2 ** 8
+                self.tf_nh = 2**8
             if self.tf_ng == None:
                 self.tf_ng = 1
             if self.tf_alpha == None:
@@ -314,7 +315,7 @@ class PlotTF(object):
         # --> robust smethod
         elif self.tf_type == "robust_smethod":
             if self.tf_nh == None:
-                self.tf_nh = 2 ** 8
+                self.tf_nh = 2**8
             if self.tf_ng == None:
                 self.tf_ng = 1
             if self.tf_alpha == None:
@@ -339,7 +340,7 @@ class PlotTF(object):
         # --> reassigned smethod
         elif self.tf_type == "reassigned_smethod":
             if self.tf_nh == None:
-                self.tf_nh = 2 ** 8 - 1
+                self.tf_nh = 2**8 - 1
             if self.tf_ng == None:
                 self.tf_ng = 1
             if self.tf_alpha == None:
