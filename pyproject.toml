@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mtpy-v2"
-version = "2.0.11"
+version = "2.0.12"
 description = "Python toolkit for standard magnetotelluric data processing."
 readme = {file = "README.md", content-type = "text/markdown"}
 license = {file = "LICENSE"}
@@ -92,7 +92,7 @@ ignore-init-module-imports = true
 in-place = true
 
 [tool.bumpversion]
-current_version = "2.0.11"
+current_version = "2.0.12"
 commit = true
 tag = true
 
