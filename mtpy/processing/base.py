@@ -9,9 +9,8 @@ Created on Tue Jul 30 17:13:07 2024
 # Imports
 # =============================================================================
 
-from mtpy.processing.kernel_dataset import KernelDataset
-from mtpy.processing.run_summary import RunSummary
-
+from mth5.processing.run_summary import RunSummary
+from mth5.processing.kernel_dataset import KernelDataset
 
 # =============================================================================
 

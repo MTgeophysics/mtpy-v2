@@ -18,10 +18,10 @@ from aurora.pipelines.process_mth5 import process_mth5
 from loguru import logger
 from mth5.helpers import close_open_files
 from mth5.mth5 import MTH5
+from mth5.processing.kernel_dataset import KernelDataset
 
 from mtpy import MT
 from mtpy.processing.base import BaseProcessing
-from mtpy.processing.kernel_dataset import KernelDataset
 
 
 warnings.filterwarnings("ignore")
@@ -230,6 +230,7 @@ class AuroraProcessing(BaseProcessing):
 
         # copy to an MT object
         mt_obj = MT(survey_metadata=tf_obj.survey_metadata)
+        mt_obj.station_metadata = tf_obj.station_metadata
         mt_obj.channel_nomenclature = tf_obj.channel_nomenclature
         mt_obj._transfer_function = tf_obj._transfer_function
 
