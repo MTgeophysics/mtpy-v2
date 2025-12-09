@@ -11,15 +11,16 @@ Created on Tue Aug 13 15:53:28 2024
 
 import unittest
 
+from mth5.data.make_mth5_from_asc import MTH5_PATH, create_test12rr_h5
+from mth5.utils.helpers import close_open_files
+from mth5.processing.run_summary import RunSummary
+from mth5.processing.kernel_dataset import KernelDataset
+
 from aurora.config.config_creator import ConfigCreator
 from aurora.pipelines.process_mth5 import process_mth5
-from mth5.data.make_mth5_from_asc import create_test12rr_h5, MTH5_PATH
-from mth5.utils.helpers import close_open_files
 
 from mtpy import MT
 from mtpy.processing.aurora.process_aurora import AuroraProcessing
-from mtpy.processing.kernel_dataset import KernelDataset
-from mtpy.processing.run_summary import RunSummary
 
 
 # =============================================================================
