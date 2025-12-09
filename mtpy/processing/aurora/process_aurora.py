@@ -9,6 +9,7 @@ Created on Tue Jul 30 17:11:42 2024
 # Imports
 # =============================================================================
 import warnings
+
 import numpy as np
 import pandas as pd
 from aurora.config.config_creator import ConfigCreator
@@ -229,6 +230,7 @@ class AuroraProcessing(BaseProcessing):
 
         # copy to an MT object
         mt_obj = MT(survey_metadata=tf_obj.survey_metadata)
+        mt_obj.station_metadata = tf_obj.station_metadata
         mt_obj.channel_nomenclature = tf_obj.channel_nomenclature
         mt_obj._transfer_function = tf_obj._transfer_function
 
