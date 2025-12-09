@@ -1,29 +1,4 @@
 from loguru import logger
-from mth5 import RUN_SUMMARY_DTYPE, RUN_SUMMARY_COLUMNS
-
-ADDED_KERNEL_DATASET_DTYPE = [
-    ("fc", bool),
-    ("remote", bool),
-    ("run_dataarray", object),
-    ("stft", object),
-    ("mth5_obj", object),
-]
-ADDED_KERNEL_DATASET_COLUMNS = [entry[0] for entry in ADDED_KERNEL_DATASET_DTYPE]
-
-KERNEL_DATASET_DTYPE = RUN_SUMMARY_DTYPE + ADDED_KERNEL_DATASET_DTYPE
-KERNEL_DATASET_COLUMNS = [entry[0] for entry in KERNEL_DATASET_DTYPE]
-
-MINI_SUMMARY_COLUMNS = [
-    "survey",
-    "station",
-    "run",
-    "start",
-    "end",
-    "duration",
-]
-
-from .run_summary import RunSummary
-from .kernel_dataset import KernelDataset
 
 try:
     from .aurora.process_aurora import AuroraProcessing
@@ -32,4 +7,4 @@ except ImportError:
     msg = f"{msg} This is a known issue when aurora imports from mtpy"
     logger.debug(msg)
 
-__all__ = ["RunSummary", "KernelDataset", "AuroraProcessing"]
+__all__ = ["AuroraProcessing"]
