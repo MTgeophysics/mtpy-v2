@@ -9,12 +9,13 @@ Created on Mon Oct  3 10:59:50 2022
 # Imports
 # =============================================================================
 import unittest
+
 import numpy as np
-
-from mtpy.core.mt_dataframe import MTDataFrame
-from mtpy import MT
-
 from mt_metadata import TF_EDI_CGG
+
+from mtpy import MT
+from mtpy.core.mt_dataframe import MTDataFrame
+
 
 # =============================================================================
 
@@ -141,17 +142,12 @@ class TestMTDataFrame(unittest.TestCase):
         for comp, index in comp_dict.items():
             with self.subTest(comp):
                 self.assertTrue(
-                    np.all(
-                        tip_df[comp]
-                        == self.m1.Tipper.tipper[:, index[0], index[1]]
-                    )
+                    np.all(tip_df[comp] == self.m1.Tipper.tipper[:, index[0], index[1]])
                 )
         for comp in ["angle_real", "angle_imag", "mag_real", "mag_imag"]:
             with self.subTest(comp):
                 self.assertTrue(
-                    np.all(
-                        tip_df[f"t_{comp}"] == getattr(self.m1.Tipper, comp)
-                    )
+                    np.all(tip_df[f"t_{comp}"] == getattr(self.m1.Tipper, comp))
                 )
 
 

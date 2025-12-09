@@ -4,12 +4,13 @@ Merge transfer functions together
 """
 # ==============================================================================
 from pathlib import Path
-from loguru import logger
 
 import numpy as np
 import pandas as pd
+from loguru import logger
 
 from mtpy.core import MTDataFrame
+
 
 # ==============================================================================
 
@@ -205,10 +206,10 @@ class WSData:
         if self.dataframe is not None:
             return (
                 self.dataframe.loc[
-                    (self.dataframe.zxx != 0)
-                    | (self.dataframe.zxy != 0)
-                    | (self.dataframe.zyx != 0)
-                    | (self.dataframe.zyy != 0),
+                    (self.dataframe.z_xx != 0)
+                    | (self.dataframe.z_xy != 0)
+                    | (self.dataframe.z_yx != 0)
+                    | (self.dataframe.z_yy != 0),
                     "station",
                 ]
                 .unique()
@@ -256,7 +257,7 @@ class WSData:
         # -----Write data file--------------------------------------------------
         n_stations = self.get_n_stations()
         n_periods = self.period.size
-        station_locations = self.dataframe.station_locations.copy()
+        station_locations = self.station_locations.copy()
 
         lines = []
         data_lines = []
@@ -266,56 +267,58 @@ class WSData:
 
         # write N-S locations
         lines.append("Station_Location: N-S \n")
-        for ii in range(n_stations / self.n_z + 1):
-            for ll in range(self.n_z):
-                index = ii * self.n_z + ll
-                try:
-                    lines.append(
-                        f"{station_locations.model_north[index]:+.4e} "
-                    )
-                except IndexError:
-                    pass
-            lines.append("\n")
+        for ii in range(n_stations):  # / self.n_z + 1
+            # for ll in range(self.n_z):
+            #     index = ii * self.n_z + ll
+            try:
+                lines.append(f"{station_locations.model_north[ii]:+.4e} ")
+            except IndexError:
+                pass
+            if ii % 8 == 7:
+                lines.append("\n")
+        lines.append("\n")
 
         # write E-W locations
         lines.append("Station_Location: E-W \n")
-        for ii in range(n_stations / self.n_z + 1):
-            for ll in range(self.n_z):
-                index = ii * self.n_z + ll
-                try:
-                    lines.append(
-                        f"{station_locations.model_east[index]:+.4e} "
-                    )
-                except IndexError:
-                    pass
-            lines.append("\n")
+        for ii in range(n_stations):  # / self.n_z + 1
+            # for ll in range(self.n_z):
+            #     index = ii * self.n_z + ll
+            try:
+                lines.append(f"{station_locations.model_east[ii]:+.4e} ")
+            except IndexError:
+                pass
+
+            if ii % 8 == 7:
+                lines.append("\n")
+        lines.append("\n")
 
         # write impedance tensor components
         for ii, p1 in enumerate(self.period):
-            pdf = self.get_period_df(p1)
+            # pdf = self.get_period_df(p1)
+            pdf = self.dataframe[self.dataframe["period"] == p1]
             data_lines.append(f"DATA_Period: {p1:3.6f}\n")
             error_lines.append(f"ERROR_Period: {p1:3.6f}\n")
             error_map_lines.append(f"ERMAP_Period: {p1:3.6f}\n")
             for row in pdf.itertuples():
                 data_lines.append(
-                    f"{row.zxx.real * zconv:+.4e} "
-                    f"{row.zxx.imag * zconv:+.4e} "
-                    f"{row.zxy.real * zconv:+.4e} "
-                    f"{row.zxy.imag * zconv:+.4e} "
-                    f"{row.zyx.real * zconv:+.4e} "
-                    f"{row.zyx.imag * zconv:+.4e} "
-                    f"{row.zyy.real * zconv:+.4e} "
-                    f"{row.zyy.imag * zconv:+.4e}\n"
+                    f"{row.z_xx.real * zconv:+.4e} "
+                    f"{row.z_xx.imag * zconv:+.4e} "
+                    f"{row.z_xy.real * zconv:+.4e} "
+                    f"{row.z_xy.imag * zconv:+.4e} "
+                    f"{row.z_yx.real * zconv:+.4e} "
+                    f"{row.z_yx.imag * zconv:+.4e} "
+                    f"{row.z_yy.real * zconv:+.4e} "
+                    f"{row.z_yy.imag * zconv:+.4e}\n"
                 )
                 error_lines.append(
-                    f"{row.zxx.real * self.z_error:+.4e} "
-                    f"{row.zxx.imag * self.z_error:+.4e} "
-                    f"{row.zxy.real * self.z_error:+.4e} "
-                    f"{row.zxy.imag * self.z_error:+.4e} "
-                    f"{row.zyx.real * self.z_error:+.4e} "
-                    f"{row.zyx.imag * self.z_error:+.4e} "
-                    f"{row.zyy.real * self.z_error:+.4e} "
-                    f"{row.zyy.imag * self.z_error:+.4e} "
+                    f"{row.z_xx.real * self.z_error:+.4e} "
+                    f"{row.z_xx.imag * self.z_error:+.4e} "
+                    f"{row.z_xy.real * self.z_error:+.4e} "
+                    f"{row.z_xy.imag * self.z_error:+.4e} "
+                    f"{row.z_yx.real * self.z_error:+.4e} "
+                    f"{row.z_yx.imag * self.z_error:+.4e} "
+                    f"{row.z_yy.real * self.z_error:+.4e} "
+                    f"{row.z_yy.imag * self.z_error:+.4e} "
                 )
 
                 error_map_lines.append(
@@ -326,11 +329,13 @@ class WSData:
                     f"{self.z_error_map[2]:+.4e} "
                     f"{self.z_error_map[2]:+.4e} "
                     f"{self.z_error_map[3]:+.4e} "
-                    f"{self.z_error_map[3]:+.4e} "
+                    f"{self.z_error_map[3]:+.4e}\n"
                 )
 
         with open(self.data_filename, "w") as fid:
-            fid.write("".join(lines, data_lines, error_lines, error_map_lines))
+            for dlist in [lines, data_lines, error_lines, error_map_lines]:
+                for line in dlist:
+                    fid.write(line)
 
         self.logger.info(f"Wrote WS3DINV file to {self.data_filename}")
         return self.data_filename
@@ -369,9 +374,7 @@ class WSData:
 
         # get size number of stations, number of frequencies,
         # number of Z components
-        n_stations, n_periods, nz = np.array(
-            dlines[0].strip().split(), dtype="int"
-        )
+        n_stations, n_periods, nz = np.array(dlines[0].strip().split(), dtype="int")
         nsstart = 2
 
         self.n_z = nz
@@ -457,8 +460,7 @@ class WSData:
                 # print '-'*20+dkey+'-'*20
                 per += 1
                 # print(dl)
-            elif not dl.startswith('#'):
-                
+            elif not dl.startswith("#"):
                 if dkey == "z_err_map":
                     zline = np.array(dl.strip().split(), dtype=float)
                     if len(zline) >= 8:
@@ -475,18 +477,18 @@ class WSData:
                             ]
                         )
                     # append tipper data
-                    if ((len(zline) == 12) or (len(zline) == 4)):
+                    if (len(zline) == 12) or (len(zline) == 4):
                         add_idx = len(zline) - 4
-                        self.data[st]['tipper_err_map'][per - 1, :] = np.array(
+                        self.data[st]["tipper_err_map"][per - 1, :] = np.array(
                             [
                                 [
-                                    zline[0+add_idx] - 1j * zline[1+add_idx],
-                                    zline[2+add_idx] - 1j * zline[3+add_idx],
+                                    zline[0 + add_idx] - 1j * zline[1 + add_idx],
+                                    zline[2 + add_idx] - 1j * zline[3 + add_idx],
                                 ]
                             ]
-                        )                      
-                    
-                elif dkey == 'z_data_err':
+                        )
+
+                elif dkey == "z_data_err":
                     zline = np.array(dl.strip().split(), dtype=float) * zconv
                     if len(zline) >= 8:
                         self.data[st][dkey][per - 1, :] = np.array(
@@ -502,19 +504,18 @@ class WSData:
                             ]
                         )
                     # append tipper data
-                    if ((len(zline) == 12) or (len(zline) == 4)):
+                    if (len(zline) == 12) or (len(zline) == 4):
                         add_idx = len(zline) - 4
-                        self.data[st]['tipper_data_err'][per - 1, :] = np.array(
+                        self.data[st]["tipper_data_err"][per - 1, :] = np.array(
                             [
                                 [
-                                    zline[0+add_idx] - 1j * zline[1+add_idx],
-                                    zline[2+add_idx] - 1j * zline[3+add_idx],
+                                    zline[0 + add_idx] - 1j * zline[1 + add_idx],
+                                    zline[2 + add_idx] - 1j * zline[3 + add_idx],
                                 ]
                             ]
-                        )  
+                        )
 
                 else:
-                    
                     zline = np.array(dl.strip().split(), dtype=float) * zconv
                     # print(st)
                     if len(zline) >= 8:
@@ -531,16 +532,16 @@ class WSData:
                             ]
                         )
                     # append tipper data
-                    if ((len(zline) == 12) or (len(zline) == 4)):
+                    if (len(zline) == 12) or (len(zline) == 4):
                         add_idx = len(zline) - 4
-                        self.data[st]['tipper_data'][per - 1, :] = np.array(
+                        self.data[st]["tipper_data"][per - 1, :] = np.array(
                             [
                                 [
-                                    zline[0+add_idx] - 1j * zline[1+add_idx],
-                                    zline[2+add_idx] - 1j * zline[3+add_idx],
+                                    zline[0 + add_idx] - 1j * zline[1 + add_idx],
+                                    zline[2 + add_idx] - 1j * zline[3 + add_idx],
                                 ]
                             ]
-                        )                        
+                        )
                 data_count += len(zline)
                 if data_count == self.n_z:
                     st += 1

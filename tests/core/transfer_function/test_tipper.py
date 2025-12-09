@@ -8,9 +8,11 @@ Created on Tue Nov  8 13:04:38 2022
 # Imports
 # =============================================================================
 import unittest
+
 import numpy as np
 
 from mtpy.core.transfer_function.tipper import Tipper
+
 
 # =============================================================================
 
@@ -107,58 +109,38 @@ class TestSetTipper(unittest.TestCase):
         self.assertTrue(np.isclose(self.tipper.tipper, self.t).all())
 
     def test_tipper_error(self):
-        self.assertTrue(
-            np.isclose(self.tipper.tipper_error, self.t_error).all()
-        )
+        self.assertTrue(np.isclose(self.tipper.tipper_error, self.t_error).all())
 
     def test_tipper_model_error(self):
         self.assertTrue(
-            np.isclose(
-                self.tipper.tipper_model_error, self.t_model_error
-            ).all()
+            np.isclose(self.tipper.tipper_model_error, self.t_model_error).all()
         )
 
     def test_mag_real(self):
-        self.assertTrue(
-            np.isclose(self.tipper.mag_real, np.array([1.41421356])).all()
-        )
+        self.assertTrue(np.isclose(self.tipper.mag_real, np.array([1.41421356])).all())
 
     def test_mag_imag(self):
-        self.assertTrue(
-            np.isclose(self.tipper.mag_imag, np.array([0.35355339])).all()
-        )
+        self.assertTrue(np.isclose(self.tipper.mag_imag, np.array([0.35355339])).all())
 
     def test_angle_real(self):
-        self.assertTrue(
-            np.isclose(self.tipper.angle_real, np.array([45.0])).all()
-        )
+        self.assertTrue(np.isclose(self.tipper.angle_real, np.array([45.0])).all())
 
     def test_angle_imag(self):
-        self.assertTrue(
-            np.isclose(self.tipper.angle_imag, np.array([45.0])).all()
-        )
+        self.assertTrue(np.isclose(self.tipper.angle_imag, np.array([45.0])).all())
 
     def test_mag_error(self):
-        self.assertTrue(
-            np.isclose(self.tipper.mag_error, np.array([0.01414214])).all()
-        )
+        self.assertTrue(np.isclose(self.tipper.mag_error, np.array([0.01414214])).all())
 
     def test_angle_error(self):
-        self.assertTrue(
-            np.isclose(self.tipper.angle_error, np.array([0])).all()
-        )
+        self.assertTrue(np.isclose(self.tipper.angle_error, np.array([0])).all())
 
     def test_mag_model_error(self):
         self.assertTrue(
-            np.isclose(
-                self.tipper.mag_model_error, np.array([0.04242641])
-            ).all()
+            np.isclose(self.tipper.mag_model_error, np.array([0.04242641])).all()
         )
 
     def test_angle_model_error(self):
-        self.assertTrue(
-            np.isclose(self.tipper.angle_model_error, np.array([0])).all()
-        )
+        self.assertTrue(np.isclose(self.tipper.angle_model_error, np.array([0])).all())
 
     def test_amplitude(self):
         self.assertTrue(
@@ -216,9 +198,7 @@ class TestSetTipper(unittest.TestCase):
         with self.subTest("mag_error"):
             self.assertTrue(np.isclose(b.mag_error, np.array([0.02])).all())
         with self.subTest("mag_model_error"):
-            self.assertTrue(
-                np.isclose(b.mag_model_error, np.array([0.06])).all()
-            )
+            self.assertTrue(np.isclose(b.mag_model_error, np.array([0.06])).all())
 
 
 # =============================================================================

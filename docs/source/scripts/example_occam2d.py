@@ -13,6 +13,7 @@ from pathlib import Path
 from mtpy import MT
 from mtpy.core.mt_data import MTData
 
+
 # =============================================================================
 
 ## load in data
@@ -37,9 +38,7 @@ profile_md = md.get_profile(x1, y1, x2, y2, 2000)
 
 
 ## generate a profile based on geoelectrical strike
-x1, y1, x2, y2, profile_from_strike = profile_md.generate_profile_from_strike(
-    70
-)
+x1, y1, x2, y2, profile_from_strike = profile_md.generate_profile_from_strike(70)
 
 ## get stations
 strike_md = profile_md.get_profile(x1, y1, x2, y2, None)

@@ -8,12 +8,13 @@ Created on Sun May 11 12:15:37 2014
 # =============================================================================
 # Imports
 # =============================================================================
-from pathlib import Path
+
 import numpy as np
 import rasterio
 from rasterio.transform import Affine
 
 from mtpy.core.mt_location import MTLocation
+
 
 # =============================================================================
 

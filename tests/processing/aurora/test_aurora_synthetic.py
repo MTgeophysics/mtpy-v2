@@ -13,13 +13,13 @@ import unittest
 
 from mth5.data.make_mth5_from_asc import MTH5_PATH, create_test12rr_h5
 from mth5.utils.helpers import close_open_files
-
-from mtpy.processing.run_summary import RunSummary
-from mtpy.processing.kernel_dataset import KernelDataset
-from mtpy import MT
+from mth5.processing.run_summary import RunSummary
+from mth5.processing.kernel_dataset import KernelDataset
 
 from aurora.config.config_creator import ConfigCreator
 from aurora.pipelines.process_mth5 import process_mth5
+
+from mtpy import MT
 from mtpy.processing.aurora.process_aurora import AuroraProcessing
 
 
@@ -63,9 +63,7 @@ class TestProcessingSingleStationLegacy(unittest.TestCase):
         with self.subTest("remote_df is None"):
             self.assertEqual(None, self.kernel_dataset.remote_df)
         with self.subTest("input_channels"):
-            self.assertListEqual(
-                self.kernel_dataset.input_channels, ["hx", "hy"]
-            )
+            self.assertListEqual(self.kernel_dataset.input_channels, ["hx", "hy"])
         with self.subTest("output_channels"):
             self.assertListEqual(
                 self.kernel_dataset.output_channels, ["ex", "ey", "hz"]
@@ -164,9 +162,7 @@ class TestProcessSingleStationCompare(unittest.TestCase):
         self.ap = AuroraProcessing()
         self.ap.local_station_id = "test1"
         self.ap.local_mth5_path = self.mth5_path
-        self.processed = self.ap.process(
-            sample_rates=1, merge=True, save_to_mth5=True
-        )
+        self.processed = self.ap.process(sample_rates=1, merge=True, save_to_mth5=True)
         self.mt_obj_new = self.processed[1]["tf"]
 
         # process with aurora infrastructure

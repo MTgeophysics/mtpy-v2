@@ -7,24 +7,26 @@ Created on Sun Sep 25 15:27:28 2022
 :author: jpeacock
 """
 
+import matplotlib.colorbar as mcb
+import matplotlib.colors as colors
+import matplotlib.patches as patches
+
 # =============================================================================
 # Imports
 # =============================================================================
 import numpy as np
-
-import matplotlib.colors as colors
-import matplotlib.patches as patches
-import matplotlib.colorbar as mcb
-from matplotlib.lines import Line2D
 from matplotlib import pyplot as plt
+from matplotlib.lines import Line2D
 
 from mtpy.imaging.mtcolors import get_plot_color
+
 from .utils import (
-    period_label_dict,
-    get_period_limits,
     add_colorbar_axis,
+    get_period_limits,
     make_color_list,
+    period_label_dict,
 )
+
 
 # =============================================================================
 
@@ -236,12 +238,8 @@ def plot_pt_lateral(
         # make sure the ellipses will be visable
         if pt_obj.phimax[ii] == 0:
             continue
-        eheight = (
-            pt_obj.phimin[ii] / pt_obj.phimax[ii] * ellipse_properties["size"]
-        )
-        ewidth = (
-            pt_obj.phimax[ii] / pt_obj.phimax[ii] * ellipse_properties["size"]
-        )
+        eheight = pt_obj.phimin[ii] / pt_obj.phimax[ii] * ellipse_properties["size"]
+        ewidth = pt_obj.phimax[ii] / pt_obj.phimax[ii] * ellipse_properties["size"]
 
         # create an ellipse scaled by phimin and phimax and oriented
         # along the azimuth which is calculated as clockwise but needs
@@ -281,10 +279,7 @@ def plot_pt_lateral(
         if ellipse_properties["cmap"] == "mt_seg_bl2wh2rd":
             # make the colorbar
             nseg = float(
-                (
-                    ellipse_properties["range"][1]
-                    - ellipse_properties["range"][0]
-                )
+                (ellipse_properties["range"][1] - ellipse_properties["range"][0])
                 / (2 * ellipse_properties["range"][2])
             )
             cbpt = make_color_list(
@@ -307,11 +302,7 @@ def plot_pt_lateral(
         cbpt.set_ticks(
             [
                 ellipse_properties["range"][0],
-                (
-                    ellipse_properties["range"][1]
-                    - ellipse_properties["range"][0]
-                )
-                / 2,
+                (ellipse_properties["range"][1] - ellipse_properties["range"][0]) / 2,
                 ellipse_properties["range"][1],
             ]
         )
@@ -454,9 +445,7 @@ def plot_tipper_lateral(
             tmin = -0.899
         tipper_limits = (tmin - 0.1, tmax + 0.1)
         axt.set_ylim(tipper_limits)
-        axt.grid(
-            True, alpha=0.25, which="both", color=(0.25, 0.25, 0.25), lw=0.25
-        )
+        axt.grid(True, alpha=0.25, which="both", color=(0.25, 0.25, 0.25), lw=0.25)
     return axt, tiplist, tiplabel
 
 

@@ -11,8 +11,8 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-
 import scipy.interpolate as spi
+
 
 # =============================================================================
 class Mesh:
@@ -128,7 +128,6 @@ class Mesh:
     """
 
     def __init__(self, station_locations=None, **kwargs):
-
         self.station_locations = station_locations
         self.rel_station_locations = None
         self.n_layers = 90
@@ -197,8 +196,7 @@ class Mesh:
 
         if self.station_locations is None:
             raise ValueError(
-                "Need to input station locations to define "
-                "a finite element mesh"
+                "Need to input station locations to define " "a finite element mesh"
             )
 
         # be sure the station locations are sorted from left to right
@@ -215,10 +213,7 @@ class Mesh:
         # the first cell of the station area will be outside of the furthest
         # right hand station to reduce the effect of a large neighboring cell.
         self.x_grid = np.array(
-            [
-                self.rel_station_locations[0]
-                - self.cell_width * self.x_pad_multiplier
-            ]
+            [self.rel_station_locations[0] - self.cell_width * self.x_pad_multiplier]
         )
 
         for ii, offset in enumerate(self.rel_station_locations[:-1]):
@@ -256,8 +251,7 @@ class Mesh:
         # effect of a large cell next to it
         self.x_grid = np.append(
             self.x_grid,
-            self.rel_station_locations[-1]
-            + self.cell_width * self.x_pad_multiplier,
+            self.rel_station_locations[-1] + self.cell_width * self.x_pad_multiplier,
         )
 
         # --> pad the mesh with exponentially increasing horizontal cells
@@ -266,7 +260,7 @@ class Mesh:
         x_left = float(abs(self.x_grid[0] - self.x_grid[1]))
         x_right = float(abs(self.x_grid[-1] - self.x_grid[-2]))
         x_pad_cell = np.max([x_left, x_right])
-        
+
         # add x pad small cells
         for ii in range(self.num_x_pad_small_cells):
             left_cell = self.x_grid[0]
@@ -274,8 +268,7 @@ class Mesh:
             pad_cell = x_pad_cell
             self.x_grid = np.insert(self.x_grid, 0, left_cell - pad_cell)
             self.x_grid = np.append(self.x_grid, right_cell + pad_cell)
-            
-            
+
         # add padding
         for ii in range(self.num_x_pad_cells):
             left_cell = self.x_grid[0]
@@ -306,9 +299,7 @@ class Mesh:
         )
 
         # round the layers to be whole numbers
-        ztarget = np.array(
-            [zz - zz % 10 ** np.floor(np.log10(zz)) for zz in log_z]
-        )
+        ztarget = np.array([zz - zz % 10 ** np.floor(np.log10(zz)) for zz in log_z])
 
         # --> create padding cells past target depth
         log_zpad = np.logspace(
@@ -324,9 +315,7 @@ class Mesh:
             num=self.num_z_pad_cells,
         )
         # round the layers to be whole numbers
-        zpadding = np.array(
-            [zz - zz % 10 ** np.floor(np.log10(zz)) for zz in log_zpad]
-        )
+        zpadding = np.array([zz - zz % 10 ** np.floor(np.log10(zz)) for zz in log_zpad])
         zpadding.sort()
 
         # create the vertical nodes
@@ -334,10 +323,7 @@ class Mesh:
 
         # calculate actual distances of depth layers
         self.z_grid = np.array(
-            [
-                self.z_nodes[: ii + 1].sum()
-                for ii in range(self.z_nodes.shape[0])
-            ]
+            [self.z_nodes[: ii + 1].sum() for ii in range(self.z_nodes.shape[0])]
         )
 
         self.mesh_values = np.zeros(
@@ -352,18 +338,10 @@ class Mesh:
         print("=" * 55)
         print("{0:^55}".format("mesh parameters".upper()))
         print("=" * 55)
-        print(
-            "  number of horizontal nodes = {0}".format(self.x_nodes.shape[0])
-        )
-        print(
-            "  number of vertical nodes   = {0}".format(self.z_nodes.shape[0])
-        )
-        print(
-            "  Total Horizontal Distance  = {0:2f}".format(self.x_nodes.sum())
-        )
-        print(
-            "  Total Vertical Distance    = {0:2f}".format(self.z_nodes.sum())
-        )
+        print("  number of horizontal nodes = {0}".format(self.x_nodes.shape[0]))
+        print("  number of vertical nodes   = {0}".format(self.z_nodes.shape[0]))
+        print("  Total Horizontal Distance  = {0:2f}".format(self.x_nodes.sum()))
+        print("  Total Vertical Distance    = {0:2f}".format(self.z_nodes.sum()))
         print("=" * 55)
 
     def add_elevation(self, elevation_profile=None):
@@ -405,24 +383,16 @@ class Mesh:
 
         if self.elevation_profile is None:
             raise ValueError(
-                "Need to input an elevation profile to "
-                "add elevation into the mesh."
+                "Need to input an elevation profile to " "add elevation into the mesh."
             )
 
-        elev_diff = abs(
-            elevation_profile[1].max() - elevation_profile[1].min()
-        )
+        elev_diff = abs(elevation_profile[1].max() - elevation_profile[1].min())
         num_elev_layers = int(elev_diff / self.z1_layer)
 
         # add vertical nodes and values to mesh_values
-        self.z_nodes = np.append(
-            [self.z1_layer] * num_elev_layers, self.z_nodes
-        )
+        self.z_nodes = np.append([self.z1_layer] * num_elev_layers, self.z_nodes)
         self.z_grid = np.array(
-            [
-                self.z_nodes[: ii + 1].sum()
-                for ii in range(self.z_nodes.shape[0])
-            ]
+            [self.z_nodes[: ii + 1].sum() for ii in range(self.z_nodes.shape[0])]
         )
         # this assumes that mesh_values have not been changed yet and are all ?
         self.mesh_values = np.zeros(
@@ -454,10 +424,7 @@ class Mesh:
                 zlayer = elev.max() - self.z_grid[zz]
                 try:
                     xtop = xg + (self.x_grid[ii + 1] - xg) / 2
-                    ytop = (
-                        zlayer
-                        + 3 * (self.z_grid[zz] - self.z_grid[zz - 1]) / 4
-                    )
+                    ytop = zlayer + 3 * (self.z_grid[zz] - self.z_grid[zz - 1]) / 4
                     elev_top = func_elev(xtop)
                     # print xg, xtop, ytop, elev_top, zz
                     if elev_top > ytop:
@@ -470,9 +437,7 @@ class Mesh:
                 # left triangle
                 try:
                     xleft = xg + (self.x_grid[ii + 1] - xg) / 4.0
-                    yleft = (
-                        zlayer + (self.z_grid[zz] - self.z_grid[zz - 1]) / 2.0
-                    )
+                    yleft = zlayer + (self.z_grid[zz] - self.z_grid[zz - 1]) / 2.0
                     elev_left = func_elev(xleft)
                     # print xg, xleft, yleft, elev_left, zz
                     if elev_left > yleft:
@@ -483,9 +448,7 @@ class Mesh:
                 # bottom triangle
                 try:
                     xbottom = xg + (self.x_grid[ii + 1] - xg) / 2
-                    ybottom = (
-                        zlayer + (self.z_grid[zz] - self.z_grid[zz - 1]) / 4
-                    )
+                    ybottom = zlayer + (self.z_grid[zz] - self.z_grid[zz - 1]) / 4
                     elev_bottom = func_elev(xbottom)
                     # print xg, xbottom, ybottom, elev_bottom, zz
                     if elev_bottom > ybottom:
@@ -496,9 +459,7 @@ class Mesh:
                 # right triangle
                 try:
                     xright = xg + 3 * (self.x_grid[ii + 1] - xg) / 4
-                    yright = (
-                        zlayer + (self.z_grid[zz] - self.z_grid[zz - 1]) / 2
-                    )
+                    yright = zlayer + (self.z_grid[zz] - self.z_grid[zz - 1]) / 2
                     elev_right = func_elev(xright)
                     if elev_right > yright * 0.95:
                         self.mesh_values[ii, 0:zz, 3] = self.air_key
@@ -509,9 +470,7 @@ class Mesh:
         for ii in range(xpad):
             self.mesh_values[ii, :, :] = self.mesh_values[xpad + 1, :, :]
         for ii in range(xpad + 1):
-            self.mesh_values[-(ii + 1), :, :] = self.mesh_values[
-                -xpad - 2, :, :
-            ]
+            self.mesh_values[-(ii + 1), :, :] = self.mesh_values[-xpad - 2, :, :]
 
         print("{0:^55}".format("--- Added Elevation to Mesh --"))
 
@@ -625,9 +584,7 @@ class Mesh:
             col_line_xlist = []
             col_line_ylist = []
             for yy in self.z_grid / df:
-                col_line_xlist.extend(
-                    [self.x_grid[0] / df, self.x_grid[-1] / df]
-                )
+                col_line_xlist.extend([self.x_grid[0] / df, self.x_grid[-1] / df])
                 col_line_xlist.append(None)
                 col_line_ylist.extend([yy, yy])
                 col_line_ylist.append(None)
@@ -850,9 +807,7 @@ class Mesh:
         self.x_nodes = self.x_nodes[np.nonzero(self.x_nodes)]
         if self.x_nodes.shape[0] != nh - 1:
             new_nh = self.x_nodes.shape[0]
-            print(
-                "The header number {0} should read {1}".format(nh - 1, new_nh)
-            )
+            print("The header number {0} should read {1}".format(nh - 1, new_nh))
             self.mesh_values.resize(new_nh, nv, 4)
         else:
             new_nh = nh

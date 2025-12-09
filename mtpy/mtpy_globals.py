@@ -8,8 +8,9 @@ FZ Last Updated: 2017-12-04
 JP (2021-01-18) updated to use Path and get relative path locations.
 
 """
-from pathlib import Path
 import tempfile
+from pathlib import Path
+
 
 epsg_dict = {
     28350: [

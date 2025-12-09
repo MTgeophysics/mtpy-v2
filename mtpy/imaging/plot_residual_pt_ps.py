@@ -10,18 +10,18 @@ Created on Wed Oct 16 14:56:04 2013
 
 @author: jpeacock-pr
 """
+import matplotlib.colorbar as mcb
+import matplotlib.colors as colors
+import matplotlib.patches as patches
+
 # ==============================================================================
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal as sps
 
-import matplotlib.colors as colors
-import matplotlib.patches as patches
-import matplotlib.colorbar as mcb
-
+from mtpy.analysis.residual_phase_tensor import ResidualPhaseTensor
 from mtpy.imaging import mtcolors
 from mtpy.imaging.mtplot_tools import PlotBaseProfile
-from mtpy.analysis.residual_phase_tensor import ResidualPhaseTensor
 
 
 # ==============================================================================
@@ -179,9 +179,7 @@ read in and stored in 2 ways, one as a list ResidualPhaseTensor object for
                             two_found.append(mt2.tf_id)
                         break
             if not station_find:
-                self.logger.warning(
-                    f"Could not find tf {mt1.tf_id} in second list"
-                )
+                self.logger.warning(f"Could not find tf {mt1.tf_id} in second list")
 
         return matches
 
@@ -242,10 +240,7 @@ read in and stored in 2 ways, one as a list ResidualPhaseTensor object for
             self.rpt_array[mm]["elev"] = mt1.elevation
 
             rpt_fdict = dict(
-                [
-                    (np.round(key, 5), value)
-                    for value, key in enumerate(rpt.frequency)
-                ]
+                [(np.round(key, 5), value) for value, key in enumerate(rpt.frequency)]
             )
             for f_index, frequency in enumerate(rpt.frequency):
                 aa = freq_dict[np.round(frequency, 5)]
@@ -259,17 +254,10 @@ read in and stored in 2 ways, one as a list ResidualPhaseTensor object for
                         self.rpt_array[mm]["phimax"][aa] = abs(
                             rpt.residual_pt.phimax[rr]
                         )
-                        self.rpt_array[mm]["skew"][aa] = rpt.residual_pt.beta[
-                            rr
-                        ]
-                        self.rpt_array[mm]["azimuth"][
-                            aa
-                        ] = rpt.residual_pt.azimuth[rr]
+                        self.rpt_array[mm]["skew"][aa] = rpt.residual_pt.beta[rr]
+                        self.rpt_array[mm]["azimuth"][aa] = rpt.residual_pt.azimuth[rr]
                         self.rpt_array[mm]["geometric_mean"][aa] = np.sqrt(
-                            abs(
-                                rpt.residual_pt.phimin[rr]
-                                * rpt.residual_pt.phimax[rr]
-                            )
+                            abs(rpt.residual_pt.phimin[rr] * rpt.residual_pt.phimax[rr])
                         )
                     except IndexError:
                         self.logger.info("-" * 50)
@@ -305,18 +293,10 @@ read in and stored in 2 ways, one as a list ResidualPhaseTensor object for
         kernel is (station, frequency).
         """
 
-        filt_phimin_arr = sps.medfilt2d(
-            self.rpt_array["phimin"], kernel_size=kernel
-        )
-        filt_phimax_arr = sps.medfilt2d(
-            self.rpt_array["phimax"], kernel_size=kernel
-        )
-        filt_skew_arr = sps.medfilt2d(
-            self.rpt_array["skew"], kernel_size=kernel
-        )
-        filt_azimuth_arr = sps.medfilt2d(
-            self.rpt_array["azimuth"], kernel_size=kernel
-        )
+        filt_phimin_arr = sps.medfilt2d(self.rpt_array["phimin"], kernel_size=kernel)
+        filt_phimax_arr = sps.medfilt2d(self.rpt_array["phimax"], kernel_size=kernel)
+        filt_skew_arr = sps.medfilt2d(self.rpt_array["skew"], kernel_size=kernel)
+        filt_azimuth_arr = sps.medfilt2d(self.rpt_array["azimuth"], kernel_size=kernel)
 
         self.rpt_array["phimin"] = filt_phimin_arr
         self.rpt_array["phimax"] = filt_phimax_arr
@@ -332,20 +312,12 @@ read in and stored in 2 ways, one as a list ResidualPhaseTensor object for
         """Get the appropriat color by array."""
 
         # get the properties to color the ellipses by
-        if (
-            self.ellipse_colorby == "phiminang"
-            or self.ellipse_colorby == "phimin"
-        ):
+        if self.ellipse_colorby == "phiminang" or self.ellipse_colorby == "phimin":
             color_array = rpt_array["phimin"]
-        elif (
-            self.ellipse_colorby == "phimaxang"
-            or self.ellipse_colorby == "phimax"
-        ):
+        elif self.ellipse_colorby == "phimaxang" or self.ellipse_colorby == "phimax":
             color_array = rpt_array["phimax"]
 
-        elif (
-            self.ellipse_colorby == "skew" or self.ellipse_colorby == "skew_seg"
-        ):
+        elif self.ellipse_colorby == "skew" or self.ellipse_colorby == "skew_seg":
             color_array = rpt_array["skew"]
 
         elif self.ellipse_colorby in ["strike", "azimuth"]:
@@ -548,9 +520,7 @@ read in and stored in 2 ways, one as a list ResidualPhaseTensor object for
 
         for tk in self.ax.get_yticks():
             try:
-                y_tick_labels.append(
-                    self.period_label_dict[int(tk / self.y_stretch)]
-                )
+                y_tick_labels.append(self.period_label_dict[int(tk / self.y_stretch)])
             except KeyError:
                 y_tick_labels.append("")
 
@@ -565,17 +535,13 @@ read in and stored in 2 ways, one as a list ResidualPhaseTensor object for
         self.ax.set_xticklabels(self.station_list["station"])
 
         # set x-axis label
-        self.ax.set_xlabel(
-            "Station", fontsize=self.font_size + 2, fontweight="bold"
-        )
+        self.ax.set_xlabel("Station", fontsize=self.font_size + 2, fontweight="bold")
 
         # --> set x-limits
         if self.x_limits is None:
             self.ax.set_xlim(
-                np.floor(self.station_list["offset"].min())
-                - self.ellipse_size / 2,
-                np.ceil(self.station_list["offset"].max())
-                + self.ellipse_size / 2,
+                np.floor(self.station_list["offset"].min()) - self.ellipse_size / 2,
+                np.ceil(self.station_list["offset"].max()) + self.ellipse_size / 2,
             )
         else:
             self.ax.set_xlim(self.x_limits)

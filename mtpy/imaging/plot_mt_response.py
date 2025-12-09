@@ -10,21 +10,22 @@ Created 2017
 
 @author: jpeacock
 """
+import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
+
 # ==============================================================================
 import numpy as np
-
-import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
-import matplotlib.gridspec as gridspec
 
 from mtpy.imaging.mtplot_tools import (
-    PlotBase,
-    plot_pt_lateral,
     get_log_tick_labels,
-    plot_resistivity,
     plot_phase,
+    plot_pt_lateral,
+    plot_resistivity,
     plot_tipper_lateral,
+    PlotBase,
 )
+
 
 # ==============================================================================
 #  Plot apparent resistivity and phase
@@ -185,9 +186,7 @@ class PlotMTResponse(PlotBase):
         """Has pt."""
         if self.plot_pt:
             # if np.all(self.Z.z == 0 + 0j) or self.Z is None:
-            if (
-                self.pt is None or self.pt.pt is None
-            ):  # no phase tensor object provided
+            if self.pt is None or self.pt.pt is None:  # no phase tensor object provided
                 self.logger.info(f"No PT data for station {self.station}")
                 return False
         return self.plot_pt
@@ -274,16 +273,12 @@ class PlotMTResponse(PlotBase):
                 # apparent resistivity axis
                 self.axr = self.fig.add_subplot(gs_rp[0, 0])
                 self.axr2 = self.fig.add_subplot(gs_rp[0, 1], sharex=self.axr)
-                self.axr2.yaxis.set_label_coords(
-                    label_coords[0], label_coords[1]
-                )
+                self.axr2.yaxis.set_label_coords(label_coords[0], label_coords[1])
 
                 # phase axis that shares period axis with resistivity
                 self.axp = self.fig.add_subplot(gs_rp[1, 0], sharex=self.axr)
                 self.axp2 = self.fig.add_subplot(gs_rp[1, 1], sharex=self.axr)
-                self.axp2.yaxis.set_label_coords(
-                    label_coords[0], label_coords[1]
-                )
+                self.axp2.yaxis.set_label_coords(label_coords[0], label_coords[1])
             # set label coordinates
             self.axr.yaxis.set_label_coords(label_coords[0], label_coords[1])
             self.axp.yaxis.set_label_coords(label_coords[0], label_coords[1])
@@ -298,26 +293,20 @@ class PlotMTResponse(PlotBase):
                 self.axt = self.fig.add_subplot(
                     gs_aux[pdict["tip"], :],
                 )
-                self.axt.yaxis.set_label_coords(
-                    label_coords[0], label_coords[1]
-                )
+                self.axt.yaxis.set_label_coords(label_coords[0], label_coords[1])
             # --> plot phase tensors
             if self.plot_pt:
                 # can't share axis because not on the same scale
                 # Removed aspect = "equal" for now, it flows better, if you want
                 # a detailed analysis look at plot pt
                 self.axpt = self.fig.add_subplot(gs_aux[pdict["pt"], :])
-                self.axpt.yaxis.set_label_coords(
-                    label_coords[0], label_coords[1]
-                )
+                self.axpt.yaxis.set_label_coords(label_coords[0], label_coords[1])
 
         else:
             if "y" in self.plot_tipper:
                 label_coords = (-0.095, 0.5)
                 self.axt = self.fig.add_subplot(gs_master[pdict["tip"], :])
-                self.axt.yaxis.set_label_coords(
-                    label_coords[0], label_coords[1]
-                )
+                self.axt.yaxis.set_label_coords(label_coords[0], label_coords[1])
             else:
                 raise ValueError("No transfer functions to plot. Check data.")
 
@@ -359,9 +348,7 @@ class PlotMTResponse(PlotBase):
         axr.set_xscale("log", nonpositive="clip")
         axr.set_xlim(self.x_limits)
         axr.set_ylim(self.res_limits)
-        axr.grid(
-            True, alpha=0.25, which="both", color=(0.25, 0.25, 0.25), lw=0.25
-        )
+        axr.grid(True, alpha=0.25, which="both", color=(0.25, 0.25, 0.25), lw=0.25)
 
         if mode == "od":
             axr.set_ylabel(
@@ -430,9 +417,7 @@ class PlotMTResponse(PlotBase):
         else:
             axp.yaxis.set_major_locator(MultipleLocator(15))
             axp.yaxis.set_minor_locator(MultipleLocator(5))
-        axp.grid(
-            True, alpha=0.25, which="both", color=(0.25, 0.25, 0.25), lw=0.25
-        )
+        axp.grid(True, alpha=0.25, which="both", color=(0.25, 0.25, 0.25), lw=0.25)
 
     def _plot_determinant(self):
         """Plot determinant."""
@@ -525,23 +510,17 @@ class PlotMTResponse(PlotBase):
 
             # ----set axes properties-----------------------------------------------
             # --> set tick labels and limits
-            self.axpt.set_xlim(
-                np.log10(self.x_limits[0]), np.log10(self.x_limits[1])
-            )
+            self.axpt.set_xlim(np.log10(self.x_limits[0]), np.log10(self.x_limits[1]))
 
             tklabels, xticks = get_log_tick_labels(self.axpt)
 
             self.axpt.set_xticks(xticks)
-            self.axpt.set_xticklabels(
-                tklabels, fontdict={"size": self.font_size}
-            )
+            self.axpt.set_xticklabels(tklabels, fontdict={"size": self.font_size})
             self.axpt.set_xlabel("Period (s)", fontdict=self.font_dict)
 
             # need to reset the x_limits caouse they get reset when calling
             # set_ticks for some reason
-            self.axpt.set_xlim(
-                np.log10(self.x_limits[0]), np.log10(self.x_limits[1])
-            )
+            self.axpt.set_xlim(np.log10(self.x_limits[0]), np.log10(self.x_limits[1]))
             self.axpt.grid(
                 True,
                 alpha=0.25,
@@ -582,9 +561,7 @@ class PlotMTResponse(PlotBase):
         if self.plot_z:
             if self.res_limits is None:
                 if self.plot_num == 1:
-                    self.res_limits = self.set_resistivity_limits(
-                        self.Z.resistivity
-                    )
+                    self.res_limits = self.set_resistivity_limits(self.Z.resistivity)
                 elif self.plot_num == 2 or self.plot_num == 3:
                     self.res_limits = self.set_resistivity_limits(
                         self.Z.resistivity, mode="all"

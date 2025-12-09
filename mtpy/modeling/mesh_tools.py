@@ -11,10 +11,13 @@ functions to assist with mesh generation
 # Imports
 # =============================================================================
 from pathlib import Path
+
 import numpy as np
+import scipy.interpolate as spi
+
 import mtpy.utils.filehandling as mtfh
 from mtpy.utils.gis_tools import project_point
-import scipy.interpolate as spi
+
 
 # import rasterio
 # from rasterio.warp import calculate_default_transform, reproject, Resampling

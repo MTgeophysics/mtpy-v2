@@ -5,22 +5,21 @@ Created on Fri Oct  7 23:28:58 2022
 @author: jpeacock
 """
 
+import cmath
+
 # =============================================================================
 # Imports
 # =============================================================================
 import copy
+import math
 
 import numpy as np
 
-import cmath
-import math
 
 # =============================================================================
 
 
-def correct4sensor_orientation(
-    Z_prime, Bx=0, By=90, Ex=0, Ey=90, Z_prime_error=None
-):
+def correct4sensor_orientation(Z_prime, Bx=0, By=90, Ex=0, Ey=90, Z_prime_error=None):
     """Correct a Z-array for wrong orientation of the sensors.
 
     Assume, E' is measured by sensors orientated with the angles

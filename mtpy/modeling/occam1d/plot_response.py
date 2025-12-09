@@ -9,82 +9,83 @@ Created on Mon Oct 30 13:33:37 2023
 # Imports
 # =============================================================================
 
+
 # =============================================================================
 class Plot1DResponse(object):
     """Plot the 1D response and model.
 
-    Plots apparent resisitivity and phase
-in different subplots with the model on the far right.  You can plot both
-    TE and TM modes together along with different iterations of the model.
-    These will be plotted in different colors or shades of gray depneng on
-    color_scale.
+        Plots apparent resisitivity and phase
+    in different subplots with the model on the far right.  You can plot both
+        TE and TM modes together along with different iterations of the model.
+        These will be plotted in different colors or shades of gray depneng on
+        color_scale.
 
-    :Example: ::
+        :Example: ::
 
-        >>> import mtpy.modeling.occam1d as occam1d
-        >>> p1 = occam1d.Plot1DResponse(plot_yn='n')
-        >>> p1.data_te_fn = r"/home/occam1d/mt01/TE/Occam_DataFile_TE.dat"
-        >>> p1.data_tm_fn = r"/home/occam1d/mt01/TM/Occam_DataFile_TM.dat"
-        >>> p1.model_fn = r"/home/occam1d/mt01/TE/Model1D"
-        >>> p1.iter_te_fn = [r"/home/occam1d/mt01/TE/TE_{0}.iter".format(ii)
-        >>> ...              for ii in range(5,10)]
-        >>> p1.iter_tm_fn = [r"/home/occam1d/mt01/TM/TM_{0}.iter".format(ii)
-        >>> ...              for ii in range(5,10)]
-        >>> p1.resp_te_fn = [r"/home/occam1d/mt01/TE/TE_{0}.resp".format(ii)
-        >>> ...              for ii in range(5,10)]
-        >>> p1.resp_tm_fn = [r"/home/occam1d/mt01/TM/TM_{0}.resp".format(ii)
-        >>> ...              for ii in range(5,10)]
-        >>> p1.plot()
+            >>> import mtpy.modeling.occam1d as occam1d
+            >>> p1 = occam1d.Plot1DResponse(plot_yn='n')
+            >>> p1.data_te_fn = r"/home/occam1d/mt01/TE/Occam_DataFile_TE.dat"
+            >>> p1.data_tm_fn = r"/home/occam1d/mt01/TM/Occam_DataFile_TM.dat"
+            >>> p1.model_fn = r"/home/occam1d/mt01/TE/Model1D"
+            >>> p1.iter_te_fn = [r"/home/occam1d/mt01/TE/TE_{0}.iter".format(ii)
+            >>> ...              for ii in range(5,10)]
+            >>> p1.iter_tm_fn = [r"/home/occam1d/mt01/TM/TM_{0}.iter".format(ii)
+            >>> ...              for ii in range(5,10)]
+            >>> p1.resp_te_fn = [r"/home/occam1d/mt01/TE/TE_{0}.resp".format(ii)
+            >>> ...              for ii in range(5,10)]
+            >>> p1.resp_tm_fn = [r"/home/occam1d/mt01/TM/TM_{0}.resp".format(ii)
+            >>> ...              for ii in range(5,10)]
+            >>> p1.plot()
 
-    ==================== ======================================================
-    Attributes           Description
-    ==================== ======================================================
-    axm                  matplotlib.axes instance for model subplot
-    axp                  matplotlib.axes instance for phase subplot
-    axr                  matplotlib.axes instance for app. res subplot
-    color_mode           [ 'color' | 'bw' ]
-    cted                 color of TE data markers
-    ctem                 color of TM data markers
-    ctmd                 color of TE model markers
-    ctmm                 color of TM model markers
-    data_te_fn           full path to data file for TE mode
-    data_tm_fn           full path to data file for TM mode
-    depth_limits         (min, max) limits for depth plot in depth_units
-    depth_scale          [ 'log' | 'linear' ] *default* is linear
-    depth_units          [ 'm' | 'km' ] *default is 'km'
-    e_capsize            capsize of error bars
-    e_capthick           cap thickness of error bars
-    fig                  matplotlib.figure instance for plot
-    fig_dpi              resolution in dots-per-inch for figure
-    fig_num              number of figure instance
-    fig_size             size of figure in inches [width, height]
-    font_size            size of axes tick labels, axes labels are +2
-    grid_alpha           transparency of grid
-    grid_color           color of grid
-    iter_te_fn           full path or list of .iter files for TE mode
-    iter_tm_fn           full path or list of .iter files for TM mode
-    lw                   width of lines for model
-    model_fn             full path to model file
-    ms                   marker size
-    mted                 marker for TE data
-    mtem                 marker for TM data
-    mtmd                 marker for TE model
-    mtmm                 marker for TM model
-    phase_limits         (min, max) limits on phase in degrees
-    phase_major_ticks    spacing for major ticks in phase
-    phase_minor_ticks    spacing for minor ticks in phase
-    plot_yn              [ 'y' | 'n' ] plot on instantiation
-    res_limits           limits of resistivity in linear scale
-    resp_te_fn           full path or list of .resp files for TE mode
-    resp_tm_fn           full path or list of .iter files for TM mode
-    subplot_bottom       spacing of subplots from bottom of figure
-    subplot_hspace       height spacing between subplots
-    subplot_left         spacing of subplots from left of figure
-    subplot_right        spacing of subplots from right of figure
-    subplot_top          spacing of subplots from top of figure
-    subplot_wspace       width spacing between subplots
-    title_str            title of plot
-    ==================== ======================================================
+        ==================== ======================================================
+        Attributes           Description
+        ==================== ======================================================
+        axm                  matplotlib.axes instance for model subplot
+        axp                  matplotlib.axes instance for phase subplot
+        axr                  matplotlib.axes instance for app. res subplot
+        color_mode           [ 'color' | 'bw' ]
+        cted                 color of TE data markers
+        ctem                 color of TM data markers
+        ctmd                 color of TE model markers
+        ctmm                 color of TM model markers
+        data_te_fn           full path to data file for TE mode
+        data_tm_fn           full path to data file for TM mode
+        depth_limits         (min, max) limits for depth plot in depth_units
+        depth_scale          [ 'log' | 'linear' ] *default* is linear
+        depth_units          [ 'm' | 'km' ] *default is 'km'
+        e_capsize            capsize of error bars
+        e_capthick           cap thickness of error bars
+        fig                  matplotlib.figure instance for plot
+        fig_dpi              resolution in dots-per-inch for figure
+        fig_num              number of figure instance
+        fig_size             size of figure in inches [width, height]
+        font_size            size of axes tick labels, axes labels are +2
+        grid_alpha           transparency of grid
+        grid_color           color of grid
+        iter_te_fn           full path or list of .iter files for TE mode
+        iter_tm_fn           full path or list of .iter files for TM mode
+        lw                   width of lines for model
+        model_fn             full path to model file
+        ms                   marker size
+        mted                 marker for TE data
+        mtem                 marker for TM data
+        mtmd                 marker for TE model
+        mtmm                 marker for TM model
+        phase_limits         (min, max) limits on phase in degrees
+        phase_major_ticks    spacing for major ticks in phase
+        phase_minor_ticks    spacing for minor ticks in phase
+        plot_yn              [ 'y' | 'n' ] plot on instantiation
+        res_limits           limits of resistivity in linear scale
+        resp_te_fn           full path or list of .resp files for TE mode
+        resp_tm_fn           full path or list of .iter files for TM mode
+        subplot_bottom       spacing of subplots from bottom of figure
+        subplot_hspace       height spacing between subplots
+        subplot_left         spacing of subplots from left of figure
+        subplot_right        spacing of subplots from right of figure
+        subplot_top          spacing of subplots from top of figure
+        subplot_wspace       width spacing between subplots
+        title_str            title of plot
+        ==================== ======================================================
     """
 
     def __init__(
@@ -96,16 +97,14 @@ in different subplots with the model on the far right.  You can plot both
         resp_tm_fn=None,
         iter_te_fn=None,
         iter_tm_fn=None,
-        **kwargs
+        **kwargs,
     ):
         self.data_te_fn = data_te_fn
         self.data_tm_fn = data_tm_fn
 
         self.model_fn = model_fn
 
-        self.override_legend_subscript = kwargs.pop(
-            "override_legend_subscript", None
-        )
+        self.override_legend_subscript = kwargs.pop("override_legend_subscript", None)
         self.resp_te_fn = resp_te_fn
         if type(self.resp_te_fn) is not list:
             self.resp_te_fn = [self.resp_te_fn]
@@ -266,9 +265,7 @@ in different subplots with the model on the far right.  You can plot both
                 legend_marker_list_te.append(rte[0])
                 if self.override_legend_subscript is not None:
                     legend_label_list_tm.append(
-                        "$Obs_{"
-                        + str.upper(self.override_legend_subscript)
-                        + "}$"
+                        "$Obs_{" + str.upper(self.override_legend_subscript) + "}$"
                     )
                 else:
                     legend_label_list_te.append("$Obs_{TM}$")
@@ -328,9 +325,7 @@ in different subplots with the model on the far right.  You can plot both
                 legend_marker_list_tm.append(rtm[0])
                 if self.override_legend_subscript is not None:
                     legend_label_list_tm.append(
-                        "$Obs_{"
-                        + str.upper(self.override_legend_subscript)
-                        + "}$"
+                        "$Obs_{" + str.upper(self.override_legend_subscript) + "}$"
                     )
                 else:
                     legend_label_list_te.append("$Obs_{TM}$")
@@ -535,19 +530,11 @@ in different subplots with the model on the far right.  You can plot both
         self.axr.set_xscale("log", nonposx="clip")
         self.axp.set_xscale("log", nonposx="clip")
         self.axr.set_yscale("log", nonposy="clip")
-        self.axr.grid(
-            True, alpha=self.grid_alpha, which="both", color=self.grid_color
-        )
+        self.axr.grid(True, alpha=self.grid_alpha, which="both", color=self.grid_color)
         plt.setp(self.axr.xaxis.get_ticklabels(), visible=False)
-        self.axp.grid(
-            True, alpha=self.grid_alpha, which="both", color=self.grid_color
-        )
-        self.axp.yaxis.set_major_locator(
-            MultipleLocator(self.phase_major_ticks)
-        )
-        self.axp.yaxis.set_minor_locator(
-            MultipleLocator(self.phase_minor_ticks)
-        )
+        self.axp.grid(True, alpha=self.grid_alpha, which="both", color=self.grid_color)
+        self.axp.yaxis.set_major_locator(MultipleLocator(self.phase_major_ticks))
+        self.axp.yaxis.set_minor_locator(MultipleLocator(self.phase_minor_ticks))
 
         if self.res_limits is not None:
             self.axr.set_ylim(self.res_limits)
@@ -563,9 +550,7 @@ in different subplots with the model on the far right.  You can plot both
         self.axp.set_xlabel(
             "Period (s)", fontdict={"size": self.font_size, "weight": "bold"}
         )
-        plt.suptitle(
-            self.title_str, fontsize=self.font_size + 2, fontweight="bold"
-        )
+        plt.suptitle(self.title_str, fontsize=self.font_size + 2, fontweight="bold")
         if legend_marker_list_te == [] or legend_marker_list_tm == []:
             num_col = 1
         else:
@@ -587,9 +572,7 @@ in different subplots with the model on the far right.  You can plot both
         if self.model_fn is not None:
             # put axis labels on the right side for clarity
             self.axm.yaxis.set_label_position("right")
-            self.axm.yaxis.set_tick_params(
-                left="off", right="on", labelright="on"
-            )
+            self.axm.yaxis.set_tick_params(left="off", right="on", labelright="on")
             self.axm.yaxis.tick_right()
 
             if self.depth_units == "km":
@@ -660,9 +643,7 @@ in different subplots with the model on the far right.  You can plot both
                 dmax = max(plot_depth)
                 self.depth_limits = (dmin, dmax)
 
-            self.axm.set_ylim(
-                ymin=max(self.depth_limits), ymax=min(self.depth_limits)
-            )
+            self.axm.set_ylim(ymin=max(self.depth_limits), ymax=min(self.depth_limits))
             if self.depth_scale == "log":
                 self.axm.set_yscale("log", nonposy="clip")
             self.axm.set_ylabel(

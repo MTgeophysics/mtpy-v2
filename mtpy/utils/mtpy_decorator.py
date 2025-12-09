@@ -1,7 +1,5 @@
 import functools
 import inspect
-import os
-from loguru import logger
 
 
 class deprecated(object):
@@ -47,9 +45,7 @@ class deprecated(object):
             """New func."""
             import warnings
 
-            warnings.simplefilter(
-                "always", DeprecationWarning
-            )  # turn off filter
+            warnings.simplefilter("always", DeprecationWarning)  # turn off filter
             warnings.warn_explicit(
                 msg,
                 category=DeprecationWarning,

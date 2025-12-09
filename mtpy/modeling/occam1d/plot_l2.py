@@ -10,13 +10,14 @@ Created on Mon Oct 30 13:34:53 2023
 # =============================================================================
 from pathlib import Path
 
-import numpy as np
-
-from matplotlib.ticker import MultipleLocator
 import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.ticker import MultipleLocator
 
 from mtpy.imaging.mtplot_tools import PlotBase
+
 from .model import Occam1DModel
+
 
 # =============================================================================
 class PlotOccam1DL2(PlotBase):

@@ -9,23 +9,20 @@ Created on Tue Jul 30 17:11:42 2024
 # Imports
 # =============================================================================
 import warnings
-from pathlib import Path
-from loguru import logger
-import pandas as pd
+
 import numpy as np
-
+import pandas as pd
 from aurora.config.config_creator import ConfigCreator
-from aurora.pipelines.process_mth5 import process_mth5
 from aurora.config.metadata import Processing
-
+from aurora.pipelines.process_mth5 import process_mth5
+from loguru import logger
 from mth5.helpers import close_open_files
 from mth5.mth5 import MTH5
-
-from mt_metadata.utils.mttime import MTime
+from mth5.processing.kernel_dataset import KernelDataset
 
 from mtpy import MT
-from mtpy.processing.kernel_dataset import KernelDataset
 from mtpy.processing.base import BaseProcessing
+
 
 warnings.filterwarnings("ignore")
 # =============================================================================
@@ -75,16 +72,16 @@ class AuroraProcessing(BaseProcessing):
 
         self.default_window_parameters = {
             "high": {
-                "window.overlap": 256,
-                "window.num_samples": 1024,
-                "window.type": "dpss",
-                "window.additional_args": {"alpha": 2.5},
+                "stft.window.overlap": 256,
+                "stft.window.num_samples": 1024,
+                "stft.window.type": "dpss",
+                "stft.window.additional_args": {"alpha": 2.5},
             },
             "low": {
-                "window.overlap": 64,
-                "window.num_samples": 128,
-                "window.type": "dpss",
-                "window.additional_args": {"alpha": 2.5},
+                "stft.window.overlap": 64,
+                "stft.window.num_samples": 128,
+                "stft.window.type": "dpss",
+                "stft.window.additional_args": {"alpha": 2.5},
             },
         }
 
@@ -107,9 +104,7 @@ class AuroraProcessing(BaseProcessing):
             }
         )
 
-    def create_config(
-        self, kernel_dataset=None, decimation_kwargs={}, **kwargs
-    ):
+    def create_config(self, kernel_dataset=None, decimation_kwargs={}, **kwargs):
         """Decimation kwargs can include information about window,.
         :return: DESCRIPTION.
         :rtype: aurora.config
@@ -119,16 +114,10 @@ class AuroraProcessing(BaseProcessing):
                 cc = ConfigCreator()
                 config = cc.create_from_kernel_dataset(self, **kwargs)
                 if self.sample_rate > 1000:
-                    decimation_kwargs.update(
-                        self.default_window_parameters["high"]
-                    )
+                    decimation_kwargs.update(self.default_window_parameters["high"])
                 else:
-                    decimation_kwargs.update(
-                        self.default_window_parameters["low"]
-                    )
-                self._set_decimation_level_parameters(
-                    config, **decimation_kwargs
-                )
+                    decimation_kwargs.update(self.default_window_parameters["low"])
+                self._set_decimation_level_parameters(config, **decimation_kwargs)
                 return config
             else:
                 raise ValueError(
@@ -138,9 +127,7 @@ class AuroraProcessing(BaseProcessing):
             cc = ConfigCreator()
             config = cc.create_from_kernel_dataset(kernel_dataset, **kwargs)
             if kernel_dataset.sample_rate > 1000:
-                decimation_kwargs.update(
-                    self.default_window_parameters["high"]
-                )
+                decimation_kwargs.update(self.default_window_parameters["high"])
             else:
                 decimation_kwargs.update(self.default_window_parameters["low"])
             self._set_decimation_level_parameters(config, **decimation_kwargs)
@@ -158,6 +145,8 @@ class AuroraProcessing(BaseProcessing):
 
         for decimation in config.decimations:
             for key, value in kwargs.items():
+                if "stft" in key:
+                    continue  # stft is not a decimation attribute
                 decimation.set_attr_from_name(key, value)
 
     def _initialize_kernel_dataset(self, sample_rate=None):
@@ -204,9 +193,7 @@ class AuroraProcessing(BaseProcessing):
         )
         return self.clone()
 
-    def process_single_sample_rate(
-        self, sample_rate, config=None, kernel_dataset=None
-    ):
+    def process_single_sample_rate(self, sample_rate, config=None, kernel_dataset=None):
         """
         Process a single sample rate
 
@@ -243,6 +230,7 @@ class AuroraProcessing(BaseProcessing):
 
         # copy to an MT object
         mt_obj = MT(survey_metadata=tf_obj.survey_metadata)
+        mt_obj.station_metadata = tf_obj.station_metadata
         mt_obj.channel_nomenclature = tf_obj.channel_nomenclature
         mt_obj._transfer_function = tf_obj._transfer_function
 
@@ -304,9 +292,7 @@ class AuroraProcessing(BaseProcessing):
         """
 
         if sample_rates is None and processing_dict is None:
-            raise ValueError(
-                "Must set either sample rates or processing_dict."
-            )
+            raise ValueError("Must set either sample rates or processing_dict.")
 
         if processing_dict is None:
             if isinstance(sample_rates, (int, float)):
@@ -344,9 +330,7 @@ class AuroraProcessing(BaseProcessing):
                     kernel_dataset=pdict["kernel_dataset"],
                 )
                 if mt_obj is not None:
-                    tf_processed[key][
-                        "processed"
-                    ] = mt_obj.has_transfer_function()
+                    tf_processed[key]["processed"] = mt_obj.has_transfer_function()
                     tf_processed[key]["tf"] = mt_obj
 
         processed = self._validate_tf_processed_dict(tf_processed)
