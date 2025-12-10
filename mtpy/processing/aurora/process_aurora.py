@@ -145,9 +145,7 @@ class AuroraProcessing(BaseProcessing):
 
         for decimation in config.decimations:
             for key, value in kwargs.items():
-                if "stft" in key:
-                    continue  # stft is not a decimation attribute
-                decimation.set_attr_from_name(key, value)
+                decimation.update_attribute(key, value)
 
     def _initialize_kernel_dataset(self, sample_rate=None):
         """Make an initial kernel dataset."""
