@@ -112,26 +112,28 @@ class AuroraProcessing(BaseProcessing):
         if kernel_dataset is None:
             if self.has_kernel_dataset():
                 cc = ConfigCreator()
-                config = cc.create_from_kernel_dataset(self, **kwargs)
                 if self.sample_rate > 1000:
                     decimation_kwargs.update(self.default_window_parameters["high"])
                 else:
                     decimation_kwargs.update(self.default_window_parameters["low"])
-                self._set_decimation_level_parameters(config, **decimation_kwargs)
-                return config
+                
             else:
                 raise ValueError(
                     "Cannot make config because KernelDataset has not been set yet."
                 )
         else:
             cc = ConfigCreator()
-            config = cc.create_from_kernel_dataset(kernel_dataset, **kwargs)
             if kernel_dataset.sample_rate > 1000:
                 decimation_kwargs.update(self.default_window_parameters["high"])
             else:
                 decimation_kwargs.update(self.default_window_parameters["low"])
-            self._set_decimation_level_parameters(config, **decimation_kwargs)
-            return config
+        # need to pass the number of samples in the window to correctly set the bands
+        kwargs["num_samples_window"] = decimation_kwargs["stft.window.num_samples"] 
+        
+        config = cc.create_from_kernel_dataset(kernel_dataset, **kwargs)
+        self._set_decimation_level_parameters(config, **decimation_kwargs)
+        
+        return config
 
     def _set_decimation_level_parameters(self, config, **kwargs):
         """Set decimation level parameters.
