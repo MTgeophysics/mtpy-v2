@@ -20,6 +20,8 @@ from mth5.helpers import close_open_files
 from mth5.mth5 import MTH5
 from mth5.processing.kernel_dataset import KernelDataset
 
+#from mt_metadata.features.weights import ChannelWeightSpec, FeatureWeightSpec
+
 from mtpy import MT
 from mtpy.processing.base import BaseProcessing
 
@@ -103,6 +105,14 @@ class AuroraProcessing(BaseProcessing):
                 ],
             }
         )
+    
+    def add_simple_coherence_weights(self, **kwargs):
+        """Add coherence weights using the channel weight spec."""
+        pass
+        # channel_weight_specs = []
+        # for channel in 
+        # cws = ChannelWeightSpec()
+
 
     def create_config(self, kernel_dataset=None, decimation_kwargs={}, **kwargs):
         """Decimation kwargs can include information about window,.
