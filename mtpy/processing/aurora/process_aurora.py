@@ -373,6 +373,7 @@ class AuroraProcessing(BaseProcessing):
                 ]
             )
             for key, pdict in processing_dict.items():
+                logger.info(f"Processing sample rate {key}.")
                 mt_obj = self.process_single_sample_rate(
                     key,
                     config=pdict["config"],
@@ -381,6 +382,7 @@ class AuroraProcessing(BaseProcessing):
                 if mt_obj is not None:
                     tf_processed[key]["processed"] = mt_obj.has_transfer_function()
                     tf_processed[key]["tf"] = mt_obj
+                logger.info(f"Finished processing sample rate {key}.")
 
         processed = self._validate_tf_processed_dict(tf_processed)
         if len(processed.keys()) > 1:
@@ -393,6 +395,8 @@ class AuroraProcessing(BaseProcessing):
                 combined_tf_id += "_combined"
                 combined_tf.tf_id = combined_tf_id
                 processed["combined"] = {"processed": True, "tf": combined_tf}
+        else:
+            processed["combined"] = processed[list(processed.keys())[0]]
 
         if save_to_mth5:
             ### add tf to local MTH5
