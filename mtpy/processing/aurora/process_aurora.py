@@ -20,7 +20,9 @@ from mth5.helpers import close_open_files
 from mth5.mth5 import MTH5
 from mth5.processing.kernel_dataset import KernelDataset
 
-#from mt_metadata.features.weights import ChannelWeightSpec, FeatureWeightSpec
+from mt_metadata.features.weights import ChannelWeightSpec, FeatureWeightSpec, TaperMonotonicWeightKernel
+from mt_metadata.processing.window import Window
+from mt_metadata.features import StridingWindowCoherence
 
 from mtpy import MT
 from mtpy.processing.base import BaseProcessing
@@ -108,13 +110,47 @@ class AuroraProcessing(BaseProcessing):
     
     def add_simple_coherence_weights(self, **kwargs):
         """Add coherence weights using the channel weight spec."""
-        pass
-        # channel_weight_specs = []
-        # for channel in 
-        # cws = ChannelWeightSpec()
+        channel_weight_specs = []
+        for channel in [("ex", ["ex", "hy"]), ("ey", ["ey", "hx"]), ("hz", ["hx", "hx"])]:
+            station_1 = self.local_station_id
+            station_2 = self.local_station_id
+            if channel[0] in ["hz"]:
+                station_2 = self.remote_station_id
+            cws = ChannelWeightSpec(
+                combination_style="multiplication",
+                output_channels=[channel[0]],
+                feature_weight_specs=[
+                    FeatureWeightSpec(
+                        feature_name="coherence",
+                        feature=StridingWindowCoherence(
+                            channel_1=channel[1][0],
+                            channel_2=channel[1][1],
+                            station_1=station_1,
+                            station_2=station_2,
+                            # the window is set to the stft window internally.
+                            # window=Window(
+                            #     type="hann",
+                            #     num_samples=256, 
+                            #     overlap=128
+                            #     )
+                            )
+                        )
+                    ],
+                weight_kernels=[
+                    TaperMonotonicWeightKernel(
+                        style="taper",
+                        half_window_style="hann",
+                        threshold="low cut",
+                        transition_lower_bound=0.6,
+                        transition_upper_bound=0.9,
+                    )
+                ]
+            )
+            channel_weight_specs.append(cws)
+        return channel_weight_specs
 
 
-    def create_config(self, kernel_dataset=None, decimation_kwargs={}, **kwargs):
+    def create_config(self, kernel_dataset=None, decimation_kwargs={}, add_coherence_weights=True, **kwargs):
         """Decimation kwargs can include information about window,.
         :return: DESCRIPTION.
         :rtype: aurora.config
@@ -141,11 +177,11 @@ class AuroraProcessing(BaseProcessing):
         kwargs["num_samples_window"] = decimation_kwargs["stft.window.num_samples"] 
         
         config = cc.create_from_kernel_dataset(kernel_dataset, **kwargs)
-        self._set_decimation_level_parameters(config, **decimation_kwargs)
+        self._set_decimation_level_parameters(config, add_coherence_weights=add_coherence_weights, **decimation_kwargs)
         
         return config
 
-    def _set_decimation_level_parameters(self, config, **kwargs):
+    def _set_decimation_level_parameters(self, config, add_coherence_weights=True, **kwargs):
         """Set decimation level parameters.
         :param config: DESCRIPTION.
         :type config: TYPE
@@ -158,6 +194,9 @@ class AuroraProcessing(BaseProcessing):
         for decimation in config.decimations:
             for key, value in kwargs.items():
                 decimation.update_attribute(key, value)
+            if add_coherence_weights:
+                channel_weight_specs = self.add_simple_coherence_weights()
+                decimation.channel_weight_specs = channel_weight_specs
 
     def _initialize_kernel_dataset(self, sample_rate=None):
         """Make an initial kernel dataset."""
