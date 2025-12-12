@@ -133,19 +133,19 @@ class AuroraProcessing(BaseProcessing):
                             #     num_samples=256, 
                             #     overlap=128
                             #     )
+                            ),
+                        weight_kernels=[
+                        TaperMonotonicWeightKernel(
+                            style="taper",
+                            half_window_style="hann",
+                            threshold="low cut",
+                            transition_lower_bound=0.6,
+                            transition_upper_bound=0.9,
                             )
-                        )
-                    ],
-                weight_kernels=[
-                    TaperMonotonicWeightKernel(
-                        style="taper",
-                        half_window_style="hann",
-                        threshold="low cut",
-                        transition_lower_bound=0.6,
-                        transition_upper_bound=0.9,
+                        ],
                     )
-                ]
-            )
+                ], 
+            )     
             channel_weight_specs.append(cws)
         return channel_weight_specs
 
