@@ -122,6 +122,7 @@ class AuroraProcessing(BaseProcessing):
                 feature_weight_specs=[
                     FeatureWeightSpec(
                         feature_name="coherence",
+                        # time domain coherence estimation
                         feature=StridingWindowCoherence(
                             channel_1=channel[1][0],
                             channel_2=channel[1][1],
@@ -134,6 +135,7 @@ class AuroraProcessing(BaseProcessing):
                             #     overlap=128
                             #     )
                             ),
+                        # how to weight the coherence, could be a list of different tapers
                         weight_kernels=[
                         TaperMonotonicWeightKernel(
                             style="taper",
