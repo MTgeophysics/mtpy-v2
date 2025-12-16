@@ -230,9 +230,11 @@ class ShapefileCreator:
         if self.output_crs is not None:
             gpdf.to_crs(crs=self.output_crs, inplace=True)
 
-        filename = (
-            f"{element_type}_EPSG_{self.output_crs.to_epsg()}_Period_{period}s.shp"
-        )
+            filename = (
+                f"{element_type}_EPSG_{self.output_crs.to_epsg()}_Period_{period}s.shp"
+            )
+        else:
+            filename = f"{element_type}_Period_{period}s.shp"
         out_path = self.save_dir.joinpath(filename)
 
         gpdf.to_file(out_path, driver="ESRI Shapefile")
