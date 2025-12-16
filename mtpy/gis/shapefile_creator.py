@@ -276,7 +276,10 @@ class ShapefileCreator:
             points = gpd.points_from_xy(pt_df.longitude, pt_df.latitude)
             crs = CRS.from_epsg(pt_df.datum_epsg.iloc[0])
 
-        return crs, gpd.GeoDataFrame(pt_df, crs=crs, geometry=points)
+        geodf = gpd.GeoDataFrame(pt_df, crs=crs, geometry=points)
+        geodf = geodf.fillna(0)
+
+        return crs, geodf
 
     def _create_phase_tensor_shp(self, period, tol=None):
         """Create phase tensor ellipses shape file correspond to a MT period.
@@ -306,6 +309,8 @@ class ShapefileCreator:
         height[bad_max] = dot
         width[bad_min] = dot
         width[bad_max] = dot
+        width[np.where(np.isinf(width))] = dot
+        height[np.where(np.isinf(height))] = dot
 
         # apply formula to generate ellipses
         ellipse_list = []
