@@ -1494,8 +1494,12 @@ class MTData(OrderedDict, MTStations):
         sc.utm = utm
         if ellipse_size is None and pt:
             sc.ellipse_size = sc.estimate_ellipse_size()
+        else:
+            sc.ellipse_size = ellipse_size
         if arrow_size is None and tipper:
             sc.arrow_size = sc.estimate_arrow_size()
+        else:  
+            sc.arrow_size = arrow_size
 
         return sc.make_shp_files(
             pt=pt, tipper=tipper, periods=periods, period_tol=period_tol

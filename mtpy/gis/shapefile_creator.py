@@ -42,6 +42,7 @@ class ShapefileCreator:
         mt_dataframe,
         output_crs,
         save_dir=None,
+        **kwargs,
     ):
         """Init function.
         :param mt_dataframe: DESCRIPTION.
@@ -141,6 +142,9 @@ class ShapefileCreator:
             "pt_det_model_error",
             "geometry",
         ]
+
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
     @property
     def mt_dataframe(self):
