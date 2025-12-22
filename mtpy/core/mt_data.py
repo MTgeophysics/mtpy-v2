@@ -713,10 +713,12 @@ class MTData(OrderedDict, MTStations):
         :return: DESCRIPTION.
         :rtype: TYPE
         """
-        self.data_rotation_angle = rotation_angle
-
         if not inplace:
             mt_data = self.clone_empty()
+            mt_data.data_rotation_angle = rotation_angle
+        else:
+            self.data_rotation_angle = rotation_angle
+
         for mt_obj in self.values():
             if not inplace:
                 rot_mt_obj = mt_obj.rotate(rotation_angle, inplace=False)
@@ -1498,7 +1500,7 @@ class MTData(OrderedDict, MTStations):
             sc.ellipse_size = ellipse_size
         if arrow_size is None and tipper:
             sc.arrow_size = sc.estimate_arrow_size()
-        else:  
+        else:
             sc.arrow_size = arrow_size
 
         return sc.make_shp_files(
