@@ -258,8 +258,8 @@ class EMTFStats:
                         stat_array[0][f"res_{comp}_fit"] = (res - ls_res(f)).std()
                         stat_array[0][f"phase_{comp}_fit"] = (phase - ls_phase(f)).std()
                     except (ValueError, np.linalg.LinAlgError) as error:
-                        stat_array[0][f"res_{comp}_fit"] = np.NaN
-                        stat_array[0][f"phase_{comp}_fit"] = np.NaN
+                        stat_array[0][f"res_{comp}_fit"] = np.nan
+                        stat_array[0][f"phase_{comp}_fit"] = np.nan
                         logger.warning(f"Z{comp}: {error}")
                     ### taking median of the error is more robust
                     stat_array[0][f"res_{comp}_std"] = np.median(res_error)
@@ -332,7 +332,7 @@ class EMTFStats:
                             ValueError,
                             np.linalg.LinAlgError,
                         ) as error:
-                            stat_array[0][f"tipper_{tcomp}_fit"] = np.NaN
+                            stat_array[0][f"tipper_{tcomp}_fit"] = np.nan
                             logger.warning(f"T{tcomp}: {error}")
                         stat_array[0][f"tipper_{tcomp}_std"] = tmag_error.mean()
                         stat_array[0][f"tipper_{tcomp}_corr"] = np.corrcoef(
@@ -344,7 +344,7 @@ class EMTFStats:
 
         ### write file
         df = pd.DataFrame(stat_array)
-        df = df.replace(0, np.NAN)
+        df = df.replace(0, np.nan)
 
         return df
 
@@ -372,7 +372,7 @@ class EMTFStats:
             index=stat_df.index,
         )
         for col in qual_df.columns:
-            qual_df[col].values[:] = np.NaN
+            qual_df[col].values[:] = np.nan
 
         ### loop over quality factors
         for qkey in self.stat_limits.keys():
