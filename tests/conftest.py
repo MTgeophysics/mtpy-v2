@@ -392,7 +392,7 @@ def setup_collection_add_tf_method(working_dir, collection_name):
     mc.working_directory = working_dir
     mc.open_collection(collection_name)
     # add_tf with MTData object - survey is already set in MTData
-    mc.add_tf(mt_data_obj)
+    mc.add_tf(mt_data_obj, tf_id_extra="added")
     mc.close_collection()
 
     return working_dir / f"{collection_name}.h5"
@@ -585,9 +585,9 @@ def mt_collection_from_mt_data_with_survey(mt_collection_with_survey_cache):
     """Function-scoped fixture for MTCollection with survey."""
     mc = MTCollection()
     mc.working_directory = mt_collection_with_survey_cache.parent
-    mc.open_collection(mt_collection_with_survey_cache.stem, mode="r")
+    mc.open_collection(mt_collection_with_survey_cache.stem, mode="a")
 
-    yield mc
+    yield mc, None
 
     try:
         mc.close_collection()
@@ -600,9 +600,9 @@ def mt_collection_from_mt_data_new_survey(mt_collection_new_survey_cache):
     """Function-scoped fixture for MTCollection with new_survey."""
     mc = MTCollection()
     mc.working_directory = mt_collection_new_survey_cache.parent
-    mc.open_collection(mt_collection_new_survey_cache.stem, mode="r")
+    mc.open_collection(mt_collection_new_survey_cache.stem, mode="a")
 
-    yield mc
+    yield mc, None
 
     try:
         mc.close_collection()
@@ -615,9 +615,9 @@ def mt_collection_add_tf_method(mt_collection_add_tf_cache):
     """Function-scoped fixture for MTCollection created with add_tf."""
     mc = MTCollection()
     mc.working_directory = mt_collection_add_tf_cache.parent
-    mc.open_collection(mt_collection_add_tf_cache.stem, mode="r")
+    mc.open_collection(mt_collection_add_tf_cache.stem, mode="a")
 
-    yield mc
+    yield mc, None
 
     try:
         mc.close_collection()

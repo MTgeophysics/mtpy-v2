@@ -565,7 +565,7 @@ class TestMTCollectionAddTFMethod:
 
     def test_tf_id_extra(self, mt_collection_add_tf_method):
         """Test that tf_id_extra is applied."""
-        mc = mt_collection_add_tf_method
+        mc, _ = mt_collection_add_tf_method
         for tf_id in mc.dataframe.tf_id:
             assert "added" in tf_id
 
