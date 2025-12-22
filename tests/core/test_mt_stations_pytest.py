@@ -74,9 +74,14 @@ def grid_mt_list(utm_epsg, grid_base_location):
     return mt_list
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def grid_stations(utm_epsg, grid_mt_list):
-    """Create MTStations object with grid layout."""
+    """
+    Session-scoped MTStations object with grid layout.
+
+    Since all tests that modify create copies first, this can be
+    safely shared across all tests for better performance.
+    """
     return MTStations(utm_epsg, mt_list=grid_mt_list)
 
 
@@ -118,9 +123,14 @@ def profile_mt_list(utm_epsg, profile_base_location):
     return mt_list
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def profile_stations(utm_epsg, profile_mt_list):
-    """Create MTStations object with profile layout."""
+    """
+    Session-scoped MTStations object with profile layout.
+
+    Since all tests that modify create copies first, this can be
+    safely shared across all tests for better performance.
+    """
     return MTStations(utm_epsg, mt_list=profile_mt_list)
 
 

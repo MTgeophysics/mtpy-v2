@@ -93,7 +93,32 @@ def expected_model_north():
 
 
 # =============================================================================
-# Function-scoped fixtures (created for each test function)
+# Session-scoped read-only fixtures (for tests that don't modify)
+# =============================================================================
+@pytest.fixture(scope="session")
+def location_from_latlon_ro(true_lat, true_lon, utm_epsg):
+    """
+    Session-scoped READ-ONLY MTLocation from lat/lon.
+
+    Use this for tests that only read properties. For tests that modify
+    the location (compute_model_location, set properties, etc), use
+    location_from_latlon (function-scoped).
+    """
+    return MTLocation(latitude=true_lat, longitude=true_lon, utm_epsg=utm_epsg)
+
+
+@pytest.fixture(scope="session")
+def location_from_utm_ro(true_east, true_north, utm_epsg):
+    """
+    Session-scoped READ-ONLY MTLocation from UTM.
+
+    Use this for tests that only read properties.
+    """
+    return MTLocation(east=true_east, north=true_north, utm_epsg=utm_epsg)
+
+
+# =============================================================================
+# Function-scoped fixtures (created for each test that modifies the object)
 # =============================================================================
 @pytest.fixture
 def basic_location():
@@ -103,13 +128,16 @@ def basic_location():
 
 @pytest.fixture
 def location_from_latlon(true_lat, true_lon, utm_epsg):
-    """MTLocation initialized from lat/lon."""
+    """
+    Function-scoped MTLocation for tests that MODIFY the object.
+    For read-only tests, use location_from_latlon_ro (session-scoped).
+    """
     return MTLocation(latitude=true_lat, longitude=true_lon, utm_epsg=utm_epsg)
 
 
 @pytest.fixture
 def location_from_utm(true_east, true_north, utm_epsg):
-    """MTLocation initialized from UTM coordinates."""
+    """Function-scoped MTLocation from UTM for tests that modify."""
     return MTLocation(east=true_east, north=true_north, utm_epsg=utm_epsg)
 
 
@@ -271,29 +299,29 @@ class TestMTLocationLongitude:
 class TestMTLocationUTMConversion:
     """Test conversion between lat/lon and UTM coordinates."""
 
-    def test_latlon_to_utm_east(self, location_from_latlon, true_east):
+    def test_latlon_to_utm_east(self, location_from_latlon_ro, true_east):
         """Test conversion from lat/lon to UTM easting."""
-        assert pytest.approx(location_from_latlon.east) == true_east
+        assert pytest.approx(location_from_latlon_ro.east) == true_east
 
-    def test_latlon_to_utm_north(self, location_from_latlon, true_north):
+    def test_latlon_to_utm_north(self, location_from_latlon_ro, true_north):
         """Test conversion from lat/lon to UTM northing."""
-        assert pytest.approx(location_from_latlon.north) == true_north
+        assert pytest.approx(location_from_latlon_ro.north) == true_north
 
-    def test_latlon_to_utm_zone(self, location_from_latlon, utm_zone):
+    def test_latlon_to_utm_zone(self, location_from_latlon_ro, utm_zone):
         """Test UTM zone string from lat/lon."""
-        assert location_from_latlon.utm_zone == utm_zone
+        assert location_from_latlon_ro.utm_zone == utm_zone
 
-    def test_utm_to_latlon_latitude(self, location_from_utm, true_lat):
+    def test_utm_to_latlon_latitude(self, location_from_utm_ro, true_lat):
         """Test conversion from UTM to latitude."""
-        assert pytest.approx(location_from_utm.latitude) == true_lat
+        assert pytest.approx(location_from_utm_ro.latitude) == true_lat
 
-    def test_utm_to_latlon_longitude(self, location_from_utm, true_lon):
+    def test_utm_to_latlon_longitude(self, location_from_utm_ro, true_lon):
         """Test conversion from UTM to longitude."""
-        assert pytest.approx(location_from_utm.longitude) == true_lon
+        assert pytest.approx(location_from_utm_ro.longitude) == true_lon
 
-    def test_utm_to_latlon_zone(self, location_from_utm, utm_zone):
+    def test_utm_to_latlon_zone(self, location_from_utm_ro, utm_zone):
         """Test UTM zone string from UTM coordinates."""
-        assert location_from_utm.utm_zone == utm_zone
+        assert location_from_utm_ro.utm_zone == utm_zone
 
     def test_set_utm_without_epsg_fails(self, true_east, true_north):
         """Test that setting UTM coordinates without EPSG raises ValueError."""
@@ -317,29 +345,29 @@ class TestMTLocationUTMConversion:
 class TestMTLocationJSON:
     """Test JSON serialization and deserialization."""
 
-    def test_to_from_json(self, location_from_latlon):
+    def test_to_from_json(self, location_from_latlon_ro):
         """Test round-trip JSON serialization."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tf:
             fn = Path(tf.name)
 
         try:
-            location_from_latlon.to_json(fn)
+            location_from_latlon_ro.to_json(fn)
 
             loc_new = MTLocation()
             loc_new.from_json(fn)
 
-            assert location_from_latlon == loc_new
+            assert location_from_latlon_ro == loc_new
         finally:
             if fn.exists():
                 fn.unlink()
 
-    def test_json_preserves_utm_epsg(self, location_from_latlon, utm_epsg):
+    def test_json_preserves_utm_epsg(self, location_from_latlon_ro, utm_epsg):
         """Test that JSON preserves UTM EPSG code."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tf:
             fn = Path(tf.name)
 
         try:
-            location_from_latlon.to_json(fn)
+            location_from_latlon_ro.to_json(fn)
             loc_new = MTLocation()
             loc_new.from_json(fn)
 
@@ -348,13 +376,15 @@ class TestMTLocationJSON:
             if fn.exists():
                 fn.unlink()
 
-    def test_json_preserves_coordinates(self, location_from_latlon, true_lat, true_lon):
+    def test_json_preserves_coordinates(
+        self, location_from_latlon_ro, true_lat, true_lon
+    ):
         """Test that JSON preserves coordinates."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tf:
             fn = Path(tf.name)
 
         try:
-            location_from_latlon.to_json(fn)
+            location_from_latlon_ro.to_json(fn)
             loc_new = MTLocation()
             loc_new.from_json(fn)
 
@@ -439,37 +469,39 @@ class TestMTLocationProfileProjection:
 class TestMTLocationEquality:
     """Test equality comparisons between MTLocation objects."""
 
-    def test_equal_from_latlon_and_utm(self, location_from_latlon, location_from_utm):
+    def test_equal_from_latlon_and_utm(
+        self, location_from_latlon_ro, location_from_utm_ro
+    ):
         """Test that locations from lat/lon and UTM are equal."""
-        assert location_from_latlon == location_from_utm
+        assert location_from_latlon_ro == location_from_utm_ro
 
-    def test_not_equal_different_east(self, location_from_latlon, utm_epsg):
+    def test_not_equal_different_east(self, location_from_latlon_ro, utm_epsg):
         """Test inequality with different easting."""
         loc2 = MTLocation(
             east=244000.352029723, north=4432069.056898517, utm_epsg=utm_epsg
         )
-        assert location_from_latlon != loc2
+        assert location_from_latlon_ro != loc2
 
-    def test_not_equal_different_north(self, location_from_latlon, utm_epsg):
+    def test_not_equal_different_north(self, location_from_latlon_ro, utm_epsg):
         """Test inequality with different northing."""
         loc2 = MTLocation(
             east=243900.352029723, north=4432169.056898517, utm_epsg=utm_epsg
         )
-        assert location_from_latlon != loc2
+        assert location_from_latlon_ro != loc2
 
-    def test_equality_wrong_type_raises_error(self, location_from_latlon):
+    def test_equality_wrong_type_raises_error(self, location_from_latlon_ro):
         """Test that comparing with wrong type raises TypeError."""
         with pytest.raises(TypeError):
-            _ = location_from_latlon == 10
+            _ = location_from_latlon_ro == 10
 
-    def test_equality_with_self(self, location_from_latlon):
+    def test_equality_with_self(self, location_from_latlon_ro):
         """Test that location equals itself."""
-        assert location_from_latlon == location_from_latlon
+        assert location_from_latlon_ro == location_from_latlon_ro
 
-    def test_equality_after_copy(self, location_from_latlon):
+    def test_equality_after_copy(self, location_from_latlon_ro):
         """Test that copy equals original."""
-        loc_copy = location_from_latlon.copy()
-        assert loc_copy == location_from_latlon
+        loc_copy = location_from_latlon_ro.copy()
+        assert loc_copy == location_from_latlon_ro
 
 
 class TestMTLocationElevation:
@@ -567,9 +599,11 @@ class TestMTLocationAdditional:
             "profile_offset",
         ],
     )
-    def test_coordinate_attributes_are_numeric(self, location_from_latlon, attr_name):
+    def test_coordinate_attributes_are_numeric(
+        self, location_from_latlon_ro, attr_name
+    ):
         """Test that coordinate attributes are numeric types."""
-        value = getattr(location_from_latlon, attr_name)
+        value = getattr(location_from_latlon_ro, attr_name)
         assert isinstance(value, (int, float))
 
 
