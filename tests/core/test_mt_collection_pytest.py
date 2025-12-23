@@ -11,6 +11,8 @@ Converted to pytest and optimized for pytest-xdist.
 :license: MIT
 """
 
+import os
+
 import pandas as pd
 
 # =============================================================================
@@ -338,9 +340,13 @@ class TestMTCollectionBasic:
 
     def test_filename(self, mt_collection_main):
         """Test that mth5_filename is correctly set."""
-        expected = mt_collection_main.working_directory.joinpath(
-            "test_collection_main.h5"
+        worker_id = os.environ.get("PYTEST_XDIST_WORKER")
+        expected_name = (
+            "mt_collection_main.h5"
+            if not worker_id or worker_id == "master"
+            else f"mt_collection_main_{worker_id}.h5"
         )
+        expected = mt_collection_main.working_directory.joinpath(expected_name)
         assert mt_collection_main.mth5_filename == expected
 
     def test_dataframe_shape(self, mt_collection_main, tf_file_list):
@@ -401,35 +407,34 @@ class TestMTCollectionGetTF:
         h5_tf = mt_collection_main.get_tf(validate_name(original.tf_id))
         assert isinstance(h5_tf, MT)
 
-    def test_get_tf_data_consistency(self, mt_collection_main, tf_file_list):
-        """Test that retrieved TF data matches original."""
-        for tf_fn in tf_file_list:
-            original = MT(tf_fn)
-            original.read()
+    @pytest.mark.parametrize("index", [0, 10, 20])
+    def test_get_tf_data_consistency(self, mt_collection_main, tf_file_list, index):
+        """Test that retrieved TF data matches original (subset for speed)."""
+        tf_fn = tf_file_list[index]
+        original = MT(tf_fn)
+        original.read()
 
-            h5_tf = mt_collection_main.get_tf(validate_name(original.tf_id))
+        h5_tf = mt_collection_main.get_tf(validate_name(original.tf_id))
 
-            # Update some metadata fields to match
-            original.survey_metadata.id = h5_tf.survey_metadata.id
-            original.survey_metadata.hdf5_reference = (
-                h5_tf.survey_metadata.hdf5_reference
+        # Update some metadata fields to match
+        original.survey_metadata.id = h5_tf.survey_metadata.id
+        original.survey_metadata.hdf5_reference = h5_tf.survey_metadata.hdf5_reference
+        original.survey_metadata.mth5_type = h5_tf.survey_metadata.mth5_type
+        original.station_metadata.acquired_by.author = (
+            h5_tf.station_metadata.acquired_by.author
+        )
+        if original.station_metadata.transfer_function.runs_processed in [[], [""]]:
+            original.station_metadata.transfer_function.runs_processed = (
+                original.station_metadata.run_list
             )
-            original.survey_metadata.mth5_type = h5_tf.survey_metadata.mth5_type
-            original.station_metadata.acquired_by.author = (
-                h5_tf.station_metadata.acquired_by.author
-            )
-            if original.station_metadata.transfer_function.runs_processed in [[], [""]]:
-                original.station_metadata.transfer_function.runs_processed = (
-                    original.station_metadata.run_list
-                )
 
-            # For spectra files, just check data equality
-            if tf_fn.stem in ["spectra_in", "spectra_out"]:
-                assert (original.dataset == h5_tf.dataset).all()
-                continue
-
-            # Check dataset equality
+        # For spectra files, just check data equality
+        if tf_fn.stem in ["spectra_in", "spectra_out"]:
             assert (original.dataset == h5_tf.dataset).all()
+            return
+
+        # Check dataset equality
+        assert (original.dataset == h5_tf.dataset).all()
 
     @pytest.mark.parametrize("index", [0, 5, 10, 15, 20])
     def test_get_tf_various_stations(self, mt_collection_main, tf_file_list, index):

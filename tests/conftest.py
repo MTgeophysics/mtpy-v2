@@ -11,6 +11,12 @@ Created on December 22, 2025
 # =============================================================================
 # Imports
 # =============================================================================
+import os
+
+
+# Disable HDF5 file locking early to avoid Windows lock errors in cache builds
+os.environ.setdefault("HDF5_USE_FILE_LOCKING", "FALSE")
+
 import numpy as np
 import pytest
 from mt_metadata import TF_EDI_CGG
@@ -238,6 +244,7 @@ def pytest_collection_modifyitems(config, items):
 import os
 import shutil
 import tempfile
+import time
 from pathlib import Path
 
 from loguru import logger
@@ -246,6 +253,9 @@ from mth5.helpers import close_open_files
 from mtpy.core.mt_collection import MTCollection
 from mtpy.core.mt_data import MTData
 
+
+# Avoid HDF5 file locking on Windows to reduce cache creation failures
+os.environ.setdefault("HDF5_USE_FILE_LOCKING", "FALSE")
 
 # Global cache directory - persists across test sessions
 _DEFAULT_CACHE_DIR = Path.home() / "mtpy_v2_test_cache"
@@ -320,9 +330,18 @@ def create_cached_mt_collection(collection_name, setup_func, force_recreate=Fals
         logger.info(f"Cached MTCollection created: {cache_path}")
     except Exception as e:
         logger.warning(f"Failed to create cache: {e}")
+
+        # If cache already exists but was locked, return it instead of failing
+        if cache_path.exists():
+            logger.warning(
+                f"Using existing cached file despite creation failure: {cache_path}"
+            )
+            return cache_path
+
         # If temp_file was created, return it as fallback
         if temp_file and temp_file.exists():
             return temp_file
+
         # Otherwise raise the error
         raise
     finally:
@@ -464,6 +483,85 @@ def create_worker_copy(cache_path: Path, worker_id: str, target_dir: Path) -> Pa
     return worker_path
 
 
+def get_worker_collection_file(
+    collection_name: str,
+    setup_func,
+    worker_id: str,
+    session_temp_dir: Path,
+):
+    """Return a worker-local MTCollection file using cached source when available.
+
+    Prefers the controller-built cache (fast copy). Falls back to building a
+    worker-local file if the cache is missing.
+    """
+
+    cache_path = GLOBAL_CACHE_DIR / f"{collection_name}_cache.h5"
+    lock_path = GLOBAL_CACHE_DIR / f"{collection_name}.lock"
+
+    # Fast path: cache already present
+    if cache_path.exists():
+        try:
+            return create_worker_copy(cache_path, worker_id, session_temp_dir)
+        except Exception as e:
+            logger.warning(
+                f"Failed to copy cache {cache_path} for worker {worker_id}: {e}"
+            )
+
+    # Slow path: coordinate a single cache build across workers using a lock file
+    GLOBAL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+    acquired_lock = False
+    cache_ready = False
+    start_time = time.time()
+    wait_seconds = 300  # generous to allow first builder to finish
+
+    # Poll for existing cache or try to become the builder
+    while time.time() - start_time < wait_seconds:
+        if cache_path.exists():
+            cache_ready = True
+            break
+
+        try:
+            # os.O_EXCL ensures only one worker creates the lock
+            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.close(fd)
+            acquired_lock = True
+            break
+        except FileExistsError:
+            time.sleep(1.0)
+
+    if acquired_lock:
+        try:
+            close_open_files()
+            created = create_cached_mt_collection(collection_name, setup_func)
+            cache_ready = created.exists()
+        finally:
+            try:
+                lock_path.unlink()
+            except FileNotFoundError:
+                pass
+
+    if cache_ready and cache_path.exists():
+        try:
+            return create_worker_copy(cache_path, worker_id, session_temp_dir)
+        except Exception as e:
+            logger.warning(
+                f"Failed to copy cache {cache_path} for worker {worker_id} after build: {e}"
+            )
+
+    # If a stale lock blocked us and no cache is ready, clear it before fallback
+    if not cache_ready and not acquired_lock and lock_path.exists():
+        try:
+            lock_path.unlink()
+        except Exception:
+            pass
+
+    # Cache unavailable or copy failed — build a worker-local file
+    close_open_files()
+    safe_name = f"{collection_name}_{worker_id}"
+    return setup_func(session_temp_dir, safe_name)
+
+
 # Session-scoped fixtures for MTCollection testing
 
 
@@ -494,24 +592,9 @@ def mt_collection_main_cache(worker_id, session_temp_dir):
     Creates the collection once per worker session directly in the temp directory,
     avoiding global cache to prevent HDF5 file locking issues on Windows.
     """
-    import time
-
-    from mth5.helpers import close_open_files
-
-    # Use original test collection name for compatibility
-    collection_name = "test_collection_main"
-    expected_file = session_temp_dir / f"{collection_name}.h5"
-
-    # Delete existing file if present to avoid accumulation
-    if expected_file.exists():
-        expected_file.unlink()
-
-    # Close any lingering HDF5 file handles
-    close_open_files()
-    time.sleep(0.1)  # Small delay to ensure file handles are released
-
-    # Create the collection directly in worker temp dir
-    worker_file = setup_main_collection(session_temp_dir, collection_name)
+    worker_file = get_worker_collection_file(
+        "mt_collection_main", setup_main_collection, worker_id, session_temp_dir
+    )
 
     yield worker_file
 
@@ -519,22 +602,11 @@ def mt_collection_main_cache(worker_id, session_temp_dir):
 @pytest.fixture(scope="session")
 def mt_collection_with_survey_cache(worker_id, session_temp_dir):
     """Session-scoped fixture for MTCollection created from MTData with survey."""
-    import time
-
-    from mth5.helpers import close_open_files
-
-    collection_name = f"mt_collection_with_survey_{worker_id}"
-    expected_file = session_temp_dir / f"{collection_name}.h5"
-
-    # Delete existing file if present to avoid accumulation
-    if expected_file.exists():
-        expected_file.unlink()
-
-    close_open_files()
-    time.sleep(0.1)
-
-    worker_file = setup_collection_from_mt_data_with_survey(
-        session_temp_dir, collection_name
+    worker_file = get_worker_collection_file(
+        "mt_collection_with_survey",
+        setup_collection_from_mt_data_with_survey,
+        worker_id,
+        session_temp_dir,
     )
 
     yield worker_file
@@ -543,22 +615,11 @@ def mt_collection_with_survey_cache(worker_id, session_temp_dir):
 @pytest.fixture(scope="session")
 def mt_collection_new_survey_cache(worker_id, session_temp_dir):
     """Session-scoped fixture for MTCollection with new_survey and tf_id_extra."""
-    import time
-
-    from mth5.helpers import close_open_files
-
-    collection_name = f"mt_collection_new_survey_{worker_id}"
-    expected_file = session_temp_dir / f"{collection_name}.h5"
-
-    # Delete existing file if present to avoid accumulation
-    if expected_file.exists():
-        expected_file.unlink()
-
-    close_open_files()
-    time.sleep(0.1)
-
-    worker_file = setup_collection_from_mt_data_new_survey(
-        session_temp_dir, collection_name
+    worker_file = get_worker_collection_file(
+        "mt_collection_new_survey",
+        setup_collection_from_mt_data_new_survey,
+        worker_id,
+        session_temp_dir,
     )
 
     yield worker_file
@@ -567,21 +628,12 @@ def mt_collection_new_survey_cache(worker_id, session_temp_dir):
 @pytest.fixture(scope="session")
 def mt_collection_add_tf_cache(worker_id, session_temp_dir):
     """Session-scoped fixture for MTCollection created using add_tf method."""
-    import time
-
-    from mth5.helpers import close_open_files
-
-    collection_name = f"mt_collection_add_tf_{worker_id}"
-    expected_file = session_temp_dir / f"{collection_name}.h5"
-
-    # Delete existing file if present to avoid accumulation
-    if expected_file.exists():
-        expected_file.unlink()
-
-    close_open_files()
-    time.sleep(0.1)
-
-    worker_file = setup_collection_add_tf_method(session_temp_dir, collection_name)
+    worker_file = get_worker_collection_file(
+        "mt_collection_add_tf",
+        setup_collection_add_tf_method,
+        worker_id,
+        session_temp_dir,
+    )
 
     yield worker_file
 
@@ -685,12 +737,27 @@ def pytest_sessionstart(session):
     """Called before the test session starts."""
     logger.info("MTpy-v2 Test Session Starting - Initializing cache...")
 
+    # When running under pytest-xdist workers, skip global cache creation to
+    # prevent multiple processes from writing/locking the same file.
+    if hasattr(session.config, "workerinput"):
+        logger.info("Skipping cache pre-population on xdist worker")
+        return
+
     # Pre-create the most commonly used cache files
     try:
         logger.info(
             "Pre-populating MTCollection cache (this may take a few minutes on first run)..."
         )
         create_cached_mt_collection("mt_collection_main", setup_main_collection)
+        create_cached_mt_collection(
+            "mt_collection_with_survey", setup_collection_from_mt_data_with_survey
+        )
+        create_cached_mt_collection(
+            "mt_collection_new_survey", setup_collection_from_mt_data_new_survey
+        )
+        create_cached_mt_collection(
+            "mt_collection_add_tf", setup_collection_add_tf_method
+        )
         logger.info("Cache pre-population completed successfully")
     except Exception as e:
         logger.warning(f"Failed to pre-populate cache: {e}")
