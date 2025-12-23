@@ -48,23 +48,41 @@ import mtpy.utils.calculator as MTcc
 # =============================================================================
 
 
-def find_distortion(z_object, comp="det", only_2d=False, clockwise=True):
-    """Find optimal distortion tensor from z object
+def find_distortion(
+    z_object,
+    comp: str = "det",
+    only_2d: bool = False,
+    clockwise: bool = True,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Find optimal distortion tensor from impedance tensor object.
 
-    automatically determine the dimensionality over all frequencies, then find
+    Automatically determine the dimensionality over all frequencies, then find
     the appropriate distortion tensor D.
-    :param only_2d:
-        Defaults to False.
-    :param comp:
-        Defaults to "det".
-    :param z_object:
 
-    Examples:
+    Parameters
+    ----------
+    z_object : mtpy.core.transfer_function.z.Z
+        Impedance tensor object
+    comp : str, optional
+        Component for gain calculation ("det", "01", or "10"), by default "det"
+    only_2d : bool, optional
+        If True, treat 1D as non-distorted (set to dimension 4), by default False
+    clockwise : bool, optional
+        Rotation direction for strike angle, by default True
 
-            :Estimate Distortion: ::
+    Returns
+    -------
+    dis_avg : np.ndarray
+        Average distortion tensor (2, 2)
+    dis_avg_error : np.ndarray
+        Average distortion tensor error (2, 2)
 
-                >>> import mtpy.analysis.distortion as distortion
-                >>> dis, dis_error = distortion.find_distortion(z_object, num_freq=12)
+    Examples
+    --------
+    >>> import mtpy.analysis.distortion as distortion
+    >>> dis, dis_error = distortion.find_distortion(z_object, num_freq=12)
+
     """
 
     st_array = -1 * z_object.phase_tensor.azimuth
@@ -328,30 +346,45 @@ def find_distortion(z_object, comp="det", only_2d=False, clockwise=True):
 
 
 def remove_distortion_from_z_object(
-    z_object, distortion_tensor, distortion_error_tensor=None, logger=None
-):
-    """Remove distortion D form an observed impedance tensor Z to obtain
-    the uperturbed "correct" Z0:
-    Z = D * Z0
+    z_object,
+    distortion_tensor: np.ndarray,
+    distortion_error_tensor: np.ndarray | None = None,
+    logger=None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Remove distortion D from an observed impedance tensor Z to obtain Z0.
 
-    units should be in MT units of mV/km/nT
+    The relationship is Z = D * Z0, where Z0 is the unperturbed impedance.
+    Units should be in MT units of mV/km/nT.
 
-    Propagation of errors/uncertainties included
-    :param logger:
-        Defaults to None.
-    :param z_object:
-    :param distortion_tensor: Real distortion tensor as a 2x2.
-    :type distortion_tensor: np.ndarray(2, 2, dtype=real)
-    :param distortion_error_tensor:, defaults to None.
-    :type distortion_error_tensor: np.ndarray(2, 2, dtype=real),, optional
-    :param inplace: Update the current object or return a new impedance.
-    :type inplace: boolean
-    :return s: Input distortion tensor.
-    :rtype s: np.ndarray(2, 2, dtype='real')
-    :return s: Impedance tensor with distorion removed.
-    :rtype s: np.ndarray(num_frequency, 2, 2, dtype='complex')
-    :return s: Impedance tensor error after distortion is removed.
-    :rtype s: np.ndarray(num_frequency, 2, 2, dtype='complex')
+    Parameters
+    ----------
+    z_object : mtpy.core.transfer_function.z.Z
+        Impedance tensor object
+    distortion_tensor : np.ndarray
+        Real distortion tensor with shape (2, 2)
+    distortion_error_tensor : np.ndarray or None, optional
+        Real distortion tensor error with shape (2, 2), by default None
+    logger : logging.Logger or None, optional
+        Logger for messages, by default None
+
+    Returns
+    -------
+    z_corrected : np.ndarray
+        Impedance tensor with distortion removed, shape (num_frequency, 2, 2)
+    z_corrected_error : np.ndarray
+        Impedance tensor error after distortion is removed,
+        shape (num_frequency, 2, 2)
+
+    Raises
+    ------
+    ValueError
+        If distortion tensor has incorrect shape or is singular
+
+    Notes
+    -----
+    Propagation of errors/uncertainties is included in the calculation.
+
     """
 
     if distortion_error_tensor is None:
