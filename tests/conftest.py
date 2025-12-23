@@ -257,11 +257,20 @@ def get_tf_file_list():
     import mt_metadata
 
     # Get TF files from mt_metadata module attributes
-    tf_list = [
+    raw_tf_list = [
         value for key, value in mt_metadata.__dict__.items() if key.startswith("TF")
     ]
 
-    return sorted(tf_list)
+    # Deduplicate by normalized path to prevent repeated additions
+    unique_paths = []
+    seen = set()
+    for path in raw_tf_list:
+        norm = Path(path).resolve()
+        if norm not in seen:
+            seen.add(norm)
+            unique_paths.append(path)
+
+    return sorted(unique_paths)
 
 
 def create_cached_mt_collection(collection_name, setup_func, force_recreate=False):
@@ -491,6 +500,11 @@ def mt_collection_main_cache(worker_id, session_temp_dir):
 
     # Use original test collection name for compatibility
     collection_name = "test_collection_main"
+    expected_file = session_temp_dir / f"{collection_name}.h5"
+
+    # Delete existing file if present to avoid accumulation
+    if expected_file.exists():
+        expected_file.unlink()
 
     # Close any lingering HDF5 file handles
     close_open_files()
@@ -510,6 +524,11 @@ def mt_collection_with_survey_cache(worker_id, session_temp_dir):
     from mth5.helpers import close_open_files
 
     collection_name = f"mt_collection_with_survey_{worker_id}"
+    expected_file = session_temp_dir / f"{collection_name}.h5"
+
+    # Delete existing file if present to avoid accumulation
+    if expected_file.exists():
+        expected_file.unlink()
 
     close_open_files()
     time.sleep(0.1)
@@ -529,6 +548,11 @@ def mt_collection_new_survey_cache(worker_id, session_temp_dir):
     from mth5.helpers import close_open_files
 
     collection_name = f"mt_collection_new_survey_{worker_id}"
+    expected_file = session_temp_dir / f"{collection_name}.h5"
+
+    # Delete existing file if present to avoid accumulation
+    if expected_file.exists():
+        expected_file.unlink()
 
     close_open_files()
     time.sleep(0.1)
@@ -548,6 +572,11 @@ def mt_collection_add_tf_cache(worker_id, session_temp_dir):
     from mth5.helpers import close_open_files
 
     collection_name = f"mt_collection_add_tf_{worker_id}"
+    expected_file = session_temp_dir / f"{collection_name}.h5"
+
+    # Delete existing file if present to avoid accumulation
+    if expected_file.exists():
+        expected_file.unlink()
 
     close_open_files()
     time.sleep(0.1)
@@ -585,7 +614,7 @@ def mt_collection_from_mt_data_with_survey(mt_collection_with_survey_cache):
     """Function-scoped fixture for MTCollection with survey."""
     mc = MTCollection()
     mc.working_directory = mt_collection_with_survey_cache.parent
-    mc.open_collection(mt_collection_with_survey_cache.stem, mode="a")
+    mc.open_collection(mt_collection_with_survey_cache.stem, mode="r")
 
     yield mc, None
 
@@ -600,7 +629,7 @@ def mt_collection_from_mt_data_new_survey(mt_collection_new_survey_cache):
     """Function-scoped fixture for MTCollection with new_survey."""
     mc = MTCollection()
     mc.working_directory = mt_collection_new_survey_cache.parent
-    mc.open_collection(mt_collection_new_survey_cache.stem, mode="a")
+    mc.open_collection(mt_collection_new_survey_cache.stem, mode="r")
 
     yield mc, None
 
@@ -615,7 +644,7 @@ def mt_collection_add_tf_method(mt_collection_add_tf_cache):
     """Function-scoped fixture for MTCollection created with add_tf."""
     mc = MTCollection()
     mc.working_directory = mt_collection_add_tf_cache.parent
-    mc.open_collection(mt_collection_add_tf_cache.stem, mode="a")
+    mc.open_collection(mt_collection_add_tf_cache.stem, mode="r")
 
     yield mc, None
 
