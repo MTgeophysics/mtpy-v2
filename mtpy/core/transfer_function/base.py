@@ -14,6 +14,7 @@ Updated 11/2020 for logging and formating (J. Peacock).
 # Imports
 # =============================================================================
 from copy import deepcopy
+from typing import Any
 
 import numpy as np
 import scipy.interpolate
@@ -27,18 +28,34 @@ from mtpy.utils.calculator import rotate_matrix_with_errors, rotate_vector_with_
 # Impedance Tensor Class
 # ==============================================================================
 class TFBase:
-    """Generic transfer function object that uses xarray as its base container
-    for the data.
+    """
+    Generic transfer function object.
+
+    Uses xarray as its base container for the data.
+
+    Parameters
+    ----------
+    tf : np.ndarray, optional
+        Transfer function array, by default None
+    tf_error : np.ndarray, optional
+        Transfer function error array, by default None
+    frequency : np.ndarray, optional
+        Frequency array, by default None
+    tf_model_error : np.ndarray, optional
+        Transfer function model error array, by default None
+    **kwargs : Any
+        Additional keyword arguments
+
     """
 
     def __init__(
         self,
-        tf=None,
-        tf_error=None,
-        frequency=None,
-        tf_model_error=None,
-        **kwargs,
-    ):
+        tf: np.ndarray | None = None,
+        tf_error: np.ndarray | None = None,
+        frequency: np.ndarray | None = None,
+        tf_model_error: np.ndarray | None = None,
+        **kwargs: Any,
+    ) -> None:
         self.logger = logger
         self.rotation_angle = 0.0
         self.inputs = ["x", "y"]
@@ -64,8 +81,8 @@ class TFBase:
             tf_model_error=tf_model_error,
         )
 
-    def __str__(self):
-        """Str function."""
+    def __str__(self) -> str:
+        """String representation."""
         lines = [f"Transfer Function {self._name}", "-" * 30]
         if self.frequency is not None:
             lines.append(f"\tNumber of periods:  {self.frequency.size}")
@@ -85,12 +102,12 @@ class TFBase:
             )
         return "\n".join(lines)
 
-    def __repr__(self):
-        """Repr function."""
+    def __repr__(self) -> str:
+        """Representation function."""
         return self.__str__()
 
-    def __eq__(self, other):
-        """Eq function."""
+    def __eq__(self, other: Any) -> bool:
+        """Equality comparison."""
         if not isinstance(other, TFBase):
             msg = f"Cannot compare {type(other)} with TFBase"
             self.logger.error(msg)
@@ -110,8 +127,8 @@ class TFBase:
                     return False
         return True
 
-    def __deepcopy__(self, memo):
-        """Deepcopy function."""
+    def __deepcopy__(self, memo: dict) -> "TFBase":
+        """Deep copy function."""
         cls = self.__class__
         result = cls.__new__(cls)
         memo[id(self)] = result
@@ -122,12 +139,37 @@ class TFBase:
             setattr(result, k, deepcopy(v, memo))
         return result
 
-    def copy(self):
-        """Copy function."""
+    def copy(self) -> "TFBase":
+        """Copy the object."""
         return deepcopy(self)
 
-    def _initialize(self, periods=[1], tf=None, tf_error=None, tf_model_error=None):
-        """Initialized based on input channels, output channels and period."""
+    def _initialize(
+        self,
+        periods: np.ndarray | list = [1],
+        tf: np.ndarray | None = None,
+        tf_error: np.ndarray | None = None,
+        tf_model_error: np.ndarray | None = None,
+    ) -> xr.Dataset:
+        """
+        Initialize xarray Dataset based on input channels, output channels and period.
+
+        Parameters
+        ----------
+        periods : np.ndarray or list, optional
+            Array of periods, by default [1]
+        tf : np.ndarray, optional
+            Transfer function array, by default None
+        tf_error : np.ndarray, optional
+            Transfer function error array, by default None
+        tf_model_error : np.ndarray, optional
+            Transfer function model error array, by default None
+
+        Returns
+        -------
+        xr.Dataset
+            Initialized xarray Dataset
+
+        """
 
         if tf is not None:
             tf = self._validate_array_input(tf, self._tf_dtypes["tf"])
@@ -219,10 +261,15 @@ class TFBase:
             },
         )
 
-    def _is_empty(self):
-        """Check to see if the data set is empty, default settings.
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def _is_empty(self) -> bool:
+        """
+        Check if the dataset is empty.
+
+        Returns
+        -------
+        bool
+            True if dataset is empty, False otherwise
+
         """
         if self._dataset is None:
             return True
@@ -239,43 +286,53 @@ class TFBase:
 
         return False
 
-    def _has_tf(self):
-        """Has tf."""
+    def _has_tf(self) -> bool:
+        """Check if transfer function exists."""
         return not (self._dataset.transfer_function.values == 0).all()
 
-    def _has_tf_error(self):
-        """Has tf error."""
+    def _has_tf_error(self) -> bool:
+        """Check if transfer function error exists."""
         return not (self._dataset.transfer_function_error.values == 0).all()
 
-    def _has_tf_model_error(self):
-        """Has tf model error."""
+    def _has_tf_model_error(self) -> bool:
+        """Check if transfer function model error exists."""
         return not (self._dataset.transfer_function_model_error.values == 0).all()
 
-    def _has_frequency(self):
-        """Has frequency."""
+    def _has_frequency(self) -> bool:
+        """Check if frequency exists."""
         if (self._dataset.coords["period"].values == np.array([1])).all():
             return False
         return True
 
     @property
-    def comps(self):
-        """Comps function."""
+    def comps(self) -> dict[str, list[str]]:
+        """Component dictionary with input and output channels."""
         return dict(input=self.inputs, output=self.outputs)
 
     # ---frequencyuency-------------------------------------------------------------
     @property
-    def frequency(self):
-        """Frequencyuencies for each impedance tensor element
+    def frequency(self) -> np.ndarray:
+        """
+        Frequencies for each impedance tensor element.
 
-        Units are Hz..
+        Returns
+        -------
+        np.ndarray
+            Frequency array in Hz
+
         """
         return 1.0 / self._dataset.period.values
 
     @frequency.setter
-    def frequency(self, frequency):
-        """Set the array of frequency.
-        :param frequency: Array of frequencyunecies (Hz).
-        :type frequency: np.ndarray
+    def frequency(self, frequency: np.ndarray | list | None) -> None:
+        """
+        Set the array of frequency.
+
+        Parameters
+        ----------
+        frequency : np.ndarray or list or None
+            Array of frequencies (Hz)
+
         """
 
         if frequency is None:
@@ -293,27 +350,49 @@ class TFBase:
             self._dataset = self._dataset.assign_coords({"period": 1.0 / frequency})
 
     @property
-    def period(self):
+    def period(self) -> np.ndarray:
         """Periods in seconds."""
 
         return 1.0 / self.frequency
 
     @period.setter
-    def period(self, value):
-        """Setting periods will set the frequencyuencies."""
+    def period(self, value: np.ndarray | list) -> None:
+        """Set periods (will set the frequencies)."""
 
         self.frequency = 1.0 / value
 
     @property
-    def n_periods(self):
-        """N periods."""
+    def n_periods(self) -> int:
+        """Number of periods."""
         if self._is_empty():
             return 0
 
         return self.period.size
 
-    def _validate_frequency(self, frequency, n_frequencies=None):
-        """Validate frequency."""
+    def _validate_frequency(
+        self, frequency: np.ndarray | list | None, n_frequencies: int | None = None
+    ) -> np.ndarray:
+        """
+        Validate frequency array.
+
+        Parameters
+        ----------
+        frequency : np.ndarray or list or None
+            Frequency array to validate
+        n_frequencies : int, optional
+            Expected number of frequencies, by default None
+
+        Returns
+        -------
+        np.ndarray
+            Validated frequency array
+
+        Raises
+        ------
+        ValueError
+            If frequency array size doesn't match expected size
+
+        """
 
         if frequency is None:
             return np.array([1])
@@ -336,18 +415,34 @@ class TFBase:
 
         return frequency
 
-    def _validate_array_input(self, tf_array, expected_dtype, old_shape=None):
-        """Validate an input impedance array.
-        :param old_shape:
-            Defaults to None.
-        :param expected_dtype:
-        :param tf_array:
-        :param array: DESCRIPTION.
-        :type array: TYPE
-        :param dtype: DESCRIPTION.
-        :type dtype: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def _validate_array_input(
+        self,
+        tf_array: np.ndarray | list | float | int | complex | None,
+        expected_dtype: type,
+        old_shape: tuple | None = None,
+    ) -> np.ndarray | None:
+        """
+        Validate an input transfer function array.
+
+        Parameters
+        ----------
+        tf_array : np.ndarray or array-like or None
+            Transfer function array to validate
+        expected_dtype : type
+            Expected data type (complex or float)
+        old_shape : tuple, optional
+            Expected shape to validate against, by default None
+
+        Returns
+        -------
+        np.ndarray or None
+            Validated array
+
+        Raises
+        ------
+        ValueError
+            If array shape is incorrect
+
         """
 
         if tf_array is None:
@@ -400,15 +495,22 @@ class TFBase:
             self.logger.error(msg)
             raise ValueError(msg)
 
-    def _validate_array_shape(self, array, expected_shape):
-        """Check array for expected shape.
-        :param array: DESCRIPTION.
-        :type array: TYPE
-        :param expected_shape: DESCRIPTION.
-        :type expected_shape: TYPE
-        :raises ValueError: DESCRIPTION.
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def _validate_array_shape(self, array: np.ndarray, expected_shape: tuple) -> None:
+        """
+        Check array for expected shape.
+
+        Parameters
+        ----------
+        array : np.ndarray
+            Array to validate
+        expected_shape : tuple
+            Expected shape
+
+        Raises
+        ------
+        ValueError
+            If array shape doesn't match expected shape
+
         """
         # check to see if the new z array is the same shape as the old
         if array.shape != expected_shape:
@@ -421,13 +523,25 @@ class TFBase:
             self.logger.error(msg)
             raise ValueError(msg)
 
-    def _validate_real_valued(self, array):
-        """Make sure resistivity is real valued.
-        :param array:
-        :param res: DESCRIPTION.
-        :type res: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def _validate_real_valued(self, array: np.ndarray) -> np.ndarray:
+        """
+        Ensure array is real valued.
+
+        Parameters
+        ----------
+        array : np.ndarray
+            Array to validate
+
+        Returns
+        -------
+        np.ndarray
+            Real-valued array
+
+        Raises
+        ------
+        ValueError
+            If array is not real valued
+
         """
         # assert real array:
         if np.linalg.norm(np.imag(array)) != 0:
@@ -437,10 +551,24 @@ class TFBase:
         return array
 
     @property
-    def inverse(self):
-        """Return the inverse of transfer function.
+    def inverse(self) -> xr.Dataset:
+        """
+        Return the inverse of transfer function.
 
-        (no error propagtaion included yet)
+        Returns
+        -------
+        xr.Dataset
+            Inverted transfer function dataset
+
+        Raises
+        ------
+        ValueError
+            If transfer function is a singular matrix
+
+        Notes
+        -----
+        No error propagation included yet.
+
         """
 
         if self.has_tf():
@@ -454,41 +582,49 @@ class TFBase:
 
             return inverse
 
-    def rotate(self, alpha, inplace=False, coordinate_reference_frame="ned"):
-        """Rotate transfer function array by angle alpha.
+    def rotate(
+        self,
+        alpha: float | int | str | list | tuple | np.ndarray,
+        inplace: bool = False,
+        coordinate_reference_frame: str = "ned",
+    ) -> "TFBase" | None:
+        """
+        Rotate transfer function array by angle alpha.
 
         Rotation angle must be given in degrees. All angles are referenced
         to the `coordinate_reference_frame` where the rotation angle is
         clockwise positive, rotating North into East.
 
-        Most transfer functions are referenced an NED coordinate system, which
-        is what MTpy uses as the default.
+        Most transfer functions are referenced to an NED coordinate system,
+        which is what MTpy uses as the default.
 
         In the NED coordinate system:
-
-        x=North, y=East, z=+down and a positve clockwise rotation is a positive
-        angle. In this coordinate system the rotation matrix is the
-        conventional rotation matrix.
+            x=North, y=East, z=+down and a positive clockwise rotation is a
+            positive angle. In this coordinate system the rotation matrix is
+            the conventional rotation matrix.
 
         In the ENU coordinate system:
+            x=East, y=North, z=+up and a positive clockwise rotation is a
+            positive angle. In this coordinate system the rotation matrix is
+            the inverse of the conventional rotation matrix.
 
-        x=East, y=North, z=+up and a positve clockwise rotation is a positive
-        angle. In this coordinate system the rotation matrix is the
-        inverser of the conventional rotation matrix.
+        Parameters
+        ----------
+        alpha : float or int or str or array-like
+            Angle to rotate by assuming a clockwise rotation from north in
+            the `coordinate_reference_frame` (in degrees)
+        inplace : bool, optional
+            Rotate in place. Will add alpha to `rotation_angle`, by default False
+        coordinate_reference_frame : str, optional
+            Coordinate reference frame. If set to 'ned' or '+' then the rotation
+            will be clockwise from north (x1). If set to 'enu' or '-' then
+            rotation will be counter-clockwise, by default 'ned'
 
-        :param alpha: Angle to rotate by assuming a clockwise rotation from
-         north in the `coordinate_reference_frame`
-        :type alpha: float (in degrees)
-        :param inplace: rotate in place. Will add alpha to `rotation_angle`
-        :type inplace: bool
-        :param coordinate_reference_frame: If set to `ned` or `+` then the
-         rotation will be clockwise from north (x1).  Therefore, a positive
-         angle will rotate eastward and a negative angle will rotate westward.
-         If set to `enu` or `-` then rotation will be counter-clockwise in a
-         coordinate system of (x1, x2). The angle is then positive from x1 to
-         x2.
-        :return: rotated transfer function if `inplace` is False
-        :rtype: xarray.DataSet
+        Returns
+        -------
+        TFBase or None
+            Rotated transfer function if `inplace` is False, None otherwise
+
         """
 
         if not self._has_tf():
@@ -497,14 +633,14 @@ class TFBase:
             )
             return
 
-        def get_rotate_function(shape):
+        def get_rotate_function(shape: tuple) -> callable:
             """Get rotate function."""
             if shape[0] == 2:
                 return rotate_matrix_with_errors
             elif shape[0] == 1:
                 return rotate_vector_with_errors
 
-        def validate_angle(self, angle):
+        def validate_angle(self, angle: float | int | str) -> float:
             """Validate angle to be a valid float."""
             try:
                 return float(angle % 360)
@@ -513,7 +649,7 @@ class TFBase:
                 self.logger.error(msg)
                 raise ValueError(msg)
 
-        def get_clockwise(coordinate_reference_frame):
+        def get_clockwise(coordinate_reference_frame: str) -> bool:
             if coordinate_reference_frame.lower() in ["ned", "+"]:
                 return True
             elif coordinate_reference_frame.lower() in ["enu", "-"]:
@@ -803,7 +939,7 @@ class TFBase:
         y: np.ndarray,
         method: str,
         extrapolate: bool = False,
-        **kwargs,
+        **kwargs: Any,
     ) -> (
         scipy.interpolate.InterpolatedUnivariateSpline
         | scipy.interpolate.PchipInterpolator
@@ -811,21 +947,33 @@ class TFBase:
         | scipy.interpolate.CubicSpline
         | scipy.interpolate.interp1d
     ):
-        """Create a scipy interpolator based on the specified method.
+        """
+        Create a scipy interpolator based on the specified method.
 
-        :param x: x values (periods)
-        :param y: y values (data)
-        :param method: interpolation method, options are
-         - "linear"
-         - "cubic"
-         - "nearest"
-         - "slinear"
-         - "pchip"
-         - "spline"
-         - "akima"
-         - "polynomial"
-        :param kwargs: additional arguments for interpolator
-        :return: interpolation function
+        Parameters
+        ----------
+        x : np.ndarray
+            X values (periods)
+        y : np.ndarray
+            Y values (data)
+        method : str
+            Interpolation method: 'linear', 'cubic', 'nearest', 'slinear',
+            'pchip', 'spline', 'akima', or 'polynomial'
+        extrapolate : bool, optional
+            Whether to extrapolate beyond data range, by default False
+        **kwargs : Any
+            Additional arguments for interpolator
+
+        Returns
+        -------
+        interpolation function
+            Scipy interpolation function
+
+        Raises
+        ------
+        ValueError
+            If interpolation method is not supported
+
         """
 
         # Ensure x and y are numpy arrays
@@ -888,37 +1036,64 @@ class TFBase:
                 "pchip, spline, akima, polynomial."
             )
 
-    def to_xarray(self):
-        """To an xarray dataset.
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def to_xarray(self) -> xr.Dataset:
+        """
+        Convert to an xarray dataset.
+
+        Returns
+        -------
+        xr.Dataset
+            The internal dataset
+
         """
 
         return self._dataset
 
-    def from_xarray(self, dataset):
-        """Fill from an xarray dataset.
-        :param dataset: DESCRIPTION.
-        :type dataset: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def from_xarray(self, dataset: xr.Dataset) -> None:
+        """
+        Fill from an xarray dataset.
+
+        Parameters
+        ----------
+        dataset : xr.Dataset
+            XArray dataset to load
+
+        Notes
+        -----
+        Probably needs more validation than currently implemented.
+
         """
 
         ## Probably need more validation than this
         if isinstance(dataset, xr.Dataset):
             self._dataset = dataset
 
-    def to_dataframe(self):
-        """Return a pandas dataframe with the appropriate columns as a single
-        index, or multi-index?
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def to_dataframe(self) -> Any:
+        """
+        Return a pandas dataframe.
+
+        Returns
+        -------
+        Any
+            Pandas dataframe with appropriate columns
+
+        Notes
+        -----
+        Not yet implemented.
+
         """
 
-    def from_dataframe(self, dataframe):
-        """Fill from a pandas dataframe with the appropriate columns.
-        :param dataframe: DESCRIPTION.
-        :type dataframe: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def from_dataframe(self, dataframe: Any) -> None:
+        """
+        Fill from a pandas dataframe.
+
+        Parameters
+        ----------
+        dataframe : Any
+            Pandas dataframe with appropriate columns
+
+        Notes
+        -----
+        Not yet implemented.
+
         """
