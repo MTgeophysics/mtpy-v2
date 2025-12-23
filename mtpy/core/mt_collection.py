@@ -13,6 +13,8 @@ Created on Mon Jan 11 15:36:38 2021
 # =============================================================================
 # Imports
 # =============================================================================
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Any
 

@@ -8,6 +8,8 @@ Created on Sun Oct  2 13:20:28 2022
 # =============================================================================
 # Imports
 # =============================================================================
+from __future__ import annotations
+
 from typing import Any
 
 import numpy as np

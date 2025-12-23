@@ -5,6 +5,8 @@ Created on Mon Oct 10 11:58:56 2022
 @author: jpeacock
 """
 
+from __future__ import annotations
+
 from collections import OrderedDict
 from copy import deepcopy
 

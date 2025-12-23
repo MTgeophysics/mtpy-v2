@@ -13,6 +13,8 @@ Updated 11/2020 for logging and formating (J. Peacock).
 # =============================================================================
 # Imports
 # =============================================================================
+from __future__ import annotations
+
 from copy import deepcopy
 from typing import Any
 

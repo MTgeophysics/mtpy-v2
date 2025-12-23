@@ -6,6 +6,8 @@
 .. moduleauthor:: Jared Peacock <jpeacock@usgs.gov>
 """
 
+from __future__ import annotations
+
 from copy import deepcopy
 
 # =============================================================================
