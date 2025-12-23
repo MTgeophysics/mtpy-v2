@@ -594,12 +594,17 @@ def mt_collection_main(mt_collection_main_cache):
     """
     Function-scoped fixture providing an opened MTCollection.
 
-    Use this for read-only tests. The underlying file is session-scoped
-    and worker-safe, but we open a new MTCollection object for each test.
+    Opens in append mode so mth5 can write estimate metadata while keeping
+    the underlying session file worker-safe.
     """
     mc = MTCollection()
     mc.working_directory = mt_collection_main_cache.parent
-    mc.open_collection(mt_collection_main_cache.stem, mode="r")
+    mc.open_collection(mt_collection_main_cache.stem, mode="a")
+
+    # Drop any duplicate transfer functions that can appear from multi-attachment
+    # XML examples so downstream tests see one entry per TF file.
+    if mc.dataframe is not None:
+        mc.working_dataframe = mc.dataframe.drop_duplicates(subset="tf_id")
 
     yield mc
 
@@ -614,7 +619,10 @@ def mt_collection_from_mt_data_with_survey(mt_collection_with_survey_cache):
     """Function-scoped fixture for MTCollection with survey."""
     mc = MTCollection()
     mc.working_directory = mt_collection_with_survey_cache.parent
-    mc.open_collection(mt_collection_with_survey_cache.stem, mode="r")
+    mc.open_collection(mt_collection_with_survey_cache.stem, mode="a")
+
+    if mc.dataframe is not None:
+        mc.working_dataframe = mc.dataframe.drop_duplicates(subset="tf_id")
 
     yield mc, None
 
@@ -629,7 +637,10 @@ def mt_collection_from_mt_data_new_survey(mt_collection_new_survey_cache):
     """Function-scoped fixture for MTCollection with new_survey."""
     mc = MTCollection()
     mc.working_directory = mt_collection_new_survey_cache.parent
-    mc.open_collection(mt_collection_new_survey_cache.stem, mode="r")
+    mc.open_collection(mt_collection_new_survey_cache.stem, mode="a")
+
+    if mc.dataframe is not None:
+        mc.working_dataframe = mc.dataframe.drop_duplicates(subset="tf_id")
 
     yield mc, None
 
@@ -644,7 +655,10 @@ def mt_collection_add_tf_method(mt_collection_add_tf_cache):
     """Function-scoped fixture for MTCollection created with add_tf."""
     mc = MTCollection()
     mc.working_directory = mt_collection_add_tf_cache.parent
-    mc.open_collection(mt_collection_add_tf_cache.stem, mode="r")
+    mc.open_collection(mt_collection_add_tf_cache.stem, mode="a")
+
+    if mc.dataframe is not None:
+        mc.working_dataframe = mc.dataframe.drop_duplicates(subset="tf_id")
 
     yield mc, None
 
