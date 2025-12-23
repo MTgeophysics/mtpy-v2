@@ -51,39 +51,81 @@ def get_tf_file_list():
     ]
 
 
-def create_session_mt_collection(collection_name="test_collection", worker_id="master"):
+def ensure_global_mt_collection_cache():
     """
-    Create a session-scoped MTCollection with worker-safe filename.
+    Ensure global MTCollection cache exists.
 
-    Returns a unique copy for use during the test session.
+    This creates a single cache file that all workers and test sessions share.
+    Returns the path to the global cache file.
     """
-    # Create unique session directory
-    session_dir = tempfile.mkdtemp(prefix=f"mtpy_session_{collection_name}_")
+    cache_name = "test_collection_global.h5"
+    global_cache_path = GLOBAL_CACHE_DIR / cache_name
+
+    if global_cache_path.exists():
+        logger.debug(f"Global MTCollection cache exists: {global_cache_path}")
+        return global_cache_path
+
+    # Create cache directory if needed
+    GLOBAL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+    logger.info("Creating global MTCollection cache...")
+
+    # Create in temporary directory first
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir) / cache_name
+
+        # Create the collection
+        mc = MTCollection()
+        mc.open_collection(temp_path)
+
+        # Add all TF files
+        fn_list = get_tf_file_list()
+        mc.add_tf(fn_list)
+
+        # Close the collection
+        mc.mth5_collection.close_mth5()
+
+        # Copy to global cache
+        try:
+            shutil.copy2(temp_path, global_cache_path)
+            logger.info(f"Global MTCollection cache created: {global_cache_path}")
+        except (OSError, PermissionError) as e:
+            logger.warning(f"Failed to create global cache: {e}")
+            # Return temp path as fallback, though it will be deleted
+            return temp_path
+
+    return global_cache_path
+
+
+def create_session_mt_collection(worker_id="master"):
+    """
+    Create a worker-specific copy of the global MTCollection cache.
+
+    This function copies the global cache to a worker-specific file.
+    Each worker gets its own copy to avoid conflicts.
+    """
+    # Ensure global cache exists (only created once across all workers)
+    global_cache_path = ensure_global_mt_collection_cache()
+
+    # Create unique worker-specific file
+    session_dir = tempfile.mkdtemp(prefix=f"mtpy_worker_{worker_id}_")
     unique_id = str(uuid.uuid4())[:8]
-    session_file = Path(session_dir) / f"{collection_name}_{worker_id}_{unique_id}.h5"
+    session_file = Path(session_dir) / f"test_collection_{worker_id}_{unique_id}.h5"
 
-    # Create the collection
-    mc = MTCollection()
-    mc.open_collection(session_file)
-
-    # Add all TF files
-    fn_list = get_tf_file_list()
-    mc.add_tf(fn_list)
-
-    # Close the collection
-    mc.mth5_collection.close_mth5()
+    # Copy from global cache (much faster than creating from scratch)
+    shutil.copy2(global_cache_path, session_file)
 
     # Track for cleanup
-    _CACHED_COLLECTION_FILES[collection_name] = session_file
+    _CACHED_COLLECTION_FILES[f"{worker_id}_{unique_id}"] = session_file
 
-    logger.debug(f"Created session MTCollection file: {session_file}")
+    logger.debug(f"Created worker copy for {worker_id}: {session_file}")
     return session_file
 
 
 def cleanup_collection_files():
     """Clean up session files and temporary directories."""
     close_open_files()
-    for collection_name, file_path in _CACHED_COLLECTION_FILES.items():
+    for cache_key, file_path in _CACHED_COLLECTION_FILES.items():
         try:
             if file_path.exists():
                 file_path.unlink()
@@ -93,7 +135,7 @@ def cleanup_collection_files():
                 except OSError:
                     pass  # Directory not empty or other error
         except (OSError, PermissionError):
-            logger.warning(f"Failed to cleanup {collection_name} file: {file_path}")
+            logger.warning(f"Failed to cleanup {cache_key} file: {file_path}")
 
 
 atexit.register(cleanup_collection_files)
@@ -466,12 +508,10 @@ def global_mt_collection(worker_id):
     """
     Session-scoped fixture providing a cached MTCollection file.
 
-    This collection is created once per test session and reused by all tests.
-    Safe for read-only operations across multiple tests.
+    This collection uses a global cache shared across all workers and sessions.
+    Each worker gets its own copy to ensure thread-safety.
     """
-    file_path = create_session_mt_collection(
-        collection_name="test_collection", worker_id=worker_id
-    )
+    file_path = create_session_mt_collection(worker_id=worker_id)
     yield file_path
     # Cleanup handled by atexit
 
@@ -773,8 +813,18 @@ def pytest_sessionstart(session):
     Called before the test session starts.
 
     Pre-populate the global cache to ensure best performance.
+    This creates the cache once, and all workers will copy from it.
     """
     logger.info("MTpy-v2 Test Session Starting - Pre-populating global cache...")
+
+    # Pre-create the global MTCollection cache
+    # This happens once for the main process, all workers will copy from it
+    try:
+        ensure_global_mt_collection_cache()
+        logger.info("Global MTCollection cache ready")
+    except Exception as e:
+        logger.warning(f"Failed to pre-populate global cache: {e}")
+        logger.warning("Tests will still work but may be slower on first run")
 
 
 def pytest_sessionfinish(session, exitstatus):
