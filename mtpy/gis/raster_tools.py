@@ -8,6 +8,7 @@ Created on Sun May 11 12:15:37 2014
 # =============================================================================
 # Imports
 # =============================================================================
+from __future__ import annotations
 
 import numpy as np
 import rasterio
@@ -20,30 +21,64 @@ from mtpy.core.mt_location import MTLocation
 
 
 def array2raster(
-    raster_fn,
-    array,
-    lower_left,
-    cell_size_north,
-    cell_size_east,
-    crs,
-    rotation_angle=0,
-):
-    """Use rasterio to write raster file.
-    :param rotation_angle:
-        Defaults to 0.
-    :param array:
-    :param raster_fn: DESCRIPTION.
-    :type raster_fn: TYPE
-    :param lower_left: DESCRIPTION.
-    :type lower_left: TYPE
-    :param cell_size_north: DESCRIPTION.
-    :type cell_size_north: TYPE
-    :param cell_size_east: DESCRIPTION.
-    :type cell_size_east: TYPE
-    :param crs: DESCRIPTION.
-    :type crs: TYPE
-    :return: DESCRIPTION.
-    :rtype: TYPE
+    raster_fn: str,
+    array: np.ndarray,
+    lower_left: MTLocation,
+    cell_size_north: float,
+    cell_size_east: float,
+    crs: str | int,
+    rotation_angle: float = 0,
+) -> None:
+    """
+    Write a numpy array to a GeoTIFF raster file using rasterio.
+
+    Parameters
+    ----------
+    raster_fn : str
+        Output raster filename (GeoTIFF format)
+    array : np.ndarray
+        2D numpy array containing the raster data to write
+    lower_left : MTLocation
+        MTLocation object specifying the lower-left corner coordinates
+        of the raster in the target coordinate system
+    cell_size_north : float
+        Cell size in the north (vertical) direction
+    cell_size_east : float
+        Cell size in the east (horizontal) direction
+    crs : str | int
+        Coordinate reference system (CRS) specification.
+        Can be an EPSG code (e.g., 'EPSG:4326') or other CRS string
+    rotation_angle : float, optional
+        Rotation angle in degrees for the raster grid, by default 0
+
+    Raises
+    ------
+    TypeError
+        If lower_left is not an MTLocation object
+    TypeError
+        If array is not a numpy ndarray
+
+    Notes
+    -----
+    The function uses an affine transformation to properly georeference
+    the output raster. The transformation combines translation, scaling,
+    and rotation operations.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from mtpy.core.mt_location import MTLocation
+    >>> data = np.random.rand(100, 100)
+    >>> ll_corner = MTLocation(latitude=40.0, longitude=-120.0, datum='WGS84')
+    >>> array2raster(
+    ...     'output.tif',
+    ...     data,
+    ...     ll_corner,
+    ...     cell_size_north=0.01,
+    ...     cell_size_east=0.01,
+    ...     crs='EPSG:4326'
+    ... )
+
     """
 
     if not isinstance(lower_left, MTLocation):
