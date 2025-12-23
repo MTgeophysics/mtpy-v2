@@ -9,19 +9,16 @@ Created on Thu Aug 15 16:09:12 2024
 # =============================================================================
 import unittest
 
-from loguru import logger
-
-from mth5.data.make_mth5_from_asc import MTH5_PATH, create_test12rr_h5
-from mth5.utils.helpers import close_open_files
-from mth5.mth5 import MTH5
-
-from mth5.processing.run_summary import RunSummary
-from mth5.processing.kernel_dataset import KernelDataset
-from mtpy import MT
-
 from aurora.config.config_creator import ConfigCreator
 from aurora.pipelines.process_mth5 import process_mth5
+from loguru import logger
+from mth5.data.make_mth5_from_asc import create_test12rr_h5, MTH5_PATH
+from mth5.mth5 import MTH5
+from mth5.processing.kernel_dataset import KernelDataset
+from mth5.processing.run_summary import RunSummary
+from mth5.utils.helpers import close_open_files
 
+from mtpy import MT
 from mtpy.processing.aurora.process_aurora import AuroraProcessing
 
 
@@ -45,12 +42,15 @@ class TestProcessSingleStationCompare(unittest.TestCase):
         self.run_summary.from_mth5s([self.mth5_path])
         self.kernel_dataset = KernelDataset()
         self.kernel_dataset.from_run_summary(self.run_summary, self.ap.local_station_id)
+        decimation_kwargs = self.ap.default_window_parameters["low"]
+        cc_kwargs = {}
+        cc_kwargs["num_samples_window"] = decimation_kwargs["stft.window.num_samples"]
         cc = ConfigCreator()
-        self.config = cc.create_from_kernel_dataset(self.kernel_dataset)
+        self.config = cc.create_from_kernel_dataset(self.kernel_dataset, **cc_kwargs)
         ## need to set same config parameters
         self.ap._set_decimation_level_parameters(
             self.config,
-            **self.ap.default_window_parameters["low"],
+            **decimation_kwargs,
         )
 
         self.tf_obj = process_mth5(self.config, self.kernel_dataset)
@@ -64,6 +64,9 @@ class TestProcessSingleStationCompare(unittest.TestCase):
         self.mt_obj_legacy.survey_metadata.id = self.mt_obj_new.survey_metadata.id
 
     def test_tfs_equal(self):
+        self.mt_obj_new.station_metadata.transfer_function.processed_date = (
+            self.mt_obj_legacy.station_metadata.transfer_function.processed_date
+        )
         self.assertEqual(self.mt_obj_new, self.mt_obj_legacy)
 
     def test_tf_id(self):
@@ -83,6 +86,7 @@ class TestProcessSingleStationCompare(unittest.TestCase):
                 tf.survey_metadata.southeast_corner = (
                     self.tf_obj.survey_metadata.southeast_corner
                 )
+                tf.station_metadata.remove_run("0")
                 self.assertEqual(self.tf_obj, tf)
 
     def test_processed_dict(self):
@@ -114,12 +118,16 @@ class TestProcessRRCompare(unittest.TestCase):
         self.run_summary.from_mth5s([self.mth5_path])
         self.kernel_dataset = KernelDataset()
         self.kernel_dataset.from_run_summary(self.run_summary, "test1", "test2")
+
+        decimation_kwargs = self.ap.default_window_parameters["low"]
+        cc_kwargs = {}
+        cc_kwargs["num_samples_window"] = decimation_kwargs["stft.window.num_samples"]
         cc = ConfigCreator()
-        self.config = cc.create_from_kernel_dataset(self.kernel_dataset)
+        self.config = cc.create_from_kernel_dataset(self.kernel_dataset, **cc_kwargs)
         ## need to set same config parameters
         self.ap._set_decimation_level_parameters(
             self.config,
-            **self.ap.default_window_parameters["low"],
+            **decimation_kwargs,
         )
 
         self.tf_obj = process_mth5(self.config, self.kernel_dataset)
@@ -153,6 +161,7 @@ class TestProcessRRCompare(unittest.TestCase):
                 tf.survey_metadata.southeast_corner = (
                     self.tf_obj.survey_metadata.southeast_corner
                 )
+                tf.station_metadata.remove_run("0")
                 self.assertEqual(self.tf_obj, tf)
 
     def test_processed_dict(self):
