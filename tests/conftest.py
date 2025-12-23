@@ -11,23 +11,469 @@ Created on December 22, 2025
 # =============================================================================
 # Imports
 # =============================================================================
+import atexit
 import os
+import shutil
+import tempfile
+import uuid
+from pathlib import Path
 
-
-# Disable HDF5 file locking early to avoid Windows lock errors in cache builds
-os.environ.setdefault("HDF5_USE_FILE_LOCKING", "FALSE")
-
+import mt_metadata
 import numpy as np
+import pandas as pd
 import pytest
+from loguru import logger
 from mt_metadata import TF_EDI_CGG
+from mth5.helpers import close_open_files
 
-from mtpy import MT
+from mtpy import MT, MTCollection, MTData
 from mtpy.core.transfer_function import MT_TO_OHM_FACTOR, Z
+
+
+# =============================================================================
+# Global cache management for MTCollection tests
+# =============================================================================
+
+# Global cache directory - persists across test sessions
+_DEFAULT_CACHE_DIR = Path.home() / "mtpy_v2_global_test_cache"
+
+# Allow override via environment variable
+GLOBAL_CACHE_DIR = Path(os.getenv("MTPY_TEST_CACHE_DIR", _DEFAULT_CACHE_DIR))
+
+# Track cached files for cleanup
+_CACHED_COLLECTION_FILES = {}
+
+
+def get_tf_file_list():
+    """Get list of all TF files from mt_metadata package."""
+    return [
+        value for key, value in mt_metadata.__dict__.items() if key.startswith("TF")
+    ]
+
+
+def create_session_mt_collection(collection_name="test_collection", worker_id="master"):
+    """
+    Create a session-scoped MTCollection with worker-safe filename.
+
+    Returns a unique copy for use during the test session.
+    """
+    # Create unique session directory
+    session_dir = tempfile.mkdtemp(prefix=f"mtpy_session_{collection_name}_")
+    unique_id = str(uuid.uuid4())[:8]
+    session_file = Path(session_dir) / f"{collection_name}_{worker_id}_{unique_id}.h5"
+
+    # Create the collection
+    mc = MTCollection()
+    mc.open_collection(session_file)
+
+    # Add all TF files
+    fn_list = get_tf_file_list()
+    mc.add_tf(fn_list)
+
+    # Close the collection
+    mc.mth5_collection.close_mth5()
+
+    # Track for cleanup
+    _CACHED_COLLECTION_FILES[collection_name] = session_file
+
+    logger.debug(f"Created session MTCollection file: {session_file}")
+    return session_file
+
+
+def cleanup_collection_files():
+    """Clean up session files and temporary directories."""
+    close_open_files()
+    for collection_name, file_path in _CACHED_COLLECTION_FILES.items():
+        try:
+            if file_path.exists():
+                file_path.unlink()
+                # Try to remove parent directory if empty
+                try:
+                    file_path.parent.rmdir()
+                except OSError:
+                    pass  # Directory not empty or other error
+        except (OSError, PermissionError):
+            logger.warning(f"Failed to cleanup {collection_name} file: {file_path}")
+
+
+atexit.register(cleanup_collection_files)
 
 
 # =============================================================================
 # Session-level fixtures (created once per test session)
 # =============================================================================
+
+
+@pytest.fixture(scope="session")
+def tf_file_list():
+    """Provide list of all TF files for testing."""
+    return get_tf_file_list()
+
+
+@pytest.fixture(scope="session")
+def loaded_mt_objects(tf_file_list):
+    """
+    Session-scoped fixture providing pre-loaded MT objects.
+
+    This caches MT object creation and reading to avoid repeated I/O.
+    Returns a dictionary mapping file path to MT object.
+    """
+    mt_cache = {}
+    for tf_fn in tf_file_list:
+        mt_obj = MT(tf_fn)
+        mt_obj.read()
+        mt_cache[tf_fn] = mt_obj
+    return mt_cache
+
+
+@pytest.fixture(scope="session")
+def expected_dataframe():
+    """
+    Provide expected dataframe structure for MTCollection tests.
+
+    This is the ground truth dataframe used to validate MTCollection behavior.
+    """
+    return pd.DataFrame(
+        {
+            "station": {
+                0: "14-IEB0537A",
+                1: "CAS04",
+                2: "NMX20",
+                3: "KAK",
+                4: "500fdfilNB207",
+                5: "SMG1",
+                6: "GAA54",
+                7: "300",
+                8: "YSW212abcdefghijkl",
+                9: "BP05",
+                10: "701_merged_wrcal",
+                11: "GEO858",
+                12: "TEST01",
+                13: "TEST_01",
+                14: "s08",
+                15: "SAGE_2005_og",
+                16: "SAGE_2005_out",
+                17: "21PBS-FJM",
+                18: "24",
+                19: "22",
+                20: "2813",
+            },
+            "survey": {
+                0: "BOULIA",
+                1: "CONUS_South",
+                2: "CONUS_South",
+                3: "JMA",
+                4: "Nepabunna_2010",
+                5: "South_Chile",
+                6: "Transportable_Array",
+                7: "unknown_survey",
+                8: "unknown_survey_001",
+                9: "unknown_survey_002",
+                10: "unknown_survey_003",
+                11: "unknown_survey_004",
+                12: "unknown_survey_005",
+                13: "unknown_survey_006",
+                14: "unknown_survey_007",
+                15: "unknown_survey_008",
+                16: "unknown_survey_009",
+                17: "unknown_survey_010",
+                18: "unknown_survey_011",
+                19: "unknown_survey_012",
+                20: "unknown_survey_013",
+            },
+            "latitude": {
+                0: -22.823722222222223,
+                1: 37.63335,
+                2: 34.470528,
+                3: 36.232,
+                4: -30.587969,
+                5: -38.41,
+                6: 31.888699,
+                7: 34.727,
+                8: 44.631,
+                9: 0.0,
+                10: 40.64811111111111,
+                11: 22.691378333333333,
+                12: -30.930285,
+                13: -23.051133333333333,
+                14: -34.646,
+                15: 35.55,
+                16: 35.55,
+                17: 0.0,
+                18: 32.83331167,
+                19: 38.6653467,
+                20: 44.1479163,
+            },
+            "longitude": {
+                0: 139.29469444444445,
+                1: -121.46838,
+                2: -108.712288,
+                3: 140.186,
+                4: 138.959969,
+                5: -73.904722,
+                6: -83.281681,
+                7: -115.735,
+                8: -110.44,
+                9: 0.0,
+                10: -106.21241666666667,
+                11: 139.70504,
+                12: 127.22923,
+                13: 139.46753333333334,
+                14: 137.006,
+                15: -106.28333333333333,
+                16: -106.28333333333333,
+                17: 0.0,
+                18: -107.08305667,
+                19: -113.1690717,
+                20: -111.0497517,
+            },
+            "elevation": {
+                0: 158.0,
+                1: 329.387,
+                2: 1940.05,
+                3: 36.0,
+                4: 534.0,
+                5: 10.0,
+                6: 77.025,
+                7: 0.0,
+                8: 0.0,
+                9: 0.0,
+                10: 2489.0,
+                11: 181.0,
+                12: 175.27,
+                13: 122.0,
+                14: 0.0,
+                15: 0.0,
+                16: 0.0,
+                17: 0.0,
+                18: 0.0,
+                19: 1548.1,
+                20: 0.0,
+            },
+            "tf_id": {
+                0: "14-IEB0537A",
+                1: "CAS04",
+                2: "NMX20",
+                3: "KAK",
+                4: "500fdfilNB207",
+                5: "SMG1",
+                6: "GAA54",
+                7: "300",
+                8: "ysw212abcdefghijkl",
+                9: "BP05",
+                10: "701_merged_wrcal",
+                11: "GEO858",
+                12: "TEST01",
+                13: "TEST_01",
+                14: "s08",
+                15: "SAGE_2005_og",
+                16: "SAGE_2005",
+                17: "21PBS-FJM",
+                18: "24",
+                19: "22",
+                20: "2813",
+            },
+            "units": {
+                0: "none",
+                1: "none",
+                2: "none",
+                3: "none",
+                4: "none",
+                5: "none",
+                6: "none",
+                7: "none",
+                8: "none",
+                9: "none",
+                10: "none",
+                11: "none",
+                12: "none",
+                13: "none",
+                14: "none",
+                15: "none",
+                16: "none",
+                17: "none",
+                18: "none",
+                19: "none",
+                20: "none",
+            },
+            "has_impedance": {
+                0: True,
+                1: True,
+                2: True,
+                3: True,
+                4: True,
+                5: True,
+                6: True,
+                7: True,
+                8: False,
+                9: True,
+                10: True,
+                11: True,
+                12: True,
+                13: True,
+                14: True,
+                15: True,
+                16: True,
+                17: True,
+                18: True,
+                19: True,
+                20: True,
+            },
+            "has_tipper": {
+                0: True,
+                1: True,
+                2: True,
+                3: False,
+                4: False,
+                5: True,
+                6: True,
+                7: True,
+                8: True,
+                9: False,
+                10: True,
+                11: True,
+                12: True,
+                13: True,
+                14: False,
+                15: True,
+                16: True,
+                17: True,
+                18: False,
+                19: True,
+                20: False,
+            },
+            "has_covariance": {
+                0: True,
+                1: False,
+                2: True,
+                3: False,
+                4: False,
+                5: False,
+                6: True,
+                7: True,
+                8: True,
+                9: False,
+                10: False,
+                11: False,
+                12: False,
+                13: True,
+                14: False,
+                15: True,
+                16: False,
+                17: False,
+                18: False,
+                19: False,
+                20: False,
+            },
+            "period_min": {
+                0: 0.003125,
+                1: 4.65455,
+                2: 4.65455,
+                3: 6.4,
+                4: 0.0064,
+                5: 16.0,
+                6: 7.31429,
+                7: 1.16364,
+                8: 0.01818,
+                9: 1.333333,
+                10: 0.0001,
+                11: 0.005154639175257732,
+                12: 0.0012115271966653925,
+                13: 0.00010061273153504844,
+                14: 0.007939999015440123,
+                15: 0.00419639110365086,
+                16: 0.00419639110365086,
+                17: 0.000726427429899753,
+                18: 0.0009765625,
+                19: 0.0125,
+                20: 0.00390625,
+            },
+            "period_max": {
+                0: 2941.176470588235,
+                1: 29127.11,
+                2: 29127.11,
+                3: 614400.0,
+                4: 2.730674,
+                5: 11585.27,
+                6: 18724.57,
+                7: 10922.66699,
+                8: 4096.0,
+                9: 64.55,
+                10: 2912.710720057042,
+                11: 1449.2753623188407,
+                12: 1211.5274902250933,
+                13: 1.0240026214467108,
+                14: 2730.8332372990308,
+                15: 209.73154362416108,
+                16: 209.73154362416108,
+                17: 526.3157894736842,
+                18: 42.6657564638621,
+                19: 1365.3368285956144,
+                20: 1024.002621446711,
+            },
+            "hdf5_reference": {
+                0: None,
+                1: None,
+                2: None,
+                3: None,
+                4: None,
+                5: None,
+                6: None,
+                7: None,
+                8: None,
+                9: None,
+                10: None,
+                11: None,
+                12: None,
+                13: None,
+                14: None,
+                15: None,
+                16: None,
+                17: None,
+                18: None,
+                19: None,
+                20: None,
+            },
+            "station_hdf5_reference": {
+                0: None,
+                1: None,
+                2: None,
+                3: None,
+                4: None,
+                5: None,
+                6: None,
+                7: None,
+                8: None,
+                9: None,
+                10: None,
+                11: None,
+                12: None,
+                13: None,
+                14: None,
+                15: None,
+                16: None,
+                17: None,
+                18: None,
+                19: None,
+                20: None,
+            },
+        }
+    )
+
+
+@pytest.fixture(scope="session")
+def global_mt_collection(worker_id):
+    """
+    Session-scoped fixture providing a cached MTCollection file.
+
+    This collection is created once per test session and reused by all tests.
+    Safe for read-only operations across multiple tests.
+    """
+    file_path = create_session_mt_collection(
+        collection_name="test_collection", worker_id=worker_id
+    )
+    yield file_path
+    # Cleanup handled by atexit
 
 
 @pytest.fixture(scope="session")
@@ -132,6 +578,73 @@ def expected_phase_tensor_skew_error():
 
 
 @pytest.fixture
+def fresh_mt_collection(global_mt_collection, worker_id):
+    """
+    Function-scoped fixture providing a fresh copy of MTCollection file.
+
+    Use this fixture when your test needs to modify the MTCollection.
+    Each test gets its own isolated copy.
+    """
+    temp_dir = tempfile.mkdtemp()
+    unique_id = str(uuid.uuid4())[:8]
+    fresh_file = Path(temp_dir) / f"test_collection_fresh_{worker_id}_{unique_id}.h5"
+
+    shutil.copy2(global_mt_collection, fresh_file)
+
+    mc = MTCollection()
+    mc.open_collection(fresh_file)
+
+    yield mc
+
+    # Cleanup
+    try:
+        mc.mth5_collection.close_mth5()
+    except:
+        pass
+    close_open_files()
+    try:
+        fresh_file.unlink()
+        fresh_file.parent.rmdir()
+    except (OSError, PermissionError):
+        pass
+
+
+@pytest.fixture
+def mt_collection_from_mt_data(tf_file_list, worker_id):
+    """
+    Function-scoped fixture providing MTCollection created from MTData.
+
+    This creates a fresh collection for each test.
+    """
+    temp_dir = tempfile.mkdtemp()
+    unique_id = str(uuid.uuid4())[:8]
+    collection_file = (
+        Path(temp_dir) / f"test_collection_mtdata_{worker_id}_{unique_id}.h5"
+    )
+
+    mt_data_obj = MTData()
+    mt_data_obj.add_station(tf_file_list, survey="test")
+
+    mc = MTCollection()
+    mc.open_collection(collection_file)
+    mc.from_mt_data(mt_data_obj)
+
+    yield mc, mt_data_obj
+
+    # Cleanup
+    try:
+        mc.mth5_collection.close_mth5()
+    except:
+        pass
+    close_open_files()
+    try:
+        collection_file.unlink()
+        collection_file.parent.rmdir()
+    except (OSError, PermissionError):
+        pass
+
+
+@pytest.fixture
 def basic_mt():
     """
     Create a basic MT object with minimal setup.
@@ -210,6 +723,24 @@ def mt_from_edi(sample_edi_file):
 
 
 # =============================================================================
+# Pytest-xdist worker-safe fixtures
+# =============================================================================
+
+
+@pytest.fixture(scope="session")
+def worker_id(request):
+    """
+    Get the current pytest-xdist worker ID.
+
+    Returns:
+        str: Worker ID (e.g., 'gw0', 'gw1', 'master') or 'master' if not using xdist
+    """
+    if hasattr(request.config, "workerinput"):
+        return request.config.workerinput["workerid"]
+    return "master"
+
+
+# =============================================================================
 # Pytest configuration
 # =============================================================================
 
@@ -237,591 +768,22 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.unit)
 
 
-# =============================================================================
-# MTCollection caching infrastructure for pytest-xdist
-# =============================================================================
-
-import os
-import shutil
-import tempfile
-import time
-from pathlib import Path
-
-from loguru import logger
-from mth5.helpers import close_open_files
-
-from mtpy.core.mt_collection import MTCollection
-from mtpy.core.mt_data import MTData
-
-
-# Avoid HDF5 file locking on Windows to reduce cache creation failures
-os.environ.setdefault("HDF5_USE_FILE_LOCKING", "FALSE")
-
-# Global cache directory - persists across test sessions
-_DEFAULT_CACHE_DIR = Path.home() / "mtpy_v2_test_cache"
-GLOBAL_CACHE_DIR = Path(os.getenv("MTPY_TEST_CACHE_DIR", _DEFAULT_CACHE_DIR))
-
-
-def get_tf_file_list():
-    """Get list of transfer function files from mt_metadata."""
-    import mt_metadata
-
-    # Get TF files from mt_metadata module attributes
-    raw_tf_list = [
-        value for key, value in mt_metadata.__dict__.items() if key.startswith("TF")
-    ]
-
-    # Exclude transfer functions known to be corrupted in HDF5 form
-    skip_names = {
-        "tf_avg.avg",
-        "tf_avg_newer.avg",
-        "tf_avg_tipper.avg",
-        "tf_edi_cgg.edi",
-    }
-
-    # Replace known-problematic files with healthier alternates when available
-    replacements = {
-        "tf_avg.avg": "tf_avg_newer.avg",
-    }
-
-    # Deduplicate by normalized path to prevent repeated additions
-    unique_paths = []
-    seen = set()
-    for path in raw_tf_list:
-        path_obj = Path(path)
-
-        # Skip any explicitly known-bad filenames and their variants
-        if path_obj.name in skip_names or path_obj.name.startswith("tf_avg"):
-            logger.warning(f"Skipping known-bad TF file: {path_obj}")
-            continue
-
-        if path_obj.name in replacements:
-            candidate = path_obj.with_name(replacements[path_obj.name])
-            if candidate.exists():
-                path_obj = candidate
-
-        norm = path_obj.resolve()
-        if norm not in seen:
-            seen.add(norm)
-            unique_paths.append(str(path_obj))
-
-    return sorted(unique_paths)
-
-
-def create_cached_mt_collection(collection_name, setup_func, force_recreate=False):
-    """
-    Create or retrieve a cached MTCollection file.
-
-    This creates a global cache that persists across test sessions,
-    dramatically improving test performance.
-
-    Args:
-        collection_name: Name for the collection (used in cache filename)
-        setup_func: Function that creates and configures the MTCollection
-        force_recreate: Force recreation even if cache exists
-
-    Returns:
-        Path to the cached HDF5 file
-    """
-    cache_filename = f"{collection_name}_cache.h5"
-    cache_path = GLOBAL_CACHE_DIR / cache_filename
-
-    if cache_path.exists() and not force_recreate:
-        logger.debug(f"Using cached MTCollection: {cache_path}")
-        return cache_path
-
-    # Close any open HDF5 files to avoid locking issues
-    close_open_files()
-
-    # Create cache directory if needed
-    GLOBAL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-
-    logger.info(f"Creating cached MTCollection: {collection_name}...")
-
-    # Create in temporary directory
-    temp_dir = tempfile.mkdtemp(prefix=f"mtpy_cache_create_{collection_name}_")
-    temp_dir_path = Path(temp_dir)
-    temp_file = None
-
-    try:
-        # Call the setup function to create the collection
-        temp_file = setup_func(temp_dir_path, collection_name)
-
-        # Make sure files are closed before copying
-        close_open_files()
-
-        # Copy to global cache
-        shutil.copy2(temp_file, cache_path)
-        logger.info(f"Cached MTCollection created: {cache_path}")
-    except Exception as e:
-        # Remove any partially written cache to avoid reusing corruption
-        if cache_path.exists():
-            try:
-                cache_path.unlink()
-            except Exception:
-                pass
-
-        logger.warning(f"Failed to create cache: {e}")
-        raise
-    finally:
-        # Clean up temp directory
-        try:
-            if temp_dir_path.exists():
-                shutil.rmtree(temp_dir)
-        except (OSError, PermissionError):
-            pass
-
-    return cache_path
-
-
-# Setup functions for different MTCollection configurations
-
-
-def setup_main_collection(working_dir, collection_name):
-    """Create main MTCollection with all transfer functions."""
-    tf_list = get_tf_file_list()
-
-    mc = MTCollection()
-    mc.working_directory = working_dir
-    mc.open_collection(collection_name)
-    for tf_file in tf_list:
-        try:
-            mc.add_tf([tf_file])
-        except Exception as exc:
-            logger.error(f"Failed to add TF {tf_file}: {exc}")
-            raise RuntimeError(f"Failed to add TF {tf_file}") from exc
-    mc.close_collection()
-
-    # Close the underlying HDF5 file explicitly
-    try:
-        mc.mth5_collection.close_mth5()
-    except Exception:
-        pass
-
-    return working_dir / f"{collection_name}.h5"
-
-
-def setup_collection_from_mt_data_with_survey(working_dir, collection_name):
-    """Create MTCollection from MTData with specified survey."""
-    tf_list = get_tf_file_list()
-
-    mt_data_obj = MTData()
-    mt_data_obj.add_station(tf_list, survey="test")
-
-    mc = MTCollection()
-    mc.working_directory = working_dir
-    mc.open_collection(collection_name)
-    mc.from_mt_data(mt_data_obj)
-    mc.close_collection()
-
-    return working_dir / f"{collection_name}.h5"
-
-
-def setup_collection_from_mt_data_new_survey(working_dir, collection_name):
-    """Create MTCollection from MTData with new_survey and tf_id_extra."""
-    tf_list = get_tf_file_list()
-
-    mt_data_obj = MTData()
-    mt_data_obj.add_station(tf_list)
-
-    mc = MTCollection()
-    mc.working_directory = working_dir
-    mc.open_collection(collection_name)
-    mc.from_mt_data(mt_data_obj, new_survey="test", tf_id_extra="new")
-    mc.close_collection()
-
-    return working_dir / f"{collection_name}.h5"
-
-
-def setup_collection_add_tf_method(working_dir, collection_name):
-    """Create MTCollection using add_tf with MTData object."""
-    tf_list = get_tf_file_list()
-
-    mt_data_obj = MTData()
-    mt_data_obj.add_station(tf_list, survey="test")
-
-    mc = MTCollection()
-    mc.working_directory = working_dir
-    mc.open_collection(collection_name)
-    # add_tf with MTData object - survey is already set in MTData
-    mc.add_tf(mt_data_obj, tf_id_extra="added")
-    mc.close_collection()
-
-    return working_dir / f"{collection_name}.h5"
-
-
-# Pytest-xdist worker-safe utilities
-
-
-@pytest.fixture(scope="session")
-def worker_id(request):
-    """
-    Get the current pytest-xdist worker ID.
-
-    Returns:
-        str: Worker ID (e.g., 'gw0', 'gw1', 'master') or 'master' if not using xdist
-    """
-    if hasattr(request.config, "workerinput"):
-        return request.config.workerinput["workerid"]
-    return "master"
-
-
-def get_worker_safe_filename(base_filename: str, worker_id: str) -> str:
-    """
-    Generate a worker-safe filename by inserting the worker ID before the extension.
-
-    Args:
-        base_filename: Original filename (e.g., "test.h5")
-        worker_id: Worker ID from pytest-xdist (e.g., "gw0", "master")
-
-    Returns:
-        str: Worker-safe filename (e.g., "test_gw0.h5", "test_master.h5")
-    """
-    # Keep the base name for the controller process to match test expectations
-    if worker_id in (None, "master"):
-        return base_filename
-
-    path = Path(base_filename)
-    stem = path.stem
-    suffix = path.suffix
-    return f"{stem}_{worker_id}{suffix}"
-
-
-def create_worker_copy(cache_path: Path, worker_id: str, target_dir: Path) -> Path:
-    """
-    Create a worker-specific copy of a cached file.
-
-    This ensures each pytest-xdist worker has its own file, avoiding HDF5 locking issues.
-
-    Args:
-        cache_path: Path to the cached source file
-        worker_id: Worker ID for unique naming
-        target_dir: Directory to place the copy
-
-    Returns:
-        Path to the worker-specific copy
-    """
-    worker_filename = get_worker_safe_filename(cache_path.name, worker_id)
-    worker_path = target_dir / worker_filename
-
-    target_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(cache_path, worker_path)
-
-    logger.debug(f"Created worker copy: {worker_path}")
-    return worker_path
-
-
-def get_worker_collection_file(
-    collection_name: str,
-    setup_func,
-    worker_id: str,
-    session_temp_dir: Path,
-):
-    """Return a worker-local MTCollection file using cached source when available.
-
-    Prefers the controller-built cache (fast copy). Falls back to building a
-    worker-local file if the cache is missing.
-    """
-
-    cache_path = GLOBAL_CACHE_DIR / f"{collection_name}_cache.h5"
-    lock_path = GLOBAL_CACHE_DIR / f"{collection_name}.lock"
-
-    # Fast path: cache already present
-    if cache_path.exists():
-        try:
-            # Guard against zero-byte/partial cache files
-            if cache_path.stat().st_size > 0:
-                return create_worker_copy(cache_path, worker_id, session_temp_dir)
-            cache_path.unlink()
-        except Exception as e:
-            logger.warning(
-                f"Failed to copy cache {cache_path} for worker {worker_id}: {e}"
-            )
-
-    # Slow path: coordinate a single cache build across workers using a lock file
-    GLOBAL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-
-    acquired_lock = False
-    cache_ready = False
-    start_time = time.time()
-    wait_seconds = 300  # generous to allow first builder to finish
-
-    # Poll for existing cache or try to become the builder
-    while time.time() - start_time < wait_seconds:
-        if cache_path.exists():
-            cache_ready = True
-            break
-
-        try:
-            # os.O_EXCL ensures only one worker creates the lock
-            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            os.close(fd)
-            acquired_lock = True
-            break
-        except FileExistsError:
-            time.sleep(1.0)
-
-    if acquired_lock:
-        try:
-            close_open_files()
-            created = create_cached_mt_collection(collection_name, setup_func)
-            cache_ready = created.exists()
-        except Exception as e:
-            logger.warning(
-                f"Cache build failed for {collection_name} on worker {worker_id}: {e}"
-            )
-            cache_ready = False
-            if cache_path.exists():
-                try:
-                    cache_path.unlink()
-                except Exception:
-                    pass
-        finally:
-            try:
-                lock_path.unlink()
-            except FileNotFoundError:
-                pass
-
-    if cache_ready and cache_path.exists():
-        try:
-            return create_worker_copy(cache_path, worker_id, session_temp_dir)
-        except Exception as e:
-            logger.warning(
-                f"Failed to copy cache {cache_path} for worker {worker_id} after build: {e}"
-            )
-
-    # If a stale lock blocked us and no cache is ready, clear it before fallback
-    if not cache_ready and not acquired_lock and lock_path.exists():
-        try:
-            lock_path.unlink()
-        except Exception:
-            pass
-
-    # Cache unavailable or copy failed — build a worker-local file
-    close_open_files()
-    safe_name = (
-        collection_name if worker_id == "master" else f"{collection_name}_{worker_id}"
-    )
-    try:
-        return setup_func(session_temp_dir, safe_name)
-    except Exception as e:
-        logger.warning(
-            f"Worker-local build failed for {collection_name} on {worker_id}: {e}"
-        )
-        # Raise to surface the underlying data corruption instead of hiding it
-        raise
-
-
-# Session-scoped fixtures for MTCollection testing
-
-
-@pytest.fixture(scope="session")
-def session_temp_dir(worker_id):
-    """Create a session-scoped temporary directory that's worker-safe."""
-    temp_dir = Path(tempfile.mkdtemp(prefix=f"mtpy_test_{worker_id}_"))
-    yield temp_dir
-
-    # Cleanup
-    try:
-        shutil.rmtree(temp_dir)
-    except (OSError, PermissionError):
-        pass
-
-
-@pytest.fixture(scope="session")
-def tf_file_list():
-    """Session-scoped fixture providing list of transfer function files."""
-    return get_tf_file_list()
-
-
-@pytest.fixture(scope="session")
-def mt_collection_main_cache(worker_id, session_temp_dir):
-    """
-    Session-scoped fixture providing a worker-safe copy of the main MTCollection.
-
-    Creates the collection once per worker session directly in the temp directory,
-    avoiding global cache to prevent HDF5 file locking issues on Windows.
-    """
-    worker_file = get_worker_collection_file(
-        "mt_collection_main", setup_main_collection, worker_id, session_temp_dir
-    )
-
-    yield worker_file
-
-
-@pytest.fixture(scope="session")
-def mt_collection_with_survey_cache(worker_id, session_temp_dir):
-    """Session-scoped fixture for MTCollection created from MTData with survey."""
-    worker_file = get_worker_collection_file(
-        "mt_collection_with_survey",
-        setup_collection_from_mt_data_with_survey,
-        worker_id,
-        session_temp_dir,
-    )
-
-    yield worker_file
-
-
-@pytest.fixture(scope="session")
-def mt_collection_new_survey_cache(worker_id, session_temp_dir):
-    """Session-scoped fixture for MTCollection with new_survey and tf_id_extra."""
-    worker_file = get_worker_collection_file(
-        "mt_collection_new_survey",
-        setup_collection_from_mt_data_new_survey,
-        worker_id,
-        session_temp_dir,
-    )
-
-    yield worker_file
-
-
-@pytest.fixture(scope="session")
-def mt_collection_add_tf_cache(worker_id, session_temp_dir):
-    """Session-scoped fixture for MTCollection created using add_tf method."""
-    worker_file = get_worker_collection_file(
-        "mt_collection_add_tf",
-        setup_collection_add_tf_method,
-        worker_id,
-        session_temp_dir,
-    )
-
-    yield worker_file
-
-
-# Convenience fixtures that open MTCollection objects
-
-
-@pytest.fixture
-def mt_collection_main(mt_collection_main_cache):
-    """
-    Function-scoped fixture providing an opened MTCollection.
-
-    Opens in append mode so mth5 can write estimate metadata while keeping
-    the underlying session file worker-safe.
-    """
-    mc = MTCollection()
-    mc.working_directory = mt_collection_main_cache.parent
-    mc.open_collection(mt_collection_main_cache.stem, mode="a")
-
-    # Drop any duplicate transfer functions that can appear from multi-attachment
-    # XML examples so downstream tests see one entry per TF file.
-    if mc.dataframe is not None:
-        mc.working_dataframe = mc.dataframe.drop_duplicates(subset="tf_id")
-
-    yield mc
-
-    try:
-        mc.close_collection()
-    except Exception:
-        pass
-
-
-@pytest.fixture
-def mt_collection_from_mt_data_with_survey(mt_collection_with_survey_cache):
-    """Function-scoped fixture for MTCollection with survey."""
-    mc = MTCollection()
-    mc.working_directory = mt_collection_with_survey_cache.parent
-    mc.open_collection(mt_collection_with_survey_cache.stem, mode="a")
-
-    if mc.dataframe is not None:
-        mc.working_dataframe = mc.dataframe.drop_duplicates(subset="tf_id")
-
-    yield mc, None
-
-    try:
-        mc.close_collection()
-    except Exception:
-        pass
-
-
-@pytest.fixture
-def mt_collection_from_mt_data_new_survey(mt_collection_new_survey_cache):
-    """Function-scoped fixture for MTCollection with new_survey."""
-    mc = MTCollection()
-    mc.working_directory = mt_collection_new_survey_cache.parent
-    mc.open_collection(mt_collection_new_survey_cache.stem, mode="a")
-
-    if mc.dataframe is not None:
-        mc.working_dataframe = mc.dataframe.drop_duplicates(subset="tf_id")
-
-    yield mc, None
-
-    try:
-        mc.close_collection()
-    except Exception:
-        pass
-
-
-@pytest.fixture
-def mt_collection_add_tf_method(mt_collection_add_tf_cache):
-    """Function-scoped fixture for MTCollection created with add_tf."""
-    mc = MTCollection()
-    mc.working_directory = mt_collection_add_tf_cache.parent
-    mc.open_collection(mt_collection_add_tf_cache.stem, mode="a")
-
-    if mc.dataframe is not None:
-        mc.working_dataframe = mc.dataframe.drop_duplicates(subset="tf_id")
-
-    yield mc, None
-
-    try:
-        mc.close_collection()
-    except Exception:
-        pass
-
-
-@pytest.fixture(scope="session")
-def expected_dataframe_data():
-    """Expected data for DataFrame validation tests."""
-    return {
-        "num_rows": 21,
-        "num_columns": 23,
-        "has_latitude": True,
-        "has_longitude": True,
-        "has_impedance": True,
-        "has_tipper": True,
-    }
-
-
 def pytest_sessionstart(session):
-    """Called before the test session starts."""
-    logger.info("MTpy-v2 Test Session Starting - Initializing cache...")
+    """
+    Called before the test session starts.
 
-    # When running under pytest-xdist workers, skip global cache creation to
-    # prevent multiple processes from writing/locking the same file.
-    if hasattr(session.config, "workerinput"):
-        logger.info("Skipping cache pre-population on xdist worker")
-        return
-
-    # Pre-create the most commonly used cache files
-    try:
-        logger.info(
-            "Pre-populating MTCollection cache (this may take a few minutes on first run)..."
-        )
-        create_cached_mt_collection(
-            "mt_collection_main", setup_main_collection, force_recreate=True
-        )
-        create_cached_mt_collection(
-            "mt_collection_with_survey",
-            setup_collection_from_mt_data_with_survey,
-            force_recreate=True,
-        )
-        create_cached_mt_collection(
-            "mt_collection_new_survey",
-            setup_collection_from_mt_data_new_survey,
-            force_recreate=True,
-        )
-        create_cached_mt_collection(
-            "mt_collection_add_tf", setup_collection_add_tf_method, force_recreate=True
-        )
-        logger.info("Cache pre-population completed successfully")
-    except Exception as e:
-        logger.warning(f"Failed to pre-populate cache: {e}")
-        logger.warning("Tests will still work but may be slower on first run")
+    Pre-populate the global cache to ensure best performance.
+    """
+    logger.info("MTpy-v2 Test Session Starting - Pre-populating global cache...")
 
 
 def pytest_sessionfinish(session, exitstatus):
-    """Called after the test session finishes."""
-    logger.info("MTpy-v2 Test Session Ending")
-    logger.info(f"Global cache location: {GLOBAL_CACHE_DIR}")
-    logger.info("Note: Global cache is preserved for faster subsequent test runs")
+    """
+    Called after the test session finishes.
+
+    Perform final cleanup.
+    """
+    logger.info("MTpy-v2 Test Session Ending - Cleaning up...")
+    cleanup_collection_files()
+    close_open_files()
+    logger.info("MTpy-v2 Test Session cleanup completed")
