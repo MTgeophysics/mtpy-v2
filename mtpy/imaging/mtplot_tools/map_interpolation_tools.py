@@ -5,6 +5,8 @@ Created on Sun Sep 25 15:06:58 2022
 @author: jpeacock
 """
 
+from __future__ import annotations
+
 import matplotlib.tri as tri
 
 # =============================================================================
@@ -16,8 +18,26 @@ from scipy.spatial import cKDTree, Delaunay
 
 
 # =============================================================================
-def in_hull(p, hull):
-    """Test if points in p are within the convex hull."""
+def in_hull(p: np.ndarray, hull: np.ndarray | Delaunay) -> np.ndarray:
+    """
+    Test if points are within a convex hull.
+
+    Uses Delaunay triangulation for efficient point-in-hull testing. Falls
+    back to linear programming for collinear point configurations.
+
+    Parameters
+    ----------
+    p : np.ndarray
+        Points to test, shape (n_points, n_dimensions)
+    hull : np.ndarray | Delaunay
+        Either array of hull vertices or pre-computed Delaunay object
+
+    Returns
+    -------
+    np.ndarray
+        Boolean array indicating which points are inside the hull
+
+    """
 
     try:
         if not isinstance(hull, Delaunay):
@@ -48,16 +68,29 @@ def in_hull(p, hull):
         return np.array(result)
 
 
-def get_plot_xy(plot_array, cell_size, n_padding_cells):
-    """Get plot x and plot y from a plot array to interpolate on to.
-    :param plot_array: DESCRIPTION.
-    :type plot_array: TYPE
-    :param cell_size: DESCRIPTION.
-    :type cell_size: TYPE
-    :param n_padding_cells: DESCRIPTION.
-    :type n_padding_cells: TYPE
-    :return: DESCRIPTION.
-    :rtype: TYPE
+def get_plot_xy(
+    plot_array: np.ndarray, cell_size: float, n_padding_cells: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Generate uniform x and y coordinates for interpolation grid.
+
+    Creates regular grid coordinates with padding around the data extent.
+
+    Parameters
+    ----------
+    plot_array : np.ndarray
+        Structured array with 'longitude' and 'latitude' fields
+    cell_size : float
+        Size of grid cells in decimal degrees
+    n_padding_cells : int
+        Number of padding cells to add around data extent
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        plot_x : 1D array of x (longitude) coordinates
+        plot_y : 1D array of y (latitude) coordinates
+
     """
 
     # create uniform x, y to plot on.
@@ -85,23 +118,40 @@ def get_plot_xy(plot_array, cell_size, n_padding_cells):
     return plot_x, plot_y
 
 
-def griddata_interpolate(x, y, values, new_x, new_y, interpolation_method="cubic"):
-    """Griddata interpolate.
-    :param values:
-    :param x: DESCRIPTION.
-    :type x: TYPE
-    :param y: DESCRIPTION.
-    :type y: TYPE
-    :param value: DESCRIPTION.
-    :type value: TYPE
-    :param new_x: DESCRIPTION.
-    :type new_x: TYPE
-    :param new_y: DESCRIPTION.
-    :type new_y: TYPE
-    :param interpolation_method: DESCRIPTION, defaults to "cubic".
-    :type interpolation_method: TYPE, optional
-    :return: DESCRIPTION.
-    :rtype: TYPE
+def griddata_interpolate(
+    x: np.ndarray,
+    y: np.ndarray,
+    values: np.ndarray,
+    new_x: np.ndarray,
+    new_y: np.ndarray,
+    interpolation_method: str = "cubic",
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Interpolate scattered data to regular grid using scipy.interpolate.griddata.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        X coordinates of data points
+    y : np.ndarray
+        Y coordinates of data points
+    values : np.ndarray
+        Values at data points
+    new_x : np.ndarray
+        Target x coordinates for interpolation
+    new_y : np.ndarray
+        Target y coordinates for interpolation
+    interpolation_method : str, optional
+        Interpolation method: 'nearest', 'linear', or 'cubic',
+        by default 'cubic'
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, np.ndarray]
+        grid_x : 2D array of x coordinates
+        grid_y : 2D array of y coordinates
+        image : 2D array of interpolated values
+
     """
     points = np.array([x, y]).T
     grid_x, grid_y = np.meshgrid(new_x, new_y)
@@ -119,25 +169,36 @@ def griddata_interpolate(x, y, values, new_x, new_y, interpolation_method="cubic
 
 
 def interpolate_to_map_griddata(
-    plot_array,
-    component,
-    cell_size=0.002,
-    n_padding_cells=10,
-    interpolation_method="cubic",
-):
-    """Interpolate using scipy.interpolate.griddata.
-    :param interpolation_method:
-        Defaults to "cubic".
-    :param plot_array: DESCRIPTION.
-    :type plot_array: TYPE
-    :param component: DESCRIPTION.
-    :type component: TYPE
-    :param cell_size: DESCRIPTION002, defaults to 0.002.
-    :type cell_size: TYPE, optional
-    :param n_padding_cells: DESCRIPTION, defaults to 10.
-    :type n_padding_cells: TYPE, optional
-    :return: DESCRIPTION.
-    :rtype: TYPE
+    plot_array: np.ndarray,
+    component: str,
+    cell_size: float = 0.002,
+    n_padding_cells: int = 10,
+    interpolation_method: str = "cubic",
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Interpolate MT data to regular map grid using griddata method.
+
+    Parameters
+    ----------
+    plot_array : np.ndarray
+        Structured array with 'longitude', 'latitude', and component fields
+    component : str
+        Name of component to interpolate (e.g., 'res_xy', 'phase_xy')
+    cell_size : float, optional
+        Size of grid cells in decimal degrees, by default 0.002
+    n_padding_cells : int, optional
+        Number of padding cells around data extent, by default 10
+    interpolation_method : str, optional
+        Interpolation method: 'nearest', 'linear', or 'cubic',
+        by default 'cubic'
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, np.ndarray]
+        grid_x : 2D array of x (longitude) coordinates
+        grid_y : 2D array of y (latitude) coordinates
+        image : 2D array of interpolated values (log10 for resistivity)
+
     """
 
     plot_x, plot_y = get_plot_xy(plot_array, cell_size, n_padding_cells)
@@ -157,37 +218,52 @@ def interpolate_to_map_griddata(
 
 
 def triangulate_interpolation(
-    x,
-    y,
-    values,
-    padded_x,
-    padded_y,
-    new_x,
-    new_y,
-    nearest_neighbors=7,
-    interp_pow=4,
-):
-    """Triangulate interpolation.
-    :param interp_pow:
-        Defaults to 4.
-    :param nearest_neighbors:
-        Defaults to 7.
-    :param padded_y:
-    :param padded_x:
-    :param x: DESCRIPTION.
-    :type x: TYPE
-    :param y: DESCRIPTION.
-    :type y: TYPE
-    :param values: DESCRIPTION.
-    :type values: TYPE
-    :param new_x: DESCRIPTION.
-    :type new_x: TYPE
-    :param new_y: DESCRIPTION.
-    :type new_y: TYPE
-    :param: DESCRIPTION.
-    :type: TYPE
-    :return: DESCRIPTION.
-    :rtype: TYPE
+    x: np.ndarray,
+    y: np.ndarray,
+    values: np.ndarray,
+    padded_x: np.ndarray,
+    padded_y: np.ndarray,
+    new_x: np.ndarray,
+    new_y: np.ndarray,
+    nearest_neighbors: int = 7,
+    interp_pow: float = 4,
+) -> tuple[tri.Triangulation, np.ndarray, np.ndarray]:
+    """
+    Interpolate using Delaunay triangulation and inverse distance weighting.
+
+    Creates triangulation on target grid and uses IDW interpolation with
+    k-nearest neighbors from source data points. Masks triangles outside
+    the convex hull.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        X coordinates of source data points
+    y : np.ndarray
+        Y coordinates of source data points
+    values : np.ndarray
+        Values at source data points
+    padded_x : np.ndarray
+        Padded x coordinates defining convex hull boundary
+    padded_y : np.ndarray
+        Padded y coordinates defining convex hull boundary
+    new_x : np.ndarray
+        Target x coordinates for interpolation
+    new_y : np.ndarray
+        Target y coordinates for interpolation
+    nearest_neighbors : int, optional
+        Number of nearest neighbors for IDW interpolation, by default 7
+    interp_pow : float, optional
+        Power parameter for IDW (higher = more weight to closer points),
+        by default 4
+
+    Returns
+    -------
+    tuple[tri.Triangulation, np.ndarray, np.ndarray]
+        triangulation : Matplotlib triangulation object with mask
+        image : Flattened array of interpolated values
+        inside_indices : Boolean array indicating triangles inside hull
+
     """
 
     grid_x, grid_y = np.meshgrid(new_x, new_y)
@@ -236,38 +312,44 @@ def triangulate_interpolation(
 
 
 def interpolate_to_map_triangulate(
-    plot_array,
-    component,
-    cell_size=0.002,
-    n_padding_cells=10,
-    nearest_neighbors=7,
-    interp_pow=4,
-):
-    """`plot_array` must have key words:
+    plot_array: np.ndarray,
+    component: str,
+    cell_size: float = 0.002,
+    n_padding_cells: int = 10,
+    nearest_neighbors: int = 7,
+    interp_pow: float = 4,
+) -> tuple[tri.Triangulation, np.ndarray, np.ndarray]:
+    """
+    Interpolate MT data to map using Delaunay triangulation method.
 
-        - **latitude**: latitude in decimal degrees of measured points
-        - **longitude**: longitude in decimal degrees of measured points
-        - values should have the proper name of the input component. For
-          example if you are plotting the resistivity of the xy component then
-          the keyword should be 'res_xy'.
-    :param plot_x: Desired regular x locations to interpolate to.
-    :type plot_x: np.ndarray
-    :param plot_y: Desired regular x locations to interpolate to.
-    :type plot_y: np.ndarray
-    :param plot_array: Structured array, see above.
-    :type plot_array: np.ndarray
-    :param component: Component or keyword of the plot_array to plot.
-    :type component: string
-    :param cell_size: Size of cells 002, defaults to 0.002.
-    :type cell_size: TYPE, optional
-    :param n_padding_cells: DESCRIPTION, defaults to 10.
-    :type n_padding_cells: TYPE, optional
-    :param nearest_neighbors: DESCRIPTION, defaults to 7.
-    :type nearest_neighbors: TYPE, optional
-    :param interp_pow: DESCRIPTION, defaults to 4.
-    :type interp_pow: TYPE, optional
-    :return: DESCRIPTION.
-    :rtype: TYPE
+    Uses triangulation with inverse distance weighting (IDW) for interpolation.
+    Automatically applies log10 transform to resistivity components.
+
+    Parameters
+    ----------
+    plot_array : np.ndarray
+        Structured array with required fields:
+        - 'latitude': latitude in decimal degrees
+        - 'longitude': longitude in decimal degrees
+        - component field (e.g., 'res_xy', 'phase_xy')
+    component : str
+        Name of component to interpolate (must be field in plot_array)
+    cell_size : float, optional
+        Size of grid cells in decimal degrees, by default 0.002
+    n_padding_cells : int, optional
+        Number of padding cells around data extent, by default 10
+    nearest_neighbors : int, optional
+        Number of nearest neighbors for IDW interpolation, by default 7
+    interp_pow : float, optional
+        Power parameter for IDW interpolation, by default 4
+
+    Returns
+    -------
+    tuple[tri.Triangulation, np.ndarray, np.ndarray]
+        triangulation : Matplotlib triangulation object with mask
+        image : Flattened array of interpolated values (log10 for resistivity)
+        inside_indices : Boolean array indicating triangles inside hull
+
     """
 
     # add padding to the locations
@@ -302,31 +384,54 @@ def interpolate_to_map_triangulate(
 
 
 def interpolate_to_map(
-    plot_array,
-    component,
-    cell_size=0.002,
-    n_padding_cells=10,
-    interpolation_method="delaunay",
-    interpolation_power=5,
-    nearest_neighbors=7,
-):
-    """Interpolate to map.
-    :param nearest_neighbors:
-        Defaults to 7.
-    :param interpolation_power:
-        Defaults to 5.
-    :param plot_array: DESCRIPTION.
-    :type plot_array: TYPE
-    :param component: DESCRIPTION.
-    :type component: TYPE
-    :param cell_size: DESCRIPTION002, defaults to 0.002.
-    :type cell_size: TYPE, optional
-    :param n_padding_cells: DESCRIPTION, defaults to 10.
-    :type n_padding_cells: TYPE, optional
-    :param interpolation_method: DESCRIPTION, defaults to "delaunay".
-    :type interpolation_method: TYPE, optional
-    :return: DESCRIPTION.
-    :rtype: TYPE
+    plot_array: np.ndarray,
+    component: str,
+    cell_size: float = 0.002,
+    n_padding_cells: int = 10,
+    interpolation_method: str = "delaunay",
+    interpolation_power: float = 5,
+    nearest_neighbors: int = 7,
+) -> tuple[np.ndarray | tri.Triangulation, np.ndarray, np.ndarray | None]:
+    """
+    Interpolate MT data to regular map grid.
+
+    Dispatcher function that selects appropriate interpolation method.
+    Supports both griddata-based (nearest, linear, cubic) and
+    triangulation-based (delaunay, fancy) methods.
+
+    Parameters
+    ----------
+    plot_array : np.ndarray
+        Structured array with 'longitude', 'latitude', and component fields
+    component : str
+        Name of component to interpolate (e.g., 'res_xy', 'phase_xy')
+    cell_size : float, optional
+        Size of grid cells in decimal degrees, by default 0.002
+    n_padding_cells : int, optional
+        Number of padding cells around data extent, by default 10
+    interpolation_method : str, optional
+        Interpolation method:
+        - 'nearest', 'linear', 'cubic': scipy.interpolate.griddata methods
+        - 'delaunay', 'fancy', 'triangulate': triangulation with IDW
+        by default 'delaunay'
+    interpolation_power : float, optional
+        Power parameter for IDW in triangulation methods, by default 5
+    nearest_neighbors : int, optional
+        Number of nearest neighbors for IDW, by default 7
+
+    Returns
+    -------
+    tuple[np.ndarray | tri.Triangulation, np.ndarray, np.ndarray | None]
+        grid_x or triangulation : Grid x coordinates (2D) or triangulation object
+        grid_y or image : Grid y coordinates (2D) or interpolated values
+        image or inside_indices : Interpolated values or boolean hull mask
+
+    Notes
+    -----
+    Return types differ by method:
+    - griddata methods: (grid_x, grid_y, image)
+    - triangulation methods: (triangulation, image, inside_indices)
+
     """
 
     if interpolation_method in ["nearest", "linear", "cubic"]:
