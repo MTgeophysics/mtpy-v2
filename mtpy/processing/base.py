@@ -8,27 +8,58 @@ Created on Tue Jul 30 17:13:07 2024
 # =============================================================================
 # Imports
 # =============================================================================
+from __future__ import annotations
 
-from mth5.processing.run_summary import RunSummary
 from mth5.processing.kernel_dataset import KernelDataset
+from mth5.processing.run_summary import RunSummary
+
 
 # =============================================================================
 
 
 class BaseProcessing(KernelDataset):
-    """Base processing class contains path to various files."""
+    """
+    Base processing class containing paths to various files.
 
-    def __init__(self, **kwargs):
+    Attributes
+    ----------
+    config : object or None
+        Processing configuration object.
+    run_summary : RunSummary or None
+        Run summary object containing metadata about processing runs.
+
+    """
+
+    def __init__(self, **kwargs) -> None:
+        """
+        Initialize BaseProcessing.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional keyword arguments passed to KernelDataset.
+
+        """
         super().__init__(**kwargs)
 
         self.config = None
         self.run_summary = None
 
     @property
-    def mth5_list(self):
-        """Mth5 list.
-        :return: List of mth5 to get run summary from.
-        :rtype: list
+    def mth5_list(self) -> list[str]:
+        """
+        Get list of MTH5 file paths.
+
+        Returns
+        -------
+        list[str]
+            List of MTH5 file paths to get run summary from.
+
+        Raises
+        ------
+        ValueError
+            If no MTH5 file paths are set.
+
         """
         mth5_list = []
         if self.has_local_mth5():
@@ -42,55 +73,72 @@ class BaseProcessing(KernelDataset):
         return mth5_list
 
     @property
-    def run_summary(self):
-        """Run summary object.
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def run_summary(self) -> RunSummary | None:
+        """
+        Get the run summary object.
+
+        Returns
+        -------
+        RunSummary or None
+            Run summary containing metadata about processing runs.
+
         """
         return self._run_summary
 
     @run_summary.setter
-    def run_summary(self, value):
-        """Set run summary.
-        :param value: DESCRIPTION.
-        :type value: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def run_summary(self, value: RunSummary | None) -> None:
+        """
+        Set the run summary object.
+
+        Parameters
+        ----------
+        value : RunSummary or None
+            Run summary to set, or None to clear.
+
         """
         if value is None:
             self._run_summary = None
         else:
             self._run_summary = RunSummary(df=value.df)
 
-    def get_run_summary(self):
-        """Get the RunSummary object.
-        :param local: DESCRIPTION, defaults to True.
-        :type local: TYPE, optional
-        :param remote: DESCRIPTION, defaults to True.
-        :type remote: TYPE, optional
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def get_run_summary(self) -> RunSummary:
         """
+        Get the RunSummary object from MTH5 files.
 
+        Returns
+        -------
+        RunSummary
+            Run summary object created from MTH5 file list.
+
+        """
         run_summary = RunSummary()
         run_summary.from_mth5s(self.mth5_list)
         return run_summary
 
-    def has_run_summary(self):
-        """Check to see if run summary is set.
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def has_run_summary(self) -> bool:
+        """
+        Check if run summary is set.
+
+        Returns
+        -------
+        bool
+            True if run_summary is not None, False otherwise.
+
         """
         if self.run_summary is None:
             return False
         return True
 
-    def has_kernel_dataset(self):
-        """Test if has kernel dataset.
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def has_kernel_dataset(self) -> bool:
         """
+        Check if kernel dataset is set.
 
+        Returns
+        -------
+        bool
+            True if df attribute is not None, False otherwise.
+
+        """
         if self.df is not None:
             return True
         return False
