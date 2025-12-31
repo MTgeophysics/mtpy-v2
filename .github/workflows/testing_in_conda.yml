@@ -38,6 +38,7 @@ jobs:
         conda install pytest
         conda install pytest-subtests
         conda install pytest-cov
+        conda install pytest-xdist[psutil]
         pip install git+https://github.com/kujaku11/mt_metadata.git@pydantic
         pip install git+https://github.com/kujaku11/mth5.git@old_pydantic
         pip install git+https://github.com/simpeg/aurora@pydantic
@@ -57,7 +58,7 @@ jobs:
         source ~/.profile
         conda init --all
         conda activate mtpy-v2-test
-        pytest --cov=./ --cov-report=xml --cov=mtpy
+        pytest --cov=./ --cov-report=xml --cov=mtpy -n auto
         
     - name: "Upload coverage to Codecov"
       uses: codecov/codecov-action@v3
