@@ -35,14 +35,9 @@ jobs:
         conda init --all
         conda activate mtpy-v2-test
         pip install git+https://github.com/simpeg/pydiso.git
-        conda install pytest
-        conda install pytest-subtests
-        conda install pytest-cov
-        conda install pytest-xdist[psutil]
         pip install git+https://github.com/kujaku11/mt_metadata.git@pydantic
         pip install git+https://github.com/kujaku11/mth5.git@old_pydantic
         pip install git+https://github.com/simpeg/aurora@pydantic
-        pip install git+https://github.com/MTgeophysics/mtpy_data.git
         
     - name: Install Our Package
       shell: bash
@@ -50,7 +45,7 @@ jobs:
         source ~/.profile
         conda init --all
         conda activate mtpy-v2-test
-        pip install -e .
+        pip install -e .[test]
         conda list
     - name: Run Tests
       shell: bash
