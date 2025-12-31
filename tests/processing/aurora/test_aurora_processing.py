@@ -262,7 +262,9 @@ class TestSingleStationComparison:
 
         # Only create MT object if TF processing succeeded
         if tf_obj is not None:
-            mt_obj_legacy = MT(survey_metadata=tf_obj.survey_metadata)
+            mt_obj_legacy = MT()
+            mt_obj_legacy.survey_metadata.update(tf_obj.survey_metadata)
+            mt_obj_legacy.station_metadata.update(tf_obj.station_metadata)
             mt_obj_legacy._transfer_function = tf_obj._transfer_function
             mt_obj_legacy.tf_id = kernel_dataset.processing_id
 
@@ -275,6 +277,16 @@ class TestSingleStationComparison:
         # Skip test if legacy processing failed
         if processed_data_legacy["mt_obj"] is None:
             pytest.skip("Legacy processing returned None")
+
+        # Verify station IDs are correct before comparing
+        assert processed_data_new["mt_obj"].station == "test1", (
+            f"New processing station ID is '{processed_data_new['mt_obj'].station}' "
+            f"but expected 'test1'"
+        )
+        assert processed_data_legacy["mt_obj"].station == "test1", (
+            f"Legacy processing station ID is '{processed_data_legacy['mt_obj'].station}' "
+            f"but expected 'test1'"
+        )
 
         assert processed_data_legacy["mt_obj"] == processed_data_new["mt_obj"]
 
@@ -338,7 +350,9 @@ class TestSingleStationWithMerge:
             tf_obj.station_metadata.run_list
         )
 
-        mt_obj_legacy = MT(survey_metadata=tf_obj.survey_metadata)
+        mt_obj_legacy = MT()
+        mt_obj_legacy.survey_metadata.update(tf_obj.survey_metadata)
+        mt_obj_legacy.station_metadata.update(tf_obj.station_metadata)
         mt_obj_legacy._transfer_function = tf_obj._transfer_function
 
         return {"mt_obj": mt_obj_legacy, "tf_obj": tf_obj}
@@ -447,7 +461,9 @@ class TestRemoteReferenceComparison:
 
         # Only create MT object if TF processing succeeded
         if tf_obj is not None:
-            mt_obj_legacy = MT(survey_metadata=tf_obj.survey_metadata)
+            mt_obj_legacy = MT()
+            mt_obj_legacy.survey_metadata.update(tf_obj.survey_metadata)
+            mt_obj_legacy.station_metadata.update(tf_obj.station_metadata)
             mt_obj_legacy._transfer_function = tf_obj._transfer_function
             mt_obj_legacy.tf_id = kernel_dataset.processing_id
 
@@ -535,7 +551,9 @@ class TestRemoteReferenceWithMerge:
             tf_obj.station_metadata.run_list
         )
 
-        mt_obj_legacy = MT(survey_metadata=tf_obj.survey_metadata)
+        mt_obj_legacy = MT()
+        mt_obj_legacy.survey_metadata.update(tf_obj.survey_metadata)
+        mt_obj_legacy.station_metadata.update(tf_obj.station_metadata)
         mt_obj_legacy._transfer_function = tf_obj._transfer_function
 
         return {"mt_obj": mt_obj_legacy, "tf_obj": tf_obj}
