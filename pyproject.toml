@@ -77,6 +77,12 @@ include-package-data = true
 [tool.pytest.ini_options]
 collect_ignore = ["setup.py"]
 testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests requiring external resources or end-to-end workflows",
+    "unit: marks fast unit tests",
+    "plotting: marks tests that create matplotlib plots",
+]
 
 [tool.black]
 line-length = 88

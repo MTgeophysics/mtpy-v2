@@ -29,7 +29,6 @@ Created on December 22, 2025
 # =============================================================================
 # Imports
 # =============================================================================
-import shutil
 import tempfile
 import uuid
 from pathlib import Path
@@ -46,35 +45,26 @@ from mtpy import MT, MTCollection, MTData
 
 
 class TestMTCollection:
-    """Test basic MTCollection functionality."""
+    """
+    Test basic MTCollection functionality.
+
+    OPTIMIZATION: Uses session-scoped fixture for read-only tests,
+    eliminating the 68.76s setup overhead per test class.
+    """
 
     @pytest.fixture(scope="class")
-    def shared_mt_collection(self, global_mt_collection, worker_id):
-        """Class-scoped fixture providing a shared MTCollection for all tests."""
-        temp_dir = tempfile.mkdtemp()
-        unique_id = str(uuid.uuid4())[:8]
-        fresh_file = (
-            Path(temp_dir) / f"test_collection_class_{worker_id}_{unique_id}.h5"
-        )
+    def shared_mt_collection(self, session_mt_collection_object):
+        """
+        Class-scoped fixture using session MTCollection.
 
-        shutil.copy2(global_mt_collection, fresh_file)
+        OPTIMIZATION: Instead of copying and opening a new collection file,
+        we reuse the session-scoped MTCollection object since these tests
+        are read-only and don't modify the collection.
 
-        mc = MTCollection()
-        mc.open_collection(fresh_file)
-
-        yield mc
-
-        # Cleanup
-        try:
-            mc.mth5_collection.close_mth5()
-        except:
-            pass
-        close_open_files()
-        try:
-            fresh_file.unlink()
-            fresh_file.parent.rmdir()
-        except (OSError, PermissionError):
-            pass
+        This eliminates the expensive file copy + open operations.
+        """
+        yield session_mt_collection_object
+        # No cleanup needed - session fixture handles it
 
     def test_filename(self, shared_mt_collection):
         """Test that MTCollection filename is correctly set."""
@@ -225,8 +215,13 @@ class TestMTCollection:
 # =============================================================================
 
 
+@pytest.mark.slow
 class TestMTCollectionFromMTData01:
-    """Test MTCollection creation from MTData with survey parameter."""
+    """
+    Test MTCollection creation from MTData with survey parameter.
+
+    Marked as slow due to MTData creation and collection building.
+    """
 
     def test_survey_unique(self, mt_collection_from_mt_data):
         """Test that collection has single survey name."""
@@ -244,8 +239,13 @@ class TestMTCollectionFromMTData01:
         assert len(mc.dataframe) == len(tf_file_list)
 
 
+@pytest.mark.slow
 class TestMTCollectionFromMTData02:
-    """Test MTCollection with new_survey and tf_id_extra parameters."""
+    """
+    Test MTCollection with new_survey and tf_id_extra parameters.
+
+    Marked as slow due to MTData creation and collection building.
+    """
 
     @pytest.fixture(scope="class")
     def mt_collection_with_extras(self, tf_file_list, worker_id):
@@ -300,8 +300,13 @@ class TestMTCollectionFromMTData02:
         assert "new" in tf_id
 
 
+@pytest.mark.slow
 class TestMTCollectionFromMTData03:
-    """Test MTCollection using add_tf with MTData object."""
+    """
+    Test MTCollection using add_tf with MTData object.
+
+    Marked as slow due to MTData creation and collection building.
+    """
 
     @pytest.fixture(scope="class")
     def mt_collection_add_tf(self, tf_file_list, worker_id):

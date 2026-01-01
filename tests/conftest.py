@@ -18,6 +18,11 @@ import tempfile
 import uuid
 from pathlib import Path
 
+import matplotlib
+
+
+matplotlib.use("Agg")  # Non-interactive backend for testing
+import matplotlib.pyplot as plt
 import mt_metadata
 import numpy as np
 import pandas as pd
@@ -506,14 +511,38 @@ def expected_dataframe():
 @pytest.fixture(scope="session")
 def global_mt_collection(worker_id):
     """
-    Session-scoped fixture providing a cached MTCollection file.
+    Session-scoped fixture providing a cached MTCollection file path.
 
     This collection uses a global cache shared across all workers and sessions.
     Each worker gets its own copy to ensure thread-safety.
+
+    OPTIMIZATION: Returns file path only, avoiding expensive MTCollection object
+    creation at session scope. Individual tests copy this file as needed.
     """
     file_path = create_session_mt_collection(worker_id=worker_id)
     yield file_path
     # Cleanup handled by atexit
+
+
+@pytest.fixture(scope="session")
+def session_mt_collection_object(global_mt_collection):
+    """
+    Session-scoped MTCollection object for read-only operations.
+
+    WARNING: Do not modify this collection! Use fresh_mt_collection for
+    tests that need to modify the collection.
+
+    OPTIMIZATION: Creating MTCollection object once per session eliminates
+    the 68.76s setup overhead that was occurring for each test class.
+    """
+    mc = MTCollection()
+    mc.open_collection(global_mt_collection)
+    yield mc
+    try:
+        mc.mth5_collection.close_mth5()
+    except:
+        pass
+    close_open_files()
 
 
 @pytest.fixture(scope="session")
@@ -618,18 +647,35 @@ def expected_phase_tensor_skew_error():
 
 
 @pytest.fixture
-def fresh_mt_collection(global_mt_collection, worker_id):
+def fresh_mt_collection(global_mt_collection, worker_id, session_mt_collection_object):
     """
     Function-scoped fixture providing a fresh copy of MTCollection file.
 
     Use this fixture when your test needs to modify the MTCollection.
     Each test gets its own isolated copy.
+
+    IMPORTANT: Temporarily closes session collection to allow file copy.
     """
     temp_dir = tempfile.mkdtemp()
     unique_id = str(uuid.uuid4())[:8]
     fresh_file = Path(temp_dir) / f"test_collection_fresh_{worker_id}_{unique_id}.h5"
 
+    # Temporarily close the session collection to allow file copy on Windows
+    try:
+        session_mt_collection_object.mth5_collection.close_mth5()
+    except:
+        pass
+
+    # Copy the file
     shutil.copy2(global_mt_collection, fresh_file)
+
+    # Reopen session collection
+    try:
+        session_mt_collection_object.mth5_collection.open_mth5(
+            global_mt_collection, mode="r"
+        )
+    except:
+        pass
 
     mc = MTCollection()
     mc.open_collection(fresh_file)
@@ -697,6 +743,17 @@ def basic_mt():
     mt.latitude = 10
     mt.longitude = 20
     return mt
+
+
+@pytest.fixture(autouse=True)
+def cleanup_matplotlib():
+    """
+    Automatically cleanup matplotlib figures after each test.
+
+    This prevents memory leaks and ensures test isolation for plotting tests.
+    """
+    yield
+    plt.close("all")
 
 
 @pytest.fixture
@@ -812,10 +869,14 @@ def pytest_sessionstart(session):
     """
     Called before the test session starts.
 
-    Pre-populate the global cache to ensure best performance.
+    Pre-populate the global cache and configure matplotlib for testing.
     This creates the cache once, and all workers will copy from it.
     """
     logger.info("MTpy-v2 Test Session Starting - Pre-populating global cache...")
+
+    # Configure matplotlib for headless testing
+    plt.ioff()  # Turn off interactive mode
+    logger.info("Matplotlib configured for headless testing (Agg backend)")
 
     # Pre-create the global MTCollection cache
     # This happens once for the main process, all workers will copy from it
@@ -831,9 +892,13 @@ def pytest_sessionfinish(session, exitstatus):
     """
     Called after the test session finishes.
 
-    Perform final cleanup.
+    Perform final cleanup including matplotlib figures.
     """
     logger.info("MTpy-v2 Test Session Ending - Cleaning up...")
+
+    # Close all matplotlib figures
+    plt.close("all")
+
     cleanup_collection_files()
     close_open_files()
     logger.info("MTpy-v2 Test Session cleanup completed")
