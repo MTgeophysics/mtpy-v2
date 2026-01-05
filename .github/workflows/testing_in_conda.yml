@@ -49,7 +49,7 @@ jobs:
         CONDA_OVERRIDE_PYTHON: ${{ matrix.python-version }}
       run: |
         python --version
-        mamba env create -f environment.yml
+        mamba env create -f environment.yml python=${{ matrix.python-version }}
         source ~/.profile
         conda init --all
         conda activate mtpy-v2-test
