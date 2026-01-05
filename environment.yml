@@ -2,12 +2,20 @@ name: mtpy-v2-test
 channels:
   - conda-forge
 dependencies:
-  - matplotlib
   - numpy
-  - git
-  - pip
+  - scipy
+  - xarray
+  - matplotlib
+  - pyproj
+  - configparser
+  - geopandas
+  - rasterio
+  - contextily
+  - pyevtk
   - simpeg
   - dill
+  - git
+  - pip
   - jupyterlab
   - ipywidgets
   - mkl-devel
