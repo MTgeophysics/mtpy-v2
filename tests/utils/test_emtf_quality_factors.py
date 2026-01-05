@@ -204,7 +204,7 @@ class TestTFQualityFactorUnrounded:
         """Test that unrounded quality factor matches expected value."""
         mt_object.read(tf_file)
         qf = mt_object.estimate_tf_quality(round_qf=False)
-        assert pytest.approx(qf, rel=1e-2) == expected_qf
+        assert qf == pytest.approx(expected_qf, rel=1e-2)
 
 
 class TestTFQualityFactorBothModes:
@@ -231,7 +231,7 @@ class TestTFQualityFactorBothModes:
 
         with subtests.test(msg="unrounded"):
             qf_unrounded = mt_object.estimate_tf_quality(round_qf=False)
-            assert pytest.approx(qf_unrounded, rel=1e-2) == expected_qf
+            assert qf_unrounded == pytest.approx(expected_qf, rel=1e-2)
 
         with subtests.test(msg="rounding relationship"):
             # Rounded value should be close to unrounded (within 0.5 due to rounding)
@@ -391,7 +391,7 @@ class TestTFQualityFactorEdgeCases:
                 qf_rounded = mt_obj.estimate_tf_quality(round_qf=True)
 
                 assert qf_rounded == 5.0, f"{tf_file.name} should round to 5"
-                assert pytest.approx(qf, rel=1e-2) == expected_qf
+                assert qf == pytest.approx(expected_qf, rel=1e-2)
 
 
 class TestTFQualityFactorSpecialCases:
@@ -403,8 +403,8 @@ class TestTFQualityFactorSpecialCases:
 
         qf = mt_object.estimate_tf_quality()
 
-        assert (
-            pytest.approx(qf, rel=1e-2) == 2.8
+        assert qf == pytest.approx(
+            2.8, rel=1e-2
         ), "TF_POOR_XML should have quality factor around 2.8"
 
     def test_no_error_edi(self, mt_object):
@@ -414,8 +414,8 @@ class TestTFQualityFactorSpecialCases:
         qf = mt_object.estimate_tf_quality()
         qf_rounded = mt_object.estimate_tf_quality(round_qf=True)
 
-        assert (
-            pytest.approx(qf, rel=1e-2) == 2.35
+        assert qf == pytest.approx(
+            2.35, rel=1e-2
         ), "TF_EDI_NO_ERROR should have quality factor around 2.35"
         assert qf_rounded == 2.0, "TF_EDI_NO_ERROR should round to 2"
 
@@ -434,7 +434,7 @@ class TestTFQualityFactorSpecialCases:
                 qf = mt_obj.estimate_tf_quality()
                 qf_rounded = mt_obj.estimate_tf_quality(round_qf=True)
 
-                assert pytest.approx(qf, rel=1e-2) == expected_qf
+                assert qf == pytest.approx(expected_qf, rel=1e-2)
                 assert qf_rounded == expected_rounded
 
 
@@ -457,8 +457,8 @@ class TestTFQualityFactorRobustness:
         assert qf1 != qf2, "Different files should have different quality factors"
 
         # Should match expected values
-        assert pytest.approx(qf1, rel=1e-2) == 4.85
-        assert pytest.approx(qf2, rel=1e-2) == 1.35
+        assert qf1 == pytest.approx(4.85, rel=1e-2)
+        assert qf2 == pytest.approx(1.35, rel=1e-2)
 
 
 class TestTFQualityFactorParallelSafety:
@@ -479,8 +479,8 @@ class TestTFQualityFactorParallelSafety:
         assert qf1 != qf2
 
         # Should match expected values
-        assert pytest.approx(qf1, rel=1e-2) == 4.85
-        assert pytest.approx(qf2, rel=1e-2) == 1.35
+        assert qf1 == pytest.approx(4.85, rel=1e-2)
+        assert qf2 == pytest.approx(1.35, rel=1e-2)
 
 
 # =============================================================================
