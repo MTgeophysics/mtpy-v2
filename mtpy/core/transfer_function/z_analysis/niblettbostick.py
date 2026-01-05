@@ -6,7 +6,8 @@ mtpy/mtpy/analysis/niblettbostick.py
 Contains functions for the calculation of the Niblett-Bostick transformation of
 impedance tensors.
 
-The methods follow
+The methods follow:
+
 - Niblett
 - Bostick
 - Jones
@@ -38,45 +39,75 @@ from mtpy.utils import MU0
 NB_SCALE_PARAMETER = 2.0 * np.pi * MU0
 
 
-def calculate_niblett_bostick_depth(resistivity, period):
-    """Use the Niblett-Bostick approximation for depth of penetration in meters.
-    :param period:
-    :param resistivity: DESCRIPTION.
-    :type resistivity: TYPE
-    :return: DESCRIPTION.
-    :rtype: TYPE
+def calculate_niblett_bostick_depth(
+    resistivity: np.ndarray, period: np.ndarray
+) -> np.ndarray:
+    """
+    Use the Niblett-Bostick approximation for depth of penetration.
+
+    Parameters
+    ----------
+    resistivity : np.ndarray
+        Resistivity values in Ohm meters
+    period : np.ndarray
+        Period values in seconds
+
+    Returns
+    -------
+    np.ndarray
+        Depth of penetration in meters
+
     """
 
     return np.sqrt(resistivity * period / NB_SCALE_PARAMETER)
 
 
-def calculate_niblett_bostick_resistivity_weidelt(resistivity, phase):
-    """Convert a period-dependent pair of resistivity/phase (Ohm meters/rad)
-    into resistivity/depth (Ohm meters/meters)
+def calculate_niblett_bostick_resistivity_weidelt(
+    resistivity: np.ndarray, phase: np.ndarray
+) -> np.ndarray:
+    """
+    Convert resistivity/phase to Niblett-Bostick resistivity using Weidelt approximation.
 
     The conversion uses the simplified transformation without derivatives.
-    :param resistivity: DESCRIPTION.
-    :type resistivity: TYPE
-    :param phase: DESCRIPTION.
-    :type phase: TYPE
-    :return: DESCRIPTION.
-    :rtype: TYPE
+
+    Parameters
+    ----------
+    resistivity : np.ndarray
+        Resistivity values in Ohm meters
+    phase : np.ndarray
+        Phase values in degrees
+
+    Returns
+    -------
+    np.ndarray
+        Niblett-Bostick transformed resistivity in Ohm meters
+
     """
 
     return resistivity * ((np.pi / 2) * np.deg2rad(phase % 90) - 1)
 
 
-def calculate_niblett_bostick_resistivity_derivatives(resistivity, period):
-    """Convert a period-dependent pair of resistivity/phase (Ohm meters/rad)
-    into resistivity/depth (Ohm meters/meters)
+def calculate_niblett_bostick_resistivity_derivatives(
+    resistivity: np.ndarray, period: np.ndarray
+) -> np.ndarray:
+    """
+    Convert resistivity to Niblett-Bostick resistivity using derivatives.
 
-    The conversion uses derivatives.
-    :param resistivity: DESCRIPTION.
-    :type resistivity: TYPE
-    :param period: DESCRIPTION.
-    :type period: TYPE
-    :return: DESCRIPTION.
-    :rtype: TYPE
+    The conversion uses derivatives of log(resistivity) vs log(period).
+    Bostick resistivity is only valid for -1 < m < 1, where m is the gradient.
+
+    Parameters
+    ----------
+    resistivity : np.ndarray
+        Resistivity values in Ohm meters
+    period : np.ndarray
+        Period values in seconds
+
+    Returns
+    -------
+    np.ndarray
+        Niblett-Bostick transformed resistivity in Ohm meters
+
     """
 
     log_period = np.log10(period)
@@ -90,18 +121,28 @@ def calculate_niblett_bostick_resistivity_derivatives(resistivity, period):
     return resistivity * (1.0 + m) / (1.0 - m)
 
 
-def calculate_depth_sensitivity(depth, period, rho=100):
-    """Compute sensitivty S(z,sigma, omega)= -kz*exp(-2*kz).
+def calculate_depth_sensitivity(
+    depth: np.ndarray, period: np.ndarray, rho: float = 100
+) -> np.ndarray:
+    """
+    Compute sensitivity S(z, sigma, omega) = -kz*exp(-2*kz).
 
-    The result is independent of sigma and freq.
-    :param rho:
-        Defaults to 100.
-    :param period:
-    :param depth:
-    :param z:
-    :param sigma_conduct:
-    :param freq:
-    :return: The sensitivity vslue.
+    The result is independent of sigma and frequency.
+
+    Parameters
+    ----------
+    depth : np.ndarray
+        Depth values in meters
+    period : np.ndarray
+        Period values in seconds
+    rho : float, optional
+        Resistivity in Ohm meters, by default 100
+
+    Returns
+    -------
+    np.ndarray
+        Sensitivity values
+
     """
 
     omega = 2 * np.pi / period
@@ -117,43 +158,55 @@ def calculate_depth_sensitivity(depth, period, rho=100):
     return sensitivity
 
 
-def calculate_depth_of_investigation(z_object):
-    """Determine an array of Z_nb (depth dependent Niblett-Bostick transformed Z)
-    from the 1D and 2D parts of an impedance tensor array Z.
+def calculate_depth_of_investigation(z_object) -> np.ndarray:
+    """
+    Determine depth-dependent Niblett-Bostick transformed impedance tensor.
 
-    The calculation of the Z_nb needs 6 steps:
+    Calculates Z_nb (depth dependent Niblett-Bostick transformed Z) from the
+    1D and 2D parts of an impedance tensor array Z.
 
-        1) Determine the dimensionality of the Z(T), discard all 3D parts
-        2) Rotate all Z(T) to TE/TM setup (T_parallel/T_ortho)
-        3) Transform every component individually by Niblett-Bostick
-        4) collect the respective 2 components each for equal/similar depths
-        5) interprete them as TE_nb/TM_nb
-        6) set up Z_nb(depth)
+    The calculation follows 6 steps:
 
-    If 1D layers occur inbetween 2D layers, the strike angle is undefined therein.
-    We take an - arbitrarily chosen - linear interpolation of strike angle for
-    these layers, with the values varying between the angles of the bounding
-    upper and lower 2D layers (linearly w.r.t. the periods).
+    1. Determine the dimensionality of Z(T), discard all 3D parts
+    2. Rotate all Z(T) to TE/TM setup (T_parallel/T_ortho)
+    3. Transform every component individually by Niblett-Bostick
+    4. Collect the respective 2 components each for equal/similar depths
+    5. Interpret them as TE_nb/TM_nb
+    6. Set up Z_nb(depth)
 
-    Use the output for instance for the determination of
-    NB-transformed phase tensors.
+    If 1D layers occur between 2D layers, the strike angle is undefined.
+    A linear interpolation of strike angle is used for these layers, with
+    values varying between the angles of the bounding upper and lower 2D
+    layers (linearly with respect to periods).
 
-    Note:
-        No propagation of errors implemented yet!
+    Parameters
+    ----------
+    z_object : mtpy.core.transfer_function.z.Z
+        Impedance tensor object
 
-    Arguments:
-            *z_object* : mtpy.core.z object
+    Returns
+    -------
+    np.ndarray
+        Structured array with fields: period, depth_xy, depth_yx, depth_det,
+        depth_min, depth_max, resistivity_xy, resistivity_yx, resistivity_det,
+        resistivity_min, resistivity_max
 
-    Example:
-            >>> import mtpy.analysis.niblettbostick as nb
-            >>> depth_array = nb.calculate_znb(z_object=z1)
-            >>> # plot the results
-            >>> import matplotlib.pyplot as plt
-            >>> fig = plt.figure()
-            >>> ax = fig.add_subplot(1,1,1)
-            >>> ax.semilogy(depth_array['depth_min'], depth_array['period'])
-            >>> ax.semilogy(depth_array['depth_max'], depth_array['period'])
-            >>> plt.show()
+    Notes
+    -----
+    No propagation of errors implemented yet.
+
+    Examples
+    --------
+    >>> import mtpy.analysis.niblettbostick as nb
+    >>> depth_array = nb.calculate_depth_of_investigation(z_object=z1)
+    >>> # plot the results
+    >>> import matplotlib.pyplot as plt
+    >>> fig = plt.figure()
+    >>> ax = fig.add_subplot(1,1,1)
+    >>> ax.semilogy(depth_array['depth_min'], depth_array['period'])
+    >>> ax.semilogy(depth_array['depth_max'], depth_array['period'])
+    >>> plt.show()
+
     """
 
     if z_object.z.shape[0] > 1:

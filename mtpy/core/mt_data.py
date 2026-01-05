@@ -5,6 +5,8 @@ Created on Mon Oct 10 11:58:56 2022
 @author: jpeacock
 """
 
+from __future__ import annotations
+
 from collections import OrderedDict
 from copy import deepcopy
 
@@ -12,6 +14,7 @@ from copy import deepcopy
 # Imports
 # =============================================================================
 from pathlib import Path
+from typing import Any
 
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -47,19 +50,42 @@ from .mt_stations import MTStations
 
 
 class MTData(OrderedDict, MTStations):
-    """Collection of MT objects as an OrderedDict where keys are formatted as
-    `survey_id.station_id`.  Has all functionality of an OrderedDict for
-    example can iterate of `.keys()`, `.values()` or `.items`.  Values are
-    a list of MT objects.
+    """
+    Collection of MT objects as an OrderedDict.
 
-    Inherits :class:`mtpyt.core.MTStations` to deal with geographic locations
-    of stations.
+    Keys are formatted as `survey_id.station_id`. Has all functionality of an
+    OrderedDict - can iterate over `.keys()`, `.values()` or `.items()`.
+    Values are MT objects.
 
-    Is not optimized yet for speed, works fine for smaller surveys, but for
-    large can be slow.  Might try using a dataframe as the base.
+    Parameters
+    ----------
+    mt_list : list of MT, optional
+        List of MT objects to initialize with, by default None
+    **kwargs : dict
+        Additional keyword arguments including utm_epsg, datum_epsg
+
+    Attributes
+    ----------
+    z_model_error : ModelErrors
+        Impedance model error configuration
+    t_model_error : ModelErrors
+        Tipper model error configuration
+    data_rotation_angle : float
+        Data rotation angle in degrees
+    coordinate_reference_frame : str
+        Coordinate reference frame ('ned' or 'enu')
+    impedance_units : str
+        Impedance units ('mt' or 'ohm')
+
+    Notes
+    -----
+    Inherits from :class:`mtpy.core.MTStations` to handle geographic locations.
+    Not yet optimized for speed - works fine for smaller surveys but can be
+    slow for large datasets.
+
     """
 
-    def __init__(self, mt_list=None, **kwargs):
+    def __init__(self, mt_list: list[MT] | None = None, **kwargs: Any) -> None:
         self._coordinate_reference_frame_options = COORDINATE_REFERENCE_FRAME_OPTIONS
 
         self.z_model_error = ModelErrors(
@@ -108,16 +134,29 @@ class MTData(OrderedDict, MTStations):
             **kwargs,
         )
 
-    def _validate_item(self, mt_obj):
-        """Make sure intpu is an MT object.
+    def _validate_item(self, mt_obj: MT | str | Path) -> MT:
+        """
+        Validate that input is an MT object or convert it.
 
-        If the input is a string assume its a file path.
+        Parameters
+        ----------
+        mt_obj : MT, str, or Path
+            MT object or path to MT data file
 
-        :param mt_obj: Input MT object.
-        :type mt_obj: :class:`mtpy.MT`, str, :class:`pathlib.Path`
-        :raises TypeError: If not any of the input types.
-        :return: MT object.
-        :rtype: :class:`mtpy.MT`
+        Returns
+        -------
+        MT
+            Validated MT object
+
+        Raises
+        ------
+        TypeError
+            If input is not MT object, string, or Path
+
+        Notes
+        -----
+        If input is a string or Path, assumes it's a file path and reads it
+
         """
         if isinstance(mt_obj, (str, Path)):
             m = MT()
@@ -130,13 +169,25 @@ class MTData(OrderedDict, MTStations):
             )
         return mt_obj
 
-    def __eq__(self, other):
-        """Test for other is equal.
+    def __eq__(self, other: "MTData") -> bool:
+        """
+        Test equality with another MTData object.
 
-        :param other: Other MTData object.
-        :type other: :class:`mtpy.MTData`
-        :return: True if equal, False if not equal.
-        :rtype: bool
+        Parameters
+        ----------
+        other : MTData
+            Another MTData object to compare with
+
+        Returns
+        -------
+        bool
+            True if equal, False otherwise
+
+        Raises
+        ------
+        TypeError
+            If other is not an MTData object
+
         """
 
         if not isinstance(other, MTData):
@@ -170,13 +221,24 @@ class MTData(OrderedDict, MTStations):
             return False
         return True
 
-    def __deepcopy__(self, memo):
-        """Deep copy overwrite to make sure that logger is skipped.
+    def __deepcopy__(self, memo: dict) -> "MTData":
+        """
+        Create a deep copy of MTData object.
 
-        :param memo: DESCRIPTION.
-        :type memo: TYPE
-        :return: Deep copy of original MTData.
-        :rtype: :class:`mtpy.MTData`
+        Parameters
+        ----------
+        memo : dict
+            Memoization dictionary for deepcopy
+
+        Returns
+        -------
+        MTData
+            Deep copy of the original MTData object
+
+        Notes
+        -----
+        Logger is skipped during copying to avoid duplication issues
+
         """
         cls = self.__class__
         result = cls.__new__(cls)
@@ -191,23 +253,29 @@ class MTData(OrderedDict, MTStations):
 
         return result
 
-    def copy(self):
-        """Deep copy of original MTData object.
+    def copy(self) -> "MTData":
+        """
+        Create a deep copy of MTData object.
 
-        :param memo: DESCRIPTION.
-        :type memo: TYPE
-        :return: Deep copy of original MTData.
-        :rtype: :class:`mtpy.MTData`
+        Returns
+        -------
+        MTData
+            Deep copy of the original MTData object
+
         """
         copied = deepcopy(self)
         copied.logger = self.logger
         return copied
 
-    def clone_empty(self):
-        """Return a copy of MTData excluding MT objects.
+    def clone_empty(self) -> "MTData":
+        """
+        Create a copy of MTData excluding all MT objects.
 
-        :return: Copy of MTData object excluding MT objects.
-        :rtype: :class:`mtpy.MTData`
+        Returns
+        -------
+        MTData
+            Empty MTData object with copied attributes but no stations
+
         """
 
         md = MTData()
@@ -217,29 +285,42 @@ class MTData(OrderedDict, MTStations):
         return md
 
     @property
-    def coordinate_reference_frame(self):
-        """coordinate reference frame ned or enu"""
+    def coordinate_reference_frame(self) -> str:
+        """
+        Coordinate reference frame.
+
+        Returns
+        -------
+        str
+            Reference frame identifier ('NED' or 'ENU')
+
+        """
         return self._coordinate_reference_frame_options[
             self._coordinate_reference_frame
         ].upper()
 
     @coordinate_reference_frame.setter
-    def coordinate_reference_frame(self, value):
-        """set coordinate_reference_frame
+    def coordinate_reference_frame(self, value: str) -> None:
+        """
+        Set coordinate reference frame.
 
-        options are NED, ENU
+        Parameters
+        ----------
+        value : str
+            Reference frame identifier. Options:
 
-        NED
+            - 'NED': x=North, y=East, z=+down
+            - 'ENU': x=East, y=North, z=+up
 
-         - x = North
-         - y = East
-         - z = + down
+        Raises
+        ------
+        ValueError
+            If value is not a recognized reference frame
 
-        ENU
+        Notes
+        -----
+        Updates coordinate reference frame for all MT objects in collection
 
-         - x = East
-         - y = North
-         - z = + up
         """
 
         if value.lower() not in self._coordinate_reference_frame_options:
@@ -264,13 +345,40 @@ class MTData(OrderedDict, MTStations):
         self._coordinate_reference_frame = value
 
     @property
-    def impedance_units(self):
-        """impedance units"""
+    def impedance_units(self) -> str:
+        """
+        Impedance units.
+
+        Returns
+        -------
+        str
+            Impedance units ('mt' or 'ohm')
+
+        """
         return self._impedance_units
 
     @impedance_units.setter
-    def impedance_units(self, value):
-        """impedance units setter options are [ mt | ohm ]"""
+    def impedance_units(self, value: str) -> None:
+        """
+        Set impedance units.
+
+        Parameters
+        ----------
+        value : str
+            Impedance units. Options: 'mt' [mV/km/nT] or 'ohm' [Ohms]
+
+        Raises
+        ------
+        TypeError
+            If value is not a string
+        ValueError
+            If value is not 'mt' or 'ohm'
+
+        Notes
+        -----
+        Updates impedance units for all MT objects in collection
+
+        """
         if not isinstance(value, str):
             raise TypeError("Units input must be a string.")
         if value.lower() not in self._impedance_unit_factors.keys():
@@ -283,38 +391,65 @@ class MTData(OrderedDict, MTStations):
                 mt_obj.impedance_units = self._impedance_units
 
     @property
-    def mt_list(self):
-        """Mt list.
+    def mt_list(self) -> list[MT]:
+        """
+        List of all MT objects.
 
-        :return: List of MT objects.
-        :rtype: list
+        Returns
+        -------
+        list of MT
+            List of all MT objects in the collection
+
         """
         return self.values()
 
     @mt_list.setter
-    def mt_list(self, value):
-        """At this point not implemented, mainly here for inheritance of MTStations."""
+    def mt_list(self, value: list[MT] | None) -> None:
+        """
+        Set MT list (not implemented).
+
+        Parameters
+        ----------
+        value : list of MT or None
+            List of MT objects
+
+        Notes
+        -----
+        Not implemented - mainly here for inheritance from MTStations
+
+        """
         if value is None:
             return
         if len(self.values()) != 0:
             self.logger.warning("mt_list cannot be set.")
 
     @property
-    def survey_ids(self):
-        """Survey IDs for all MT objects.
+    def survey_ids(self) -> list[str]:
+        """
+        Unique survey IDs in the collection.
 
-        :return: List of survey IDs.
-        :rtype: list
+        Returns
+        -------
+        list of str
+            List of unique survey IDs
+
         """
         return list(set([key.split(".")[0] for key in self.keys()]))
 
-    def get_survey(self, survey_id):
-        """Get all MT objects that belong to the 'survey_id' from the data set.
+    def get_survey(self, survey_id: str) -> "MTData":
+        """
+        Get all MT objects belonging to a specific survey.
 
-        :param survey_id: Survey ID.
-        :type survey_id: str
-        :return: MTData object including only those with the desired 'survey_id'.
-        :rtype: :class:`mtpy.MTData`
+        Parameters
+        ----------
+        survey_id : str
+            Survey identifier
+
+        Returns
+        -------
+        MTData
+            New MTData object containing only stations from the specified survey
+
         """
 
         survey_list = [mt_obj for key, mt_obj in self.items() if survey_id in key]
@@ -324,26 +459,36 @@ class MTData(OrderedDict, MTStations):
 
     def add_station(
         self,
-        mt_object,
-        survey=None,
-        compute_relative_location=True,
-        interpolate_periods=None,
-        compute_model_error=False,
-    ):
-        """Add a MT object.
+        mt_object: MT | list[MT],
+        survey: str | None = None,
+        compute_relative_location: bool = True,
+        interpolate_periods: np.ndarray | None = None,
+        compute_model_error: bool = False,
+    ) -> None:
+        """
+        Add MT object(s) to the collection.
 
-        :param compute_model_error:
-            Defaults to False.
-        :param mt_object: MT object for a single station.
-        :type mt_object: :class:`mtpy.MT`
-        :param survey: New survey name, defaults to None.
-        :type survey: str, optional
-        :param compute_relative_location: Compute relative location,
-            can be slow if adding single stations in a loop.  If looping over
-            station set to False and compute at the end, defaults to True.
-        :type compute_relative_location: bool, optional
-        :param interpolate_periods: Periods to interpolate onto, defaults to None.
-        :type interpolate_periods: np.array, optional
+        Parameters
+        ----------
+        mt_object : MT or list of MT
+            MT object(s) to add
+        survey : str, optional
+            Survey name to assign, by default None
+        compute_relative_location : bool, optional
+            Whether to compute relative locations after adding.
+            Set to False when adding many stations in a loop for efficiency,
+            by default True
+        interpolate_periods : np.ndarray, optional
+            Periods to interpolate onto, by default None
+        compute_model_error : bool, optional
+            Whether to compute model errors, by default False
+
+        Notes
+        -----
+        For efficiency when adding multiple stations, set
+        compute_relative_location=False and call compute_relative_locations()
+        after all stations are added
+
         """
 
         if not isinstance(mt_object, (list, tuple)):
@@ -382,31 +527,37 @@ class MTData(OrderedDict, MTStations):
         if compute_relative_location:
             self.compute_relative_locations()
 
-    def add_tf(self, tf, **kwargs):
-        """Add a MT object.
+    def add_tf(self, tf: MT | list[MT], **kwargs: Any) -> None:
+        """
+        Add transfer function (MT object).
 
-        :param **kwargs:
-        :param tf:
-        :param mt_object: MT object for a single station.
-        :type mt_object: :class:`mtpy.MT`
-        :param survey: New survey name, defaults to None.
-        :type survey: str, optional
-        :param compute_relative_location: Compute relative location,
-            can be slow if adding single stations in a loop.  If looping over
-            station set to False and compute at the end, defaults to True.
-        :type compute_relative_location: bool, optional
-        :param interpolate_periods: Periods to interpolate onto, defaults to None.
-        :type interpolate_periods: np.array, optional
+        Parameters
+        ----------
+        tf : MT or list of MT
+            Transfer function object(s) to add
+        **kwargs : dict
+            Additional keyword arguments passed to add_station
+
+        See Also
+        --------
+        add_station : Main method for adding MT objects
+
         """
         self.add_station(tf, **kwargs)
 
-    def remove_station(self, station_id, survey_id=None):
-        """Remove a station from the dictionary based on the key.
+    def remove_station(
+        self, station_id: str | list[str], survey_id: str | None = None
+    ) -> None:
+        """
+        Remove station(s) from the collection.
 
-        :param station_id: Station ID.
-        :type station_id: str
-        :param survey_id: Survey ID, defaults to None.
-        :type survey_id: str, optional
+        Parameters
+        ----------
+        station_id : str or list of str
+            Station identifier(s) to remove
+        survey_id : str, optional
+            Survey identifier, by default None
+
         """
         if not isinstance(station_id, (list, tuple)):
             station_id = [station_id]
@@ -415,15 +566,27 @@ class MTData(OrderedDict, MTStations):
             if key in self.keys():
                 del self[key]
 
-    def _get_station_key(self, station_id, survey_id):
-        """Get station key from station id and survey id.
+    def _get_station_key(self, station_id: str, survey_id: str | None) -> str:
+        """
+        Get station key from station and survey IDs.
 
-        :param station_id: Station ID.
-        :type station_id: str
-        :param survey_id: Survey ID.
-        :type survey_id: str
-        :return: Station key.
-        :rtype: str
+        Parameters
+        ----------
+        station_id : str
+            Station identifier
+        survey_id : str or None
+            Survey identifier
+
+        Returns
+        -------
+        str
+            Station key in format 'survey_id.station_id'
+
+        Raises
+        ------
+        KeyError
+            If station key cannot be found
+
         """
 
         if station_id is not None:
@@ -438,11 +601,15 @@ class MTData(OrderedDict, MTStations):
             f"Could not find station_id = {station_id}, survey_id = {survey_id}"
         )
 
-    def get_periods(self):
-        """Get all unique periods.
+    def get_periods(self) -> np.ndarray:
+        """
+        Get all unique periods across all stations.
 
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Returns
+        -------
+        np.ndarray
+            Sorted array of unique periods in seconds
+
         """
 
         df = self.to_dataframe()
@@ -450,19 +617,38 @@ class MTData(OrderedDict, MTStations):
         periods.sort()
         return periods
 
-    def get_station(self, station_id=None, survey_id=None, station_key=None):
-        """If 'station_key' is None, tries to find key from `station_id` and
-        'survey_id' using MTData._get_station_key()
+    def get_station(
+        self,
+        station_id: str | None = None,
+        survey_id: str | None = None,
+        station_key: str | None = None,
+    ) -> MT:
+        """
+        Get an MT object from the collection.
 
-        :param station_key: Full station key {survey_id}.{station_id},, defaults to None.
-        :type station_key: str, optional
-        :param station_id: Station ID, defaults to None.
-        :type station_id: str, optional
-        :param survey_id: Survey ID, defaults to None.
-        :type survey_id: str, optional
-        :raises KeyError: If cannot find station_key.
-        :return: MT object.
-        :rtype: :class:`mtpy.MT`
+        Parameters
+        ----------
+        station_id : str, optional
+            Station identifier, by default None
+        survey_id : str, optional
+            Survey identifier, by default None
+        station_key : str, optional
+            Full station key as 'survey_id.station_id', by default None
+
+        Returns
+        -------
+        MT
+            MT object for the requested station
+
+        Raises
+        ------
+        KeyError
+            If station cannot be found
+
+        Notes
+        -----
+        If station_key is None, tries to find key from station_id and survey_id
+
         """
         if station_key is not None:
             station_key = station_key
@@ -474,19 +660,28 @@ class MTData(OrderedDict, MTStations):
         except KeyError:
             raise KeyError(f"Could not find {station_key} in MTData.")
 
-    def apply_bounding_box(self, lon_min, lon_max, lat_min, lat_max):
-        """Apply a bounding box.
+    def apply_bounding_box(
+        self, lon_min: float, lon_max: float, lat_min: float, lat_max: float
+    ) -> "MTData":
+        """
+        Get subset of stations within a bounding box.
 
-        :param lon_min: DESCRIPTION.
-        :type lon_min: TYPE
-        :param lon_max: DESCRIPTION.
-        :type lon_max: TYPE
-        :param lat_min: DESCRIPTION.
-        :type lat_min: TYPE
-        :param lat_max: DESCRIPTION.
-        :type lat_max: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Parameters
+        ----------
+        lon_min : float
+            Minimum longitude
+        lon_max : float
+            Maximum longitude
+        lat_min : float
+            Minimum latitude
+        lat_max : float
+            Maximum latitude
+
+        Returns
+        -------
+        MTData
+            New MTData object containing only stations within the bounding box
+
         """
 
         bb_df = self.station_locations.loc[
@@ -503,14 +698,21 @@ class MTData(OrderedDict, MTStations):
 
         return self.get_subset(station_keys)
 
-    def get_subset(self, station_list):
-        """Get a subset of the data from a list of stations, could be station_id
-        or station_keys. Safest to use keys {survey}.{station}
+    def get_subset(self, station_list: list[str]) -> "MTData":
+        """
+        Get subset of stations from a list.
 
-        :param station_list: List of station keys as {survey_id}.{station_id}.
-        :type station_list: list
-        :return: Returns just those stations within station_list.
-        :rtype: :class:`mtpy.MTData`
+        Parameters
+        ----------
+        station_list : list of str
+            List of station identifiers or keys. Keys should be in format
+            'survey_id.station_id'
+
+        Returns
+        -------
+        MTData
+            New MTData object containing only the requested stations
+
         """
         mt_data = self.clone_empty()
         for station in station_list:
@@ -528,23 +730,43 @@ class MTData(OrderedDict, MTStations):
         return mt_data
 
     @property
-    def n_stations(self):
-        """Number of stations in MT data."""
+    def n_stations(self) -> int:
+        """
+        Number of stations in the collection.
+
+        Returns
+        -------
+        int
+            Number of MT objects in the collection
+
+        """
 
         if self.mt_list is not None:
             return len(self.mt_list)
 
-    def to_dataframe(self, utm_crs=None, cols=None, impedance_units="mt"):
-        """To dataframe.
+    def to_dataframe(
+        self,
+        utm_crs: Any | None = None,
+        cols: list[str] | None = None,
+        impedance_units: str = "mt",
+    ) -> pd.DataFrame:
+        """
+        Convert to pandas DataFrame.
 
-        :param utm_crs: DESCRIPTION, defaults to None.
-        :type utm_crs: TYPE, optional
-        :param cols: DESCRIPTION, defaults to None.
-        :type cols: TYPE, optional
-        :param impedance_units: [ "mt" [mV/km/nT] | "ohm" [Ohms] ]
-        :type impedance_units: str
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Parameters
+        ----------
+        utm_crs : CRS, int, str, optional
+            UTM coordinate reference system, by default None
+        cols : list of str, optional
+            Columns to include in dataframe, by default None (all columns)
+        impedance_units : str, optional
+            Impedance units ('mt' [mV/km/nT] or 'ohm' [Ohms]), by default 'mt'
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing MT data from all stations
+
         """
 
         df_list = [
@@ -558,28 +780,41 @@ class MTData(OrderedDict, MTStations):
         df.reset_index(drop=True, inplace=True)
         return df
 
-    def to_mt_dataframe(self, utm_crs=None, impedance_units="mt"):
-        """Create an MTDataFrame.
+    def to_mt_dataframe(
+        self, utm_crs: Any | None = None, impedance_units: str = "mt"
+    ) -> MTDataFrame:
+        """
+        Create an MTDataFrame object.
 
-        :param utm_crs: DESCRIPTION, defaults to None.
-        :type utm_crs: TYPE, optional
-        :param impedance_units: [ "mt" [mV/km/nT] | "ohm" [Ohms] ]
-        :type impedance_units: str
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Parameters
+        ----------
+        utm_crs : CRS, int, str, optional
+            UTM coordinate reference system, by default None
+        impedance_units : str, optional
+            Impedance units ('mt' [mV/km/nT] or 'ohm' [Ohms]), by default 'mt'
+
+        Returns
+        -------
+        MTDataFrame
+            MTDataFrame object containing all station data
+
         """
 
         return MTDataFrame(
             self.to_dataframe(utm_crs=utm_crs, impedance_units=impedance_units)
         )
 
-    def from_dataframe(self, df, impedance_units="mt"):
-        """Create an dictionary of MT objects from a dataframe.
+    def from_dataframe(self, df: pd.DataFrame, impedance_units: str = "mt") -> None:
+        """
+        Create MT objects from a pandas DataFrame.
 
-        :param df: Dataframe of mt data.
-        :type df: `pandas.DataFrame`
-        :param impedance_units: [ "mt" [mV/km/nT] | "ohm" [Ohms] ]
-        :type impedance_units: str
+        Parameters
+        ----------
+        df : pd.DataFrame
+            DataFrame containing MT data
+        impedance_units : str, optional
+            Impedance units ('mt' [mV/km/nT] or 'ohm' [Ohms]), by default 'mt'
+
         """
 
         for station in df.station.unique():
@@ -588,29 +823,53 @@ class MTData(OrderedDict, MTStations):
             mt_object.from_dataframe(sdf, impedance_units=impedance_units)
             self.add_station(mt_object, compute_relative_location=False)
 
-    def from_mt_dataframe(self, mt_df, impedance_units="mt"):
-        """Create an dictionary of MT objects from a dataframe.
+    def from_mt_dataframe(
+        self, mt_df: MTDataFrame, impedance_units: str = "mt"
+    ) -> None:
+        """
+        Create MT objects from an MTDataFrame.
 
-        :param mt_df:
-        :param df: Dataframe of mt data.
-        :type df: `MTDataFrame`
-        :param impedance_units: [ "mt" [mV/km/nT] | "ohm" [Ohms] ]
-        :type impedance_units: str
+        Parameters
+        ----------
+        mt_df : MTDataFrame
+            MTDataFrame containing MT data
+        impedance_units : str, optional
+            Impedance units ('mt' [mV/km/nT] or 'ohm' [Ohms]), by default 'mt'
+
         """
 
         self.from_dataframe(mt_df.dataframe, impedance_units=impedance_units)
 
-    def to_geo_df(self, model_locations=False, data_type="station_locations"):
-        """Make a geopandas dataframe for easier GIS manipulation.
+    def to_geo_df(
+        self, model_locations: bool = False, data_type: str = "station_locations"
+    ) -> gpd.GeoDataFrame:
+        """
+        Create a GeoDataFrame for GIS operations.
 
-        :param model_locations: If True returns points in model coordinates,, defaults to False.
-        :type model_locations: bool, optional
-        :param data_type: Type of data in GeoDataFrame
-            [ 'station_locations' | 'phase_tensor' | 'tipper' | 'shapefiles' (both pt and tipper) ],
-              defaults to "station_locations".
-        :type data_type: string, optional
-        :return: Geopandas dataframe with requested data in requested coordinates.
-        :rtype: geopandas.GeoDataFrame
+        Parameters
+        ----------
+        model_locations : bool, optional
+            If True, returns points in model coordinates, by default False
+        data_type : str, optional
+            Type of data to include. Options:
+
+            - 'station_locations' or 'stations': Station locations only
+            - 'phase_tensor' or 'pt': Phase tensor data
+            - 'tipper' or 't': Tipper data
+            - 'both' or 'shapefiles': Both phase tensor and tipper
+
+            By default 'station_locations'
+
+        Returns
+        -------
+        gpd.GeoDataFrame
+            GeoDataFrame with requested data in requested coordinates
+
+        Raises
+        ------
+        ValueError
+            If data_type is not supported
+
         """
 
         if data_type in ["station_locations", "stations"]:
@@ -640,32 +899,33 @@ class MTData(OrderedDict, MTStations):
 
     def interpolate(
         self,
-        new_periods,
-        f_type="period",
-        inplace=True,
-        bounds_error=True,
-        **kwargs,
-    ):
+        new_periods: np.ndarray,
+        f_type: str = "period",
+        inplace: bool = True,
+        bounds_error: bool = True,
+        **kwargs: Any,
+    ) -> "MTData" | None:
         """
-        Interpolate onto common period range
+        Interpolate all MT objects onto common period range.
 
-        kwargs include
+        Parameters
+        ----------
+        new_periods : np.ndarray
+            Target periods for interpolation
+        f_type : str, optional
+            Frequency type ('frequency' or 'period'), by default 'period'
+        inplace : bool, optional
+            If True, modifies collection in place, by default True
+        bounds_error : bool, optional
+            If True, only interpolates within data bounds, by default True
+        **kwargs : dict
+            Additional interpolation parameters
 
-            - method
-            - bounds_error
-            - z_log_space
-            - na_method
-            - extrapolate
+        Returns
+        -------
+        MTData or None
+            New MTData object if inplace=False, None otherwise
 
-        :param new_periods: DESCRIPTION
-        :param inplace:
-            Defaults to True.
-        :param new_periods: DESCRIPTION.
-        :type new_periods: TYPE
-        :param f_type: Frequency type can be [ 'frequency' | 'period' ], defaults to "period".
-        :type f_type: string, defaults to 'period', optional
-        :return: DESCRIPTION.
-        :rtype: TYPE
         """
 
         if not inplace:
@@ -702,21 +962,29 @@ class MTData(OrderedDict, MTStations):
         if not inplace:
             return mt_data
 
-    def rotate(self, rotation_angle, inplace=True):
-        """Rotate the data by the given angle assuming positive clockwise with
-        north = 0, east = 90.
-
-        :param inplace:
-            Defaults to True.
-        :param rotation_angle: DESCRIPTION.
-        :type rotation_angle: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def rotate(self, rotation_angle: float, inplace: bool = True) -> "MTData" | None:
         """
-        self.data_rotation_angle = rotation_angle
+        Rotate all MT data by a given angle.
 
+        Parameters
+        ----------
+        rotation_angle : float
+            Rotation angle in degrees, positive clockwise with north=0, east=90
+        inplace : bool, optional
+            If True, modifies collection in place, by default True
+
+        Returns
+        -------
+        MTData or None
+            New MTData object if inplace=False, None otherwise
+
+        """
         if not inplace:
             mt_data = self.clone_empty()
+            mt_data.data_rotation_angle = rotation_angle
+        else:
+            self.data_rotation_angle = rotation_angle
+
         for mt_obj in self.values():
             if not inplace:
                 rot_mt_obj = mt_obj.rotate(rotation_angle, inplace=False)
@@ -727,25 +995,34 @@ class MTData(OrderedDict, MTStations):
         if not inplace:
             return mt_data
 
-    def get_profile(self, x1, y1, x2, y2, radius):
-        """Get stations along a profile line given the (x1, y1) and (x2, y2)
-        coordinates within a given radius (in meters).
+    def get_profile(
+        self, x1: float, y1: float, x2: float, y2: float, radius: float
+    ) -> "MTData":
+        """
+        Get stations along a profile line.
 
-        These can be in (longitude, latitude) or (easting, northing).
-        The calculation is done in UTM, therefore a UTM CRS must be input
+        Parameters
+        ----------
+        x1 : float
+            X-coordinate (longitude or easting) of profile start
+        y1 : float
+            Y-coordinate (latitude or northing) of profile start
+        x2 : float
+            X-coordinate (longitude or easting) of profile end
+        y2 : float
+            Y-coordinate (latitude or northing) of profile end
+        radius : float
+            Search radius in meters
 
-        :param x1: DESCRIPTION.
-        :type x1: TYPE
-        :param y1: DESCRIPTION.
-        :type y1: TYPE
-        :param x2: DESCRIPTION.
-        :type x2: TYPE
-        :param y2: DESCRIPTION.
-        :type y2: TYPE
-        :param radius: DESCRIPTION.
-        :type radius: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Returns
+        -------
+        MTData
+            New MTData object containing only stations within radius of profile line
+
+        Notes
+        -----
+        Calculation is done in UTM, therefore a UTM CRS must be set
+
         """
 
         profile_stations = self._extract_profile(x1, y1, x2, y2, radius)
@@ -758,45 +1035,31 @@ class MTData(OrderedDict, MTStations):
 
     def compute_model_errors(
         self,
-        z_error_value=None,
-        z_error_type=None,
-        z_floor=None,
-        t_error_value=None,
-        t_error_type=None,
-        t_floor=None,
-    ):
-        """Compute mode errors based on the error type
+        z_error_value: float | None = None,
+        z_error_type: str | None = None,
+        z_floor: bool | None = None,
+        t_error_value: float | None = None,
+        t_error_type: str | None = None,
+        t_floor: bool | None = None,
+    ) -> None:
+        """
+        Compute model errors for all MT objects.
 
-        ========================== ===========================================
-        key                        definition
-        ========================== ===========================================
-        egbert                     error_value * sqrt(Zxy * Zyx)
-        geometric_mean             error_value * sqrt(Zxy * Zyx)
-        arithmetic_mean            error_value * (Zxy + Zyx) / 2
-        mean_od                    error_value * (Zxy + Zyx) / 2
-        off_diagonals              zxx_err == zxy_err, zyx_err == zyy_err
-        median                     error_value * median(z)
-        eigen                      error_value * mean(eigen(z))
-        percent                    error_value * z
-        absolute                   error_value
-        ========================== ===========================================
+        Parameters
+        ----------
+        z_error_value : float, optional
+            Error value for impedance, by default None
+        z_error_type : str, optional
+            Error type for impedance, by default None
+        z_floor : bool, optional
+            Apply floor to impedance errors, by default None
+        t_error_value : float, optional
+            Error value for tipper, by default None
+        t_error_type : str, optional
+            Error type for tipper, by default None
+        t_floor : bool, optional
+            Apply floor to tipper errors, by default None
 
-        :param z_error_value: DESCRIPTION, defaults to None.
-        :type z_error_value: TYPE, optional
-        :param z_error_type: DESCRIPTION, defaults to None.
-        :type z_error_type: TYPE, optional
-        :param z_floor: DESCRIPTION, defaults to None.
-        :type z_floor: TYPE, optional
-        :param t_error_value: DESCRIPTION02, defaults to None.
-        :type t_error_value: TYPE, optional
-        :param t_error_type: DESCRIPTION, defaults to None.
-        :type t_error_type: TYPE, optional
-        :param t_floor: DESCRIPTION, defaults to None.
-        :type t_floor: TYPE, optional
-        :param: DESCRIPTION.
-        :type: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
         """
 
         if z_error_value is not None:
@@ -817,17 +1080,31 @@ class MTData(OrderedDict, MTStations):
             mt_obj.compute_model_z_errors(**self.z_model_error.error_parameters)
             mt_obj.compute_model_t_errors(**self.t_model_error.error_parameters)
 
-    def get_nearby_stations(self, station_key, radius, radius_units="m"):
-        """Get stations close to a given station.
+    def get_nearby_stations(
+        self, station_key: str, radius: float, radius_units: str = "m"
+    ) -> list[str]:
+        """
+        Find stations near a given station.
 
-        :param radius_units:
-            Defaults to "m".
-        :param station_key: DESCRIPTION.
-        :type station_key: TYPE
-        :param radius: DESCRIPTION.
-        :type radius: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Parameters
+        ----------
+        station_key : str
+            Station key in format 'survey_id.station_id'
+        radius : float
+            Search radius
+        radius_units : str, optional
+            Units for radius ('m' or 'deg'), by default 'm'
+
+        Returns
+        -------
+        list of str
+            List of station keys within the radius
+
+        Raises
+        ------
+        ValueError
+            If meters requested but no UTM CRS is set
+
         """
         # get the local station
         local_station = self.get_station(station_key=station_key)
@@ -854,31 +1131,36 @@ class MTData(OrderedDict, MTStations):
 
     def estimate_spatial_static_shift(
         self,
-        station_key,
-        radius,
-        period_min,
-        period_max,
-        radius_units="m",
-        shift_tolerance=0.15,
-    ):
-        """Estimate static shift for a station by estimating the median resistivity
-        values for nearby stations within a radius given.  Can set the period
-        range to estimate the resistivity values.
+        station_key: str,
+        radius: float,
+        period_min: float,
+        period_max: float,
+        radius_units: str = "m",
+        shift_tolerance: float = 0.15,
+    ) -> tuple[float, float]:
+        """
+        Estimate static shift using nearby stations.
 
-        :param shift_tolerance:
-            Defaults to 0.15.
-        :param radius_units:
-            Defaults to "m".
-        :param station_key: DESCRIPTION.
-        :type station_key: TYPE
-        :param radius: DESCRIPTION.
-        :type radius: TYPE
-        :param period_min: DESCRIPTION.
-        :type period_min: TYPE
-        :param period_max: DESCRIPTION.
-        :type period_max: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Parameters
+        ----------
+        station_key : str
+            Station key in format 'survey_id.station_id'
+        radius : float
+            Search radius for nearby stations
+        period_min : float
+            Minimum period for resistivity calculation
+        period_max : float
+            Maximum period for resistivity calculation
+        radius_units : str, optional
+            Units for radius ('m' or 'deg'), by default 'm'
+        shift_tolerance : float, optional
+            Tolerance for accepting shift, by default 0.15
+
+        Returns
+        -------
+        tuple of float
+            Static shift factors (sx, sy) for xy and yx components
+
         """
         md = self.get_subset(
             self.get_nearby_stations(station_key, radius, radius_units)
@@ -914,15 +1196,15 @@ class MTData(OrderedDict, MTStations):
 
         return sx, sy
 
-    def estimate_starting_rho(self):
-        """Estimate starting resistivity from the data.
+    def estimate_starting_rho(self) -> None:
+        """
+        Estimate starting resistivity from all data.
 
-        Creates a plot of the mean and median apparent resistivity values.
+        Notes
+        -----
+        Creates a plot showing mean and median apparent resistivity values
+        per period across all stations
 
-        :return: Array of the median rho per period.
-        :rtype: np.ndarray(n_periods)
-        :return: Array of the mean rho per period.
-        :rtype: np.ndarray(n_periods)
         """
 
         entries = []
@@ -974,22 +1256,51 @@ class MTData(OrderedDict, MTStations):
 
         plt.show()
 
-    def to_modem_data(self, data_filename=None, **kwargs):
-        """To modem data."""
+    def to_modem_data(
+        self, data_filename: str | Path | None = None, **kwargs: Any
+    ) -> Data:
+        """
+        Create ModEM data file (deprecated).
+
+        Parameters
+        ----------
+        data_filename : str, Path, optional
+            Output filename, by default None
+        **kwargs : dict
+            Additional ModEM parameters
+
+        Returns
+        -------
+        Data
+            ModEM Data object
+
+        """
         self.logger.warning(
             "'to_modem_data' will be deprecated in future versions, use 'to_modem'"
         )
-        self.to_modem(data_filename=data_filename, **kwargs)
+        return self.to_modem(data_filename=data_filename, **kwargs)
 
-    def to_modem(self, data_filename=None, **kwargs):
-        """Create a modem data file.
+    def to_modem(self, data_filename: str | Path | None = None, **kwargs: Any) -> Data:
+        """
+        Create ModEM data file.
 
-        :param data_filename: DESCRIPTION, defaults to None.
-        :type data_filename: TYPE, optional
-        :param **kwargs: DESCRIPTION.
-        :type **kwargs: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Parameters
+        ----------
+        data_filename : str, Path, optional
+            Output filename for ModEM data file, by default None
+        **kwargs : dict
+            Additional ModEM parameters
+
+        Returns
+        -------
+        Data
+            ModEM Data object
+
+        Raises
+        ------
+        ValueError
+            If UTM CRS is not set
+
         """
 
         modem_kwargs = dict(self.model_parameters)
@@ -1015,19 +1326,21 @@ class MTData(OrderedDict, MTStations):
 
         return modem_data
 
-    def from_modem_data(self, data_filename, survey="data", **kwargs):
-        """From modem data.
+    def from_modem_data(
+        self, data_filename: str | Path, survey: str = "data", **kwargs: Any
+    ) -> None:
+        """
+        Read ModEM data file (deprecated).
 
-        :param survey:
-            Defaults to "data".
-        :param data_filename: DESCRIPTION.
-        :type data_filename: TYPE
-        :param file_type: DESCRIPTION, defaults to "data".
-        :type file_type: TYPE, optional
-        :param **kwargs: DESCRIPTION.
-        :type **kwargs: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Parameters
+        ----------
+        data_filename : str or Path
+            Path to ModEM data file
+        survey : str, optional
+            Survey name to assign, by default 'data'
+        **kwargs : dict
+            Additional parameters
+
         """
 
         self.logger.warning(
@@ -1036,17 +1349,21 @@ class MTData(OrderedDict, MTStations):
 
         self.from_modem(data_filename, survey=survey, **kwargs)
 
-    def from_modem(self, data_filename, survey="data", **kwargs):
-        """Read in a modem data file
+    def from_modem(
+        self, data_filename: str | Path, survey: str = "data", **kwargs: Any
+    ) -> None:
+        """
+        Read ModEM data file.
 
-        :param survey:
-            Defaults to "data".
-        :param data_filename: DESCRIPTION.
-        :type data_filename: TYPE
-        :param **kwargs: DESCRIPTION.
-        :type **kwargs: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Parameters
+        ----------
+        data_filename : str or Path
+            Path to ModEM data file
+        survey : str, optional
+            Survey name to assign to stations, by default 'data'
+        **kwargs : dict
+            Additional parameters passed to ModEM Data object
+
         """
         modem_data = Data(**kwargs)
         mdf = modem_data.read_data_file(data_filename)
@@ -1075,31 +1392,56 @@ class MTData(OrderedDict, MTStations):
             ]
         )
 
-    def from_occam2d_data(self, data_filename, file_type="data", **kwargs):
-        """From occam2d data."""
+    def from_occam2d_data(
+        self, data_filename: str | Path, file_type: str = "data", **kwargs: Any
+    ) -> None:
+        """
+        Read Occam2D data file (deprecated).
+
+        Parameters
+        ----------
+        data_filename : str or Path
+            Path to Occam2D data file
+        file_type : str, optional
+            File type ('data' or 'response'), by default 'data'
+        **kwargs : dict
+            Additional parameters
+
+        """
         self.logger.warning(
             "'from_occam2d_data' will be deprecated in future versions, use 'from_occam2d'"
         )
 
         self.from_occam2d(data_filename, file_type="data", **kwargs)
 
-    def from_occam2d(self, data_filename, file_type="data", **kwargs):
-        """Read in occam data from a 2D data file *.dat
+    def from_occam2d(
+        self, data_filename: str | Path, file_type: str = "data", **kwargs: Any
+    ) -> None:
+        """
+        Read Occam2D data file.
 
-        :Read data file and plot: ::
+        Parameters
+        ----------
+        data_filename : str or Path
+            Path to Occam2D data file
+        file_type : str, optional
+            Type of file ('data' or 'response'/'model'), by default 'data'
+        **kwargs : dict
+            Additional parameters passed to Occam2DData
 
-            >>> from mtpy import MTData
-            >>> md = MTData()
-            >>> md.from_occam2d_data(f"/path/to/data/file.dat")
-            >>> plot_stations = md.plot_stations(model_locations=True)
+        Examples
+        --------
+        Read data file and plot:
 
-        :Read response file: ::
+        >>> from mtpy import MTData
+        >>> md = MTData()
+        >>> md.from_occam2d("/path/to/data/file.dat")
+        >>> plot_stations = md.plot_stations(model_locations=True)
 
-            >>> md.from_occam2d_data(f"/path/to/response/file.dat")
+        Read response file:
 
-        .. note:: When reading in a response file the survey will be called
-         model.  So now you can have the data and model response in the
-         same object..
+        >>> md.from_occam2d("/path/to/response/file.dat")
+
         """
 
         occam2d_data = Occam2DData(**kwargs)
@@ -1111,23 +1453,49 @@ class MTData(OrderedDict, MTStations):
 
         self.from_dataframe(occam2d_data.dataframe)
 
-    def to_occam2d_data(self, data_filename=None, **kwargs):
-        """To occam2d data."""
+    def to_occam2d_data(
+        self, data_filename: str | Path | None = None, **kwargs: Any
+    ) -> Occam2DData:
+        """
+        Write Occam2D data file (deprecated).
+
+        Parameters
+        ----------
+        data_filename : str, Path, optional
+            Output filename, by default None
+        **kwargs : dict
+            Additional Occam2D parameters
+
+        Returns
+        -------
+        Occam2DData
+            Occam2D Data object
+
+        """
         self.logger.warning(
             "'to_occam2d_data' will be deprecated in future versions, use 'to_occam2d'"
         )
 
         self.to_occam2d(data_filename=data_filename, **kwargs)
 
-    def to_occam2d(self, data_filename=None, **kwargs):
-        """Write an Occam2D data file.
+    def to_occam2d(
+        self, data_filename: str | Path | None = None, **kwargs: Any
+    ) -> Occam2DData:
+        """
+        Write Occam2D data file.
 
-        :param data_filename: DESCRIPTION, defaults to None.
-        :type data_filename: TYPE, optional
-        :param **kwargs: DESCRIPTION.
-        :type **kwargs: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Parameters
+        ----------
+        data_filename : str, Path, optional
+            Output filename, by default None
+        **kwargs : dict
+            Additional Occam2D parameters
+
+        Returns
+        -------
+        Occam2DData
+            Occam2D Data object
+
         """
 
         occam2d_data = Occam2DData(**kwargs)
@@ -1142,15 +1510,26 @@ class MTData(OrderedDict, MTStations):
             occam2d_data.write_data_file(data_filename)
         return occam2d_data
 
-    def add_white_noise(self, value, inplace=True):
-        """Add white noise to the data, useful for synthetic tests.
+    def add_white_noise(self, value: float, inplace: bool = True) -> "MTData" | None:
+        """
+        Add white noise to the data.
 
-        :param value: DESCRIPTION.
-        :type value: TYPE
-        :param inplace: DESCRIPTION, defaults to True.
-        :type inplace: TYPE, optional
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Parameters
+        ----------
+        value : float
+            Noise level as percentage (converted to decimal if > 1)
+        inplace : bool, optional
+            If True, modifies data in place, by default True
+
+        Returns
+        -------
+        MTData or None
+            New MTData object if inplace=False, None otherwise
+
+        Notes
+        -----
+        Useful for synthetic tests
+
         """
         if value > 1:
             value = value / 100.0
@@ -1170,61 +1549,93 @@ class MTData(OrderedDict, MTStations):
             return_data.add_station(mt_list)
             return return_data
 
-    def to_simpeg_2d(self, **kwargs):
-        """Create a data object for Simpeg to work with.
+    def to_simpeg_2d(self, **kwargs: Any) -> Simpeg2DData:
+        """
+        Create Simpeg 2D data object.
 
-        All information is derived from the dataframe.  Therefore the user
-        should create the profile, interpolate, estimate model errors
-        from the `MTData` object first before creating the Simpeg2D object.
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional parameters including:
 
-        kwargs include:
+            - include_elevation : bool
+            - invert_te : bool
+            - invert_tm : bool
 
-          - `include_elevation` -> bool
-          - `invert_te` -> bool
-          - `invert_tm` -> bool
+        Returns
+        -------
+        Simpeg2DData
+            Simpeg 2D data object
+
+        Notes
+        -----
+        All information is derived from the dataframe. The user should
+        create the profile, interpolate, and estimate model errors from
+        the MTData object first
+
         """
 
         return Simpeg2DData(self.to_dataframe(impedance_units="ohm"), **kwargs)
 
-    def to_simpeg_3d(self, **kwargs):
-        """Create a data object that Simpeg can work with.
+    def to_simpeg_3d(self, **kwargs: Any) -> Simpeg3DData:
+        """
+        Create Simpeg 3D data object.
 
-        All information is derived from the dataframe.  Therefore the user
-        should interpolate, estimate model errors, etc from the `MTData`
-        object first before creating the Simpeg3D object.
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional parameters including:
 
-        kwargs include:
+            - include_elevation : bool
+            - geographic_coordinates : bool
+            - invert_z_xx : bool
+            - invert_z_xy : bool
+            - invert_z_yx : bool
+            - invert_z_yy : bool
+            - invert_t_zx : bool
+            - invert_t_zy : bool
+            - invert_types : list
 
-          - include_elevation -> bool
-          - geographic_coordinates  -> bool
-          - invert_z_xx  -> bool
-          - invert_z_xy  -> bool
-          - invert_z_yx  -> bool
-          - invert_z_yy  -> bool
-          - invert_t_zx  -> bool
-          - invert_t_zy  -> bool
-          - invert_types = ["real", "imaginary"]
+        Returns
+        -------
+        Simpeg3DData
+            Simpeg 3D data object
+
+        Notes
+        -----
+        All information is derived from the dataframe. The user should
+        interpolate and estimate model errors from the MTData object first
+
         """
 
         return Simpeg3DData(self.to_dataframe(impedance_units="ohm"), **kwargs)
 
     def plot_mt_response(
-        self, station_key=None, station_id=None, survey_id=None, **kwargs
-    ):
-        """Plot mt response.
+        self,
+        station_key: str | list[str] | None = None,
+        station_id: str | list[str] | None = None,
+        survey_id: str | list[str] | None = None,
+        **kwargs: Any,
+    ) -> PlotMultipleResponses | Any:
+        """
+        Plot MT response for one or more stations.
 
-        :param survey_id:
-            Defaults to None.
-        :param station_id:
-            Defaults to None.
-        :param station_key:
-            Defaults to None.
-        :param tf_id: DESCRIPTION.
-        :type tf_id: TYPE
-        :param **kwargs: DESCRIPTION.
-        :type **kwargs: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Parameters
+        ----------
+        station_key : str, list of str, optional
+            Station key(s), by default None
+        station_id : str, list of str, optional
+            Station ID(s), by default None
+        survey_id : str, list of str, optional
+            Survey ID(s), by default None
+        **kwargs : dict
+            Additional plotting parameters
+
+        Returns
+        -------
+        PlotMultipleResponses or plot object
+            Plot object for the MT response(s)
+
         """
 
         if isinstance(station_key, (list, tuple)):
@@ -1259,20 +1670,31 @@ class MTData(OrderedDict, MTStations):
             return mt_object.plot_mt_response(**kwargs)
 
     def plot_stations(
-        self, map_epsg=4326, bounding_box=None, model_locations=False, **kwargs
-    ):
-        """Plot stations.
+        self,
+        map_epsg: int = 4326,
+        bounding_box: tuple[float, float, float, float] | None = None,
+        model_locations: bool = False,
+        **kwargs: Any,
+    ) -> PlotStations:
+        """
+        Plot station locations on a map.
 
-        :param model_locations:
-            Defaults to False.
-        :param bounding_box:
-            Defaults to None.
-        :param map_epsg:
-            Defaults to 4326.
-        :param **kwargs: DESCRIPTION.
-        :type **kwargs: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Parameters
+        ----------
+        map_epsg : int, optional
+            EPSG code for map projection, by default 4326
+        bounding_box : tuple of float, optional
+            Bounding box, by default None
+        model_locations : bool, optional
+            Use model coordinates, by default False
+        **kwargs : dict
+            Additional plotting parameters
+
+        Returns
+        -------
+        PlotStations
+            Station plot object
+
         """
 
         gdf = self.to_geo_df(model_locations=model_locations)
@@ -1280,31 +1702,50 @@ class MTData(OrderedDict, MTStations):
             kwargs["plot_cx"] = False
         return PlotStations(gdf, **kwargs)
 
-    def plot_strike(self, **kwargs):
-        """Plot strike angle
+    def plot_strike(self, **kwargs: Any) -> PlotStrike:
+        """
+        Plot strike angle.
 
-        .. seealso:: :class:`mtpy.imaging.PlotStrike`.
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional plotting parameters
+
+        Returns
+        -------
+        PlotStrike
+            Strike plot object
+
         """
 
         return PlotStrike(self, **kwargs)
 
     def plot_phase_tensor(
-        self, station_key=None, station_id=None, survey_id=None, **kwargs
-    ):
-        """Plot phase tensor elements.
+        self,
+        station_key: str | None = None,
+        station_id: str | None = None,
+        survey_id: str | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """
+        Plot phase tensor elements for a station.
 
-        :param survey_id:
-            Defaults to None.
-        :param station_id:
-            Defaults to None.
-        :param station_key:
-            Defaults to None.
-        :param tf_id: DESCRIPTION.
-        :type tf_id: TYPE
-        :param **kwargs: DESCRIPTION.
-        :type **kwargs: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Parameters
+        ----------
+        station_key : str, optional
+            Station key, by default None
+        station_id : str, optional
+            Station ID, by default None
+        survey_id : str, optional
+            Survey ID, by default None
+        **kwargs : dict
+            Additional plotting parameters
+
+        Returns
+        -------
+        plot object
+            Phase tensor plot object
+
         """
 
         mt_object = self.get_station(
@@ -1314,70 +1755,95 @@ class MTData(OrderedDict, MTStations):
         )
         return mt_object.plot_phase_tensor(**kwargs)
 
-    def plot_phase_tensor_map(self, **kwargs):
-        """Plot Phase tensor maps for transfer functions in the working_dataframe
+    def plot_phase_tensor_map(self, **kwargs: Any) -> PlotPhaseTensorMaps:
+        """
+        Plot phase tensor maps.
 
-        .. seealso:: :class:`mtpy.imaging.PlotPhaseTensorMaps`.
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional plotting parameters
 
-        :param **kwargs: DESCRIPTION.
-        :type **kwargs: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Returns
+        -------
+        PlotPhaseTensorMaps
+            Phase tensor map plot object
+
         """
 
         return PlotPhaseTensorMaps(mt_data=self, **kwargs)
 
-    def plot_tipper_map(self, **kwargs):
-        """Plot Phase tensor maps for transfer functions in the working_dataframe
+    def plot_tipper_map(self, **kwargs: Any) -> PlotPhaseTensorMaps:
+        """
+        Plot tipper (induction vector) maps.
 
-        .. seealso:: :class:`mtpy.imaging.PlotPhaseTensorMaps`.
-        :param **kwargs: DESCRIPTION.
-        :type **kwargs: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional plotting parameters
+
+        Returns
+        -------
+        PlotPhaseTensorMaps
+            Tipper map plot object
+
         """
         kwargs["plot_pt"] = False
         kwargs["plot_tipper"] = "yri"
         return PlotPhaseTensorMaps(mt_data=self, **kwargs)
 
-    def plot_phase_tensor_pseudosection(self, mt_data=None, **kwargs):
-        """Plot a pseudo section of  phase tensor ellipses and induction vectors
-        if specified
+    def plot_phase_tensor_pseudosection(
+        self, mt_data: "MTData" | None = None, **kwargs: Any
+    ) -> PlotPhaseTensorPseudoSection:
+        """
+        Plot phase tensor pseudosection.
 
-        .. seealso:: :class:`mtpy.imaging.PlotPhaseTensorPseudosection`
+        Parameters
+        ----------
+        mt_data : MTData, optional
+            MT data object, by default None (uses self)
+        **kwargs : dict
+            Additional plotting parameters
 
-        :param mt_data:
-            Defaults to None.
-        :param **kwargs: DESCRIPTION.
-        :type **kwargs: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Returns
+        -------
+        PlotPhaseTensorPseudoSection
+            Pseudosection plot object
+
         """
 
         return PlotPhaseTensorPseudoSection(mt_data=self, **kwargs)
 
     def plot_penetration_depth_1d(
-        self, station_key=None, station_id=None, survey_id=None, **kwargs
-    ):
-        """Plot 1D penetration depth based on the Niblett-Bostick transformation
+        self,
+        station_key: str | None = None,
+        station_id: str | None = None,
+        survey_id: str | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """
+        Plot 1D penetration depth.
 
-        Note that data is rotated to estimated strike previous to estimation
-        and strike angles are interpreted for data points that are 3D.
+        Parameters
+        ----------
+        station_key : str, optional
+            Station key, by default None
+        station_id : str, optional
+            Station ID, by default None
+        survey_id : str, optional
+            Survey ID, by default None
+        **kwargs : dict
+            Additional plotting parameters
 
-        .. seealso:: :class:`mtpy.analysis.niblettbostick.calculate_depth_of_investigation`.
+        Returns
+        -------
+        plot object
+            Penetration depth plot object
 
-        :param survey_id:
-            Defaults to None.
-        :param station_id:
-            Defaults to None.
-        :param station_key:
-            Defaults to None.
-        :param tf_object: DESCRIPTION.
-        :type tf_object: TYPE
-        :param **kwargs: DESCRIPTION.
-        :type **kwargs: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Notes
+        -----
+        Based on Niblett-Bostick transformation
+
         """
 
         mt_object = self.get_station(
@@ -1388,57 +1854,82 @@ class MTData(OrderedDict, MTStations):
 
         return mt_object.plot_depth_of_penetration(**kwargs)
 
-    def plot_penetration_depth_map(self, **kwargs):
-        """Plot Penetration depth in map view for a single period
+    def plot_penetration_depth_map(self, **kwargs: Any) -> PlotPenetrationDepthMap:
+        """
+        Plot penetration depth in map view.
 
-        .. seealso:: :class:`mtpy.imaging.PlotPenetrationDepthMap`.
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional plotting parameters
 
-        :param **kwargs:
-        :param mt_data: DESCRIPTION.
-        :type mt_data: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Returns
+        -------
+        PlotPenetrationDepthMap
+            Penetration depth map plot object
+
         """
 
         return PlotPenetrationDepthMap(self, **kwargs)
 
-    def plot_resistivity_phase_maps(self, **kwargs):
-        """Plot apparent resistivity and/or impedance phase maps from the
-        working dataframe
+    def plot_resistivity_phase_maps(self, **kwargs: Any) -> PlotResPhaseMaps:
+        """
+        Plot apparent resistivity and/or phase maps.
 
-        .. seealso:: :class:`mtpy.imaging.PlotResPhaseMaps`
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional plotting parameters
 
-        :param **kwargs: DESCRIPTION.
-        :type **kwargs: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Returns
+        -------
+        PlotResPhaseMaps
+            Resistivity/phase map plot object
+
         """
 
         return PlotResPhaseMaps(self, **kwargs)
 
-    def plot_resistivity_phase_pseudosections(self, **kwargs):
-        """Plot resistivity and phase in a pseudosection along a profile line.
+    def plot_resistivity_phase_pseudosections(
+        self, **kwargs: Any
+    ) -> PlotResPhasePseudoSection:
+        """
+        Plot resistivity and phase pseudosections.
 
-        :param mt_data: DESCRIPTION, defaults to None.
-        :type mt_data: TYPE, optional
-        :param **kwargs: DESCRIPTION.
-        :type **kwargs: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional plotting parameters
+
+        Returns
+        -------
+        PlotResPhasePseudoSection
+            Pseudosection plot object
+
         """
 
         return PlotResPhasePseudoSection(self, **kwargs)
 
-    def plot_residual_phase_tensor_maps(self, survey_01, survey_02, **kwargs):
-        """Plot residual phase tensor maps.
+    def plot_residual_phase_tensor_maps(
+        self, survey_01: str, survey_02: str, **kwargs: Any
+    ) -> PlotResidualPTMaps:
+        """
+        Plot residual phase tensor maps.
 
-        :param **kwargs:
-        :param survey_01: DESCRIPTION.
-        :type survey_01: TYPE
-        :param survey_02: DESCRIPTION.
-        :type survey_02: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Parameters
+        ----------
+        survey_01 : str
+            First survey ID
+        survey_02 : str
+            Second survey ID
+        **kwargs : dict
+            Additional plotting parameters
+
+        Returns
+        -------
+        PlotResidualPTMaps
+            Residual phase tensor map plot object
+
         """
 
         survey_data_01 = self.get_survey(survey_01)
@@ -1448,46 +1939,49 @@ class MTData(OrderedDict, MTStations):
 
     def to_shp_pt_tipper(
         self,
-        save_dir,
-        output_crs=None,
-        utm=False,
-        pt=True,
-        tipper=True,
-        periods=None,
-        period_tol=None,
-        ellipse_size=None,
-        arrow_size=None,
-    ):
-        """Write phase tensor and tipper shape files.
+        save_dir: str | Path,
+        output_crs: Any | None = None,
+        utm: bool = False,
+        pt: bool = True,
+        tipper: bool = True,
+        periods: np.ndarray | None = None,
+        period_tol: float | None = None,
+        ellipse_size: float | None = None,
+        arrow_size: float | None = None,
+    ) -> dict[str, list[str]]:
+        """
+        Write phase tensor and tipper shape files.
 
-        .. note:: If you have a mixed data set such that the periods do not
-         match up, you should first interpolate onto a common period map and
-         then make shape files.  Otherwise you will have a bunch of shapefiles
-         with only a few shapes.
+        Parameters
+        ----------
+        save_dir : str or Path
+            Directory to save shape files
+        output_crs : CRS, int, str, optional
+            Output coordinate reference system, by default None
+        utm : bool, optional
+            Use UTM coordinates, by default False
+        pt : bool, optional
+            Create phase tensor shapefiles, by default True
+        tipper : bool, optional
+            Create tipper shapefiles, by default True
+        periods : np.ndarray, optional
+            Periods to plot, by default None (all periods)
+        period_tol : float, optional
+            Tolerance for period matching, by default None
+        ellipse_size : float, optional
+            Size of phase tensor ellipses, by default None (auto)
+        arrow_size : float, optional
+            Size of tipper arrows, by default None (auto)
 
-        :param arrow_size:
-            Defaults to None.
-        :param ellipse_size:
-            Defaults to None.
-        :param utm:
-            Defaults to False.
-        :param save_dir: Folder to save shape files to.
-        :type save_dir: string or Path
-        :param output_crs: CRS the output shape files will be in,
+        Returns
+        -------
+        dict
+            Dictionary of shapefile paths
 
-            depending of if utm is True or False, defaults to None.
-        :type output_crs: string, CRS, optional
-        :param pt: Make phase tensor shape files, defaults to True.
-        :type pt: bool, optional
-        :param tipper: Make tipper shape files, defaults to True.
-        :type tipper: bool, optional
-        :param periods: Periods to plot
-            periods within the data, defaults to None.
-        :type periods: np.ndarray, optional
-        :param period_tol: Tolerance to search around periods, defaults to None.
-        :type period_tol: float, optional
-        :return: Dictionary of file paths.
-        :rtype: dictionary
+        Notes
+        -----
+        If you have mixed periods, interpolate onto common periods first
+
         """
 
         sc = ShapefileCreator(self.to_mt_dataframe(), output_crs, save_dir=save_dir)
@@ -1498,7 +1992,7 @@ class MTData(OrderedDict, MTStations):
             sc.ellipse_size = ellipse_size
         if arrow_size is None and tipper:
             sc.arrow_size = sc.estimate_arrow_size()
-        else:  
+        else:
             sc.arrow_size = arrow_size
 
         return sc.make_shp_files(

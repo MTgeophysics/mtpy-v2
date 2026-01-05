@@ -258,20 +258,23 @@ class EMTFStats:
                         stat_array[0][f"res_{comp}_fit"] = (res - ls_res(f)).std()
                         stat_array[0][f"phase_{comp}_fit"] = (phase - ls_phase(f)).std()
                     except (ValueError, np.linalg.LinAlgError) as error:
-                        stat_array[0][f"res_{comp}_fit"] = np.NaN
-                        stat_array[0][f"phase_{comp}_fit"] = np.NaN
+                        stat_array[0][f"res_{comp}_fit"] = np.nan
+                        stat_array[0][f"phase_{comp}_fit"] = np.nan
                         logger.warning(f"Z{comp}: {error}")
                     ### taking median of the error is more robust
                     stat_array[0][f"res_{comp}_std"] = np.median(res_error)
                     stat_array[0][f"phase_{comp}_std"] = np.median(phase_error)
 
                     ### estimate smoothness
-                    stat_array[0][f"res_{comp}_corr"] = np.corrcoef(res[0:-1], res[1:])[
-                        0, 1
-                    ]
-                    stat_array[0][f"phase_{comp}_corr"] = np.corrcoef(
-                        phase[0:-1], phase[1:]
-                    )[0, 1]
+                    # Suppress expected warnings for poor quality data (DoF, divide by zero, etc.)
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings("ignore", category=RuntimeWarning)
+                        stat_array[0][f"res_{comp}_corr"] = np.corrcoef(
+                            res[0:-1], res[1:]
+                        )[0, 1]
+                        stat_array[0][f"phase_{comp}_corr"] = np.corrcoef(
+                            phase[0:-1], phase[1:]
+                        )[0, 1]
 
                     ### estimate smoothness with difference
                     stat_array[0][f"res_{comp}_diff"] = np.abs(np.median(np.diff(res)))
@@ -332,19 +335,22 @@ class EMTFStats:
                             ValueError,
                             np.linalg.LinAlgError,
                         ) as error:
-                            stat_array[0][f"tipper_{tcomp}_fit"] = np.NaN
+                            stat_array[0][f"tipper_{tcomp}_fit"] = np.nan
                             logger.warning(f"T{tcomp}: {error}")
                         stat_array[0][f"tipper_{tcomp}_std"] = tmag_error.mean()
-                        stat_array[0][f"tipper_{tcomp}_corr"] = np.corrcoef(
-                            tmag[0:-1], tmag[1:]
-                        )[0, 1]
+                        # Suppress expected warnings for poor quality data (DoF, divide by zero, etc.)
+                        with warnings.catch_warnings():
+                            warnings.filterwarnings("ignore", category=RuntimeWarning)
+                            stat_array[0][f"tipper_{tcomp}_corr"] = np.corrcoef(
+                                tmag[0:-1], tmag[1:]
+                            )[0, 1]
                         stat_array[0][f"tipper_{tcomp}_diff"] = np.std(
                             np.diff(tmag)
                         ) / abs(np.mean(np.diff(tmag)))
 
         ### write file
         df = pd.DataFrame(stat_array)
-        df = df.replace(0, np.NAN)
+        df = df.replace(0, np.nan)
 
         return df
 
@@ -372,17 +378,17 @@ class EMTFStats:
             index=stat_df.index,
         )
         for col in qual_df.columns:
-            qual_df[col].values[:] = np.NaN
+            qual_df[col].values[:] = np.nan
 
         ### loop over quality factors
         for qkey in self.stat_limits.keys():
             for column in qual_df.columns:
                 if qkey in column:
                     for ckey, cvalues in self.stat_limits[qkey].items():
-                        qual_df[column][
-                            (stat_df[column] > cvalues[0])
-                            & (stat_df[column] <= cvalues[1])
-                        ] = ckey
+                        mask = (stat_df[column] > cvalues[0]) & (
+                            stat_df[column] <= cvalues[1]
+                        )
+                        qual_df.loc[mask, column] = ckey
 
         return qual_df
 

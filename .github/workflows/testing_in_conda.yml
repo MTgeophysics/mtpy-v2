@@ -7,6 +7,11 @@ on:
   pull_request:
     branches:
       - '*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   setup-build:
     name: Ex1 (${{ matrix.python-version }}, ${{ matrix.os }})
@@ -15,33 +20,49 @@ jobs:
       fail-fast: false
       matrix:
         os: ["ubuntu-latest"]
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
 
     steps:
     - uses: actions/checkout@v3
-    - name: Setup Miniconda
+    
+    - name: Setup Miniconda with Mamba
       uses: conda-incubator/setup-miniconda@v3
       with:
         auto-update-conda: true
-        conda-channels: conda-forge
+        channels: conda-forge
+        channel-priority: strict
         python-version: ${{ matrix.python-version }}
+        miniforge-version: latest
+        use-mamba: true
+
+    - name: Cache Conda Packages
+      uses: actions/cache@v3
+      with:
+        path: ~/conda_pkgs_dir
+        key: conda-pkgs-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('environment.yml') }}
+        restore-keys: |
+          conda-pkgs-${{ runner.os }}-py${{ matrix.python-version }}-
+    
+    - name: Install uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
     - name: Install Env
       shell: bash
+      env:
+        CONDA_OVERRIDE_PYTHON: ${{ matrix.python-version }}
       run: |
         python --version
-        conda env create -f environment.yml
+        mamba env create -f environment.yml --name mtpy-v2-test python=${{ matrix.python-version }}
         source ~/.profile
         conda init --all
         conda activate mtpy-v2-test
-        pip install git+https://github.com/simpeg/pydiso.git
-        conda install pytest
-        conda install pytest-subtests
-        conda install pytest-cov
-        pip install git+https://github.com/kujaku11/mt_metadata.git@main
-        pip install git+https://github.com/kujaku11/mth5.git@patches
-        pip install git+https://github.com/simpeg/aurora@patches
-        pip install git+https://github.com/MTgeophysics/mtpy_data.git
+        python --version  # Verify correct Python version
+        uv pip install git+https://github.com/simpeg/pydiso.git
+        uv pip install git+https://github.com/kujaku11/mt_metadata.git@pydantic
+        uv pip install git+https://github.com/kujaku11/mth5.git@old_pydantic
+        uv pip install git+https://github.com/simpeg/aurora@pydantic
         
     - name: Install Our Package
       shell: bash
@@ -49,7 +70,7 @@ jobs:
         source ~/.profile
         conda init --all
         conda activate mtpy-v2-test
-        pip install -e .
+        uv pip install -e .[test]
         conda list
     - name: Run Tests
       shell: bash
@@ -57,7 +78,7 @@ jobs:
         source ~/.profile
         conda init --all
         conda activate mtpy-v2-test
-        pytest --cov=./ --cov-report=xml --cov=mtpy
+        pytest -rA --cov=./ --cov-report=xml --cov=mtpy -n auto
         
     - name: "Upload coverage to Codecov"
       uses: codecov/codecov-action@v3

@@ -20,6 +20,8 @@ update to v2 jpeacock 2024-04-15
 # =============================================================================
 # Imports
 # =============================================================================
+from __future__ import annotations
+
 from pathlib import Path
 
 import geopandas as gpd
@@ -35,26 +37,53 @@ from mtpy.core import MTDataFrame
 
 
 class ShapefileCreator:
-    """Create phase tensor and tipper shape files using geopandas and shapely tools."""
+    """
+    Create phase tensor and tipper shape files using geopandas and shapely tools.
+
+    Attributes
+    ----------
+    mt_dataframe : MTDataFrame
+        MTDataFrame object containing MT station data
+    save_dir : Path
+        Directory where shapefiles will be saved
+    output_crs : CRS
+        Output coordinate reference system
+    ellipse_size : float
+        Size scaling factor for phase tensor ellipses
+    ellipse_resolution : int
+        Number of points to use when drawing ellipses
+    arrow_size : float
+        Size scaling factor for tipper arrows
+    utm : bool
+        Whether to use UTM coordinates instead of lat/lon
+
+    """
 
     def __init__(
         self,
-        mt_dataframe,
-        output_crs,
-        save_dir=None,
+        mt_dataframe: MTDataFrame,
+        output_crs: str | int | CRS,
+        save_dir: str | Path | None = None,
         **kwargs,
-    ):
-        """Init function.
-        :param mt_dataframe: DESCRIPTION.
-        :type mt_dataframe: TYPE
-        :param output_crs: DESCRIPTION.
-        :type output_crs: TYPE
-        :param save_dir: DESCRIPTION, defaults to None.
-        :type save_dir: TYPE, optional
-        :param: DESCRIPTION.
-        :type: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    ) -> None:
+        """
+        Initialize ShapefileCreator instance.
+
+        Parameters
+        ----------
+        mt_dataframe : MTDataFrame
+            MTDataFrame object containing MT station data with phase tensor
+            and tipper information
+        output_crs : str | int | CRS
+            Output coordinate reference system. Can be an EPSG code (int),
+            EPSG string (e.g., 'EPSG:4326'), or pyproj CRS object
+        save_dir : str | Path | None, optional
+            Directory where shapefiles will be saved. If None, uses current
+            working directory, by default None
+        **kwargs : dict
+            Additional keyword arguments to set as instance attributes
+            (e.g., ellipse_size, arrow_size, utm)
+
         """
         self.logger = logger
         self.mt_dataframe = mt_dataframe
@@ -153,7 +182,7 @@ class ShapefileCreator:
         return self._mt_dataframe
 
     @mt_dataframe.setter
-    def mt_dataframe(self, df):
+    def mt_dataframe(self, df: MTDataFrame) -> None:
         """Make sure input is a MTDataFrame or converted to one."""
 
         if isinstance(df, MTDataFrame):
@@ -167,7 +196,7 @@ class ShapefileCreator:
         return self._save_dir
 
     @save_dir.setter
-    def save_dir(self, value):
+    def save_dir(self, value: str | Path | None) -> None:
         """Save dir."""
         if value is not None:
             self._save_dir = Path(value)
@@ -182,7 +211,7 @@ class ShapefileCreator:
         return self._output_crs
 
     @output_crs.setter
-    def output_crs(self, value):
+    def output_crs(self, value: str | int | CRS | None) -> None:
         """Output crs."""
         if value is None:
             self._output_crs = None
@@ -205,30 +234,64 @@ class ShapefileCreator:
         else:
             return "latitude"
 
-    def estimate_ellipse_size(self, quantile=0.015):
-        """Estimate ellipse size from station distances."""
+    def estimate_ellipse_size(self, quantile: float = 0.015) -> float:
+        """
+        Estimate ellipse size from station distances.
+
+        Parameters
+        ----------
+        quantile : float, optional
+            Quantile of station distances to use for size estimation,
+            by default 0.015
+
+        Returns
+        -------
+        float
+            Estimated ellipse size based on station spacing
+
+        """
 
         return self.mt_dataframe.get_station_distances(utm=self.utm).quantile(quantile)
 
-    def estimate_arrow_size(self, quantile=0.03):
-        """Arrow size from station distances."""
+    def estimate_arrow_size(self, quantile: float = 0.03) -> float:
+        """
+        Estimate arrow size from station distances.
+
+        Parameters
+        ----------
+        quantile : float, optional
+            Quantile of station distances to use for size estimation,
+            by default 0.03
+
+        Returns
+        -------
+        float
+            Estimated arrow size based on station spacing
+
+        """
 
         return self.mt_dataframe.get_station_distances(utm=self.utm).quantile(quantile)
 
-    def _export_shapefiles(self, gpdf, element_type, period):
-        """Convenience function for saving shapefiles.
-        :param gpdf: Dataframe containg shapefile data.
-        :type gpdf: geopandas.GeoDataFrame
-        :param element_type: Name of the element type, e.g. 'Phase_Tensor'.
-        :type element_type: str
-        :param epsg_code: EPSG code for CRS of the shapefile.
-        :type epsg_code: int
-        :param period: The period of the data.
-        :type period: float
-        :param export_fig: Whether or not to export the shapefile as an image.
-        :type export_fig: bool
-        :return: Path to the shapefile.
-        :rtype: str
+    def _export_shapefiles(
+        self, gpdf: gpd.GeoDataFrame, element_type: str, period: float
+    ) -> Path:
+        """
+        Save a GeoDataFrame as an ESRI shapefile.
+
+        Parameters
+        ----------
+        gpdf : gpd.GeoDataFrame
+            GeoDataFrame containing shapefile data
+        element_type : str
+            Name of the element type (e.g., 'Phase_Tensor', 'Tipper_Real')
+        period : float
+            Period of the data in seconds
+
+        Returns
+        -------
+        Path
+            Path to the saved shapefile
+
         """
 
         if self.output_crs is not None:
@@ -246,18 +309,27 @@ class ShapefileCreator:
 
         return out_path
 
-    def _get_period_geodf(self, period, comp, tol=None):
-        """Get a period geodf for given component.
-        :param tol:
-            Defaults to None.
-        :param df: DESCRIPTION.
-        :type df: TYPE
-        :param period: DESCRIPTION.
-        :type period: TYPE
-        :param comp: DESCRIPTION.
-        :type comp: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def _get_period_geodf(
+        self, period: float, comp: str, tol: float | None = None
+    ) -> tuple[CRS, gpd.GeoDataFrame] | None:
+        """
+        Get a GeoDataFrame for a specific period and component.
+
+        Parameters
+        ----------
+        period : float
+            Period value in seconds
+        comp : str
+            Component type: 'pt'/'phase_tensor' for phase tensor,
+            't'/'tip'/'tipper' for tipper
+        tol : float | None, optional
+            Tolerance for period matching, by default None
+
+        Returns
+        -------
+        tuple[CRS, gpd.GeoDataFrame] | None
+            Tuple of (CRS object, GeoDataFrame) or None if no data found
+
         """
 
         # get period
@@ -287,9 +359,27 @@ class ShapefileCreator:
 
         return crs, geodf
 
-    def _create_phase_tensor_shp(self, period, tol=None):
-        """Create phase tensor ellipses shape file correspond to a MT period.
-        :return: (geopdf_obj, path_to_shapefile).
+    def _create_phase_tensor_shp(self, period: float, tol: float | None = None) -> Path:
+        """
+        Create phase tensor ellipses shapefile for a given MT period.
+
+        Parameters
+        ----------
+        period : float
+            Period value in seconds
+        tol : float | None, optional
+            Tolerance for period matching, by default None
+
+        Returns
+        -------
+        Path
+            Path to the created shapefile
+
+        Notes
+        -----
+        Creates ellipses using the phase tensor parameters (phimin, phimax,
+        azimuth) with configurable resolution and size scaling.
+
         """
 
         crs, geopdf = self._get_period_geodf(period, "pt", tol=tol)
@@ -346,11 +436,31 @@ class ShapefileCreator:
 
         return shp_fn
 
-    def _create_tipper_real_shp(self, period, tol=None):
-        """Create real tipper lines shapefile from a csv file
-        The shapefile consists of lines without arrow.
-        User can use GIS software such as ArcGIS to display and add an arrow at each line's end
-        line_length is how long will be the line, auto-calculatable
+    def _create_tipper_real_shp(
+        self, period: float, tol: float | None = None
+    ) -> Path | None:
+        """
+        Create real tipper lines shapefile for a given period.
+
+        Parameters
+        ----------
+        period : float
+            Period value in seconds
+        tol : float | None, optional
+            Tolerance for period matching, by default None
+
+        Returns
+        -------
+        Path | None
+            Path to the created shapefile, or None if no data available
+
+        Notes
+        -----
+        The shapefile consists of lines without arrows. GIS software
+        such as ArcGIS can be used to display and add arrows at line ends.
+        Line length is determined by the arrow_size attribute and tipper
+        magnitude.
+
         """
 
         crs, tdf = self._get_period_geodf(period, "tip", tol=tol)
@@ -389,12 +499,31 @@ class ShapefileCreator:
 
         return shp_fn
 
-    def _create_tipper_imag_shp(self, period, tol=None):
-        """Create imagery tipper lines shapefile from a csv file
-        The shapefile consists of lines without arrow.
-        User can use GIS software such as ArcGIS to display and add an arrow at each line's end
-        line_length is how long will be the line, auto-calculatable
-        :return :(geopdf_obj, path_to_shapefile):
+    def _create_tipper_imag_shp(
+        self, period: float, tol: float | None = None
+    ) -> Path | None:
+        """
+        Create imaginary tipper lines shapefile for a given period.
+
+        Parameters
+        ----------
+        period : float
+            Period value in seconds
+        tol : float | None, optional
+            Tolerance for period matching, by default None
+
+        Returns
+        -------
+        Path | None
+            Path to the created shapefile, or None if no data available
+
+        Notes
+        -----
+        The shapefile consists of lines without arrows. GIS software
+        such as ArcGIS can be used to display and add arrows at line ends.
+        Line length is determined by the arrow_size attribute and tipper
+        magnitude.
+
         """
 
         crs, tdf = self._get_period_geodf(period, "tip", tol=tol)
@@ -432,21 +561,47 @@ class ShapefileCreator:
 
         return shp_fn
 
-    def make_shp_files(self, pt=True, tipper=True, periods=None, period_tol=None):
-        """If you want all stations on the same period map need to interpolate
-        before converting to an MTDataFrame
+    def make_shp_files(
+        self,
+        pt: bool = True,
+        tipper: bool = True,
+        periods: list[float] | np.ndarray | None = None,
+        period_tol: float | None = None,
+    ) -> dict[str, list[Path]]:
+        """
+        Create shapefiles for phase tensors and/or tippers at specified periods.
 
-        md.interpolate(new_periods)
-        :param period_tol:
-            Defaults to None.
-        :param periods:
-            Defaults to None.
-        :param pt: DESCRIPTION, defaults to True.
-        :type pt: TYPE, optional
-        :param tipper: DESCRIPTION, defaults to True.
-        :type tipper: TYPE, optional
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Parameters
+        ----------
+        pt : bool, optional
+            Whether to create phase tensor shapefiles, by default True
+        tipper : bool, optional
+            Whether to create tipper shapefiles (real and imaginary),
+            by default True
+        periods : list[float] | np.ndarray | None, optional
+            List of periods in seconds to create shapefiles for. If None,
+            uses all periods in the MTDataFrame, by default None
+        period_tol : float | None, optional
+            Tolerance for period matching, by default None
+
+        Returns
+        -------
+        dict[str, list[Path]]
+            Dictionary with keys 'pt', 'tipper_real', 'tipper_imag' containing
+            lists of paths to created shapefiles
+
+        Notes
+        -----
+        If you want all stations on the same period map, you need to
+        interpolate before converting to an MTDataFrame.
+
+        Examples
+        --------
+        >>> md.interpolate(new_periods)
+        >>> mt_df = MTDataFrame(md)
+        >>> creator = ShapefileCreator(mt_df, output_crs='EPSG:4326')
+        >>> shp_files = creator.make_shp_files()
+
         """
 
         if periods is None:

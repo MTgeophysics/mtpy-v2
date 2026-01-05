@@ -7,6 +7,8 @@ Base classes for plotting classes
 # =============================================================================
 # Imports
 # =============================================================================
+from __future__ import annotations
+
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -25,26 +27,64 @@ from .plotters import add_raster
 
 
 class PlotBase(PlotSettings):
-    """Base class for plotting objects."""
+    """
+    Base class for plotting objects.
 
-    def __init__(self, **kwargs):
+    Provides core plotting functionality including figure management,
+    saving, updating, and redrawing plots.
+
+    Parameters
+    ----------
+    **kwargs : dict
+        Keyword arguments passed to PlotSettings parent class
+
+    Attributes
+    ----------
+    logger : loguru.Logger
+        Logger instance for the class
+
+    """
+
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
         self.logger = logger
 
         self._basename = self.__class__.__name__.lower()
 
-    def __str__(self):
-        """Rewrite the string builtin to give a useful message."""
+    def __str__(self) -> str:
+        """
+        Return string representation of the plotting object.
+
+        Returns
+        -------
+        str
+            String describing the plotting class
+
+        """
 
         return f"Plotting {self.__class__.__name__}"
 
-    def __repr__(self):
-        """Repr function."""
+    def __repr__(self) -> str:
+        """
+        Return repr representation of the plotting object.
+
+        Returns
+        -------
+        str
+            String describing the plotting class
+
+        """
         return self.__str__()
 
-    def _set_subplot_params(self):
-        """Set subplot params."""
+    def _set_subplot_params(self) -> None:
+        """
+        Set matplotlib subplot parameters from instance attributes.
+
+        Sets font size and subplot spacing parameters including bottom,
+        top, left, right margins, and optional wspace/hspace.
+
+        """
         # set some parameters of the figure and subplot spacing
         plt.rcParams["font.size"] = self.font_size
         plt.rcParams["figure.subplot.bottom"] = self.subplot_bottom
@@ -57,52 +97,49 @@ class PlotBase(PlotSettings):
         if self.subplot_hspace is not None:
             plt.rcParams["figure.subplot.hspace"] = self.subplot_hspace
 
-    def plot(self):
-        """Plot function."""
+    def plot(self) -> None:
+        """
+        Create the plot.
+
+        This method should be overridden by subclasses to implement
+        specific plotting functionality.
+
+        """
 
     def save_plot(
         self,
-        save_fn,
-        file_format="pdf",
-        orientation="portrait",
-        fig_dpi=None,
-        close_plot=True,
-    ):
-        """Save_plot will save the figure to save_fn.
+        save_fn: str | Path,
+        file_format: str = "pdf",
+        orientation: str = "portrait",
+        fig_dpi: int | None = None,
+        close_plot: bool = True,
+    ) -> None:
+        """
+        Save the figure to a file.
 
-        Arguments::
+        Parameters
+        ----------
+        save_fn : str | Path
+            Full path to save figure to. Can be:
+            - Directory path: file will be saved as save_fn/basename.file_format
+            - Full path: file will be saved to the given path, format inferred
+              from extension
+        file_format : str, optional
+            File format for saved figure (pdf, eps, jpg, png, svg),
+            by default 'pdf'
+        orientation : str, optional
+            Page orientation ('landscape' or 'portrait'), by default 'portrait'
+        fig_dpi : int | None, optional
+            Resolution in dots-per-inch. If None, uses the figure's dpi,
+            by default None
+        close_plot : bool, optional
+            Whether to close the plot after saving, by default True
 
-                **save_fn** : string
-                              full path to save figure to, can be input as
-                              * directory path -> the directory path to save to
-                                in which the file will be saved as
-                                save_fn/station_name_ResPhase.file_format
+        Examples
+        --------
+        >>> # Save plot as jpg
+        >>> p1.save_plot(r'/home/MT/figures', file_format='jpg')
 
-                              * full path -> file will be save to the given
-                                path.  If you use this option then the format
-                                will be assumed to be provided by the path
-
-                **file_format** : [ pdf | eps | jpg | png | svg ]
-                                  file type of saved figure pdf,svg,eps...
-
-                **orientation** : [ landscape | portrait ]
-                                  orientation in which the file will be saved
-                                  *default* is portrait
-
-                **fig_dpi** : int
-                              The resolution in dots-per-inch the file will be
-                              saved.  If None then the fig_dpi will be that at
-                              which the figure was made.  I don't think that
-                              it can be larger than fig_dpi of the figure.
-
-                **close_plot** : [ true | false ]
-                                 * True will close the plot after saving.
-                                 * False will leave plot open
-
-            :Example: ::
-
-                >>> # to save plot as jpg
-                >>> p1.save_plot(r'/home/MT/figures', file_format='jpg')
         """
 
         if fig_dpi is None:
@@ -123,29 +160,36 @@ class PlotBase(PlotSettings):
         self.fig_fn = save_fn
         self.logger.info(f"Saved figure to: {self.fig_fn}")
 
-    def update_plot(self):
-        """Update any parameters that where changed using the built-in draw from
-        canvas.
+    def update_plot(self) -> None:
+        """
+        Update the plot after changing figure or axes properties.
 
-        Use this if you change an of the .fig or axes properties
+        Uses matplotlib's canvas draw method to refresh the display
+        after modifying figure or axes attributes.
 
-        :Example: ::
+        Examples
+        --------
+        >>> [ax.grid(True, which='major') for ax in [p1.axr, p1.axp]]
+        >>> p1.update_plot()
 
-            >>> [ax.grid(True, which='major') for ax in [p1.axr,p1.axp]]
-            >>> p1.update_plot()
         """
 
         self.fig.canvas.draw()
 
-    def redraw_plot(self):
-        """Use this function if you updated some attributes and want to re-plot.
+    def redraw_plot(self) -> None:
+        """
+        Recreate the plot after updating attributes.
 
-        :Example: ::
+        Closes the current figure and calls plot() to create a new one
+        with updated attributes.
 
-            >>> # change the color and marker of the xy components
-            >>> p1.xy_color = (.5,.5,.9)
-            >>> p1.xy_marker = '*'
-            >>> p1.redraw_plot()
+        Examples
+        --------
+        >>> # Change the color and marker of the xy components
+        >>> p1.xy_color = (0.5, 0.5, 0.9)
+        >>> p1.xy_marker = '*'
+        >>> p1.redraw_plot()
+
         """
 
         plt.close(self.fig)
@@ -153,11 +197,34 @@ class PlotBase(PlotSettings):
 
 
 class PlotBaseMaps(PlotBase):
-    """Base object for plot classes that use map views, includes methods for
-    interpolation.
+    """
+    Base object for plot classes that use map views.
+
+    Includes methods for interpolation of data onto map grids.
+
+    Parameters
+    ----------
+    **kwargs : dict
+        Keyword arguments passed to PlotBase parent class and for setting
+        interpolation parameters
+
+    Attributes
+    ----------
+    cell_size : float
+        Size of grid cells for interpolation, by default 0.002
+    n_padding_cells : int
+        Number of padding cells around data extent, by default 10
+    interpolation_method : str
+        Interpolation method ('delaunay', 'linear', 'nearest', 'cubic'),
+        by default 'delaunay'
+    interpolation_power : int
+        Power parameter for inverse distance weighting, by default 5
+    nearest_neighbors : int
+        Number of nearest neighbors to use in interpolation, by default 7
+
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
         self.cell_size = 0.002
@@ -169,20 +236,22 @@ class PlotBaseMaps(PlotBase):
         for key, value in kwargs.items():
             setattr(self, key, value)
 
-    def interpolate_to_map(self, plot_array, component):
-        """Interpolate points onto a 2d map.
-        :param plot_array: DESCRIPTION.
-        :type plot_array: TYPE
-        :param component: DESCRIPTION.
-        :type component: TYPE
-        :param cell_size: DESCRIPTION002, defaults to 0.
-        :type cell_size: TYPE, optional
-        :param n_padding_cells: DESCRIPTION, defaults to 10.
-        :type n_padding_cells: TYPE, optional
-        :param interpolation_method: DESCRIPTION, defaults to "delaunay".
-        :type interpolation_method: TYPE, optional
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def interpolate_to_map(self, plot_array, component: str):
+        """
+        Interpolate data points onto a 2D map grid.
+
+        Parameters
+        ----------
+        plot_array : np.ndarray
+            Array containing data to interpolate
+        component : str
+            Name of the component being interpolated
+
+        Returns
+        -------
+        tuple
+            Interpolated grid data and coordinates
+
         """
 
         return interpolate_to_map(
@@ -196,13 +265,25 @@ class PlotBaseMaps(PlotBase):
         )
 
     @staticmethod
-    def get_interp1d_functions_z(tf, interp_type="slinear"):
-        """Get interp1d functions z.
-        :param tf:
-        :param interp_type: DESCRIPTION, defaults to "slinear".
-        :type interp_type: TYPE, optional
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def get_interp1d_functions_z(tf, interp_type: str = "slinear") -> dict | None:
+        """
+        Create 1D interpolation functions for impedance tensor components.
+
+        Parameters
+        ----------
+        tf : MT or Transfer Function object
+            Transfer function object containing impedance data
+        interp_type : str, optional
+            Type of interpolation ('linear', 'slinear', 'cubic'),
+            by default 'slinear'
+
+        Returns
+        -------
+        dict | None
+            Dictionary containing interpolation functions for each impedance
+            component (zxx, zxy, zyx, zyy) with 'real', 'imag', 'err', and
+            'model_err' sub-keys. Returns None if no Z data available.
+
         """
         if tf.Z is None:
             return None
@@ -253,13 +334,25 @@ class PlotBaseMaps(PlotBase):
         return interp_dict
 
     @staticmethod
-    def get_interp1d_functions_t(tf, interp_type="slinear"):
-        """Get interp1d functions t.
-        :param tf:
-        :param interp_type: DESCRIPTION, defaults to "slinear".
-        :type interp_type: TYPE, optional
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def get_interp1d_functions_t(tf, interp_type: str = "slinear") -> dict | None:
+        """
+        Create 1D interpolation functions for tipper components.
+
+        Parameters
+        ----------
+        tf : MT or Transfer Function object
+            Transfer function object containing tipper data
+        interp_type : str, optional
+            Type of interpolation ('linear', 'slinear', 'cubic'),
+            by default 'slinear'
+
+        Returns
+        -------
+        dict | None
+            Dictionary containing interpolation functions for tipper
+            components (tzx, tzy) with 'real', 'imag', 'err', and
+            'model_err' sub-keys. Returns None if no Tipper data available.
+
         """
         if tf.Tipper is None:
             return None
@@ -309,12 +402,21 @@ class PlotBaseMaps(PlotBase):
 
         return interp_dict
 
-    def _get_interpolated_z(self, tf):
-        """Get interpolated z.
-        :param tf: DESCRIPTION.
-        :type tf: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def _get_interpolated_z(self, tf) -> np.ndarray:
+        """
+        Get interpolated impedance tensor at plot period.
+
+        Parameters
+        ----------
+        tf : MT or Transfer Function object
+            Transfer function object with interpolation functions
+
+        Returns
+        -------
+        np.ndarray
+            Complex impedance tensor array of shape (1, 2, 2) at the
+            specified plot period
+
         """
         if not hasattr(tf, "z_interp_dict"):
             tf.z_interp_dict = self.get_interp1d_functions_z(tf)
@@ -341,12 +443,21 @@ class PlotBaseMaps(PlotBase):
             )
         ).reshape((1, 2, 2))
 
-    def _get_interpolated_z_error(self, tf):
-        """Get interpolated z error.
-        :param tf: DESCRIPTION.
-        :type tf: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def _get_interpolated_z_error(self, tf) -> np.ndarray:
+        """
+        Get interpolated impedance tensor error at plot period.
+
+        Parameters
+        ----------
+        tf : MT or Transfer Function object
+            Transfer function object with interpolation functions
+
+        Returns
+        -------
+        np.ndarray
+            Impedance tensor error array of shape (1, 2, 2) at the
+            specified plot period. Returns zeros if no error data available.
+
         """
         if not hasattr(tf, "z_interp_dict"):
             tf.z_interp_dict = self.get_interp1d_functions_z(tf)
@@ -368,12 +479,21 @@ class PlotBaseMaps(PlotBase):
         else:
             return np.zeros((1, 2, 2), dtype=float)
 
-    def _get_interpolated_z_model_error(self, tf):
-        """Get interpolated z model error.
-        :param tf: DESCRIPTION.
-        :type tf: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def _get_interpolated_z_model_error(self, tf) -> np.ndarray:
+        """
+        Get interpolated impedance tensor model error at plot period.
+
+        Parameters
+        ----------
+        tf : MT or Transfer Function object
+            Transfer function object with interpolation functions
+
+        Returns
+        -------
+        np.ndarray
+            Impedance tensor model error array of shape (1, 2, 2) at the
+            specified plot period. Returns zeros if no model error data available.
+
         """
         if not hasattr(tf, "z_interp_dict"):
             tf.z_interp_dict = self.get_interp1d_functions_z(tf)
@@ -403,12 +523,21 @@ class PlotBaseMaps(PlotBase):
         else:
             return np.zeros((1, 2, 2), dtype=float)
 
-    def _get_interpolated_t(self, tf):
-        """Get interpolated t.
-        :param tf: DESCRIPTION.
-        :type tf: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def _get_interpolated_t(self, tf) -> np.ndarray:
+        """
+        Get interpolated tipper at plot period.
+
+        Parameters
+        ----------
+        tf : MT or Transfer Function object
+            Transfer function object with interpolation functions
+
+        Returns
+        -------
+        np.ndarray
+            Complex tipper array of shape (1, 1, 2) at the specified
+            plot period. Returns zeros if no tipper data available.
+
         """
         if not hasattr(tf, "t_interp_dict"):
             tf.t_interp_dict = self.get_interp1d_functions_t(tf)
@@ -467,12 +596,21 @@ class PlotBaseMaps(PlotBase):
         else:
             return np.zeros((1, 1, 2), dtype=float)
 
-    def _get_interpolated_t_model_err(self, tf):
-        """Get interpolated t model err.
-        :param tf: DESCRIPTION.
-        :type tf: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def _get_interpolated_t_model_err(self, tf) -> np.ndarray:
+        """
+        Get interpolated tipper model error at plot period.
+
+        Parameters
+        ----------
+        tf : MT or Transfer Function object
+            Transfer function object with interpolation functions
+
+        Returns
+        -------
+        np.ndarray
+            Tipper model error array of shape (1, 1, 2) at the specified
+            plot period. Returns zeros if no tipper model error data available.
+
         """
         if not hasattr(tf, "t_interp_dict"):
             tf.t_interp_dict = self.get_interp1d_functions_t(tf)
@@ -499,27 +637,70 @@ class PlotBaseMaps(PlotBase):
         else:
             return np.zeros((1, 1, 2), dtype=float)
 
-    def add_raster(self, ax, raster_fn, add_colorbar=True, **kwargs):
-        """Add a raster to an axis using rasterio.
-        :param ax: DESCRIPTION.
-        :type ax: TYPE
-        :param raster_fn: DESCRIPTION.
-        :type raster_fn: TYPE
-        :param add_colorbar: DESCRIPTION, defaults to True.
-        :type add_colorbar: TYPE, optional
-        :param **kwargs: DESCRIPTION.
-        :type **kwargs: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def add_raster(
+        self, ax, raster_fn: str | Path, add_colorbar: bool = True, **kwargs
+    ):
+        """
+        Add a raster image to a matplotlib axis.
+
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes
+            Matplotlib axis to add raster to
+        raster_fn : str | Path
+            Path to raster file (readable by rasterio)
+        add_colorbar : bool, optional
+            Whether to add a colorbar, by default True
+        **kwargs : dict
+            Additional keyword arguments passed to rasterio plotting
+
+        Returns
+        -------
+        matplotlib image or collection
+            The raster plot object
+
         """
 
         return add_raster(ax, raster_fn, add_colorbar=add_colorbar, **kwargs)
 
 
 class PlotBaseProfile(PlotBase):
-    """Base object for profile plots like pseudo sections."""
+    """
+    Base object for profile plots like pseudo sections.
 
-    def __init__(self, tf_list, **kwargs):
+    Provides functionality for creating profile views of MT data along
+    a linear transect.
+
+    Parameters
+    ----------
+    tf_list : list or MTCollection
+        List of transfer function objects or MTCollection
+    **kwargs : dict
+        Additional keyword arguments for PlotBase parent class and
+        profile settings
+
+    Attributes
+    ----------
+    mt_data : list or MTCollection
+        MT data to plot
+    profile_vector : array-like | None
+        Profile direction vector
+    profile_angle : float | None
+        Profile angle in degrees
+    profile_line : tuple | None
+        Profile line parameters (slope, intercept)
+    profile_reverse : bool
+        Whether to reverse profile direction, by default False
+    x_stretch : float
+        Horizontal stretching factor for profile, by default 5000
+    y_stretch : float
+        Vertical stretching factor for profile, by default 1000
+    y_scale : str
+        Y-axis scale type ('period' or 'frequency'), by default 'period'
+
+    """
+
+    def __init__(self, tf_list, **kwargs) -> None:
         super().__init__(**kwargs)
 
         self.mt_data = tf_list
@@ -539,25 +720,56 @@ class PlotBaseProfile(PlotBase):
 
     # ---need to rotate data on setting rotz
     @property
-    def rotation_angle(self):
-        """Rotation angle."""
+    def rotation_angle(self) -> float:
+        """
+        Get rotation angle for data.
+
+        Returns
+        -------
+        float
+            Rotation angle in degrees
+
+        """
         return self._rotation_angle
 
     @rotation_angle.setter
-    def rotation_angle(self, value):
-        """Only a single value is allowed."""
+    def rotation_angle(self, value: float) -> None:
+        """
+        Set rotation angle for all transfer functions.
+
+        Parameters
+        ----------
+        value : float
+            Rotation angle in degrees to apply to all data
+
+        """
         for tf in self.mt_data:
             tf.rotation_angle = value
         self._rotation_angle = value
 
-    def _get_profile_line(self, x=None, y=None):
-        """Get profile line doing a linear regression through data points.
-        :param x: DESCRIPTION, defaults to None.
-        :type x: TYPE, optional
-        :param y: DESCRIPTION, defaults to None.
-        :type y: TYPE, optional
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def _get_profile_line(
+        self, x: np.ndarray | None = None, y: np.ndarray | None = None
+    ) -> None:
+        """
+        Calculate profile line using linear regression through data points.
+
+        Determines the best-fit line through station locations and projects
+        all stations onto this profile line.
+
+        Parameters
+        ----------
+        x : np.ndarray | None, optional
+            X coordinates of stations. If None, uses longitude from mt_data,
+            by default None
+        y : np.ndarray | None, optional
+            Y coordinates of stations. If None, uses latitude from mt_data,
+            by default None
+
+        Raises
+        ------
+        ValueError
+            If only one of x or y is provided
+
         """
 
         if np.any(self.mt_data.station_locations.profile_offset != 0):
@@ -592,12 +804,21 @@ class PlotBaseProfile(PlotBase):
         for mt_obj in self.mt_data.values():
             mt_obj.project_onto_profile_line(self.profile_line[0], self.profile_line[1])
 
-    def _get_offset(self, tf):
-        """Get approximate offset distance for the station.
-        :param tf: DESCRIPTION.
-        :type tf: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def _get_offset(self, tf) -> float:
+        """
+        Get approximate offset distance for a station along the profile.
+
+        Parameters
+        ----------
+        tf : MT or Transfer Function object
+            Transfer function object with profile_offset attribute
+
+        Returns
+        -------
+        float
+            Scaled offset distance along profile, negative if profile_reverse
+            is True
+
         """
 
         direction = 1
@@ -606,12 +827,21 @@ class PlotBaseProfile(PlotBase):
 
         return direction * tf.profile_offset * self.x_stretch
 
-    def _get_interpolated_z(self, tf):
-        """Get interpolated z.
-        :param tf: DESCRIPTION.
-        :type tf: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def _get_interpolated_z(self, tf) -> np.ndarray:
+        """
+        Get interpolated impedance tensor at plot period.
+
+        Parameters
+        ----------
+        tf : MT or Transfer Function object
+            Transfer function object with interpolation functions
+
+        Returns
+        -------
+        np.ndarray
+            Complex impedance tensor array of shape (2, 2) at the
+            specified plot period
+
         """
         if not hasattr(tf, "z_interp_dict"):
             tf.z_interp_dict = self.get_interp1d_functions_z(tf)
@@ -634,12 +864,21 @@ class PlotBaseProfile(PlotBase):
             )
         )
 
-    def _get_interpolated_z_error(self, tf):
-        """Get interpolated z error.
-        :param tf: DESCRIPTION.
-        :type tf: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def _get_interpolated_z_error(self, tf) -> np.ndarray:
+        """
+        Get interpolated impedance tensor error at plot period.
+
+        Parameters
+        ----------
+        tf : MT or Transfer Function object
+            Transfer function object with interpolation functions
+
+        Returns
+        -------
+        np.ndarray
+            Impedance tensor error array of shape (2, 2) at the
+            specified plot period
+
         """
         if not hasattr(tf, "z_interp_dict"):
             tf.z_interp_dict = self.get_interp1d_functions_z(tf)
@@ -659,12 +898,21 @@ class PlotBaseProfile(PlotBase):
                 )
             )
 
-    def _get_interpolated_t(self, tf):
-        """Get interpolated t.
-        :param tf: DESCRIPTION.
-        :type tf: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def _get_interpolated_t(self, tf) -> np.ndarray:
+        """
+        Get interpolated tipper at plot period.
+
+        Parameters
+        ----------
+        tf : MT or Transfer Function object
+            Transfer function object with interpolation functions
+
+        Returns
+        -------
+        np.ndarray
+            Complex tipper array of shape (1, 1, 2) at the specified
+            plot period. Returns zeros if no tipper dictionary available.
+
         """
 
         if tf.t_interp_dict == {}:
@@ -686,12 +934,21 @@ class PlotBaseProfile(PlotBase):
             )
         )
 
-    def _get_interpolated_t_err(self, tf):
-        """Get interpolated t err.
-        :param tf: DESCRIPTION.
-        :type tf: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def _get_interpolated_t_err(self, tf) -> np.ndarray:
+        """
+        Get interpolated tipper error at plot period.
+
+        Parameters
+        ----------
+        tf : MT or Transfer Function object
+            Transfer function object with interpolation functions
+
+        Returns
+        -------
+        np.ndarray
+            Tipper error array of shape (1, 1, 2) at the specified
+            plot period. Returns zeros if no tipper dictionary available.
+
         """
 
         if tf.t_interp_dict == {}:

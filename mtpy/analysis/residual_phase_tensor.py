@@ -8,6 +8,8 @@ Created on Wed Feb 22 14:13:57 2023
 # =============================================================================
 # Imports
 # =============================================================================
+from __future__ import annotations
+
 import numpy as np
 from loguru import logger
 
@@ -17,17 +19,59 @@ from mtpy.core.transfer_function.pt import PhaseTensor
 
 # =============================================================================
 class ResidualPhaseTensor:
-    """PhaseTensor class - generates a Phase Tensor (PT) object DeltaPhi
-    DeltaPhi = 1 - Phi1^-1*Phi2
+    """
+    Residual Phase Tensor class.
+
+    Generates a residual phase tensor (PT) object DeltaPhi calculated as:
+    - Heise method: DeltaPhi = I - 0.5 * (Phi1^-1 * Phi2 + Phi2 * Phi1^-1)
+    - Booker method: DeltaPhi = Phi1 - Phi2
+
+    Attributes
+    ----------
+    residual_pt : PhaseTensor
+        Phase tensor object containing the residual phase tensor
+    rpt : np.ndarray
+        Residual phase tensor array
+    rpt_error : np.ndarray
+        Error array for residual phase tensor
+    pt1 : PhaseTensor
+        First phase tensor object
+    pt2 : PhaseTensor
+        Second phase tensor object
+    pt1_error : np.ndarray
+        Error array for first phase tensor
+    pt2_error : np.ndarray
+        Error array for second phase tensor
+    frequency : np.ndarray
+        Frequency array
+    residual_type : str
+        Type of residual calculation ('heise' or 'booker')
+
     """
 
-    def __init__(self, pt_object1=None, pt_object2=None, residual_type="heise"):
-        """Initialise an instance of the ResidualPhaseTensor class.
+    def __init__(
+        self,
+        pt_object1: PhaseTensor | None = None,
+        pt_object2: PhaseTensor | None = None,
+        residual_type: str = "heise",
+    ) -> None:
+        """
+        Initialize an instance of the ResidualPhaseTensor class.
 
-        Optional input:
-        pt_object1 : instance of the PhaseTensor class
-        pt_object2 : instance of the PhaseTensor class
-        Initialise the attributes with None
+        Parameters
+        ----------
+        pt_object1 : PhaseTensor | None, optional
+            First instance of the PhaseTensor class, by default None
+        pt_object2 : PhaseTensor | None, optional
+            Second instance of the PhaseTensor class, by default None
+        residual_type : str, optional
+            Type of residual calculation: 'heise' or 'booker', by default 'heise'
+
+        Raises
+        ------
+        TypeError
+            If arguments are not instances of the PhaseTensor class
+
         """
         self.logger = logger
 
@@ -59,11 +103,30 @@ class ResidualPhaseTensor:
             self.frequency = self.pt1.frequency
             self.compute_residual_pt()
 
-    def compute_residual_pt(self):
-        """Read in two instance of the MTpy PhaseTensor class.
+    def compute_residual_pt(self) -> None:
+        """
+        Compute residual phase tensor from two PhaseTensor objects.
 
-        Update attributes:
-        rpt, rpt_error, _self.pt1, _self.pt2, _self.pt1_error, _self.pt2_error
+        Updates the following attributes:
+        - rpt: residual phase tensor array
+        - rpt_error: error array for residual phase tensor
+        - residual_pt: PhaseTensor object containing residual
+
+        Raises
+        ------
+        ValueError
+            If phase tensor arrays have invalid data types
+        TypeError
+            If phase tensor arrays have incompatible shapes
+
+        Notes
+        -----
+        Heise method calculates:
+            RPT = I - 0.5 * (PT1^-1 * PT2 + PT2 * PT1^-1)
+
+        Booker method calculates:
+            RPT = PT1 - PT2
+
         """
 
         # --> compute residual phase tensor
@@ -253,13 +316,32 @@ class ResidualPhaseTensor:
                 frequency=self.frequency,
             )
 
-    def read_pts(self, pt1, pt2, pt1_error=None, pt2error=None):
-        """Read two PT arrays and calculate the ResPT array (incl. uncertainties).
+    def read_pts(
+        self,
+        pt1: np.ndarray,
+        pt2: np.ndarray,
+        pt1_error: np.ndarray | None = None,
+        pt2error: np.ndarray | None = None,
+    ) -> None:
+        """
+        Read two phase tensor arrays and calculate the residual phase tensor.
 
-        Input:
-        - 2x PT array
-        Optional:
-        - 2x pt_erroror array
+        Parameters
+        ----------
+        pt1 : np.ndarray
+            First phase tensor array
+        pt2 : np.ndarray
+            Second phase tensor array
+        pt1_error : np.ndarray | None, optional
+            Error array for first phase tensor, by default None
+        pt2error : np.ndarray | None, optional
+            Error array for second phase tensor, by default None
+
+        Raises
+        ------
+        TypeError
+            If PT arrays have incompatible shapes
+
         """
 
         try:
@@ -277,12 +359,20 @@ class ResidualPhaseTensor:
 
         self.compute_residual_pt(pt_o1, pt_o2)
 
-    def set_rpt(self, rpt_array):
-        """Set the attribute 'rpt' (ResidualPhaseTensor array).
+    def set_rpt(self, rpt_array: np.ndarray) -> None:
+        """
+        Set the residual phase tensor array attribute.
 
-        Input:
-        ResPT array
-        Test for shape, but no test for consistency!
+        Parameters
+        ----------
+        rpt_array : np.ndarray
+            Residual phase tensor array
+
+        Notes
+        -----
+        Tests for shape compatibility but does not test for consistency.
+        Creates a new PhaseTensor object with the provided array.
+
         """
         if (self.rpt is not None) and (self.rpt.shape != rpt_array.shape):
             self.logger.erroror(
@@ -300,12 +390,20 @@ class ResidualPhaseTensor:
             freq=self.frequency,
         )
 
-    def set_rpt_error(self, rpt_error_array):
-        """Set the attribute 'rpt_error' (ResidualPhaseTensor-erroror array).
+    def set_rpt_error(self, rpt_error_array: np.ndarray) -> None:
+        """
+        Set the residual phase tensor error array attribute.
 
-        Input:
-        ResPT-erroror array
-        Test for shape, but no test for consistency!
+        Parameters
+        ----------
+        rpt_error_array : np.ndarray
+            Residual phase tensor error array
+
+        Notes
+        -----
+        Tests for shape compatibility but does not test for consistency.
+        Creates a new PhaseTensor object with the provided error array.
+
         """
         if (self.rpt_error is not None) and (
             self.rpt_error.shape != rpt_error_array.shape
