@@ -24,7 +24,8 @@ jobs:
       uses: conda-incubator/setup-miniconda@v3
       with:
         auto-update-conda: true
-        conda-channels: conda-forge
+        channels: conda-forge
+        channel-priority: strict
         python-version: ${{ matrix.python-version }}
         miniforge-version: latest
         use-mamba: true
