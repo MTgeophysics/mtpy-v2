@@ -141,8 +141,8 @@ class AuroraProcessing(BaseProcessing):
                             style="taper",
                             half_window_style="hann",
                             threshold="low cut",
-                            transition_lower_bound=0.6,
-                            transition_upper_bound=0.9,
+                            transition_lower_bound=kwargs.get("transition_lower_bound", 0.6),
+                            transition_upper_bound=kwargs.get("transition_upper_bound", 0.9),
                             )
                         ],
                     )
