@@ -78,7 +78,7 @@ jobs:
         source ~/.profile
         conda init --all
         conda activate mtpy-v2-test
-        pytest --cov=./ --cov-report=xml --cov=mtpy -n auto
+        pytest -rA --cov=./ --cov-report=xml --cov=mtpy -n auto
         
     - name: "Upload coverage to Codecov"
       uses: codecov/codecov-action@v3
