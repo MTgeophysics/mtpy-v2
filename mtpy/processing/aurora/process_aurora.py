@@ -174,21 +174,16 @@ class AuroraProcessing(BaseProcessing):
                         ),
                         # how to weight the coherence, could be a list of different tapers
                         weight_kernels=[
-<<<<<<< HEAD
-                        TaperMonotonicWeightKernel(
-                            style="taper",
-                            half_window_style="hann",
-                            threshold="low cut",
-                            transition_lower_bound=kwargs.get("transition_lower_bound", 0.6),
-                            transition_upper_bound=kwargs.get("transition_upper_bound", 0.9),
-=======
                             TaperMonotonicWeightKernel(
                                 style="taper",
                                 half_window_style="hann",
                                 threshold="low cut",
-                                transition_lower_bound=0.6,
-                                transition_upper_bound=0.9,
->>>>>>> a6a3102f1ac185501523cc98a727eb84aa067fc3
+                                transition_lower_bound=kwargs.get(
+                                    "transition_lower_bound", 0.6
+                                ),
+                                transition_upper_bound=kwargs.get(
+                                    "transition_upper_bound", 0.9
+                                ),
                             )
                         ],
                     )
