@@ -196,7 +196,7 @@ class AuroraProcessing(BaseProcessing):
         self,
         kernel_dataset: KernelDataset | None = None,
         decimation_kwargs: dict = {},
-        add_coherence_weights: bool = True,
+        add_coherence_weights: bool = False,
         **kwargs,
     ) -> Processing:
         """
@@ -226,7 +226,6 @@ class AuroraProcessing(BaseProcessing):
         """
         if kernel_dataset is None:
             if self.has_kernel_dataset():
-                cc = ConfigCreator()
                 if self.sample_rate > 1000:
                     decimation_kwargs.update(self.default_window_parameters["high"])
                 else:
@@ -237,7 +236,7 @@ class AuroraProcessing(BaseProcessing):
                     "Cannot make config because KernelDataset has not been set yet."
                 )
         else:
-            cc = ConfigCreator()
+
             if kernel_dataset.sample_rate > 1000:
                 decimation_kwargs.update(self.default_window_parameters["high"])
             else:
@@ -245,6 +244,7 @@ class AuroraProcessing(BaseProcessing):
         # need to pass the number of samples in the window to correctly set the bands
         kwargs["num_samples_window"] = decimation_kwargs["stft.window.num_samples"]
 
+        cc = ConfigCreator()
         config = cc.create_from_kernel_dataset(kernel_dataset, **kwargs)
         self._set_decimation_level_parameters(
             config, add_coherence_weights=add_coherence_weights, **decimation_kwargs
@@ -350,6 +350,7 @@ class AuroraProcessing(BaseProcessing):
         sample_rate: float,
         config: Processing | None = None,
         kernel_dataset: KernelDataset | None = None,
+        plot: bool = False,
     ) -> MT | None:
         """
         Process a single sample rate to generate transfer functions.
@@ -380,7 +381,7 @@ class AuroraProcessing(BaseProcessing):
             config = self.create_config(kernel_dataset=kernel_dataset)
 
         try:
-            tf_obj = process_mth5(config, kernel_dataset)
+            tf_obj = process_mth5(config, kernel_dataset, show_plot=plot)
         except Exception as error:
             close_open_files()
             logger.exception(error)
@@ -406,6 +407,7 @@ class AuroraProcessing(BaseProcessing):
         ) = None,
         merge: bool = True,
         save_to_mth5: bool = True,
+        plot: bool = False,
     ) -> dict[float | str, dict[str, bool | MT]]:
         """
         Process magnetotelluric data at multiple sample rates.
@@ -470,7 +472,14 @@ class AuroraProcessing(BaseProcessing):
             )
 
             for sr in sample_rates:
-                mt_obj = self.process_single_sample_rate(sr)
+                try:
+                    mt_obj = self.process_single_sample_rate(sr)
+                except Exception as e:
+                    logger.error(e)
+                    logger.error(f"Skipping sample rate {sr}")
+                    logger.exception(e)
+                    continue
+
                 if mt_obj is not None:
                     tf_processed[sr]["processed"] = True
                     tf_processed[sr]["tf"] = mt_obj
@@ -485,11 +494,18 @@ class AuroraProcessing(BaseProcessing):
             )
             for key, pdict in processing_dict.items():
                 logger.info(f"Processing sample rate {key}.")
-                mt_obj = self.process_single_sample_rate(
-                    key,
-                    config=pdict["config"],
-                    kernel_dataset=pdict["kernel_dataset"],
-                )
+                try:
+                    mt_obj = self.process_single_sample_rate(
+                        key,
+                        config=pdict["config"],
+                        kernel_dataset=pdict["kernel_dataset"],
+                        plot=plot,
+                    )
+                except Exception as e:
+                    logger.error(e)
+                    logger.error(f"Skipping sample rate {key}")
+                    logger.exception(e)
+                    continue
                 if mt_obj is not None:
                     tf_processed[key]["processed"] = mt_obj.has_transfer_function()
                     tf_processed[key]["tf"] = mt_obj
