@@ -69,3 +69,14 @@ History
 * Updates by @kujaku11 in https://github.com/MTgeophysics/mtpy-v2/pull/61
 
 **Full Changelog**: https://github.com/MTgeophysics/mtpy-v2/compare/v2.0.10...v2.0.12
+
+2.0.13 (2024-10-24)
+----------------------------
+
+2.0.14 (2026-01-22)
+----------------------------
+
+* Updates to work with newer versions of mth5 and mt-metadata by @kujaku11 in https://github.com/MTgeophysics/mtpy-v2/pull/91
+
+
+**Full Changelog**: https://github.com/MTgeophysics/mtpy-v2/compare/v2.0.13...v2.0.14
