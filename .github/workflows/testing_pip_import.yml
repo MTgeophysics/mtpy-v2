@@ -13,7 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         os: ["ubuntu-latest"]
-        python-version: ["3.10"]
+        python-version: ["3.13"]
 
     steps:
     - uses: actions/checkout@v3
@@ -30,19 +30,20 @@ jobs:
         python --version
         conda create -n mtpy-v2-test python=${{ matrix.python-version }}
         source activate mtpy-v2-test
-        pip install mtpy-v2
         conda install pytest
         conda install pytest-subtests
         conda install pytest-cov
-        git clone https://github.com/kujaku11/mt_metadata.git
+        conda install pytest-xdist[psutil]
+        pip install git+https://github.com/kujaku11/mth5_test_data.git
+        git clone https://github.com/kujaku11/mt_metadata.git@main
         cd mt_metadata
         pip install -e .
         cd ..
-        git clone https://github.com/kujaku11/mth5.git
+        git clone https://github.com/kujaku11/mth5.git@master
         cd mth5
         pip install -e .
         cd ..
-        git clone https://github.com/simpeg/aurora
+        git clone https://github.com/simpeg/aurora@pydantic
         cd aurora
         pip install -e .
         cd ..
@@ -50,6 +51,7 @@ jobs:
         cd mtpy_data
         pip install -e .
         cd ..
+        pip install -e .
         conda list
         
     - name: Run Tests
@@ -57,11 +59,11 @@ jobs:
       run: |
         source activate mtpy-v2-test
         cd mt_metadata/tests/
-        pytest -v .
+        pytest -v . -n auto
         cd ../../mth5/tests/
-        pytest -v .
+        pytest -v . -n auto
         cd ../../aurora/tests/
-        pytest -v . -k "not test_doc_build.py"
+        pytest -v . -k "not test_doc_build.py" -n auto
         cd ../../tests/
         pytest -v .
         
