@@ -5,41 +5,57 @@ Created on Sun Sep 25 15:16:31 2022
 @author: jpeacock
 """
 
+from __future__ import annotations
+
 
 # ==============================================================================
 # Arrows properties for induction vectors
 # ==============================================================================
 class MTArrows:
-    """Helper class to read a dictionary of arrow properties.
+    """
+    Helper class to configure arrow properties for plotting induction vectors.
 
-    Arguments::
-        * 'size' : float
-                  multiplier to scale the arrow. *default* is 5
-        * 'head_length' : float
-                         length of the arrow head *default* is
-                         1.5
-        * 'head_width' : float
-                        width of the arrow head *default* is
-                        1.5
-        * 'lw' : float
-                line width of the arrow *default* is .5
+    This class manages arrow styling parameters for real and imaginary
+    components of induction vectors in magnetotelluric plots.
 
-        * 'color' : tuple (real, imaginary)
-                   color of the arrows for real and imaginary
+    Parameters
+    ----------
+    **kwargs : dict, optional
+        Keyword arguments to set arrow properties. Valid keys correspond
+        to the class attributes listed below.
 
-        * 'threshold': float
-                      threshold of which any arrow larger than
-                      this number will not be plotted, helps
-                      clean up if the data is not good.
-                      *default* is 1, note this is before
-                      scaling by 'size'
+    Attributes
+    ----------
+    arrow_size : float
+        Multiplier to scale the arrow size, by default 2.5
+    arrow_head_length : float
+        Length of the arrow head, by default 0.15 * arrow_size
+    arrow_head_width : float
+        Width of the arrow head, by default 0.1 * arrow_size
+    arrow_lw : float
+        Line width of the arrow, by default 0.5 * arrow_size
+    arrow_threshold : float
+        Threshold value above which arrows will not be plotted. This helps
+        filter out poor quality data. Applied before scaling by arrow_size,
+        by default 2
+    arrow_color_imag : str
+        Color for imaginary component arrows, by default 'c' (cyan)
+    arrow_color_real : str
+        Color for real component arrows, by default 'k' (black)
+    arrow_direction : int
+        Arrow direction convention:
+        - 0: arrows point away from conductor
+        - 1: arrows point toward conductor (Parkinson convention)
+        By default 1
 
-        * 'direction : [ 0 | 1 ]
-                     - 0 for arrows to point away a conductor
-                     - 1 for arrow to point toward from conductor
+    Notes
+    -----
+    The data inherently points away from conductors, so arrow_direction=1
+    flips the arrows to follow the Parkinson convention.
+
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
         self.arrow_size = 2.5

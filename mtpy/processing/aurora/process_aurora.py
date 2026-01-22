@@ -8,6 +8,8 @@ Created on Tue Jul 30 17:11:42 2024
 # =============================================================================
 # Imports
 # =============================================================================
+from __future__ import annotations
+
 import warnings
 
 import numpy as np
@@ -16,6 +18,12 @@ from aurora.config.config_creator import ConfigCreator
 from aurora.config.metadata import Processing
 from aurora.pipelines.process_mth5 import process_mth5
 from loguru import logger
+from mt_metadata.features import StridingWindowCoherence
+from mt_metadata.features.weights import (
+    ChannelWeightSpec,
+    FeatureWeightSpec,
+    TaperMonotonicWeightKernel,
+)
 from mth5.helpers import close_open_files
 from mth5.mth5 import MTH5
 from mth5.processing.kernel_dataset import KernelDataset
@@ -58,7 +66,16 @@ class AuroraProcessing(BaseProcessing):
             ).
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
+        """
+        Initialize AuroraProcessing with default merge and window parameters.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional keyword arguments passed to BaseProcessing.
+
+        """
         self.merge_dictionary = {
             1: {"period_min": 4, "period_max": 30000},
             4: {"period_min": 1, "period_max": 30000},
@@ -89,9 +106,16 @@ class AuroraProcessing(BaseProcessing):
 
         super().__init__(**kwargs)
 
-    def _get_merge_df(self):
-        """A datafram containing the periods to use for each sample rate."""
+    def _get_merge_df(self) -> pd.DataFrame:
+        """
+        Get a DataFrame containing the periods to use for each sample rate.
 
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with columns: sample_rate, period_min, period_max.
+
+        """
         return pd.DataFrame(
             {
                 "sample_rate": list(self.merge_dictionary.keys()),
@@ -104,53 +128,163 @@ class AuroraProcessing(BaseProcessing):
             }
         )
 
-    def create_config(self, kernel_dataset=None, decimation_kwargs={}, **kwargs):
-        """Decimation kwargs can include information about window,.
-        :return: DESCRIPTION.
-        :rtype: aurora.config
+    def add_simple_coherence_weights(self, **kwargs) -> list[ChannelWeightSpec]:
+        """
+        Add coherence weights using the channel weight spec.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional keyword arguments (currently unused).
+
+        Returns
+        -------
+        list[ChannelWeightSpec]
+            List of channel weight specifications with coherence features.
+
+        """
+        channel_weight_specs = []
+        for channel in [
+            ("ex", ["ex", "hy"]),
+            ("ey", ["ey", "hx"]),
+            ("hz", ["hx", "hx"]),
+        ]:
+            station_1 = self.local_station_id
+            station_2 = self.local_station_id
+            if channel[0] in ["hz"]:
+                station_2 = self.remote_station_id
+            cws = ChannelWeightSpec(
+                combination_style="multiplication",
+                output_channels=[channel[0]],
+                feature_weight_specs=[
+                    FeatureWeightSpec(
+                        feature_name="coherence",
+                        # time domain coherence estimation
+                        feature=StridingWindowCoherence(
+                            channel_1=channel[1][0],
+                            channel_2=channel[1][1],
+                            station_1=station_1,
+                            station_2=station_2,
+                            # the window is set to the stft window internally.
+                            # window=Window(
+                            #     type="hann",
+                            #     num_samples=256,
+                            #     overlap=128
+                            #     )
+                        ),
+                        # how to weight the coherence, could be a list of different tapers
+                        weight_kernels=[
+                            TaperMonotonicWeightKernel(
+                                style="taper",
+                                half_window_style="hann",
+                                threshold="low cut",
+                                transition_lower_bound=kwargs.get(
+                                    "transition_lower_bound", 0.6
+                                ),
+                                transition_upper_bound=kwargs.get(
+                                    "transition_upper_bound", 0.9
+                                ),
+                            )
+                        ],
+                    )
+                ],
+            )
+            channel_weight_specs.append(cws)
+        return channel_weight_specs
+
+    def create_config(
+        self,
+        kernel_dataset: KernelDataset | None = None,
+        decimation_kwargs: dict = {},
+        add_coherence_weights: bool = False,
+        **kwargs,
+    ) -> Processing:
+        """
+        Create Aurora processing configuration.
+
+        Parameters
+        ----------
+        kernel_dataset : KernelDataset or None, optional
+            Kernel dataset defining processing runs, by default None.
+        decimation_kwargs : dict, optional
+            Decimation parameters including window settings, by default {}.
+        add_coherence_weights : bool, optional
+            Whether to add coherence-based weights, by default True.
+        **kwargs : dict
+            Additional configuration parameters.
+
+        Returns
+        -------
+        Processing
+            Aurora configuration object.
+
+        Raises
+        ------
+        ValueError
+            If kernel_dataset is None and no kernel dataset exists.
+
         """
         if kernel_dataset is None:
             if self.has_kernel_dataset():
-                cc = ConfigCreator()
-                config = cc.create_from_kernel_dataset(self, **kwargs)
                 if self.sample_rate > 1000:
                     decimation_kwargs.update(self.default_window_parameters["high"])
                 else:
                     decimation_kwargs.update(self.default_window_parameters["low"])
-                self._set_decimation_level_parameters(config, **decimation_kwargs)
-                return config
+
             else:
                 raise ValueError(
                     "Cannot make config because KernelDataset has not been set yet."
                 )
         else:
-            cc = ConfigCreator()
-            config = cc.create_from_kernel_dataset(kernel_dataset, **kwargs)
             if kernel_dataset.sample_rate > 1000:
                 decimation_kwargs.update(self.default_window_parameters["high"])
             else:
                 decimation_kwargs.update(self.default_window_parameters["low"])
-            self._set_decimation_level_parameters(config, **decimation_kwargs)
-            return config
+        # need to pass the number of samples in the window to correctly set the bands
+        kwargs["num_samples_window"] = decimation_kwargs["stft.window.num_samples"]
 
-    def _set_decimation_level_parameters(self, config, **kwargs):
-        """Set decimation level parameters.
-        :param config: DESCRIPTION.
-        :type config: TYPE
-        :param **kwargs: DESCRIPTION.
-        :type **kwargs: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        cc = ConfigCreator()
+        config = cc.create_from_kernel_dataset(kernel_dataset, **kwargs)
+        self._set_decimation_level_parameters(
+            config, add_coherence_weights=add_coherence_weights, **decimation_kwargs
+        )
+
+        return config
+
+    def _set_decimation_level_parameters(
+        self, config: Processing, add_coherence_weights: bool = False, **kwargs
+    ) -> None:
+        """
+        Set decimation level parameters for all decimation bands.
+
+        Parameters
+        ----------
+        config : Processing
+            Aurora configuration object to modify.
+        add_coherence_weights : bool, optional
+            Whether to add coherence-based channel weights, by default True.
+        **kwargs : dict
+            Key-value pairs to update in each decimation level.
+
         """
 
         for decimation in config.decimations:
             for key, value in kwargs.items():
-                if "stft" in key:
-                    continue  # stft is not a decimation attribute
-                decimation.set_attr_from_name(key, value)
+                decimation.update_attribute(key, value)
+            if add_coherence_weights:
+                channel_weight_specs = self.add_simple_coherence_weights()
+                decimation.channel_weight_specs = channel_weight_specs
 
-    def _initialize_kernel_dataset(self, sample_rate=None):
-        """Make an initial kernel dataset."""
+    def _initialize_kernel_dataset(self, sample_rate: float | None = None) -> None:
+        """
+        Initialize a kernel dataset.
+
+        Parameters
+        ----------
+        sample_rate : float or None, optional
+            Sample rate to use, by default None (uses first available).
+
+        """
 
         if not self.has_run_summary():
             self.run_summary = self.get_run_summary()
@@ -167,13 +301,30 @@ class AuroraProcessing(BaseProcessing):
 
     def create_kernel_dataset(
         self,
-        run_summary=None,
-        local_station_id=None,
-        remote_station_id=None,
-        sample_rate=None,
-    ):
-        """This can be a stane alone method and return a kds, or create in place
-        Build KernelDataset
+        run_summary: RunSummary | None = None,
+        local_station_id: str | None = None,
+        remote_station_id: str | None = None,
+        sample_rate: float | None = None,
+    ) -> KernelDataset:
+        """
+        Build and return a KernelDataset.
+
+        Parameters
+        ----------
+        run_summary : RunSummary or None, optional
+            Run summary to use, by default None (creates from MTH5).
+        local_station_id : str or None, optional
+            Local station identifier, by default None.
+        remote_station_id : str or None, optional
+            Remote reference station identifier, by default None.
+        sample_rate : float or None, optional
+            Sample rate to filter runs, by default None.
+
+        Returns
+        -------
+        KernelDataset
+            Kernel dataset defining processing configuration.
+
         """
 
         if run_summary is None:
@@ -193,19 +344,29 @@ class AuroraProcessing(BaseProcessing):
         )
         return self.clone()
 
-    def process_single_sample_rate(self, sample_rate, config=None, kernel_dataset=None):
+    def process_single_sample_rate(
+        self,
+        sample_rate: float,
+        config: Processing | None = None,
+        kernel_dataset: KernelDataset | None = None,
+        plot: bool = False,
+    ) -> MT | None:
         """
-        Process a single sample rate
+        Process a single sample rate to generate transfer functions.
 
-        :param sample_rate: sample rate of time series data
-        :type sample_rate: float
-        :param config: configuration file, defaults to None
-        :type config: aurora.config, optional
-        :param kernel_dataset: Kerenel dataset to define what data to process,
-          defaults to None
-        :type kernel_dataset: mtpy.processing.KernelDataset, optional
-        :return: transfer function
-        :rtype: mtpy.MT
+        Parameters
+        ----------
+        sample_rate : float
+            Sample rate of time series data to process.
+        config : Processing or None, optional
+            Aurora configuration object, by default None (creates from kernel_dataset).
+        kernel_dataset : KernelDataset or None, optional
+            Kernel dataset defining processing runs, by default None (creates from run summary).
+
+        Returns
+        -------
+        MT or None
+            Transfer function object, or None if processing fails.
 
         """
 
@@ -219,7 +380,7 @@ class AuroraProcessing(BaseProcessing):
             config = self.create_config(kernel_dataset=kernel_dataset)
 
         try:
-            tf_obj = process_mth5(config, kernel_dataset)
+            tf_obj = process_mth5(config, kernel_dataset, show_plot=plot)
         except Exception as error:
             close_open_files()
             logger.exception(error)
@@ -228,9 +389,10 @@ class AuroraProcessing(BaseProcessing):
 
         tf_obj.tf_id = self.processing_id
 
-        # copy to an MT object
-        mt_obj = MT(survey_metadata=tf_obj.survey_metadata)
-        mt_obj.station_metadata = tf_obj.station_metadata
+        # copy to an MT object using deep copy to avoid metadata references
+        mt_obj = MT()
+        mt_obj.survey_metadata.update(tf_obj.survey_metadata)
+        mt_obj.station_metadata.update(tf_obj.station_metadata)
         mt_obj.channel_nomenclature = tf_obj.channel_nomenclature
         mt_obj._transfer_function = tf_obj._transfer_function
 
@@ -238,56 +400,55 @@ class AuroraProcessing(BaseProcessing):
 
     def process(
         self,
-        sample_rates=None,
-        processing_dict=None,
-        merge=True,
-        save_to_mth5=True,
-    ):
+        sample_rates: float | list[float] | None = None,
+        processing_dict: (
+            dict[float, dict[str, Processing | KernelDataset]] | None
+        ) = None,
+        merge: bool = True,
+        save_to_mth5: bool = True,
+        plot: bool = False,
+    ) -> dict[float | str, dict[str, bool | MT]]:
         """
-        Need to either provide a list of sample rates to process or
-        a processing dictionary.
+        Process magnetotelluric data at multiple sample rates.
 
-        If you provide just the sample rates, then at each sample rate a
-        KernelDataset will be created as well as a subsequent config object
-        which are then used to process the data.
+        Parameters
+        ----------
+        sample_rates : float, list of float, or None, optional
+            Sample rate(s) to process, by default None.
+        processing_dict : dict or None, optional
+            Dictionary mapping sample rates to config and kernel_dataset.
+            Format: {sample_rate: {'config': Processing, 'kernel_dataset': KernelDataset}}
+            By default None.
+        merge : bool, optional
+            Whether to merge all sample rates into a single transfer function
+            according to merge_dict, by default True.
+        save_to_mth5 : bool, optional
+            Whether to save transfer functions to local MTH5 file, by default True.
 
-        If processing_dict is set then the processing will loop through the
-        dictionary and use the provided config and kernel datasets.
+        Returns
+        -------
+        dict[float or str, dict[str, bool or MT]]
+            Dictionary with sample rates and 'combined' as keys, each containing
+            {'processed': bool, 'tf': MT or None}.
 
-        The processing dict has the following form
+        Raises
+        ------
+        ValueError
+            If neither sample_rates nor processing_dict is provided.
+        TypeError
+            If sample_rates or processing_dict is not the correct format.
 
-        .. code_block:: python
+        Notes
+        -----
+        If merge is True and multiple sample rates are processed, a 'combined'
+        key is added with the merged transfer function.
 
-            processing_dict = {sample_rate: {
-                "config": config object,
-                "kernel_dataset": KernelDataset object,
-                }
-
-        If merge is True then all runs for all sample rates are combined into
-        a single function according to merge_dict.
-
-        If `save_to_mth5` is True then the transfer functions are saved to
-        the local MTH5.
-
-
-        :param sample_rates: list of sample rates to process, defaults to None
-        :type sample_rates: float or list, optional
-        :param processing_dict: processing dictionary as described above,
-         defaults to None
-        :type processing_dict: dict, optional
-        :param merge: [ True | False ] True merges all sample rates into a
-         single transfer function according to the merge_dict, defaults to True
-        :type merge: bool, optional
-        :param save_to_mth5: [ True | False ] save transfer functions to the
-         local MTH5, defaults to True
-        :type save_to_mth5: TYPE, optional
-        :raises ValueError: If neither sample rates nor processing dict are
-         provided
-        :raises TypeError: If the provided processing dictionary is not
-         the correct format
-        :return: dictionary of each sample rate processed in the form of
-         {sample_rate: {'processed': bool, 'tf': MT}}
-        :rtype: dict
+        Examples
+        --------
+        >>> ap = AuroraProcessing()
+        >>> ap.local_station_id = "mt01"
+        >>> ap.local_mth5_path = "data.h5"
+        >>> results = ap.process(sample_rates=[1, 4], merge=True)
 
         """
 
@@ -310,7 +471,14 @@ class AuroraProcessing(BaseProcessing):
             )
 
             for sr in sample_rates:
-                mt_obj = self.process_single_sample_rate(sr)
+                try:
+                    mt_obj = self.process_single_sample_rate(sr)
+                except Exception as e:
+                    logger.error(e)
+                    logger.error(f"Skipping sample rate {sr}")
+                    logger.exception(e)
+                    continue
+
                 if mt_obj is not None:
                     tf_processed[sr]["processed"] = True
                     tf_processed[sr]["tf"] = mt_obj
@@ -324,14 +492,23 @@ class AuroraProcessing(BaseProcessing):
                 ]
             )
             for key, pdict in processing_dict.items():
-                mt_obj = self.process_single_sample_rate(
-                    key,
-                    config=pdict["config"],
-                    kernel_dataset=pdict["kernel_dataset"],
-                )
+                logger.info(f"Processing sample rate {key}.")
+                try:
+                    mt_obj = self.process_single_sample_rate(
+                        key,
+                        config=pdict["config"],
+                        kernel_dataset=pdict["kernel_dataset"],
+                        plot=plot,
+                    )
+                except Exception as e:
+                    logger.error(e)
+                    logger.error(f"Skipping sample rate {key}")
+                    logger.exception(e)
+                    continue
                 if mt_obj is not None:
                     tf_processed[key]["processed"] = mt_obj.has_transfer_function()
                     tf_processed[key]["tf"] = mt_obj
+                logger.info(f"Finished processing sample rate {key}.")
 
         processed = self._validate_tf_processed_dict(tf_processed)
         if len(processed.keys()) > 1:
@@ -344,6 +521,8 @@ class AuroraProcessing(BaseProcessing):
                 combined_tf_id += "_combined"
                 combined_tf.tf_id = combined_tf_id
                 processed["combined"] = {"processed": True, "tf": combined_tf}
+        else:
+            processed["combined"] = processed[list(processed.keys())[0]]
 
         if save_to_mth5:
             ### add tf to local MTH5
@@ -351,27 +530,66 @@ class AuroraProcessing(BaseProcessing):
 
         return processed
 
-    def _validate_config(self, config):
-        """Validate config."""
+    def _validate_config(self, config: Processing) -> None:
+        """
+        Validate configuration object type.
+
+        Parameters
+        ----------
+        config : Processing
+            Configuration object to validate.
+
+        Raises
+        ------
+        TypeError
+            If config is not a Processing object.
+
+        """
         if not isinstance(config, Processing):
             raise TypeError(
                 "Config must be a aurora.config.metadata.Processing object. "
                 f"Got type {type(config)}"
             )
 
-    def _validate_kernel_dataset(self, kernel_dataset):
-        """Validate kernel dataset."""
+    def _validate_kernel_dataset(self, kernel_dataset: KernelDataset) -> None:
+        """
+        Validate kernel dataset object type.
+
+        Parameters
+        ----------
+        kernel_dataset : KernelDataset
+            Kernel dataset object to validate.
+
+        Raises
+        ------
+        TypeError
+            If kernel_dataset is not a KernelDataset object.
+
+        """
         if not isinstance(kernel_dataset, KernelDataset):
             raise TypeError(
                 "Config must be a mtpy.processing.KernelDataset object. "
                 f"Got type {type(kernel_dataset)}"
             )
 
-    def _validate_processing_dict(self, processing_dict):
-        """Validate the processing dict to make sure it is in the correct format.
+    def _validate_processing_dict(
+        self, processing_dict: dict[float, dict[str, Processing | KernelDataset]]
+    ) -> None:
+        """
+        Validate the processing dictionary format.
 
-        :param processing_dict: processing dictionary
-        :type processing_dict: dict
+        Parameters
+        ----------
+        processing_dict : dict
+            Dictionary mapping sample rates to config and kernel_dataset.
+
+        Raises
+        ------
+        TypeError
+            If processing_dict or its values are not dictionaries.
+        KeyError
+            If required keys are missing from processing dictionary.
+
         """
         error_msg = "Format is {sample_rate: {'config': config object, "
         "'kernel_dataset': KernelDataset object}"
@@ -396,15 +614,28 @@ class AuroraProcessing(BaseProcessing):
             self._validate_config(pdict["config"])
             self._validate_kernel_dataset(pdict["kernel_dataset"])
 
-    def _validate_tf_processed_dict(self, tf_dict):
-        """Pick out processed transfer functions from a given processed dict,
-        which may have some sample rates that did not process for whatever
-        reason.
+    def _validate_tf_processed_dict(
+        self, tf_dict: dict[float, dict[str, bool | MT]]
+    ) -> dict[float, dict[str, bool | MT]]:
+        """
+        Filter processed transfer functions from processing dictionary.
 
-        :param tf_dict: dictionary of processed transfer functions.
-        :type tf_dict: dict
-        :return: dicionary of trasnfer functions for which processed=True
-        :rtype: dict
+        Parameters
+        ----------
+        tf_dict : dict
+            Dictionary of processed transfer functions with format:
+            {sample_rate: {'processed': bool, 'tf': MT or None}}.
+
+        Returns
+        -------
+        dict
+            Dictionary containing only successfully processed transfer functions.
+
+        Raises
+        ------
+        ValueError
+            If no transfer functions were processed successfully.
+
         """
 
         new_dict = {}
@@ -420,11 +651,17 @@ class AuroraProcessing(BaseProcessing):
             raise ValueError("No Transfer Functions were processed.")
         return new_dict
 
-    def _add_tf_to_local_mth5(self, tf_dict):
-        """Add transfer function to MTH5.
+    def _add_tf_to_local_mth5(
+        self, tf_dict: dict[float | str, dict[str, bool | MT]]
+    ) -> None:
+        """
+        Add transfer functions to the local MTH5 file.
 
-        :param tf_dict: dictionary of transfer functions
-        :type tf_dict: dict
+        Parameters
+        ----------
+        tf_dict : dict
+            Dictionary of transfer functions to add.
+
         """
 
         with MTH5() as m:
@@ -432,14 +669,23 @@ class AuroraProcessing(BaseProcessing):
             for p_dict in tf_dict.values():
                 m.add_transfer_function(p_dict["tf"])
 
-    def _get_merge_tf_list(self, tf_dict):
-        """Merge transfer functions according to merge dict.
+    def _get_merge_tf_list(
+        self, tf_dict: dict[float, dict[str, bool | MT]]
+    ) -> list[dict[str, MT | float]]:
+        """
+        Prepare transfer functions list for merging with period constraints.
 
-        :param tf_dict: dictionary of transfer functions.
-        :type tf_dict: dict
-        :return: list of transfer functions with appropriate min/max period
-         to merge
-        :rtype: list
+        Parameters
+        ----------
+        tf_dict : dict
+            Dictionary of processed transfer functions.
+
+        Returns
+        -------
+        list[dict]
+            List of dictionaries containing transfer functions and their
+            period min/max values for merging.
+
         """
 
         merge_df = self._get_merge_df()
@@ -463,13 +709,22 @@ class AuroraProcessing(BaseProcessing):
 
         return merge_list
 
-    def merge_transfer_functions(self, tf_dict):
-        """Merge transfer functions according to AuroraProcessing.merge_dict
+    def merge_transfer_functions(
+        self, tf_dict: dict[float, dict[str, bool | MT]]
+    ) -> MT:
+        """
+        Merge multiple transfer functions according to merge_dict.
 
-        :param tf_dict: dictionary of transfer functions
-        :type tf_dict: dict
-        :return: merged transfer function.
-        :rtype: mtpy.MT
+        Parameters
+        ----------
+        tf_dict : dict
+            Dictionary of transfer functions to merge.
+
+        Returns
+        -------
+        MT
+            Merged transfer function combining all sample rates.
+
         """
 
         merge_list = self._get_merge_tf_list(tf_dict)
