@@ -52,7 +52,6 @@ test = [
     "pytest-mock",
     "pytest-subtests",
     "pytest-xdist",
-    "mtpy_data @ git+https://github.com/MTgeophysics/mtpy_data.git"
     ]
 
 
