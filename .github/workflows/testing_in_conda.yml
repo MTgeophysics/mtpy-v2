@@ -60,8 +60,8 @@ jobs:
         conda activate mtpy-v2-test
         python --version  # Verify correct Python version
         uv pip install git+https://github.com/simpeg/pydiso.git
-        uv pip install git+https://github.com/kujaku11/mt_metadata.git@pydantic
-        uv pip install git+https://github.com/kujaku11/mth5.git@old_pydantic
+        uv pip install git+https://github.com/kujaku11/mt_metadata@main
+        uv pip install git+https://github.com/kujaku11/mth5.git@master
         uv pip install git+https://github.com/simpeg/aurora@pydantic
         
     - name: Install Our Package
