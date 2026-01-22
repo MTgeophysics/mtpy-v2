@@ -7,6 +7,10 @@ Created on Sun Sep 25 15:49:01 2022
 :author: jpeacock
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import matplotlib.colorbar as mcb
 import matplotlib.colors as colors
 
@@ -16,19 +20,57 @@ import matplotlib.colors as colors
 import numpy as np
 
 
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
+
+
 # =============================================================================
 
 period_label_dict = dict([(ii, "$10^{" + str(ii) + "}$") for ii in range(-20, 21)])
 
 
-def get_period_limits(period):
+def get_period_limits(period: np.ndarray) -> tuple[float, float]:
+    """
+    Calculate period axis limits as powers of 10.
+
+    Parameters
+    ----------
+    period : np.ndarray
+        Array of period values
+
+    Returns
+    -------
+    tuple[float, float]
+        Minimum and maximum limits as powers of 10 (floor and ceil)
+
+    """
     return (
         10 ** (np.floor(np.log10(period.min()))),
         10 ** (np.ceil(np.log10(period.max()))),
     )
 
 
-def add_colorbar_axis(ax, fig):
+def add_colorbar_axis(ax: Axes, fig: Figure) -> Axes:
+    """
+    Add colorbar axes positioned to the left of given axes.
+
+    Creates a new axes for colorbar placement with dimensions calculated
+    relative to the input axes position.
+
+    Parameters
+    ----------
+    ax : Axes
+        Reference axes for positioning colorbar
+    fig : Figure
+        Figure to add colorbar axes to
+
+    Returns
+    -------
+    Axes
+        New axes object for colorbar
+
+    """
     # add colorbar for PT
     axpos = ax.get_position()
     cb_position = (
@@ -42,13 +84,23 @@ def add_colorbar_axis(ax, fig):
     return cbax
 
 
-def get_log_tick_labels(ax, spacing=1):
+def get_log_tick_labels(ax: Axes, spacing: float = 1) -> tuple[list[str], list[float]]:
     """
+    Get LaTeX-formatted tick labels for logarithmic period axis.
 
-    :param ax: DESCRIPTION
-    :type ax: TYPE
-    :return: DESCRIPTION
-    :rtype: TYPE
+    Generates tick labels in format $10^{exponent}$ for valid tick positions.
+
+    Parameters
+    ----------
+    ax : Axes
+        Axes to extract tick positions from
+    spacing : float, optional
+        Spacing factor for tick positions, by default 1
+
+    Returns
+    -------
+    tuple[list[str], list[float]]
+        Tick labels (LaTeX strings) and corresponding tick positions
 
     """
 
@@ -63,8 +115,34 @@ def get_log_tick_labels(ax, spacing=1):
     return tklabels, xticks
 
 
-def make_color_list(cbax, nseg, ckmin, ckmax, ckstep):
-    """ """
+def make_color_list(
+    cbax: Axes, nseg: float, ckmin: float, ckmax: float, ckstep: float
+) -> mcb.ColorbarBase:
+    """
+    Create segmented blue-white-red colorbar.
+
+    Generates a colorbar with blue-to-white-to-red color transition
+    using discrete segments with specified bounds.
+
+    Parameters
+    ----------
+    cbax : Axes
+        Axes to place colorbar in
+    nseg : float
+        Number of color segments
+    ckmin : float
+        Minimum value for colorbar range
+    ckmax : float
+        Maximum value for colorbar range
+    ckstep : float
+        Step size between color boundaries
+
+    Returns
+    -------
+    mcb.ColorbarBase
+        Colorbar object with segmented colormap
+
+    """
 
     # make a color list
     clist = [(cc, cc, 1) for cc in np.arange(0, 1 + 1.0 / (nseg), 1.0 / (nseg))] + [
@@ -90,7 +168,23 @@ def make_color_list(cbax, nseg, ckmin, ckmax, ckstep):
     )
 
 
-def round_to_step(num, base=5):
+def round_to_step(num: float, base: float = 5) -> float:
+    """
+    Round number to nearest multiple of base.
+
+    Parameters
+    ----------
+    num : float
+        Number to round
+    base : float, optional
+        Base value to round to multiples of, by default 5
+
+    Returns
+    -------
+    float
+        Rounded value
+
+    """
     return base * round(num / base)
 
 
@@ -98,44 +192,46 @@ def round_to_step(num, base=5):
 # function for writing values to file
 # ==============================================================================
 def make_value_str(
-    value,
-    value_list=None,
-    spacing="{0:^8}",
-    value_format="{0: .2f}",
-    append=False,
-    add=False,
-):
+    value: float,
+    value_list: list[str] | str | None = None,
+    spacing: str = "{0:^8}",
+    value_format: str = "{0: .2f}",
+    append: bool = False,
+    add: bool = False,
+) -> list[str] | str:
     """
-    helper function for writing values to a file, takes in a value and either
-    appends or adds value to value_list according to the spacing and format of
-    the string.
+    Format value as string for file output.
 
-    Arguments:
+    Helper function for writing values to file. Converts value to formatted
+    string and either appends to list, concatenates to string, or returns
+    standalone string.
+
+    Parameters
     ----------
-        **value** : float
+    value : float
+        Numeric value to format
+    value_list : list[str] | str | None, optional
+        Existing list or string to modify, by default None
+    spacing : str, optional
+        Format string for spacing (e.g., '{0:^8}'), by default '{0:^8}'
+    value_format : str, optional
+        Format string for value (e.g., '{0: .2f}'), by default '{0: .2f}'
+    append : bool, optional
+        If True, append to value_list (must be list), by default False
+    add : bool, optional
+        If True, concatenate to value_list (must be str), by default False
 
-        **value_list** : list of values converted to strings
+    Returns
+    -------
+    list[str] | str
+        Modified list/string or standalone formatted string
 
-        **spacing** : spacing of the string that the value will be converted
-                      to.
+    Notes
+    -----
+    If both append and add are False, returns formatted string.
+    If append is True, appends to list and returns list.
+    If add is True, concatenates to string and returns string.
 
-        **value_format** : format of the string that the value is being
-                            coverted to.
-
-        **append** : [ True | False]
-                     if True then appends the value to value list
-
-        **add** : [ True | False ]
-                  if True adds value string to the other value strings in
-                  value_list
-
-    Returns:
-    --------
-        **value_list** : the input value_list with the new value either
-                        added or appended.
-        or
-
-        **value_str** : value string if add and append are false
     """
 
     value_str = spacing.format(value_format.format(value))

@@ -28,45 +28,60 @@ from .base import TFBase
 
 
 class PhaseTensor(TFBase):
-    """PhaseTensor class - generates a Phase Tensor (phase tensor) object.
+    """
+    Phase Tensor class.
 
-    Methods  include reading and writing from and to edi-objects, rotations
-    combinations of Z instances, as well as
-    calculation of invariants, inverse, amplitude/phase,...
+    Methods include reading and writing from and to edi-objects, rotations,
+    combinations of Z instances, as well as calculation of invariants,
+    inverse, amplitude/phase.
 
+    Phase tensor is a real array of the form (n_freq, 2, 2) with indices:
+        - phase_tensor_xx: (0,0)
+        - phase_tensor_xy: (0,1)
+        - phase_tensor_yx: (1,0)
+        - phase_tensor_yy: (1,1)
 
-    phase tensor is a complex array of the form (n_freq, 2, 2),
-    with indices in the following order:
-
-        - phase tensor_xx: (0,0)
-        - phase tensor_xy: (0,1)
-        - phase tensor_yx: (1,0)
-        - phase tensor_yy: (1,1)
-
-    All internal methods are based on (Caldwell et al.,2004) and
-    (Bibby et al.,2005), in which they use the canonical cartesian 2D
+    All internal methods are based on Caldwell et al. (2004) and
+    Bibby et al. (2005), which use the canonical cartesian 2D
     reference (x1, x2). However, all components, coordinates,
     and angles for in- and outputs are given in the geographical
     reference frame:
-
-                - x-axis = North
-                - y-axis = East
-                - z-axis = Down
+        - x-axis = North
+        - y-axis = East
+        - z-axis = Down
 
     Therefore, all results from using those methods are consistent
     (angles are referenced from North rather than x1).
+
+    Parameters
+    ----------
+    z : np.ndarray, optional
+        Impedance tensor array (n_frequency, 2, 2), by default None
+    z_error : np.ndarray, optional
+        Impedance tensor error array (n_frequency, 2, 2), by default None
+    z_model_error : np.ndarray, optional
+        Impedance tensor model error array (n_frequency, 2, 2), by default None
+    frequency : np.ndarray, optional
+        Frequency array (n_frequency), by default None
+    pt : np.ndarray, optional
+        Phase tensor array (n_frequency, 2, 2), by default None
+    pt_error : np.ndarray, optional
+        Phase tensor error array (n_frequency, 2, 2), by default None
+    pt_model_error : np.ndarray, optional
+        Phase tensor model error array (n_frequency, 2, 2), by default None
+
     """
 
     def __init__(
         self,
-        z=None,
-        z_error=None,
-        z_model_error=None,
-        frequency=None,
-        pt=None,
-        pt_error=None,
-        pt_model_error=None,
-    ):
+        z: np.ndarray | None = None,
+        z_error: np.ndarray | None = None,
+        z_model_error: np.ndarray | None = None,
+        frequency: np.ndarray | None = None,
+        pt: np.ndarray | None = None,
+        pt_error: np.ndarray | None = None,
+        pt_model_error: np.ndarray | None = None,
+    ) -> None:
         super().__init__(
             tf=pt,
             tf_error=pt_error,
@@ -87,12 +102,20 @@ class PhaseTensor(TFBase):
             if z_model_error is not None:
                 self.pt_model_error = self._pt_error_from_z(z, z_model_error)
 
-    def _pt_from_z(self, z):
-        """Create phase tensor from impedance.
-        :param z: Impedance tensor.
-        :type z: np.ndarray
-        :return: Phase tensor array.
-        :rtype: np.ndarray
+    def _pt_from_z(self, z: np.ndarray) -> np.ndarray | None:
+        """
+        Create phase tensor from impedance.
+
+        Parameters
+        ----------
+        z : np.ndarray
+            Impedance tensor array (n_frequency, 2, 2)
+
+        Returns
+        -------
+        np.ndarray or None
+            Phase tensor array (n_frequency, 2, 2)
+
         """
         old_shape = None
         if self._has_tf():
@@ -132,14 +155,22 @@ class PhaseTensor(TFBase):
 
         return pt_array
 
-    def _pt_error_from_z(self, z, z_error):
-        """Calculate phase tensor error from impedance error.
-        :param z: Impedance tensor.
-        :type z: np.ndarray
-        :param z_error: Impedance tensor error.
-        :type z_error: np.ndarray
-        :return: Phase tensor error.
-        :rtype: np.ndarray
+    def _pt_error_from_z(self, z: np.ndarray, z_error: np.ndarray) -> np.ndarray | None:
+        """
+        Calculate phase tensor error from impedance error.
+
+        Parameters
+        ----------
+        z : np.ndarray
+            Impedance tensor array (n_frequency, 2, 2)
+        z_error : np.ndarray
+            Impedance tensor error array (n_frequency, 2, 2)
+
+        Returns
+        -------
+        np.ndarray or None
+            Phase tensor error array (n_frequency, 2, 2)
+
         """
 
         pt_array = self._pt_from_z(z)
@@ -227,16 +258,21 @@ class PhaseTensor(TFBase):
         return pt_error
 
     @property
-    def pt(self):
+    def pt(self) -> np.ndarray | None:
         """Phase tensor array."""
         if self._has_tf():
             return self._dataset.transfer_function.values
 
     @pt.setter
-    def pt(self, pt):
-        """Set the attribute 'pt'.
-        :param pt: Phase tensor array shape (n_frequencies, 2, 2).
-        :type pt: np.ndarray
+    def pt(self, pt: np.ndarray | None) -> None:
+        """
+        Set phase tensor.
+
+        Parameters
+        ----------
+        pt : np.ndarray or None
+            Phase tensor array (n_frequencies, 2, 2)
+
         """
         old_shape = None
         if self._has_tf():
@@ -257,16 +293,21 @@ class PhaseTensor(TFBase):
             self._dataset["transfer_function"].loc[self.comps] = pt
 
     @property
-    def pt_error(self):
-        r"""Phase tensor erro."""
+    def pt_error(self) -> np.ndarray | None:
+        """Phase tensor error."""
         if self._has_tf_error():
             return self._dataset.transfer_function_error.values
 
     @pt_error.setter
-    def pt_error(self, pt_error):
-        """Set the attribute 'pt_error'.
-        :param pt_error: Phase tensor error array shape (n_frequencies, 2, 2).
-        :type pt_error: np.ndarray
+    def pt_error(self, pt_error: np.ndarray | None) -> None:
+        """
+        Set phase tensor error.
+
+        Parameters
+        ----------
+        pt_error : np.ndarray or None
+            Phase tensor error array (n_frequencies, 2, 2)
+
         """
         old_shape = None
         if not self._has_tf_error():
@@ -288,18 +329,22 @@ class PhaseTensor(TFBase):
             self._dataset["transfer_function_error"].loc[self.comps] = pt_error
 
     @property
-    def pt_model_error(self):
-        r"""Phase tensor model erro."""
+    def pt_model_error(self) -> np.ndarray | None:
+        """Phase tensor model error."""
 
         if self._has_tf_model_error():
             return self._dataset.transfer_function_model_error.values
 
     @pt_model_error.setter
-    def pt_model_error(self, pt_model_error):
-        """Set the attribute 'pt_error'.
-        :param pt_model_error:
-        :param pt: Phase tensor model error array shape (n_frequencies, 2, 2).
-        :type pt: np.ndarray
+    def pt_model_error(self, pt_model_error: np.ndarray | None) -> None:
+        """
+        Set phase tensor model error.
+
+        Parameters
+        ----------
+        pt_model_error : np.ndarray or None
+            Phase tensor model error array (n_frequencies, 2, 2)
+
         """
         old_shape = None
         if not self._has_tf_error():
@@ -322,23 +367,23 @@ class PhaseTensor(TFBase):
 
     # ---trace-------------------------------------------------------------
     @property
-    def trace(self):
-        r"""Trace of phase tenso."""
+    def trace(self) -> np.ndarray | None:
+        """Trace of phase tensor."""
         if self.pt is None:
             return None
         return np.array([np.trace(i) for i in self.pt])
 
     @property
-    def trace_error(self):
-        r"""Trace error of phase tenso."""
+    def trace_error(self) -> np.ndarray | None:
+        """Trace error of phase tensor."""
 
         if self._has_tf_error():
             tr_error = self.pt_error[:, 0, 0] + self.pt_error[:, 1, 1]
             return tr_error
 
     @property
-    def trace_model_error(self):
-        r"""Trace model error of phase tenso."""
+    def trace_model_error(self) -> np.ndarray | None:
+        """Trace model error of phase tensor."""
 
         if self._has_tf_model_error():
             tr_model_error = self.pt_error[:, 0, 0] + self.pt_error[:, 1, 1]
@@ -346,7 +391,7 @@ class PhaseTensor(TFBase):
 
     # ---alpha-------------------------------------------------------------
     @property
-    def alpha(self):
+    def alpha(self) -> np.ndarray | None:
         """Principal axis angle (strike) of phase tensor in degrees."""
 
         if self.pt is None:
@@ -360,7 +405,7 @@ class PhaseTensor(TFBase):
         )
 
     @property
-    def alpha_error(self):
+    def alpha_error(self) -> np.ndarray | None:
         """Principal axis angle error of phase tensor in degrees."""
 
         if self._has_tf_error():
@@ -382,7 +427,7 @@ class PhaseTensor(TFBase):
                 return alpha_error
 
     @property
-    def alpha_model_error(self):
+    def alpha_model_error(self) -> np.ndarray | None:
         """Principal axis angle model error of phase tensor in degrees."""
 
         if self._has_tf_model_error():
@@ -407,7 +452,7 @@ class PhaseTensor(TFBase):
 
     # ---beta-------------------------------------------------------------
     @property
-    def beta(self):
+    def beta(self) -> np.ndarray | None:
         """3D-dimensionality angle Beta (invariant) of phase tensor in degrees."""
 
         if self.pt is None:
@@ -421,7 +466,7 @@ class PhaseTensor(TFBase):
         )
 
     @property
-    def beta_error(self):
+    def beta_error(self) -> np.ndarray | None:
         """3D-dimensionality angle error Beta of phase tensor in degrees."""
 
         if self._has_tf_error():
@@ -438,7 +483,7 @@ class PhaseTensor(TFBase):
             return beta_error
 
     @property
-    def beta_model_error(self):
+    def beta_model_error(self) -> np.ndarray | None:
         """3D-dimensionality angle model error Beta of phase tensor in degrees."""
 
         if self._has_tf_error():
@@ -460,23 +505,23 @@ class PhaseTensor(TFBase):
 
     # ---skew-------------------------------------------------------------
     @property
-    def skew(self):
+    def skew(self) -> np.ndarray | None:
         """3D-dimensionality skew angle of phase tensor in degrees."""
         return self.beta
 
     @property
-    def skew_error(self):
+    def skew_error(self) -> np.ndarray | None:
         """3D-dimensionality skew angle error of phase tensor in degrees."""
         return self.beta_error
 
     @property
-    def skew_model_error(self):
+    def skew_model_error(self) -> np.ndarray | None:
         """3D-dimensionality skew angle model error of phase tensor in degrees."""
         return self.beta_model_error
 
     # ---azimuth (strike angle)-------------------------------------------------
     @property
-    def azimuth(self):
+    def azimuth(self) -> np.ndarray | None:
         """Azimuth angle related to geoelectric strike in degrees."""
 
         if self.pt is None:
@@ -484,21 +529,21 @@ class PhaseTensor(TFBase):
         return (self.alpha - self.beta) % 360
 
     @property
-    def azimuth_error(self):
+    def azimuth_error(self) -> np.ndarray | None:
         """Azimuth angle error related to geoelectric strike in degrees."""
         if self._has_tf_error():
             return np.sqrt(abs(self.alpha_error + self.beta_error))
 
     @property
-    def azimuth_model_error(self):
+    def azimuth_model_error(self) -> np.ndarray | None:
         """Azimuth angle model error related to geoelectric strike in degrees."""
         if self._has_tf_model_error():
             return np.sqrt(abs(self.alpha_model_error + self.beta_model_error))
 
     # ---ellipticity----------------------------------------------------
     @property
-    def ellipticity(self):
-        """Ellipticity of the phase tensor, related to dimesionality."""
+    def ellipticity(self) -> np.ndarray | None:
+        """Ellipticity of the phase tensor, related to dimensionality."""
 
         if self.pt is None:
             return None
@@ -508,8 +553,8 @@ class PhaseTensor(TFBase):
         return result
 
     @property
-    def ellipticity_error(self):
-        """Ellipticity error of the phase tensor, related to dimesionality."""
+    def ellipticity_error(self) -> np.ndarray | None:
+        """Ellipticity error of the phase tensor, related to dimensionality."""
         if self._has_tf_error():
             with np.errstate(divide="ignore", invalid="ignore"):
                 return (
@@ -522,8 +567,8 @@ class PhaseTensor(TFBase):
                 )
 
     @property
-    def ellipticity_model_error(self):
-        """Ellipticity model error of the phase tensor, related to dimesionality."""
+    def ellipticity_model_error(self) -> np.ndarray | None:
+        """Ellipticity model error of the phase tensor, related to dimensionality."""
         if self._has_tf_model_error():
             return (
                 self.ellipticity
@@ -536,16 +581,16 @@ class PhaseTensor(TFBase):
 
     # ---det-------------------------------------------------------------
     @property
-    def det(self):
-        r"""Determinant of phase tenso."""
+    def det(self) -> np.ndarray | None:
+        """Determinant of phase tensor."""
         if self.pt is None:
             return None
         with np.errstate(divide="ignore", invalid="ignore"):
             return np.array([np.linalg.det(pt_arr) for pt_arr in self.pt])
 
     @property
-    def det_error(self):
-        r"""Determinant error of phase tenso."""
+    def det_error(self) -> np.ndarray | None:
+        """Determinant error of phase tensor."""
         if self._has_tf_error():
             return (
                 np.abs(self.pt[:, 1, 1] * self.pt_error[:, 0, 0])
@@ -555,8 +600,8 @@ class PhaseTensor(TFBase):
             )
 
     @property
-    def det_model_error(self):
-        r"""Determinant model erro of phase tenso."""
+    def det_model_error(self) -> np.ndarray | None:
+        """Determinant model error of phase tensor."""
         if self._has_tf_model_error():
             return (
                 np.abs(self.pt[:, 1, 1] * self.pt_model_error[:, 0, 0])
@@ -567,10 +612,12 @@ class PhaseTensor(TFBase):
 
     # ---principle component 1----------------------------------------------
     @property
-    def _pi1(self):
-        """Pi1 is calculated according to Bibby et al. 2005:
+    def _pi1(self) -> np.ndarray:
+        """
+        Pi1 calculated according to Bibby et al. 2005.
 
         Pi1 = 0.5 * sqrt(PT[0,0] - PT[1,1])**2 + (PT[0,1] + PT[1,0])**2).
+
         """
         # after bibby et al. 2005
 
@@ -580,8 +627,8 @@ class PhaseTensor(TFBase):
         )
 
     @property
-    def _pi1_error(self):
-        r"""Pi1 erro."""
+    def _pi1_error(self) -> np.ndarray | None:
+        """Pi1 error."""
         if self._has_tf_error():
             with np.errstate(divide="ignore", invalid="ignore"):
                 return (
@@ -596,8 +643,8 @@ class PhaseTensor(TFBase):
                 )
 
     @property
-    def _pi1_model_error(self):
-        r"""Pi1 model erro."""
+    def _pi1_model_error(self) -> np.ndarray | None:
+        """Pi1 model error."""
         if self._has_tf_model_error():
             with np.errstate(divide="ignore", invalid="ignore"):
                 return (
@@ -616,10 +663,12 @@ class PhaseTensor(TFBase):
 
     # ---principle component 2----------------------------------------------
     @property
-    def _pi2(self):
-        """Pi2 is calculated according to Bibby et al. 2005:
+    def _pi2(self) -> np.ndarray:
+        """
+        Pi2 calculated according to Bibby et al. 2005.
 
         Pi2 = 0.5 * sqrt(PT[0,0] + PT[1,1])**2 + (PT[0,1] - PT[1,0])**2).
+
         """
         # after bibby et al. 2005
 
@@ -629,8 +678,8 @@ class PhaseTensor(TFBase):
         )
 
     @property
-    def _pi2_error(self):
-        r"""Pi2 erro."""
+    def _pi2_error(self) -> np.ndarray | None:
+        """Pi2 error."""
 
         if self._has_tf_error():
             with np.errstate(divide="ignore", invalid="ignore"):
@@ -646,8 +695,8 @@ class PhaseTensor(TFBase):
                 )
 
     @property
-    def _pi2_model_error(self):
-        r"""Pi2 model erro."""
+    def _pi2_model_error(self) -> np.ndarray | None:
+        """Pi2 model error."""
 
         if self._has_tf_model_error():
             with np.errstate(divide="ignore", invalid="ignore"):
@@ -670,26 +719,28 @@ class PhaseTensor(TFBase):
 
     # ---phimin----------------------------------------------
     @property
-    def phimin(self):
-        """Minimum phase calculated according to Bibby et al. 2005:
+    def phimin(self) -> np.ndarray | None:
+        """
+        Minimum phase calculated according to Bibby et al. 2005.
 
         Phi_min = Pi2 - Pi1.
+
         """
 
         if self._has_tf():
             return np.degrees(np.arctan(self._pi2 - self._pi1))
 
     @property
-    def phimin_error(self):
-        r"""Minimum phase erro."""
+    def phimin_error(self) -> np.ndarray | None:
+        """Minimum phase error."""
         if self._has_tf_error():
             return np.degrees(
                 np.arctan(np.sqrt(self._pi2_error**2 + self._pi1_error**2))
             )
 
     @property
-    def phimin_model_error(self):
-        r"""Minimum phase model erro."""
+    def phimin_model_error(self) -> np.ndarray | None:
+        """Minimum phase model error."""
         if self._has_tf_model_error():
             return np.degrees(
                 np.arctan(
@@ -699,26 +750,28 @@ class PhaseTensor(TFBase):
 
     # ---phimax----------------------------------------------
     @property
-    def phimax(self):
-        """Maximum phase calculated according to Bibby et al. 2005:
+    def phimax(self) -> np.ndarray | None:
+        """
+        Maximum phase calculated according to Bibby et al. 2005.
 
         Phi_max = Pi2 + Pi1.
+
         """
 
         if self._has_tf():
             return np.degrees(np.arctan(self._pi2 + self._pi1))
 
     @property
-    def phimax_error(self):
-        r"""Maximum phase erro."""
+    def phimax_error(self) -> np.ndarray | None:
+        """Maximum phase error."""
         if self._has_tf_error():
             return np.degrees(
                 np.arctan(np.sqrt(self._pi2_error**2 + self._pi1_error**2))
             )
 
     @property
-    def phimax_model_error(self):
-        r"""Maximum phase model erro."""
+    def phimax_model_error(self) -> np.ndarray | None:
+        """Maximum phase model error."""
         if self._has_tf_model_error():
             return np.degrees(
                 np.arctan(
@@ -728,12 +781,14 @@ class PhaseTensor(TFBase):
 
     # ---only 1d----------------------------------------------
     @property
-    def only1d(self):
-        """Return phase tensor in 1D form.
+    def only1d(self) -> np.ndarray | None:
+        """
+        Return phase tensor in 1D form.
 
         If phase tensor is not 1D per se, the diagonal elements are set to zero,
         the off-diagonal elements keep their signs, but their absolute is
         set to the mean of the original phase tensor off-diagonal absolutes.
+
         """
 
         if self._has_tf():
@@ -748,10 +803,12 @@ class PhaseTensor(TFBase):
 
     # ---only 2d----------------------------------------------
     @property
-    def only2d(self):
-        """Return phase tensor in 2D form.
+    def only2d(self) -> np.ndarray | None:
+        """
+        Return phase tensor in 2D form.
 
         If phase tensor is not 2D per se, the diagonal elements are set to zero.
+
         """
         if self._has_tf():
             pt_2d = copy.copy(self.pt)
@@ -764,14 +821,14 @@ class PhaseTensor(TFBase):
             return pt_2d
 
     @property
-    def eccentricity(self):
-        """Eccentricty estimation of dimensionality."""
+    def eccentricity(self) -> np.ndarray | None:
+        """Eccentricity estimation of dimensionality."""
 
         if self._has_tf():
             return self._pi1 / self._pi2
 
     @property
-    def eccentricity_error(self):
+    def eccentricity_error(self) -> np.ndarray | None:
         """Error in eccentricity estimation."""
         if self._has_tf_error():
             return (
@@ -783,8 +840,8 @@ class PhaseTensor(TFBase):
             )
 
     @property
-    def eccentricity_model_error(self):
-        """Error in eccentricity estimation."""
+    def eccentricity_model_error(self) -> np.ndarray | None:
+        """Model error in eccentricity estimation."""
         if self._has_tf_model_error():
             return (
                 np.sqrt(

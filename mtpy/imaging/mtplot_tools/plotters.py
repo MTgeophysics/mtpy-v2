@@ -7,6 +7,10 @@ Created on Sun Sep 25 15:27:28 2022
 :author: jpeacock
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import matplotlib.colorbar as mcb
 import matplotlib.colors as colors
 import matplotlib.patches as patches
@@ -28,63 +32,61 @@ from .utils import (
 )
 
 
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from matplotlib.container import ErrorbarContainer
+    from matplotlib.figure import Figure
+
+
 # =============================================================================
 
 
-def plot_errorbar(ax, x_array, y_array, y_error=None, x_error=None, **kwargs):
+def plot_errorbar(
+    ax: Axes,
+    x_array: np.ndarray,
+    y_array: np.ndarray,
+    y_error: np.ndarray | None = None,
+    x_error: np.ndarray | None = None,
+    **kwargs,
+) -> ErrorbarContainer:
     """
-    convinience function to make an error bar instance
+    Create error bar plot with customizable properties.
 
-    Arguments:
-    ------------
-        **ax** : matplotlib.axes instance
-                 axes to put error bar plot on
+    Convenience function to generate matplotlib errorbar plots with
+    sensible defaults that can be overridden via kwargs.
 
-        **x_array** : np.ndarray(nx)
-                      array of x values to plot
+    Parameters
+    ----------
+    ax : Axes
+        Matplotlib axes to plot on
+    x_array : np.ndarray
+        Array of x values
+    y_array : np.ndarray
+        Array of y values
+    y_error : np.ndarray | None, optional
+        Array of y-direction error values, by default None
+    x_error : np.ndarray | None, optional
+        Array of x-direction error values, by default None
+    **kwargs : dict, optional
+        Additional errorbar properties:
+        - color : marker, line, and error bar color
+        - marker : marker style
+        - mew : marker edge width
+        - mec : marker edge color
+        - ms : marker size
+        - ls : line style
+        - lw : line width
+        - capsize : error bar cap size
+        - capthick : error bar cap thickness
+        - ecolor : error bar color
+        - elinewidth : error bar line width
+        - picker : pick radius in points
 
-        **y_array** : np.ndarray(nx)
-                      array of y values to plot
+    Returns
+    -------
+    ErrorbarContainer
+        Matplotlib errorbar container with line data and error bars
 
-        **y_error** : np.ndarray(nx)
-                      array of errors in y-direction to plot
-
-        **x_error** : np.ndarray(ns)
-                      array of error in x-direction to plot
-
-        **color** : string or (r, g, b)
-                    color of marker, line and error bar
-
-        **marker** : string
-                     marker type to plot data as
-
-        **mew** : string
-                     marker edgewidth
-
-        **ms** : float
-                 size of marker
-
-        **ls** : string
-                 line style between markers
-
-        **lw** : float
-                 width of line between markers
-
-        **e_capsize** : float
-                        size of error bar cap
-
-        **e_capthick** : float
-                         thickness of error bar cap
-
-        **picker** : float
-                     radius in points to be able to pick a point.
-
-
-    Returns:
-    ---------
-        **errorbar_object** : matplotlib.Axes.errorbar
-                              error bar object containing line data,
-                              errorbars, etc.
     """
     # this is to make sure error bars plot in full and not just a dashed line
     if x_error is not None:
@@ -121,20 +123,35 @@ def plot_errorbar(ax, x_array, y_array, y_error=None, x_error=None, **kwargs):
 # =============================================================================
 #  plotting functions
 # =============================================================================
-def plot_resistivity(ax, period, resistivity, error, **properties):
+def plot_resistivity(
+    ax: Axes,
+    period: np.ndarray,
+    resistivity: np.ndarray | None,
+    error: np.ndarray | None,
+    **properties,
+) -> list[ErrorbarContainer | None]:
     """
-    plot apparent resistivity to the given axis with given properties
+    Plot apparent resistivity with error bars.
 
-    :param ax: DESCRIPTION
-    :type ax: TYPE
-    :param resistivity: DESCRIPTION
-    :type resistivity: TYPE
-    :param period: DESCRIPTION
-    :type period: TYPE
-    :param **properties: DESCRIPTION
-    :type **properties: TYPE
-    :return: DESCRIPTION
-    :rtype: TYPE
+    Plots only non-zero resistivity values on the given axes.
+
+    Parameters
+    ----------
+    ax : Axes
+        Matplotlib axes to plot on
+    period : np.ndarray
+        Array of period values
+    resistivity : np.ndarray | None
+        Array of apparent resistivity values (ohm-m)
+    error : np.ndarray | None
+        Array of resistivity error values
+    **properties : dict, optional
+        Additional errorbar properties passed to plot_errorbar
+
+    Returns
+    -------
+    list[ErrorbarContainer | None]
+        List containing errorbar container or [None] if no data
 
     """
     if resistivity is None:
@@ -153,20 +170,40 @@ def plot_resistivity(ax, period, resistivity, error, **properties):
     )
 
 
-def plot_phase(ax, period, phase, error, yx=False, **properties):
+def plot_phase(
+    ax: Axes,
+    period: np.ndarray,
+    phase: np.ndarray | None,
+    error: np.ndarray | None,
+    yx: bool = False,
+    **properties,
+) -> list[ErrorbarContainer | None]:
     """
-    plot apparent resistivity to the given axis with given properties
+    Plot phase with error bars.
 
-    :param ax: DESCRIPTION
-    :type ax: TYPE
-    :param resistivity: DESCRIPTION
-    :type resistivity: TYPE
-    :param period: DESCRIPTION
-    :type period: TYPE
-    :param **properties: DESCRIPTION
-    :type **properties: TYPE
-    :return: DESCRIPTION
-    :rtype: TYPE
+    Plots only non-zero phase values. Optionally adds 180 degrees
+    to yx component for proper quadrant representation.
+
+    Parameters
+    ----------
+    ax : Axes
+        Matplotlib axes to plot on
+    period : np.ndarray
+        Array of period values
+    phase : np.ndarray | None
+        Array of phase values (degrees)
+    error : np.ndarray | None
+        Array of phase error values
+    yx : bool, optional
+        If True, adds 180 degrees to phase for yx component,
+        by default False
+    **properties : dict, optional
+        Additional errorbar properties passed to plot_errorbar
+
+    Returns
+    -------
+    list[ErrorbarContainer | None]
+        List containing errorbar container or [None] if no data
 
     """
     if phase is None:
@@ -193,29 +230,49 @@ def plot_phase(ax, period, phase, error, yx=False, **properties):
 
 
 def plot_pt_lateral(
-    ax,
+    ax: Axes,
     pt_obj,
-    color_array,
-    ellipse_properties,
-    y_shift=0,
-    fig=None,
-    edge_color=None,
-    n_index=0,
-):
+    color_array: np.ndarray,
+    ellipse_properties: dict,
+    y_shift: float = 0,
+    fig: Figure | None = None,
+    edge_color: str | tuple | None = None,
+    n_index: int = 0,
+) -> tuple[Axes | None, mcb.Colorbar | None]:
     """
+    Plot phase tensor ellipses on lateral (period) axis.
 
-    :param ax: DESCRIPTION
-    :type ax: TYPE
-    :param pt_obj: DESCRIPTION
-    :type pt_obj: TYPE
-    :param color_array: DESCRIPTION
-    :type color_array: TYPE
-    :param ellipse_properties: DESCRIPTION
-    :type ellipse_properties: TYPE
-    :param bounds: DESCRIPTION, defaults to None
-    :type bounds: TYPE, optional
-    :return: DESCRIPTION
-    :rtype: TYPE
+    Creates phase tensor ellipse plot with ellipses scaled by phimin/phimax
+    and oriented by azimuth. Includes optional colorbar.
+
+    Parameters
+    ----------
+    ax : Axes
+        Matplotlib axes to plot on
+    pt_obj : PhaseTensor
+        Phase tensor object with frequency, phimin, phimax, and azimuth
+    color_array : np.ndarray
+        Array of values for coloring ellipses
+    ellipse_properties : dict
+        Dictionary with keys:
+        - 'size': ellipse size scaling factor
+        - 'spacing': spacing between ellipses on period axis
+        - 'colorby': property to color by
+        - 'cmap': colormap name
+        - 'range': [min, max, step] for color mapping
+    y_shift : float, optional
+        Vertical offset for ellipse centers, by default 0
+    fig : Figure | None, optional
+        Figure for adding colorbar, by default None
+    edge_color : str | tuple | None, optional
+        Color for ellipse edges, by default None
+    n_index : int, optional
+        Index for controlling colorbar creation (only at 0), by default 0
+
+    Returns
+    -------
+    tuple[Axes | None, mcb.Colorbar | None]
+        Colorbar axes and colorbar object (both None if n_index != 0)
 
     """
     bounds = None
@@ -322,24 +379,54 @@ def plot_pt_lateral(
 
 
 def plot_tipper_lateral(
-    axt,
+    axt: Axes | None,
     t_obj,
-    plot_tipper,
-    real_properties,
-    imag_properties,
-    font_size=6,
-    legend=True,
-    zero_reference=False,
-    arrow_direction=1,
-):
+    plot_tipper: str | bool,
+    real_properties: dict,
+    imag_properties: dict,
+    font_size: int = 6,
+    legend: bool = True,
+    zero_reference: bool = False,
+    arrow_direction: int = 1,
+) -> tuple[Axes | None, list[Line2D] | None, list[str] | None]:
     """
+    Plot tipper arrows on lateral (period) axis.
 
-    :param axt: DESCRIPTION
-    :type axt: TYPE
-    :param t_obj: DESCRIPTION
-    :type t_obj: TYPE
-    :return: DESCRIPTION
-    :rtype: TYPE
+    Creates tipper arrow plot showing real and/or imaginary components
+    as arrows with magnitude and direction.
+
+    Parameters
+    ----------
+    axt : Axes | None
+        Matplotlib axes to plot on (returns None if None)
+    t_obj : Tipper
+        Tipper object with frequency, mag_real, angle_real, mag_imag,
+        and angle_imag attributes
+    plot_tipper : str | bool
+        Tipper plotting mode:
+        - 'yri': plot both real and imaginary
+        - 'yr': plot real only
+        - 'yi': plot imaginary only
+        - 'y': plot both
+        - False/None: no plot
+    real_properties : dict
+        Arrow properties for real component (matplotlib arrow kwargs)
+    imag_properties : dict
+        Arrow properties for imaginary component (matplotlib arrow kwargs)
+    font_size : int, optional
+        Font size for axis labels and legend, by default 6
+    legend : bool, optional
+        Whether to show legend, by default True
+    zero_reference : bool, optional
+        Whether to plot zero reference line, by default False
+    arrow_direction : int, optional
+        Arrow direction multiplier (1 or -1), by default 1
+
+    Returns
+    -------
+    tuple[Axes | None, list[Line2D] | None, list[str] | None]
+        Updated axes, legend handles list, and legend labels list
+        All None if axt is None or t_obj is None
 
     """
     if t_obj is None:
@@ -449,16 +536,30 @@ def plot_tipper_lateral(
     return axt, tiplist, tiplabel
 
 
-def add_raster(ax, raster_fn, add_colorbar=True, **kwargs):
+def add_raster(
+    ax: Axes, raster_fn: str, add_colorbar: bool = True, **kwargs
+) -> tuple[Axes, mcb.Colorbar | None]:
     """
-    Add a raster to an axis using rasterio
+    Add a raster image to axes using rasterio.
 
-    :param raster_fn: DESCRIPTION
-    :type raster_fn: TYPE
-    :param **kwargs: DESCRIPTION
-    :type **kwargs: TYPE
-    :return: DESCRIPTION
-    :rtype: TYPE
+    Overlays a georeferenced raster (e.g., GeoTIFF) on matplotlib axes
+    with optional colorbar.
+
+    Parameters
+    ----------
+    ax : Axes
+        Matplotlib axes to add raster to
+    raster_fn : str
+        Path to raster file (must be readable by rasterio)
+    add_colorbar : bool, optional
+        Whether to add colorbar, by default True
+    **kwargs : dict, optional
+        Additional keyword arguments passed to rasterio.plot.show
+
+    Returns
+    -------
+    tuple[Axes, mcb.Colorbar | None]
+        Updated axes and colorbar (None if add_colorbar=False)
 
     """
 

@@ -8,6 +8,8 @@ Created on Fri Oct  7 23:25:57 2022
 # =============================================================================
 # Imports
 # =============================================================================
+from __future__ import annotations
+
 import cmath
 import copy
 import math
@@ -23,31 +25,35 @@ from .base import TFBase
 
 
 class Tipper(TFBase):
-    """Tipper class --> generates a Tipper-object.
+    """
+    Tipper class.
 
-    Errors are given as standard deviations (sqrt(VAR))
-    :param tipper: Tipper array in the shape of [Tx, Ty]
-        *default* is None.
-    :type tipper: np.ndarray((nf, 1, 2), dtype='complex')
-    :param tipper_error: Array of estimated tipper errors
-        in the shape of [Tx, Ty].
-        Must be the same shape as tipper.
-        *default* is None.
-    :type tipper_error: np.ndarray((nf, 1, 2))
-    :param frequency: Array of frequencyuencies corresponding to the tipper elements.
-        Must be same length as tipper.
-        *default* is None.
-    :type frequency: np.ndarray(nf)
+    Errors are given as standard deviations (sqrt(VAR)).
+
+    Parameters
+    ----------
+    tipper : np.ndarray, optional
+        Tipper array in the shape of [Tx, Ty] (nf, 1, 2), by default None
+    tipper_error : np.ndarray, optional
+        Array of estimated tipper errors in the shape of [Tx, Ty] (nf, 1, 2),
+        by default None
+    frequency : np.ndarray, optional
+        Array of frequencies corresponding to the tipper elements (nf),
+        by default None
+    tipper_model_error : np.ndarray, optional
+        Array of model errors in the shape of [Tx, Ty] (nf, 1, 2),
+        by default None
+
     """
 
     def __init__(
         self,
-        tipper=None,
-        tipper_error=None,
-        frequency=None,
-        tipper_model_error=None,
-    ):
-        """Initialize."""
+        tipper: np.ndarray | None = None,
+        tipper_error: np.ndarray | None = None,
+        frequency: np.ndarray | None = None,
+        tipper_model_error: np.ndarray | None = None,
+    ) -> None:
+        """Initialize tipper object."""
         super().__init__(
             tf=tipper,
             tf_error=tipper_error,
@@ -61,17 +67,21 @@ class Tipper(TFBase):
 
     # --- tipper ----
     @property
-    def tipper(self):
-        """Tipper function."""
+    def tipper(self) -> np.ndarray | None:
+        """Tipper array."""
         if self._has_tf():
             return self._dataset.transfer_function.values
 
     @tipper.setter
-    def tipper(self, tipper):
-        """Set the attribute *tipper*.
-        :param tipper: Tipper array in the shape of [Tx, Ty]
-            *default* is None.
-        :type tipper: np.ndarray((nf, 1, 2), dtype='complex')
+    def tipper(self, tipper: np.ndarray | None) -> None:
+        """
+        Set tipper array.
+
+        Parameters
+        ----------
+        tipper : np.ndarray or None
+            Tipper array in the shape of [Tx, Ty] (nf, 1, 2)
+
         """
 
         old_shape = None
@@ -95,19 +105,21 @@ class Tipper(TFBase):
 
     # ----tipper error---------------
     @property
-    def tipper_error(self):
+    def tipper_error(self) -> np.ndarray | None:
         """Tipper error."""
         if self._has_tf_error():
             return self._dataset.transfer_function_error.values
 
     @tipper_error.setter
-    def tipper_error(self, tipper_error):
-        """Set the attribute *tipper_error*.
-        :param tipper_error: Array of estimated tipper errors
-            in the shape of [Tx, Ty].
-            Must be the same shape as tipper.
-            *default* is None.
-        :type tipper_error: np.ndarray((nf, 1, 2))
+    def tipper_error(self, tipper_error: np.ndarray | None) -> None:
+        """
+        Set tipper error array.
+
+        Parameters
+        ----------
+        tipper_error : np.ndarray or None
+            Array of estimated tipper errors in the shape of [Tx, Ty] (nf, 1, 2)
+
         """
 
         old_shape = None
@@ -131,19 +143,21 @@ class Tipper(TFBase):
 
     # ----tipper model error---------------------------------------------------------
     @property
-    def tipper_model_error(self):
+    def tipper_model_error(self) -> np.ndarray | None:
         """Tipper model error."""
         if self._has_tf_model_error():
             return self._dataset.transfer_function_model_error.values
 
     @tipper_model_error.setter
-    def tipper_model_error(self, tipper_model_error):
-        """Set the attribute *tipper_model_error*.
-        :param tipper_model_error: Array of estimated tipper errors
-            in the shape of [Tx, Ty].
-            Must be the same shape as tipper.
-            *default* is None.
-        :type tipper_model_error: np.ndarray((nf, 1, 2))
+    def tipper_model_error(self, tipper_model_error: np.ndarray | None) -> None:
+        """
+        Set tipper model error array.
+
+        Parameters
+        ----------
+        tipper_model_error : np.ndarray or None
+            Array of estimated tipper model errors in the shape of [Tx, Ty] (nf, 1, 2)
+
         """
 
         old_shape = None
@@ -169,14 +183,22 @@ class Tipper(TFBase):
             ] = tipper_model_error
 
     # ----amplitude and phase
-    def _compute_amp_phase_error(self, error):
-        """Sets attributes:
-                        * *amplitude*
-                        * *phase*
-                        * *amplitude_error*
-                        * *phase_error*
+    def _compute_amp_phase_error(
+        self, error: np.ndarray | None
+    ) -> tuple[np.ndarray | None, np.ndarray | None]:
+        """
+        Compute amplitude and phase errors.
 
-        values for resistivity are in in Ohm m and phase in degrees.
+        Parameters
+        ----------
+        error : np.ndarray or None
+            Error array
+
+        Returns
+        -------
+        tuple of np.ndarray or None
+            Amplitude error and phase error arrays
+
         """
         amplitude_error = None
         phase_error = None
@@ -200,12 +222,21 @@ class Tipper(TFBase):
 
         return amplitude_error, phase_error
 
-    def set_amp_phase(self, r, phi):
-        """Set values for amplitude(r) and argument (phi - in degrees).
+    def set_amp_phase(self, r: np.ndarray, phi: np.ndarray) -> None:
+        """
+        Set values for amplitude (r) and phase (phi).
 
-        Updates the attributes:
-                        * tipper
-                        * tipper_error
+        Parameters
+        ----------
+        r : np.ndarray
+            Amplitude array
+        phi : np.ndarray
+            Phase array in degrees
+
+        Notes
+        -----
+        Updates the attributes tipper and tipper_error.
+
         """
 
         if self.tipper is not None:
@@ -250,50 +281,68 @@ class Tipper(TFBase):
     # ---------------------------------
     # properties
     @property
-    def amplitude(self):
-        """Amplitude function."""
+    def amplitude(self) -> np.ndarray | None:
+        """Amplitude of tipper."""
         if self._has_tf():
             return np.abs(self.tipper)
 
     @property
-    def phase(self):
-        """Phase function."""
+    def phase(self) -> np.ndarray | None:
+        """Phase of tipper in degrees."""
         if self._has_tf():
             return np.rad2deg(np.angle(self.tipper))
 
     @property
-    def amplitude_error(self):
+    def amplitude_error(self) -> np.ndarray | None:
         """Amplitude error."""
         if self._has_tf_error():
             return self._compute_amp_phase_error(self.tipper_error)[0]
 
     @property
-    def phase_error(self):
-        """Phase error."""
+    def phase_error(self) -> np.ndarray | None:
+        """Phase error in degrees."""
         if self._has_tf_error():
             return self._compute_amp_phase_error(self.tipper_error)[1]
 
     @property
-    def amplitude_model_error(self):
+    def amplitude_model_error(self) -> np.ndarray | None:
         """Amplitude model error."""
         if self._has_tf_model_error():
             return self._compute_amp_phase_error(self.tipper_model_error)[0]
 
     @property
-    def phase_model_error(self):
-        """Phase model error."""
+    def phase_model_error(self) -> np.ndarray | None:
+        """Phase model error in degrees."""
         if self._has_tf_model_error():
             return self._compute_amp_phase_error(self.tipper_model_error)[1]
 
     # ----magnitude and direction----------------------------------------------
 
-    def set_mag_direction(self, mag_real, ang_real, mag_imag, ang_imag):
-        """Computes the tipper from the magnitude and direction of the real
-        and imaginary components.
+    def set_mag_direction(
+        self,
+        mag_real: np.ndarray,
+        ang_real: np.ndarray,
+        mag_imag: np.ndarray,
+        ang_imag: np.ndarray,
+    ) -> None:
+        """
+        Compute tipper from magnitude and direction of real and imaginary components.
 
-        Updates tipper
+        Parameters
+        ----------
+        mag_real : np.ndarray
+            Magnitude of real component
+        ang_real : np.ndarray
+            Angle of real component
+        mag_imag : np.ndarray
+            Magnitude of imaginary component
+        ang_imag : np.ndarray
+            Angle of imaginary component
 
-        No error propagation yet
+        Notes
+        -----
+        Updates tipper. No error propagation yet.
+
         """
 
         self.tipper[:, 0, 0].real = np.sqrt(
@@ -316,48 +365,48 @@ class Tipper(TFBase):
         self.compute_amp_phase()
 
     @property
-    def mag_real(self):
-        """Mag real."""
+    def mag_real(self) -> np.ndarray | None:
+        """Magnitude of real component."""
         if self._has_tf():
             return np.sqrt(
                 self.tipper[:, 0, 0].real ** 2 + self.tipper[:, 0, 1].real ** 2
             )
 
     @property
-    def mag_imag(self):
-        """Mag imag."""
+    def mag_imag(self) -> np.ndarray | None:
+        """Magnitude of imaginary component."""
         if self._has_tf():
             return np.sqrt(
                 self.tipper[:, 0, 0].imag ** 2 + self.tipper[:, 0, 1].imag ** 2
             )
 
     @property
-    def angle_real(self):
-        """Angle real."""
+    def angle_real(self) -> np.ndarray | None:
+        """Angle of real component in degrees."""
         if self._has_tf():
             return np.rad2deg(
                 np.arctan2(self.tipper[:, 0, 1].real, self.tipper[:, 0, 0].real)
             )
 
     @property
-    def angle_imag(self):
-        """Angle imag."""
+    def angle_imag(self) -> np.ndarray | None:
+        """Angle of imaginary component in degrees."""
         if self._has_tf():
             return np.rad2deg(
                 np.arctan2(self.tipper[:, 0, 1].imag, self.tipper[:, 0, 0].imag)
             )
 
     @property
-    def mag_error(self):
-        """Mag error."""
+    def mag_error(self) -> np.ndarray | None:
+        """Magnitude error."""
         if self._has_tf_error():
             return np.sqrt(
                 self.tipper_error[:, 0, 0] ** 2 + self.tipper_error[:, 0, 1] ** 2
             )
 
     @property
-    def angle_error(self):
-        """Angle error."""
+    def angle_error(self) -> np.ndarray | None:
+        """Angle error in degrees."""
         if self._has_tf_error():
             return np.abs(
                 np.rad2deg(
@@ -367,8 +416,8 @@ class Tipper(TFBase):
             )
 
     @property
-    def mag_model_error(self):
-        """Mag model error."""
+    def mag_model_error(self) -> np.ndarray | None:
+        """Magnitude model error."""
         if self._has_tf_model_error():
             return np.sqrt(
                 self.tipper_model_error[:, 0, 0] ** 2
@@ -376,8 +425,8 @@ class Tipper(TFBase):
             )
 
     @property
-    def angle_model_error(self):
-        """Angle model error."""
+    def angle_model_error(self) -> np.ndarray | None:
+        """Angle model error in degrees."""
         if self._has_tf_model_error():
             return np.abs(
                 np.rad2deg(

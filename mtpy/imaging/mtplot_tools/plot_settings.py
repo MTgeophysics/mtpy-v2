@@ -5,6 +5,10 @@ Created on Sun Sep 25 15:20:43 2022
 @author: jpeacock
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import matplotlib.colorbar as mcb
 import matplotlib.colors as colors
 
@@ -19,14 +23,105 @@ import mtpy.imaging.mtcolors as mtcl
 from . import MTArrows, MTEllipse
 
 
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+
+
 # =============================================================================
 # ==============================================================================
 # Plot settings
 # ==============================================================================
 class PlotSettings(MTArrows, MTEllipse):
-    """Hold all the plot settings that one might need."""
+    """
+    Comprehensive plot settings for MT data visualization.
 
-    def __init__(self, **kwargs):
+    Combines arrow and ellipse settings with figure, marker, line, and
+    colorbar properties for creating publication-quality MT plots.
+
+    Parameters
+    ----------
+    **kwargs : dict, optional
+        Keyword arguments to set any class attributes. Valid keys
+        correspond to the extensive list of attributes below.
+
+    Attributes
+    ----------
+    fig_num : int
+        Figure number, by default 1
+    fig_dpi : int
+        Figure DPI resolution, by default 150
+    fig_size : tuple | None
+        Figure size (width, height) in inches, by default None
+    show_plot : bool
+        Whether to display plot, by default True
+    font_size : int
+        Base font size for plot text, by default 7
+    font_weight : str
+        Font weight ('normal', 'bold', etc.), by default 'bold'
+    marker_size : float
+        Size of plot markers, by default 2.5
+    marker_lw : float
+        Line width of marker edges, by default 0.75
+    marker_color : str
+        Default marker color, by default 'b'
+    marker : str
+        Default marker style, by default 'v'
+    lw : float
+        Default line width, by default 1
+    plot_title : str | None
+        Plot title text, by default None
+    xy_ls, yx_ls, det_ls, skew_ls, strike_ls : str
+        Line styles for different components, by default ':'
+    xy_marker, yx_marker, det_marker, skew_marker : str
+        Marker styles for different components
+    strike_inv_marker, strike_pt_marker, strike_tip_marker : str
+        Marker styles for strike indicators
+    xy_color, yx_color, det_color, skew_color : tuple
+        RGB colors for different components
+    strike_inv_color, strike_pt_color, strike_tip_color : tuple
+        RGB colors for strike indicators
+    x_limits, y_limits, res_limits, phase_limits : tuple | None
+        Axis limits for various plot types
+    tipper_limits, strike_limits, skew_limits, pt_limits : tuple | None
+        Additional axis limits
+    plot_z : bool
+        Whether to plot impedance, by default True
+    plot_tipper : str
+        Tipper plotting mode ('n', 'y', 'yri'), by default 'n'
+    plot_pt : bool
+        Whether to plot phase tensor, by default False
+    plot_strike : bool
+        Whether to plot strike, by default False
+    plot_skew : bool
+        Whether to plot skew, by default False
+    text_size : int
+        Text annotation size, by default 7
+    text_weight : str
+        Text annotation weight, by default 'normal'
+    text_color : str
+        Text annotation color, by default 'k'
+    text_ha : str
+        Text horizontal alignment, by default 'center'
+    text_va : str
+        Text vertical alignment, by default 'baseline'
+    text_angle : float
+        Text rotation angle, by default 0
+    text_x_pad, text_y_pad : float
+        Text padding in x/y directions, by default 0
+    text_rotation : float
+        Additional text rotation, by default 0
+    subplot_left, subplot_right, subplot_bottom, subplot_top : float
+        Subplot spacing parameters
+    subplot_wspace, subplot_hspace : float | None
+        Width/height spacing between subplots
+    cb_orientation : str
+        Colorbar orientation ('vertical' or 'horizontal'), by default 'vertical'
+    cb_position : tuple | None
+        Colorbar position [left, bottom, width, height], by default None
+
+    """
+
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
         # figure properties:
@@ -136,18 +231,34 @@ class PlotSettings(MTArrows, MTEllipse):
         }
 
     @property
-    def period_label_dict(self):
-        """Log 10 labels.
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def period_label_dict(self) -> dict[int, str]:
+        """
+        Get LaTeX-formatted period labels for log10 scale.
+
+        Returns
+        -------
+        dict[int, str]
+            Dictionary mapping integer exponents to LaTeX strings
+            in format $10^{exponent}$ for range -20 to 20
+
         """
 
         return dict([(ii, "$10^{" + str(ii) + "}$") for ii in range(-20, 21)])
 
-    def set_period_limits(self, period):
-        """Set period limits.
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def set_period_limits(self, period: np.ndarray) -> tuple[float, float]:
+        """
+        Calculate period axis limits as powers of 10.
+
+        Parameters
+        ----------
+        period : np.ndarray
+            Array of period values
+
+        Returns
+        -------
+        tuple[float, float]
+            Minimum and maximum limits as powers of 10 (floor and ceil)
+
         """
 
         return (
@@ -155,50 +266,145 @@ class PlotSettings(MTArrows, MTEllipse):
             10 ** (np.ceil(np.log10(period.max()))),
         )
 
-    def _estimate_resistivity_min(self, res_array):
-        """Estimate resistivity minimum."""
+    def _estimate_resistivity_min(self, res_array: np.ndarray) -> float:
+        """
+        Estimate minimum non-zero resistivity value.
+
+        Parameters
+        ----------
+        res_array : np.ndarray
+            Array of resistivity values
+
+        Returns
+        -------
+        float
+            Minimum non-zero resistivity value
+
+        """
 
         nz = np.nonzero(res_array)
         return np.nanmin(res_array[nz])
 
-    def _estimate_resistivity_max(self, res_array):
-        """Estimate resistivity maximum."""
+    def _estimate_resistivity_max(self, res_array: np.ndarray) -> float:
+        """
+        Estimate maximum non-zero resistivity value.
+
+        Parameters
+        ----------
+        res_array : np.ndarray
+            Array of resistivity values
+
+        Returns
+        -------
+        float
+            Maximum non-zero resistivity value
+
+        """
 
         nz = np.nonzero(res_array)
         return np.nanmax(res_array[nz])
 
-    def _compute_power_ten_min(self, value):
-        """Compute power ten min."""
+    def _compute_power_ten_min(self, value: float) -> float:
+        """
+        Compute nearest power of 10 below value (floor).
+
+        Parameters
+        ----------
+        value : float
+            Input value
+
+        Returns
+        -------
+        float
+            10 raised to floor of log10(value)
+
+        """
         return 10 ** (np.floor(np.log10(value)))
 
-    def _compute_power_ten_max(self, value):
-        """Compute power ten max."""
+    def _compute_power_ten_max(self, value: float) -> float:
+        """
+        Compute nearest power of 10 above value (ceil).
+
+        Parameters
+        ----------
+        value : float
+            Input value
+
+        Returns
+        -------
+        float
+            10 raised to ceil of log10(value)
+
+        """
         return 10 ** (np.ceil(np.log10(value)))
 
-    def _estimate_resistivity_limits_min(self, res_list):
-        """Estimate resistivity limits min."""
+    def _estimate_resistivity_limits_min(self, res_list: list[np.ndarray]) -> float:
+        """
+        Estimate minimum resistivity limit from multiple arrays.
+
+        Parameters
+        ----------
+        res_list : list[np.ndarray]
+            List of resistivity arrays
+
+        Returns
+        -------
+        float
+            Minimum limit as power of 10 (floor)
+
+        """
 
         return self._compute_power_ten_min(
             min([self._estimate_resistivity_min(rr) for rr in res_list])
         )
 
-    def _estimate_resistivity_limits_max(self, res_list):
-        """Estimate resistivity limits max."""
+    def _estimate_resistivity_limits_max(self, res_list: list[np.ndarray]) -> float:
+        """
+        Estimate maximum resistivity limit from multiple arrays.
+
+        Parameters
+        ----------
+        res_list : list[np.ndarray]
+            List of resistivity arrays
+
+        Returns
+        -------
+        float
+            Maximum limit as power of 10 (ceil)
+
+        """
 
         return self._compute_power_ten_max(
             max([self._estimate_resistivity_max(rr) for rr in res_list])
         )
 
-    def set_resistivity_limits(self, resistivity, mode="od", scale="log"):
-        """Set resistivity limits.
-        :param scale:
-            Defaults to "log".
-        :param resistivity: DESCRIPTION.
-        :type resistivity: TYPE
-        :param mode: DESCRIPTION, defaults to "od".
-        :type mode: TYPE, optional
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def set_resistivity_limits(
+        self, resistivity: np.ndarray, mode: str = "od", scale: str = "log"
+    ) -> list[float]:
+        """
+        Calculate appropriate resistivity axis limits.
+
+        Parameters
+        ----------
+        resistivity : np.ndarray
+            Resistivity array with shape (n_periods, 2, 2) for full tensor
+            or (n_periods,) for determinant
+        mode : str, optional
+            Plotting mode:
+            - 'od': off-diagonal components (xy, yx)
+            - 'd': diagonal components (xx, yy)
+            - 'det' or 'det_only': determinant only
+            - 'all': all components
+            by default 'od'
+        scale : str, optional
+            Scale type ('log' or 'linear'), by default 'log'
+
+        Returns
+        -------
+        list[float]
+            [min_limit, max_limit] as powers of 10
+            Defaults to [0.1, 10000] if calculation fails
+
         """
 
         if mode in ["od"]:
@@ -227,8 +433,32 @@ class PlotSettings(MTArrows, MTEllipse):
                 limits[0] = 0.1
         return limits
 
-    def set_phase_limits(self, phase, mode="od"):
-        """Set phase limits."""
+    def set_phase_limits(
+        self, phase: np.ndarray, mode: str = "od"
+    ) -> tuple[float, float] | list[float]:
+        """
+        Calculate appropriate phase axis limits.
+
+        Parameters
+        ----------
+        phase : np.ndarray
+            Phase array with shape (n_periods, 2, 2) for full tensor
+            or (n_periods,) for determinant
+        mode : str, optional
+            Plotting mode:
+            - 'od': off-diagonal components (0-90 range with adjustments)
+            - 'd': diagonal components (-180 to 180)
+            - 'det' or 'det_only': determinant phase
+            by default 'od'
+
+        Returns
+        -------
+        tuple[float, float] | list[float]
+            [min_limit, max_limit] in degrees
+            Defaults to [0, 90] for 'od' or [-180, 180] for others if
+            calculation fails
+
+        """
         if mode in ["od"]:
             try:
                 nz_xy = np.nonzero(phase[:, 0, 1])
@@ -279,10 +509,16 @@ class PlotSettings(MTArrows, MTEllipse):
                 return [-180, 180]
 
     @property
-    def xy_error_bar_properties(self):
-        """Xy error bar properties for xy mode.
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def xy_error_bar_properties(self) -> dict[str, str | float]:
+        """
+        Get matplotlib errorbar properties for xy component.
+
+        Returns
+        -------
+        dict[str, str | float]
+            Dictionary of errorbar kwargs including marker style, size,
+            colors, line styles, and cap properties
+
         """
         return {
             "marker": self.xy_marker,
@@ -298,10 +534,16 @@ class PlotSettings(MTArrows, MTEllipse):
         }
 
     @property
-    def yx_error_bar_properties(self):
-        """Xy error bar properties for xy mode.
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def yx_error_bar_properties(self) -> dict[str, str | float]:
+        """
+        Get matplotlib errorbar properties for yx component.
+
+        Returns
+        -------
+        dict[str, str | float]
+            Dictionary of errorbar kwargs including marker style, size,
+            colors, line styles, and cap properties
+
         """
         return {
             "marker": self.yx_marker,
@@ -317,10 +559,16 @@ class PlotSettings(MTArrows, MTEllipse):
         }
 
     @property
-    def det_error_bar_properties(self):
-        """Xy error bar properties for xy mode.
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def det_error_bar_properties(self) -> dict[str, str | float]:
+        """
+        Get matplotlib errorbar properties for determinant component.
+
+        Returns
+        -------
+        dict[str, str | float]
+            Dictionary of errorbar kwargs including marker style, size,
+            colors, line styles, and cap properties
+
         """
         return {
             "marker": self.det_marker,
@@ -336,7 +584,19 @@ class PlotSettings(MTArrows, MTEllipse):
         }
 
     @property
-    def font_dict(self):
+    def font_dict(self) -> dict[str, int | str]:
+        """
+        Get font properties dictionary for matplotlib.
+
+        Adjusts key names based on matplotlib version for compatibility.
+
+        Returns
+        -------
+        dict[str, int | str]
+            Font properties with 'size'/'fontsize' and 'weight'/'fontweight'
+            depending on matplotlib version
+
+        """
         if int(matplotlib_version.split(".")[1]) < 9:
             return {"size": self.font_size + 2, "weight": self.font_weight}
         else:
@@ -345,8 +605,24 @@ class PlotSettings(MTArrows, MTEllipse):
                 "fontweight": self.font_weight,
             }
 
-    def make_pt_cb(self, ax):
-        """Make pt cb."""
+    def make_pt_cb(self, ax: Axes) -> mcb.Colorbar:
+        """
+        Create phase tensor colorbar.
+
+        Generates colorbar for phase tensor plots with appropriate color
+        mapping, normalization, and labeling based on ellipse settings.
+
+        Parameters
+        ----------
+        ax : Axes
+            Matplotlib axes to attach colorbar to
+
+        Returns
+        -------
+        mcb.Colorbar
+            Configured matplotlib colorbar object
+
+        """
         cmap = mtcl.cmapdict[self.ellipse_cmap]
         if "seg" in self.ellipse_cmap:
             # normalize the colors
@@ -389,8 +665,17 @@ class PlotSettings(MTArrows, MTEllipse):
         return cb
 
     @property
-    def arrow_real_properties(self):
-        """Arrow real properties."""
+    def arrow_real_properties(self) -> dict[str, str | float | bool]:
+        """
+        Get matplotlib arrow properties for real tipper component.
+
+        Returns
+        -------
+        dict[str, str | float | bool]
+            Dictionary of arrow kwargs including line width, colors,
+            head dimensions, and length settings
+
+        """
         return {
             "lw": self.arrow_lw,
             "facecolor": self.arrow_color_real,
@@ -401,8 +686,17 @@ class PlotSettings(MTArrows, MTEllipse):
         }
 
     @property
-    def arrow_imag_properties(self):
-        """Arrow imag properties."""
+    def arrow_imag_properties(self) -> dict[str, str | float | bool]:
+        """
+        Get matplotlib arrow properties for imaginary tipper component.
+
+        Returns
+        -------
+        dict[str, str | float | bool]
+            Dictionary of arrow kwargs including line width, colors,
+            head dimensions, and length settings
+
+        """
         return {
             "lw": self.arrow_lw,
             "facecolor": self.arrow_color_imag,
@@ -413,8 +707,17 @@ class PlotSettings(MTArrows, MTEllipse):
         }
 
     @property
-    def text_dict(self):
-        """Text dict."""
+    def text_dict(self) -> dict[str, int | str | float]:
+        """
+        Get text annotation properties dictionary.
+
+        Returns
+        -------
+        dict[str, int | str | float]
+            Dictionary of text properties including size, weight,
+            rotation angle, and color
+
+        """
         return {
             "size": self.text_size,
             "weight": self.text_weight,

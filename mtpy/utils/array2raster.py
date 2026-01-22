@@ -398,7 +398,10 @@ ogr.UseExceptions()
 # create a raster from an array
 # ==============================================================================
 
+from mtpy.utils.mtpy_decorator import deprecated
 
+
+@deprecated("Use mtpy.gis.raster_tools.array2raster instead.")
 def array2raster(
     raster_fn,
     utm_lower_left_mt_location,

@@ -8,6 +8,7 @@ Created on Tue Sep 20 14:33:20 2016
 
 @author: jrpeacock
 """
+from __future__ import annotations
 
 import os
 import subprocess
@@ -24,11 +25,19 @@ import mtpy.utils.filehandling as mtfh
 
 # ==============================================================================
 class BIRRPParameters(object):
-    """Class to hold and produce the appropriate parameters given the input
-    parameters.
+    """
+    Class to hold and produce appropriate BIRRP processing parameters.
+
+    Parameters
+    ----------
+    ilev : int, optional
+        Processing level (0 for basic, 1 for advanced), by default 0.
+    **kwargs : dict
+        Additional BIRRP parameters to set as attributes.
+
     """
 
-    def __init__(self, ilev=0, **kwargs):
+    def __init__(self, ilev: int = 0, **kwargs) -> None:
         # set the input level
         self.ilev = ilev
 
@@ -75,9 +84,16 @@ class BIRRPParameters(object):
 
         self._validate_parameters()
 
-    def to_dict(self):
-        """Get appropriate parameters."""
+    def to_dict(self) -> dict[str, int | float | str | list[float]]:
+        """
+        Get appropriate BIRRP parameters as dictionary.
 
+        Returns
+        -------
+        dict
+            Dictionary of BIRRP parameters based on processing level.
+
+        """
         param_dict = {}
         param_dict["ninp"] = self.ninp
         param_dict["nout"] = self._nout
@@ -133,9 +149,16 @@ class BIRRPParameters(object):
 
         return param_dict
 
-    def from_dict(self, birrp_dict):
-        """Set birrp parameters from dict."""
+    def from_dict(self, birrp_dict: dict[str, int | float | str | list]) -> None:
+        """
+        Set BIRRP parameters from dictionary.
 
+        Parameters
+        ----------
+        birrp_dict : dict
+            Dictionary containing BIRRP parameter key-value pairs.
+
+        """
         for key, value in birrp_dict.items():
             try:
                 setattr(self, key, value)
@@ -144,9 +167,16 @@ class BIRRPParameters(object):
 
         self._validate_parameters()
 
-    def _validate_parameters(self):
-        """Check to make sure the parameters are legit."""
+    def _validate_parameters(self) -> None:
+        """
+        Validate BIRRP parameters and correct invalid values.
 
+        Raises
+        ------
+        BIRRPParameterError
+            If critical parameters are invalid.
+
+        """
         # be sure the
         if self.ninp not in [1, 2, 3]:
             print("WARNING: Number of inputs {0} not allowed.".format(self.ninp))
@@ -292,9 +322,16 @@ class BIRRPParameters(object):
             self.thetaf = [0, 90, 0]
             print("  --> setting thetaf to {0}".format(self.thetaf))
 
-    def read_config_file(self, birrp_config_fn):
-        """Read in a configuration file and fill in the appropriate parameters."""
+    def read_config_file(self, birrp_config_fn: str) -> None:
+        """
+        Read configuration file and set BIRRP parameters.
 
+        Parameters
+        ----------
+        birrp_config_fn : str
+            Full path to BIRRP configuration file.
+
+        """
         birrp_dict = mtcfg.read_configfile(birrp_config_fn)
 
         for birrp_key in list(birrp_dict.keys()):
@@ -307,9 +344,16 @@ class BIRRPParameters(object):
 
             setattr(self, birrp_key, b_value)
 
-    def write_config_file(self, save_fn):
-        """Write a config file for birrp parameters."""
+    def write_config_file(self, save_fn: str) -> None:
+        """
+        Write BIRRP parameters to configuration file.
 
+        Parameters
+        ----------
+        save_fn : str
+            Base filename for configuration file.
+
+        """
         cfg_fn = mtfh.make_unique_filename("{0}_birrp_params.cfg".format(save_fn))
 
         station = os.path.basename(save_fn)
@@ -333,9 +377,20 @@ class ScriptFileError(Exception):
 # write script file
 # ==============================================================================
 class ScriptFile(BIRRPParameters):
-    """Class to read and write script file.
+    """
+    Class to read and write BIRRP script files.
 
-    **Arguments**:
+    Parameters
+    ----------
+    script_fn : str or None, optional
+        Full path to script file, by default None.
+    fn_arr : np.ndarray or None, optional
+        Numpy structured array containing file information, by default None.
+    **kwargs : dict
+        Additional BIRRP parameters.
+
+    Attributes
+    ----------
 
             **fn_arr** : numpy.ndarray
                          numpy.ndarray([[block 1], [block 2]])
@@ -424,9 +479,12 @@ class ScriptFile(BIRRPParameters):
                     for more details on the parameters found at:
 
                     http://www.whoi.edu/science/AOPE/people/achave/Site/Next1.html
+
     """
 
-    def __init__(self, script_fn=None, fn_arr=None, **kwargs):
+    def __init__(
+        self, script_fn: str | None = None, fn_arr: np.ndarray | None = None, **kwargs
+    ) -> None:
         super(ScriptFile, self).__init__(fn_arr=None, **kwargs)
 
         self.fn_arr = fn_arr
@@ -460,9 +518,16 @@ class ScriptFile(BIRRPParameters):
         for key in list(kwargs.keys()):
             setattr(self, key, kwargs[key])
 
-    def _validate_fn_arr(self):
-        """Make sure fn_arr is an np.array."""
+    def _validate_fn_arr(self) -> None:
+        """
+        Validate fn_arr structure and data types.
 
+        Raises
+        ------
+        ScriptFileError
+            If fn_arr structure or data types are invalid.
+
+        """
         for aa in self.fn_arr:
             if type(aa) not in [np.ndarray, np.recarray]:
                 raise ScriptFileError(
@@ -511,8 +576,16 @@ class ScriptFile(BIRRPParameters):
                         )
 
     @property
-    def nout(self):
-        """Nout function."""
+    def nout(self) -> int:
+        """
+        Get number of output time series.
+
+        Returns
+        -------
+        int
+            Number of output channels (excluding remote reference).
+
+        """
         if self.fn_arr is not None:
             self._nout = len(np.where(self.fn_arr[0]["rr"] == False)[0]) - 2
         else:
@@ -521,8 +594,16 @@ class ScriptFile(BIRRPParameters):
         return self._nout
 
     @property
-    def npcs(self):
-        """Npcs function."""
+    def npcs(self) -> int:
+        """
+        Get number of processing blocks.
+
+        Returns
+        -------
+        int
+            Number of independent data blocks to process.
+
+        """
         if self.fn_arr is not None:
             self._npcs = len(self.fn_arr)
         else:
@@ -531,8 +612,16 @@ class ScriptFile(BIRRPParameters):
         return self._npcs
 
     @property
-    def nref(self):
-        """Nref function."""
+    def nref(self) -> int:
+        """
+        Get number of reference channels.
+
+        Returns
+        -------
+        int
+            Number of remote reference channels.
+
+        """
         if self.fn_arr is not None:
             num_ref = np.where(self.fn_arr[0]["rr"] == True)[0]
             self._nref = len(num_ref)
@@ -546,13 +635,34 @@ class ScriptFile(BIRRPParameters):
         return self._nref
 
     @property
-    def deltat(self):
-        """Deltat function."""
+    def deltat(self) -> float:
+        """
+        Get sampling interval (negative for Hz).
+
+        Returns
+        -------
+        float
+            Sampling rate (negative value for Hz).
+
+        """
         return -1 * np.unique(self.fn_arr["sampling_rate"])[0]
 
     @property
-    def comp_list(self):
-        """Comp list."""
+    def comp_list(self) -> list[str]:
+        """
+        Get list of component names.
+
+        Returns
+        -------
+        list[str]
+            List of component names (ex, ey, hx, hy, hz, rrhx_*, rrhy_*).
+
+        Raises
+        ------
+        ValueError
+            If number of components is invalid.
+
+        """
         num_comp = self.ninp + self.nout
         if num_comp == 4:
             self._comp_list = ["ex", "ey", "hx", "hy"]
@@ -575,8 +685,20 @@ class ScriptFile(BIRRPParameters):
 
         return self._comp_list
 
-    def write_script_file(self, script_fn=None, ofil=None):
-        """Write script file."""
+    def write_script_file(
+        self, script_fn: str | None = None, ofil: str | None = None
+    ) -> None:
+        """
+        Write BIRRP script file.
+
+        Parameters
+        ----------
+        script_fn : str or None, optional
+            Full path to script file, by default None.
+        ofil : str or None, optional
+            Output file root name, by default None.
+
+        """
         if ofil is not None:
             self.ofil = ofil
 
@@ -714,13 +836,20 @@ class ScriptFile(BIRRPParameters):
 
         print("INFO: Wrote script file to {0}".format(self.script_fn))
 
-    def make_fn_lines_block_00(self, fn_arr):
-        """Make lines for file in script file which includes
+    def make_fn_lines_block_00(self, fn_arr: np.ndarray) -> list[str]:
+        """
+        Make file lines for first processing block in script file.
 
-        - nread
-        - filter_fn
-        - fn
-        - nskip.
+        Parameters
+        ----------
+        fn_arr : np.ndarray
+            Structured array with file information.
+
+        Returns
+        -------
+        list[str]
+            Lines containing nread, filter_fn, filename, and nskip.
+
         """
         lines = []
         if fn_arr["calibration_fn"] in ["", 0, "0"]:
@@ -733,13 +862,20 @@ class ScriptFile(BIRRPParameters):
 
         return lines
 
-    def make_fn_lines_block_n(self, fn_arr):
-        """Make lines for file in script file which includes
+    def make_fn_lines_block_n(self, fn_arr: np.ndarray) -> list[str]:
+        """
+        Make file lines for subsequent processing blocks in script file.
 
-        - nread
-        - filter_fn
-        - fn
-        - nskip.
+        Parameters
+        ----------
+        fn_arr : np.ndarray
+            Structured array with file information.
+
+        Returns
+        -------
+        list[str]
+            Lines containing filename and nskip.
+
         """
         lines = []
         lines += [str(fn_arr["fn"])]
@@ -751,27 +887,31 @@ class ScriptFile(BIRRPParameters):
 # =============================================================================
 # run birrp
 # =============================================================================
-def run(birrp_exe, script_file):
-    """Run a birrp script file from command line via python subprocess.
+def run(birrp_exe: str, script_file: str) -> bytes:
+    """
+    Run BIRRP script file from command line via subprocess.
 
-    Arguments:
+    Parameters
+    ----------
+    birrp_exe : str
+        Full path to compiled BIRRP executable.
+    script_file : str
+        Full path to BIRRP script file.
 
-            **birrp_exe** : string
-                            full path to the compiled birrp executable
+    Returns
+    -------
+    bytes
+        Output from BIRRP process.
 
-            **script_file** : string
-                              full path to input script file following the
-                              guidelines of the BIRRP documentation.
+    Raises
+    ------
+    MTpyError_inputarguments
+        If birrp_exe does not exist.
 
-    Outputs:
+    See Also
+    --------
+    BIRRP Manual : http://www.whoi.edu/science/AOPE/people/achave/Site/Next1.html
 
-            **log_file.log** : a log file of how BIRRP ran
-
-
-        .. seealso:: BIRRP Manual and publications by Chave and Thomson
-                    for more details on the parameters found at:
-
-                    http://www.whoi.edu/science/AOPE/people/achave/Site/Next1.html
     """
     # check to make sure the given executable is legit
     if not os.path.isfile(birrp_exe):
@@ -819,10 +959,11 @@ def run(birrp_exe, script_file):
 # Write edi file from birrp outputs
 # ==============================================================================
 class J2Edi(object):
-    """Read in BIRRP out puts, in this case the .j file and convert that into
-    an .edi file using the survey_config_fn parameters.
+    """
+    Convert BIRRP .j output file to EDI format.
 
-    Key Word Arguments:
+    Parameters
+    ----------
 
             **birrp_dir** : string
                             full path to directory where birrp outputs are
@@ -866,9 +1007,10 @@ class J2Edi(object):
             >>> j2edi_obj.station = 'mt01'
             >>> j2edi_obj.survey_config_fn = r"/home/data/2016_survey.cfg"
             >>> j2edi_obj.write_edi_file()
+
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         self.birrp_dir = None
         self.birrp_config_fn = None
         self.birrp_dict = None
@@ -883,8 +1025,21 @@ class J2Edi(object):
         for key in list(kwargs.keys()):
             setattr(self, key, kwargs[key])
 
-    def read_survey_config_fn(self, survey_config_fn=None):
-        """Read in survey configuration file and output into a useful dictionary."""
+    def read_survey_config_fn(self, survey_config_fn: str | None = None) -> None:
+        """
+        Read survey configuration file.
+
+        Parameters
+        ----------
+        survey_config_fn : str or None, optional
+            Full path to survey configuration file, by default None.
+
+        Raises
+        ------
+        MTpyError_inputarguments
+            If configuration file does not exist.
+
+        """
         if survey_config_fn is None:
             return
 
@@ -901,9 +1056,15 @@ class J2Edi(object):
             self.station
         ]
 
-    def get_birrp_config_fn(self):
-        """Get birrp configuration file from birrp directory."""
+    def get_birrp_config_fn(self) -> None:
+        """
+        Locate BIRRP configuration file in processing directory.
 
+        Notes
+        -----
+        Sets self.birrp_config_fn to the found configuration file path.
+
+        """
         if self.birrp_dir is None:
             print(
                 "WARNING: Could not get birrp_config_fn because no birrp directory specified"
@@ -928,9 +1089,16 @@ class J2Edi(object):
             self.birrp_config_fn = None
             return
 
-    def read_birrp_config_fn(self, birrp_config_fn=None):
-        """Read in birrp configuration file."""
+    def read_birrp_config_fn(self, birrp_config_fn: str | None = None) -> None:
+        """
+        Read BIRRP configuration file.
 
+        Parameters
+        ----------
+        birrp_config_fn : str or None, optional
+            Full path to BIRRP configuration file, by default None.
+
+        """
         if birrp_config_fn is not None:
             self.birrp_config_fn = birrp_config_fn
 
@@ -942,9 +1110,21 @@ class J2Edi(object):
 
         self.birrp_dict = mtcfg.read_configfile(self.birrp_config_fn)
 
-    def get_j_file(self, birrp_dir=None):
-        """Get .j file output by birrp."""
+    def get_j_file(self, birrp_dir: str | None = None) -> None:
+        """
+        Locate BIRRP .j output file.
 
+        Parameters
+        ----------
+        birrp_dir : str or None, optional
+            Directory containing BIRRP outputs, by default None.
+
+        Raises
+        ------
+        MTpyError_inputarguments
+            If birrp_dir does not exist.
+
+        """
         if birrp_dir is not None:
             self.birrp_dir = birrp_dir
 
@@ -966,8 +1146,11 @@ class J2Edi(object):
             )
             self.j_fn = None
 
-    def _fill_site(self):
-        """Fill header data."""
+    def _fill_site(self) -> None:
+        """
+        Fill MT object site metadata from survey configuration.
+
+        """
         if self.survey_config_dict is None:
             return
         self.mt_obj.latitude = self.survey_config_dict["latitude"]
@@ -980,17 +1163,22 @@ class J2Edi(object):
             "network"
         ]
 
-    def _fill_info(self):
-        """Fill information section."""
+    def _fill_info(self) -> None:
+        """
+        Fill MT object processing information from BIRRP parameters.
+
+        """
         self.mt_obj.station_metadata.comments = []
         for key in sorted(self.birrp_dict.keys()):
             self.mt_obj.station_metadata.comments.append(
                 f"birrp_{key} = {self.birrp_dict[key]}"
             )
 
-    def _fill_field_notes(self):
-        """Get define measurement blocks."""
+    def _fill_field_notes(self) -> None:
+        """
+        Fill MT object field notes and measurement configurations.
 
+        """
         # --> hx
         self.mt_obj.FieldNotes.Magnetometer_hx.id = 1
         self.mt_obj.FieldNotes.Magnetometer_hx.chtype = "hx"
@@ -1086,38 +1274,37 @@ class J2Edi(object):
 
     def write_edi_file(
         self,
-        station=None,
-        birrp_dir=None,
-        survey_config_fn=None,
-        birrp_config_fn=None,
-        copy_path=None,
-    ):
-        """Read in BIRRP out puts, in this case the .j file and convert that into
-        an .edi file using the survey_config_fn parameters.
+        station: str | None = None,
+        birrp_dir: str | None = None,
+        survey_config_fn: str | None = None,
+        birrp_config_fn: str | None = None,
+        copy_path: str | None = None,
+    ) -> str:
+        """
+        Convert BIRRP .j file to EDI format.
 
-        Arguments:
+        Parameters
+        ----------
+        station : str or None, optional
+            Station name, by default None.
+        birrp_dir : str or None, optional
+            Full path to BIRRP output directory, by default None.
+        survey_config_fn : str or None, optional
+            Full path to survey configuration file, by default None.
+        birrp_config_fn : str or None, optional
+            Full path to BIRRP configuration file, by default None.
+        copy_path : str or None, optional
+            Directory to copy EDI file to, by default None.
 
-                **station** : string
-                              name of station
+        Returns
+        -------
+        str
+            Full path to created EDI file.
 
-                **birrp_dir** : string
-                                full path to output directory for BIRRP
-
-                **survey_config_fn** : string
-                                      full path to survey configuration file
-
-                **birrp_config_fn** : string
-                                      full path to birrp configuration file
-                                      *default* is none and is looked for in the
-                                      birrp_dir
-
-                **copy_path** : string
-                                full path to directory to copy the edi file to
-
-        Outputs:
-
-                **edi_fn** : string
-                             full path to edi file
+        Raises
+        ------
+        MTpyError_inputarguments
+            If station name or birrp_dir is not provided or invalid.
 
             .. note::
 

@@ -36,22 +36,6 @@ mtpy.processing.filter module
    :undoc-members:
    :show-inheritance:
 
-mtpy.processing.kernel\_dataset module
---------------------------------------
-
-.. automodule:: mtpy.processing.kernel_dataset
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mtpy.processing.run\_summary module
------------------------------------
-
-.. automodule:: mtpy.processing.run_summary
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 mtpy.processing.tf module
 -------------------------
 

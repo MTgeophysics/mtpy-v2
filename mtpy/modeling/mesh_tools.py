@@ -233,6 +233,7 @@ def interpolate_elevation_to_grid(
             lon, lat, elev = mtfh.read_surface_ascii(surface_file)
         elif surface_file.suffix[1:] in ["tiff", "tif", "geotiff"]:
             lon, lat, elev = mtfh.read_geotiff(surface_file)
+            print("Read geotiff surface file")
     elif surface:
         lon, lat, elev = surface
     else:
