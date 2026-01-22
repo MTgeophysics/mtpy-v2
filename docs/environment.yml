@@ -3,7 +3,7 @@ channels:
   # Don't change to pkgs/main, as it causes random timeouts in readthedocs
   - conda-forge
 dependencies:
-  - python=3.10
+  - python=3.11
   - ipykernel
   - ipython
   - jupyter_client
@@ -15,5 +15,6 @@ dependencies:
   - pip
   - pip:
     - loguru
-    - mt-metadata
-    - mth5
+    - mt-metadata>=1.0.0
+    - mth5>=0.6.0
+    - aurora

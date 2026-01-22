@@ -23,3 +23,7 @@ dependencies:
   - cmake
   - cython 
   - ninja
+  - pip:
+      - mt_metadata[obspy]>=1.0.0
+      - mth5>=0.6.0
+      - aurora
