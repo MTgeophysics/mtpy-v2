@@ -236,7 +236,6 @@ class AuroraProcessing(BaseProcessing):
                     "Cannot make config because KernelDataset has not been set yet."
                 )
         else:
-
             if kernel_dataset.sample_rate > 1000:
                 decimation_kwargs.update(self.default_window_parameters["high"])
             else:
@@ -253,7 +252,7 @@ class AuroraProcessing(BaseProcessing):
         return config
 
     def _set_decimation_level_parameters(
-        self, config: Processing, add_coherence_weights: bool = True, **kwargs
+        self, config: Processing, add_coherence_weights: bool = False, **kwargs
     ) -> None:
         """
         Set decimation level parameters for all decimation bands.
