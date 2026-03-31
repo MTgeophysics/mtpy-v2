@@ -54,6 +54,7 @@ class Occam2DData:
     """
 
     def __init__(self, dataframe=None, center_point=None, **kwargs):
+
         self.logger = logger
         self.dataframe = dataframe
         self.data_filename = None
@@ -102,8 +103,8 @@ class Occam2DData:
         self.occam_dict = {
             "1": "res_xy",
             "2": "phase_xy",
-            "3": "t_zx_real",
-            "4": "t_zx_imag",
+            "3": "t_zy_real",
+            "4": "t_zy_imag",
             "5": "res_yx",
             "6": "phase_yx",
             "9": "res_xy",
@@ -113,7 +114,7 @@ class Occam2DData:
         self.df_dict = {
             "1": "res_xy",
             "2": "phase_xy",
-            "3": "t_zx",
+            "3": "t_zy",
             "4": "t_zy",
             "5": "res_yx",
             "6": "phase_yx",
@@ -440,16 +441,17 @@ class Occam2DData:
         df["period"] = 1.0 / df.frequency
         # df = df.drop(
         #     columns=[
-        #         "tzx_real",
-        #         "tzx_imag",
-        #         "tzx_real_model_error",
-        #         "tzx_imag_model_error",
+        #         "t_zy_real",
+        #         "t_zy_imag",
+        #         "t_zy_real_model_error",
+        #         "t_zy_imag_model_error",
         #         "frequency",
         #     ],
         #     axis=1,
         # )
 
         # df = df.groupby(["station", "period"]).agg("first")
+
         df = df.sort_values("profile_offset").reset_index()
         self.dataframe = df
 
@@ -504,7 +506,7 @@ class Occam2DData:
                         inv_list.append(5)
                     else:
                         inv_list.append(10)
-                # elif comp == "tzx":
+                # elif comp == "t_zy":
                 #     inv_list.append(3)
                 #     inv_list.append(4)
                 else:
@@ -588,6 +590,7 @@ class Occam2DData:
                 "im_tip",
                 "re_tip",
             ]:
+
                 for i in range(len(self.freq)):
                     if self.data[i_ocdm][dmode][0][i] == 0:
                         self.data[i_ocd][dmode][0][i] = 0.0
