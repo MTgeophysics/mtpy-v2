@@ -540,7 +540,6 @@ class Occam2DData:
                 ]
                 for comp_number in self.mode_dict[self.model_mode]:
                     comp = self.df_dict[str(comp_number)]
-                    print(station, frequency, comp)
                     if len(fdf[comp].values) > 0:
                         value = fdf[comp].values[0]
                         if value != 0:
