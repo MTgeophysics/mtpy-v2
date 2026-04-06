@@ -540,31 +540,33 @@ class Occam2DData:
                 ]
                 for comp_number in self.mode_dict[self.model_mode]:
                     comp = self.df_dict[str(comp_number)]
-                    value = fdf[comp].values[0]
-                    if value != 0:
-                        if comp_number in [1, 5]:
-                            error_value = fdf[f"{comp}_model_error"].values[0] / np.log(
-                                10
-                            )
-                            value = np.log10(value)
+                    print(station, frequency, comp)
+                    if len(fdf[comp].values) > 0:
+                        value = fdf[comp].values[0]
+                        if value != 0:
+                            if comp_number in [1, 5]:
+                                error_value = fdf[f"{comp}_model_error"].values[
+                                    0
+                                ] / np.log(10)
+                                value = np.log10(value)
 
-                        elif comp_number in [3]:
-                            value = value.real
-                            error_value = fdf[f"{comp}_model_error"].values[0]
-                        elif comp_number in [4]:
-                            value = value.imag
-                            error_value = fdf[f"{comp}_model_error"].values[0]
-                        elif comp_number in [6]:
-                            if -180 <= value <= -90:
-                                value = value + 180
-                            error_value = fdf[f"{comp}_model_error"].values[0]
-                        else:
-                            value = value
-                            error_value = fdf[f"{comp}_model_error"].values[0]
-                        data_list.append(
-                            f"{s_index + 1:^6}{f_index + 1:^6}{comp_number:^6} "
-                            f"{value:>8.4f} {error_value:>8.4f}"
-                        )
+                            elif comp_number in [3]:
+                                value = value.real
+                                error_value = fdf[f"{comp}_model_error"].values[0]
+                            elif comp_number in [4]:
+                                value = value.imag
+                                error_value = fdf[f"{comp}_model_error"].values[0]
+                            elif comp_number in [6]:
+                                if -180 <= value <= -90:
+                                    value = value + 180
+                                error_value = fdf[f"{comp}_model_error"].values[0]
+                            else:
+                                value = value
+                                error_value = fdf[f"{comp}_model_error"].values[0]
+                            data_list.append(
+                                f"{s_index + 1:^6}{f_index + 1:^6}{comp_number:^6} "
+                                f"{value:>8.4f} {error_value:>8.4f}"
+                            )
         return data_list
 
     def mask_from_datafile(self, mask_datafn):
