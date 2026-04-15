@@ -733,9 +733,9 @@ class MTDataFrame:
 
         """
         if self._has_data():
-            self.dataframe.loc[
-                self.dataframe.station == self.station, "datum_epsg"
-            ] = value
+            self.dataframe.loc[self.dataframe.station == self.station, "datum_epsg"] = (
+                str(value) if value is not None else ""
+            )
 
     @property
     def east(self) -> float | None:
@@ -825,9 +825,9 @@ class MTDataFrame:
 
         """
         if self._has_data():
-            self.dataframe.loc[
-                self.dataframe.station == self.station, "utm_epsg"
-            ] = value
+            self.dataframe.loc[self.dataframe.station == self.station, "utm_epsg"] = (
+                str(value) if value is not None else ""
+            )
 
     @property
     def model_east(self) -> float | None:
