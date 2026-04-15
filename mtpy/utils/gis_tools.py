@@ -314,6 +314,13 @@ def project_point(x, y, old_epsg, new_epsg):
         if y == 0:
             raise ValueError("Should not project with 0 value")
 
+    # Avoid passing length-1 arrays into pyproj scalar path, which triggers
+    # NumPy deprecation warnings in newer versions.
+    if isinstance(x, np.ndarray) and x.size == 1:
+        x = float(x.item())
+    if isinstance(y, np.ndarray) and y.size == 1:
+        y = float(y.item())
+
     old_crs = CRS.from_user_input(old_epsg)
     new_crs = CRS.from_user_input(new_epsg)
 
