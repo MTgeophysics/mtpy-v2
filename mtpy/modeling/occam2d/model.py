@@ -202,7 +202,7 @@ class Occam2DModel(Startup):
         # read in the regulariztion file
         r1 = Regularization()
         r1.read_regularization_file(self.model_fn)
-        r1.model_rows = np.array(r1.model_rows)
+
         self.model_rows = r1.model_rows
         self.model_columns = r1.model_columns
 
@@ -223,25 +223,29 @@ class Occam2DModel(Startup):
         # the FE mesh so that the model can be plotted as an image or regular
         # mesh.
         mm = 0
-        for ii in range(len(r1.model_rows)):
-            # get the number of layers to combine
-            # this index will be the first index in the vertical direction
-            ny1 = r1.model_rows[:ii, 0].sum()
-            # the second index  in the vertical direction
-            ny2 = ny1 + r1.model_rows[ii][0]
-            # make the list of amalgamated columns an array for ease
-            lc = np.array(r1.model_columns[ii])
-            # loop over the number of amalgamated blocks
-            for jj in range(len(r1.model_columns[ii])):
-                # get first in index in the horizontal direction
-                nx1 = lc[:jj].sum()
-                # get second index in horizontal direction
-                nx2 = nx1 + lc[jj]
-                # put the apporpriate resistivity value into all the amalgamated
-                # model blocks of the regularization grid into the forward model
-                # grid
-                self.res_model[ny1:ny2, nx1:nx2] = self.model_values[mm]
-                mm += 1
+        r1.get_block_cell_centres()
+
+        self.res_model = self.model_values[r1.model_block_indices]
+        # for ii in range(len(r1.model_rows)):
+        #     # get the number of layers to combine
+        #     # this index will be the first index in the vertical direction
+        #     ny1 = r1.model_rows[:ii, 0].sum()
+        #     # the second index  in the vertical direction
+        #     ny2 = ny1 + r1.model_rows[ii][0]
+        #     # make the list of amalgamated columns an array for ease
+        #     lc = np.array(r1.model_columns[ii])
+        #     # loop over the number of amalgamated blocks
+        #     print(ny1, ny2)
+        #     for jj in range(len(r1.model_columns[ii])):
+        #         # get first in index in the horizontal direction
+        #         nx1 = lc[:jj].sum()
+        #         # get second index in horizontal direction
+        #         nx2 = nx1 + lc[jj]
+        #         # put the apporpriate resistivity value into all the amalgamated
+        #         # model blocks of the regularization grid into the forward model
+        #         # grid
+        #         self.res_model[ny1:ny2, nx1:nx2] = self.model_values[mm]
+        #         mm += 1
 
         # make some arrays for plotting the model
         self.plot_x = np.array(
