@@ -115,8 +115,7 @@ def calculate_niblett_bostick_resistivity_derivatives(
     m = np.gradient(log_resistivity, log_period, edge_order=2)
 
     # bostick resistivity only valid for -1 < m < 1
-    m[m > 1] = np.nan
-    m[m < -1] = np.nan
+    m[np.abs(m) >= 1] = np.nan
 
     return resistivity * (1.0 + m) / (1.0 - m)
 

@@ -353,9 +353,16 @@ class MTDataFrame:
         else:
             raise TypeError(f"Input data must be a pandas.DataFrame not {type(data)}")
 
-        for col in self._dtype_list:
-            if col[0] not in df.columns:
-                df[col[0]] = np.zeros(df.shape[0], dtype=col[1])
+        missing_cols = [col for col in self._dtype_list if col[0] not in df.columns]
+        if missing_cols:
+            missing_df = pd.DataFrame(
+                {
+                    col_name: np.zeros(df.shape[0], dtype=col_dtype)
+                    for col_name, col_dtype in missing_cols
+                },
+                index=df.index,
+            )
+            df = pd.concat([df, missing_df], axis=1)
 
         # resort to the desired column order
         if df.columns.to_list() != self._column_names:
@@ -726,9 +733,9 @@ class MTDataFrame:
 
         """
         if self._has_data():
-            self.dataframe.loc[
-                self.dataframe.station == self.station, "datum_epsg"
-            ] = value
+            self.dataframe.loc[self.dataframe.station == self.station, "datum_epsg"] = (
+                str(value) if value is not None else ""
+            )
 
     @property
     def east(self) -> float | None:
@@ -818,9 +825,9 @@ class MTDataFrame:
 
         """
         if self._has_data():
-            self.dataframe.loc[
-                self.dataframe.station == self.station, "utm_epsg"
-            ] = value
+            self.dataframe.loc[self.dataframe.station == self.station, "utm_epsg"] = (
+                str(value) if value is not None else ""
+            )
 
     @property
     def model_east(self) -> float | None:

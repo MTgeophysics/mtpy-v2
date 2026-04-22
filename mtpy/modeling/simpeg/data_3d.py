@@ -248,7 +248,7 @@ class Simpeg3DData:
         else:
             cols += ["model_east", "model_north", "model_elevation"]
 
-        df = self.dataframe[cols + self.components_to_invert]
+        df = self.dataframe[cols + self.components_to_invert].copy()
 
         df.loc[:, "frequency"] = 1.0 / df.period.to_numpy()
         df = df.drop(columns="period")

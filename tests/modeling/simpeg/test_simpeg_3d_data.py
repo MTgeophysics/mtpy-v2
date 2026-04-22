@@ -11,7 +11,10 @@ Created on Tue Aug 20 13:09:02 2024
 import unittest
 
 import numpy as np
-from mtpy_data import PROFILE_LIST
+import pytest
+
+
+PROFILE_LIST = pytest.importorskip("mtpy_data").PROFILE_LIST
 from simpeg.electromagnetics.natural_source.survey import Data
 
 from mtpy import MTData
