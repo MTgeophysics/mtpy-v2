@@ -478,11 +478,15 @@ class Occam2DData:
 
                     tx_real_vals = np.unique(np.real(self.dataframe["t_zy"][filt]))
                     tx_imag_vals = np.unique(np.imag(self.dataframe["t_zy"][filt]))
-                    if np.any(tx_real_vals != 0):
-                        self.dataframe["t_zy"][filt] = (
-                            tx_real_vals[tx_real_vals != 0][0]
-                            + 1j * tx_imag_vals[tx_imag_vals != 0][0]
-                        )
+
+                    if np.any(tx_real_vals != 0) or np.any(tx_imag_vals != 0):
+                        tx_real_val, tx_imag_val = 0.0, 0.0
+                        if len(tx_real_vals[tx_real_vals != 0]) > 0:
+                            tx_real_val = tx_real_vals[tx_real_vals != 0][0]
+                        if len(tx_imag_vals[tx_imag_vals != 0]) > 0:
+                            tx_imag_val = tx_imag_vals[tx_imag_vals != 0][0]
+
+                        self.dataframe["t_zy"][filt] = tx_real_val + 1j * tx_imag_val
 
                     self.dataframe.drop(self.dataframe[filt].index[1:], inplace=True)
 
