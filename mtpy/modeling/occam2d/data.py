@@ -507,7 +507,6 @@ class Occam2DData:
 
         for line in data_list:
             res_log = False
-            print(line.split())
             # try:
             s_index, f_index, comp, _, odata, oresp, oresid = line.split()
             # station index -1 cause python starts at 0
