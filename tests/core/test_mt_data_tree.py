@@ -1,14 +1,43 @@
 # -*- coding: utf-8 -*-
 """Pytest suite for MTDataTree scaffold behavior."""
 
-from pathlib import Path
 
+import mtpy_data
 import numpy as np
 import pytest
 import xarray as xr
 
 from mtpy.core import MTDataTree
 from mtpy.core.mt import MT
+
+
+@pytest.fixture(scope="session")
+def profile_edi_files():
+    """Session-scoped subset of real profile EDI files from mtpy_data."""
+    return sorted(mtpy_data.PROFILE_LIST)[:2]
+
+
+@pytest.fixture(scope="session")
+def profile_edi_file(profile_edi_files):
+    """Single real profile EDI file path."""
+    return profile_edi_files[0]
+
+
+@pytest.fixture(scope="session")
+def loaded_profile_mt_objects(profile_edi_files):
+    """Session-scoped real MT objects loaded from mtpy_data profile EDIs."""
+    mt_objects = []
+    for fn in profile_edi_files:
+        mt_obj = MT(fn)
+        mt_obj.read()
+        mt_objects.append(mt_obj)
+    return mt_objects
+
+
+@pytest.fixture(scope="session")
+def loaded_profile_mt(loaded_profile_mt_objects):
+    """Single real MT object loaded from mtpy_data profile EDI."""
+    return loaded_profile_mt_objects[0]
 
 
 class TestMTDataTreeInitialization:
@@ -89,61 +118,75 @@ class TestMTDataTreeAddStation:
         with pytest.raises(TypeError, match="mt_obj cannot be None"):
             tree.add_station(None)
 
-    def test_add_station_from_filename(self, tmp_path, monkeypatch):
-        test_fn = tmp_path / "file_station_01.edi"
-        test_fn.write_text("dummy")
-
-        def _fake_read(self):
-            stem = Path(self.fn).stem
-            self.survey = "survey_from_file"
-            self.station = stem
-
-        monkeypatch.setattr(MT, "read", _fake_read)
-
+    def test_add_station_from_filename(self, profile_edi_file, loaded_profile_mt):
         tree = MTDataTree()
-        station_path = tree.add_station(str(test_fn))
+        station_path = tree.add_station(str(profile_edi_file))
 
-        assert station_path == "surveys/survey_from_file/stations/file_station_01"
+        expected_path = (
+            f"surveys/{MTDataTree._clean_name(loaded_profile_mt.survey, 'default')}"
+            f"/stations/{MTDataTree._clean_name(loaded_profile_mt.station, 'unknown_station')}"
+        )
+        assert station_path == expected_path
 
-    def test_add_station_from_path(self, tmp_path, monkeypatch):
-        test_fn = tmp_path / "file_station_02.edi"
-        test_fn.write_text("dummy")
-
-        def _fake_read(self):
-            stem = Path(self.fn).stem
-            self.survey = "survey_from_file"
-            self.station = stem
-
-        monkeypatch.setattr(MT, "read", _fake_read)
-
+    def test_add_station_from_path(self, profile_edi_file, loaded_profile_mt):
         tree = MTDataTree()
-        station_path = tree.add_station(test_fn)
+        station_path = tree.add_station(profile_edi_file)
 
-        assert station_path == "surveys/survey_from_file/stations/file_station_02"
+        expected_path = (
+            f"surveys/{MTDataTree._clean_name(loaded_profile_mt.survey, 'default')}"
+            f"/stations/{MTDataTree._clean_name(loaded_profile_mt.station, 'unknown_station')}"
+        )
+        assert station_path == expected_path
 
-    def test_add_station_list_mixed_inputs(self, basic_mt, tmp_path, monkeypatch):
-        test_fn = tmp_path / "file_station_03.edi"
-        test_fn.write_text("dummy")
-
-        def _fake_read(self):
-            stem = Path(self.fn).stem
-            self.survey = "survey_from_file"
-            self.station = stem
-
-        monkeypatch.setattr(MT, "read", _fake_read)
-
+    def test_add_station_list_mixed_inputs(
+        self, basic_mt, profile_edi_file, loaded_profile_mt
+    ):
         tree = MTDataTree()
-        out_paths = tree.add_station([basic_mt, test_fn])
+        out_paths = tree.add_station([basic_mt, profile_edi_file])
 
         assert isinstance(out_paths, list)
         assert len(out_paths) == 2
         assert out_paths[0] == "surveys/big/stations/test_01"
-        assert out_paths[1] == "surveys/survey_from_file/stations/file_station_03"
+        assert out_paths[1] == (
+            f"surveys/{MTDataTree._clean_name(loaded_profile_mt.survey, 'default')}"
+            f"/stations/{MTDataTree._clean_name(loaded_profile_mt.station, 'unknown_station')}"
+        )
 
     def test_add_station_invalid_type_raises(self):
         tree = MTDataTree()
         with pytest.raises(TypeError, match="mt_obj must be an MT instance"):
             tree.add_station(42)
+
+    def test_add_station_includes_location_attrs(self):
+        mt = MT()
+        mt.survey = "loc_survey"
+        mt.station = "loc_station"
+        mt.latitude = 40.25
+        mt.longitude = -118.75
+        mt.elevation = 1234.5
+        mt.east = 500000.0
+        mt.north = 4450000.0
+
+        tree = MTDataTree()
+        station_path = tree.add_station(mt)
+        ds = tree.get_station(station_path)
+
+        assert ds.attrs["latitude"] == 40.25
+        assert ds.attrs["longitude"] == -118.75
+        assert ds.attrs["elevation"] == 1234.5
+        assert ds.attrs["easting"] == 500000.0
+        assert ds.attrs["northing"] == 4450000.0
+        assert "datum_crs" in ds.attrs
+        assert "utm_crs" in ds.attrs
+
+    def test_add_station_real_data_includes_location_attrs(self, loaded_profile_mt):
+        tree = MTDataTree()
+        station_path = tree.add_station(loaded_profile_mt)
+        ds = tree.get_station(station_path)
+
+        assert ds.attrs["latitude"] == loaded_profile_mt.latitude
+        assert ds.attrs["longitude"] == loaded_profile_mt.longitude
+        assert ds.attrs["elevation"] == loaded_profile_mt.elevation
 
     def test_add_station_overwrite_false_raises(self, basic_mt):
         tree = MTDataTree()
@@ -215,3 +258,17 @@ class TestMTDataTreePeriods:
 
         periods = tree.get_periods()
         assert np.array_equal(periods, np.array([1.0, 3.0, 5.0, 10.0, 20.0]))
+
+    def test_get_periods_real_data(self, loaded_profile_mt_objects):
+        tree = MTDataTree()
+        tree.add_station(loaded_profile_mt_objects)
+
+        expected = np.unique(
+            np.concatenate(
+                [np.asarray(mt.period, dtype=float) for mt in loaded_profile_mt_objects]
+            )
+        )
+        expected.sort()
+
+        periods = tree.get_periods()
+        assert np.array_equal(periods, expected)

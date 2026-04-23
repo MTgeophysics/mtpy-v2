@@ -138,6 +138,14 @@ class MTDataTree:
             return False
 
     @staticmethod
+    def _get_utm_crs(mt_obj: "MT") -> Any:
+        """Get UTM CRS information from MT object when available."""
+        crs = getattr(mt_obj, "utm_crs", None)
+        if crs is not None:
+            return crs
+        return getattr(mt_obj, "utm_epsg", None)
+
+    @staticmethod
     def _dataset_to_mt(station_ds: xr.Dataset) -> "MT":
         """Build an MT object from a stored station dataset and attrs."""
         from .mt import MT
@@ -236,6 +244,13 @@ class MTDataTree:
                 "survey": survey,
                 "station": station,
                 "tf_id": getattr(mt_obj, "tf_id", station),
+                "latitude": getattr(mt_obj, "latitude", None),
+                "longitude": getattr(mt_obj, "longitude", None),
+                "elevation": getattr(mt_obj, "elevation", None),
+                "datum_crs": getattr(mt_obj, "datum_crs", None),
+                "utm_crs": self._get_utm_crs(mt_obj),
+                "easting": getattr(mt_obj, "east", None),
+                "northing": getattr(mt_obj, "north", None),
                 "coordinate_reference_frame": getattr(
                     mt_obj, "coordinate_reference_frame", None
                 ),
