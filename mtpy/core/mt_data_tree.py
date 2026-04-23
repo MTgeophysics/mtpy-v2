@@ -18,6 +18,7 @@ import xarray as xr
 if TYPE_CHECKING:
     from .mt import MT
     from .mt_data import MTData
+    from .mt_stations import MTStations
 
 
 class MTDataTree:
@@ -137,6 +138,21 @@ class MTDataTree:
         except KeyError:
             return False
 
+    def _iter_station_paths(self) -> list[str]:
+        """Return all station node paths under /surveys."""
+        station_paths: list[str] = []
+
+        def _walk(node: Any, node_path: str = "") -> None:
+            ds = getattr(node, "ds", None)
+            if isinstance(ds, xr.Dataset) and node_path.count("/") >= 3:
+                station_paths.append(node_path)
+            for child_name, child in getattr(node, "children", {}).items():
+                child_path = f"{node_path}/{child_name}" if node_path else child_name
+                _walk(child, child_path)
+
+        _walk(self.tree)
+        return station_paths
+
     @staticmethod
     def _get_utm_crs(mt_obj: "MT") -> Any:
         """Get UTM CRS information from MT object when available."""
@@ -169,6 +185,20 @@ class MTDataTree:
             mt_obj.coordinate_reference_frame = crf
         if attrs.get("impedance_units") is not None:
             mt_obj.impedance_units = attrs["impedance_units"]
+        if attrs.get("datum_crs") is not None:
+            mt_obj.datum_crs = attrs["datum_crs"]
+        if attrs.get("utm_crs") is not None:
+            mt_obj.utm_crs = attrs["utm_crs"]
+        if attrs.get("latitude") is not None:
+            mt_obj.latitude = attrs["latitude"]
+        if attrs.get("longitude") is not None:
+            mt_obj.longitude = attrs["longitude"]
+        if attrs.get("elevation") is not None:
+            mt_obj.elevation = attrs["elevation"]
+        if attrs.get("easting") is not None:
+            mt_obj.east = attrs["easting"]
+        if attrs.get("northing") is not None:
+            mt_obj.north = attrs["northing"]
 
         survey_md = attrs.get("survey_metadata", {})
         if isinstance(survey_md, dict) and survey_md:
@@ -181,6 +211,20 @@ class MTDataTree:
                 mt_obj.station_metadata.from_dict(station_md)
 
         return mt_obj
+
+    def to_mt_stations(self) -> "MTStations":
+        """Build an MTStations view from station datasets in the tree."""
+        from .mt_stations import MTStations
+
+        mt_list = [
+            self.get_station(path, as_mt=True) for path in self._iter_station_paths()
+        ]
+        return MTStations(None, mt_list=mt_list)
+
+    @property
+    def mt_stations(self) -> "MTStations":
+        """Convenience accessor for station locations represented by the tree."""
+        return self.to_mt_stations()
 
     def add_station(
         self,
@@ -288,6 +332,38 @@ class MTDataTree:
 
         parent_path, child_name = station_key.rsplit("/", 1)
         del self.tree[parent_path][child_name]
+
+    def get_subset(self, station_list: list[str]) -> "MTDataTree":
+        """Return a new tree containing only the requested station paths."""
+        subset = self.__class__(**dict(self.attrs))
+        for station_key in station_list:
+            subset.add_station(self.get_station(station_key, as_mt=True))
+        return subset
+
+    def apply_bounding_box(
+        self, lon_min: float, lon_max: float, lat_min: float, lat_max: float
+    ) -> "MTDataTree":
+        """Return a new tree containing stations within a geographic bounding box."""
+        station_df = self.mt_stations.station_locations
+        if station_df is None or station_df.empty:
+            return self.__class__(**dict(self.attrs))
+
+        bb_df = station_df.loc[
+            (station_df.longitude >= lon_min)
+            & (station_df.longitude <= lon_max)
+            & (station_df.latitude >= lat_min)
+            & (station_df.latitude <= lat_max)
+        ]
+
+        station_keys = [
+            self._station_path(
+                self._clean_name(survey, "default"),
+                self._clean_name(station, "unknown_station"),
+            )
+            for survey, station in zip(bb_df.survey, bb_df.station)
+        ]
+
+        return self.get_subset(station_keys)
 
     def get_periods(self) -> np.ndarray:
         """Return sorted unique periods across all station datasets in the tree."""

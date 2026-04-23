@@ -9,6 +9,7 @@ import xarray as xr
 
 from mtpy.core import MTDataTree
 from mtpy.core.mt import MT
+from mtpy.core.mt_stations import MTStations
 
 
 @pytest.fixture(scope="session")
@@ -233,6 +234,33 @@ class TestMTDataTreeNodeOperations:
         keys = tree.keys()
         assert MTDataTree.SURVEYS_NODE in keys
 
+    def test_to_mt_stations_returns_station_locations(self, loaded_profile_mt_objects):
+        tree = MTDataTree()
+        tree.add_station(loaded_profile_mt_objects)
+
+        stations = tree.to_mt_stations()
+
+        assert isinstance(stations, MTStations)
+        assert len(stations.mt_list) == len(loaded_profile_mt_objects)
+        assert stations.station_locations is not None
+        assert len(stations.station_locations) == len(loaded_profile_mt_objects)
+
+    def test_mt_stations_property_returns_mtstations(self, loaded_profile_mt_objects):
+        tree = MTDataTree()
+        tree.add_station(loaded_profile_mt_objects)
+
+        assert isinstance(tree.mt_stations, MTStations)
+
+    def test_get_station_as_mt_restores_location_attrs(self, loaded_profile_mt):
+        tree = MTDataTree()
+        station_path = tree.add_station(loaded_profile_mt)
+
+        out = tree.get_station(station_path, as_mt=True)
+
+        assert out.latitude == loaded_profile_mt.latitude
+        assert out.longitude == loaded_profile_mt.longitude
+        assert out.elevation == loaded_profile_mt.elevation
+
 
 class TestMTDataTreePeriods:
     def test_get_periods_empty_tree(self):
@@ -272,3 +300,41 @@ class TestMTDataTreePeriods:
 
         periods = tree.get_periods()
         assert np.array_equal(periods, expected)
+
+
+class TestMTDataTreeSpatialFiltering:
+    def test_apply_bounding_box_returns_subset_tree(self):
+        mt1 = MT()
+        mt1.survey = "s1"
+        mt1.station = "inside"
+        mt1.latitude = 40.0
+        mt1.longitude = -120.0
+
+        mt2 = MT()
+        mt2.survey = "s1"
+        mt2.station = "outside"
+        mt2.latitude = 50.0
+        mt2.longitude = -100.0
+
+        tree = MTDataTree()
+        tree.add_station([mt1, mt2])
+
+        subset = tree.apply_bounding_box(-121.0, -119.0, 39.0, 41.0)
+
+        assert isinstance(subset, MTDataTree)
+        assert subset._path_exists("surveys/s1/stations/inside")
+        assert not subset._path_exists("surveys/s1/stations/outside")
+
+    def test_apply_bounding_box_real_data(self, loaded_profile_mt_objects):
+        tree = MTDataTree()
+        tree.add_station(loaded_profile_mt_objects)
+
+        lon_values = [mt.longitude for mt in loaded_profile_mt_objects]
+        lat_values = [mt.latitude for mt in loaded_profile_mt_objects]
+        subset = tree.apply_bounding_box(
+            min(lon_values), max(lon_values), min(lat_values), max(lat_values)
+        )
+
+        assert len(subset.mt_stations.station_locations) == len(
+            loaded_profile_mt_objects
+        )
