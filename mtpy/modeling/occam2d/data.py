@@ -460,6 +460,96 @@ class Occam2DData:
 
         self.model_mode = self._get_model_mode_from_data(res_log)
 
+    def read_response_file(self, response_fn=None, data_fn=None):
+        """Read in an existing response file and populate the dataframe with
+            responses instead of data. Note, the data file also needs to be defined
+
+        Arguments::
+                **response_fn** : string
+                              full path to data file
+                              *default* is None and set to save_path/fn_basename
+
+            :Example: ::
+
+                >>> import mtpy.modeling.occam2d as occam2d
+                >>> ocr = occam2d.Data()
+                >>> ocr.read_response_file(r"/home/Occam2D/Line1/Inv1/Data.dat")
+        """
+
+        if response_fn is not None:
+            self.response_filename = Path(response_fn)
+        print("reading", self.response_filename)
+
+        if not self.response_filename.is_file():
+            raise ValueError(f"Could not find {self.data_filename}")
+        if self.response_filename is None:
+            raise ValueError("data_filename is None, input filename")
+
+        self.save_path = self.response_filename.parent
+
+        with open(self.response_filename, "r") as dfid:
+            dlines = dfid.readlines()
+
+        if self.frequencies is None:
+            self.read_data_file(data_fn)
+
+        # get number of sites
+        nsites = len(self.stations)
+
+        # get number of frequencies
+        nfreq = len(self.frequencies)
+        # -----------get data-------------------
+        # set zero array size the first row will be the data and second the
+        # error
+
+        data_list = dlines
+        print("data_list", data_list)
+        entries = []
+
+        for line in data_list:
+            res_log = False
+            print(line.split())
+            # try:
+            s_index, f_index, comp, _, odata, oresp, oresid = line.split()
+            # station index -1 cause python starts at 0
+            s_index = int(float(s_index)) - 1
+
+            # frequency index -1 cause python starts at 0
+            f_index = int(float(f_index)) - 1
+
+            # convert into an integer string to match the dict
+            comp = str(int(float(comp)))
+
+            # data key
+            key = self.occam_dict[comp]
+
+            # put into array
+            if int(comp) in [1, 5]:
+                res_log = True
+                value = 10 ** float(oresp)
+            elif int(comp) in [6]:
+                value = float(oresp) - 180
+            else:
+                value = float(oresp)
+
+            # 1. Define the boolean mask (the filter)
+            filt = (
+                abs(1.0 / self.dataframe["period"] - self.frequencies[f_index])
+                / self.frequencies[f_index]
+                < 1e-9
+            ) & (self.dataframe["station"] == self.stations[s_index])
+
+            # 2. Get the indices
+            idx = self.dataframe.index[filt]
+
+            if key in ["res_xy", "res_yx", "phase_xy", "phase_yx"]:
+                self.dataframe[key][idx] = value
+            else:
+                if key.endswith("real"):
+                    self.dataframe["t_zy"][idx] += value
+                elif key.endswith("imag"):
+                    self.dataframe["t_zy"][idx] += 1j * value
+
     def _group_df(self):
         for station in np.unique(self.dataframe["station"]):
             for period in np.unique(self.dataframe["period"]):
