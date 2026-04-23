@@ -478,7 +478,6 @@ class Occam2DData:
 
         if response_fn is not None:
             self.response_filename = Path(response_fn)
-        print("reading", self.response_filename)
 
         if not self.response_filename.is_file():
             raise ValueError(f"Could not find {self.data_filename}")
@@ -503,7 +502,7 @@ class Occam2DData:
         # error
 
         data_list = dlines
-        print("data_list", data_list)
+
         entries = []
 
         for line in data_list:
@@ -550,6 +549,10 @@ class Occam2DData:
                 elif key.endswith("imag"):
                     self.dataframe["t_zy"][idx] += 1j * value
 
+        # set errors to zero
+        for key in ["res_xy", "res_yx", "phase_xy", "phase_yx", "t_zy"]:
+            self.dataframe[key + "_model_error"] = 0.0
+
     def _group_df(self):
         for station in np.unique(self.dataframe["station"]):
             for period in np.unique(self.dataframe["period"]):
@@ -565,7 +568,9 @@ class Occam2DData:
                         self.dataframe[key][filt] = np.unique(
                             self.dataframe[key][filt]
                         )[0]
-
+                        self.dataframe[key + "_model_error"][filt] = np.unique(
+                            self.dataframe[key + "_model_error"][filt]
+                        )[0]
                     tx_real_vals = np.unique(np.real(self.dataframe["t_zy"][filt]))
                     tx_imag_vals = np.unique(np.imag(self.dataframe["t_zy"][filt]))
 
