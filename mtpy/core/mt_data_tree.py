@@ -11,6 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
+import numpy as np
 import xarray as xr
 
 
@@ -136,6 +137,43 @@ class MTDataTree:
         except KeyError:
             return False
 
+    @staticmethod
+    def _dataset_to_mt(station_ds: xr.Dataset) -> "MT":
+        """Build an MT object from a stored station dataset and attrs."""
+        from .mt import MT
+
+        mt_obj = MT()
+        mt_obj._transfer_function = station_ds.copy()
+
+        attrs = station_ds.attrs
+        if attrs.get("survey") is not None:
+            mt_obj.survey = attrs["survey"]
+        if attrs.get("station") is not None:
+            mt_obj.station = attrs["station"]
+        if attrs.get("coordinate_reference_frame") is not None:
+            crf = attrs["coordinate_reference_frame"]
+            if isinstance(crf, str):
+                crf_key = crf.upper()
+                if crf_key == "NED":
+                    crf = "+"
+                elif crf_key == "ENU":
+                    crf = "-"
+            mt_obj.coordinate_reference_frame = crf
+        if attrs.get("impedance_units") is not None:
+            mt_obj.impedance_units = attrs["impedance_units"]
+
+        survey_md = attrs.get("survey_metadata", {})
+        if isinstance(survey_md, dict) and survey_md:
+            if hasattr(mt_obj.survey_metadata, "from_dict"):
+                mt_obj.survey_metadata.from_dict(survey_md)
+
+        station_md = attrs.get("station_metadata", {})
+        if isinstance(station_md, dict) and station_md:
+            if hasattr(mt_obj.station_metadata, "from_dict"):
+                mt_obj.station_metadata.from_dict(station_md)
+
+        return mt_obj
+
     def add_station(
         self,
         mt_obj: "MT | str | Path | list[MT | str | Path]",
@@ -220,9 +258,12 @@ class MTDataTree:
         )
         return station_path
 
-    def get_station(self, station_key: str) -> xr.Dataset:
-        """Return a station dataset by tree path."""
-        return self.tree[station_key].ds
+    def get_station(self, station_key: str, as_mt: bool = False) -> xr.Dataset | "MT":
+        """Return a station by tree path as dataset or reconstructed MT object."""
+        station_ds = self.tree[station_key].ds
+        if as_mt:
+            return self._dataset_to_mt(station_ds)
+        return station_ds
 
     def remove_station(self, station_key: str) -> None:
         """Remove a station node from the tree."""
@@ -232,6 +273,26 @@ class MTDataTree:
 
         parent_path, child_name = station_key.rsplit("/", 1)
         del self.tree[parent_path][child_name]
+
+    def get_periods(self) -> np.ndarray:
+        """Return sorted unique periods across all station datasets in the tree."""
+        periods: list[np.ndarray] = []
+
+        def _walk(node: Any) -> None:
+            ds = getattr(node, "ds", None)
+            if isinstance(ds, xr.Dataset) and "period" in ds.coords:
+                periods.append(np.asarray(ds.coords["period"].values, dtype=float))
+            for child in getattr(node, "children", {}).values():
+                _walk(child)
+
+        _walk(self.tree)
+
+        if not periods:
+            return np.array([], dtype=float)
+
+        unique_periods = np.unique(np.concatenate(periods))
+        unique_periods.sort()
+        return unique_periods
 
     def keys(self) -> list[str]:
         """Return immediate child node keys for quick inspection."""

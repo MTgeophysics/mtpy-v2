@@ -3,6 +3,7 @@
 
 from pathlib import Path
 
+import numpy as np
 import pytest
 import xarray as xr
 
@@ -157,6 +158,23 @@ class TestMTDataTreeAddStation:
 
 
 class TestMTDataTreeNodeOperations:
+    def test_get_station_default_returns_dataset(self, basic_mt):
+        tree = MTDataTree()
+        station_path = tree.add_station(basic_mt)
+
+        out = tree.get_station(station_path)
+        assert isinstance(out, xr.Dataset)
+
+    def test_get_station_as_mt_returns_mt_object(self, basic_mt):
+        tree = MTDataTree()
+        station_path = tree.add_station(basic_mt)
+
+        out = tree.get_station(station_path, as_mt=True)
+        assert isinstance(out, MT)
+        assert out.survey == basic_mt.survey
+        assert out.station == basic_mt.station
+        assert isinstance(out._transfer_function, xr.Dataset)
+
     def test_remove_station(self, basic_mt):
         tree = MTDataTree()
         station_path = tree.add_station(basic_mt)
@@ -171,3 +189,29 @@ class TestMTDataTreeNodeOperations:
 
         keys = tree.keys()
         assert MTDataTree.SURVEYS_NODE in keys
+
+
+class TestMTDataTreePeriods:
+    def test_get_periods_empty_tree(self):
+        tree = MTDataTree()
+        periods = tree.get_periods()
+
+        assert isinstance(periods, np.ndarray)
+        assert periods.size == 0
+
+    def test_get_periods_unique_sorted(self):
+        mt1 = MT()
+        mt1.survey = "s1"
+        mt1.station = "st01"
+        mt1._transfer_function = xr.Dataset(coords={"period": [10.0, 1.0, 3.0]})
+
+        mt2 = MT()
+        mt2.survey = "s1"
+        mt2.station = "st02"
+        mt2._transfer_function = xr.Dataset(coords={"period": [3.0, 5.0, 20.0]})
+
+        tree = MTDataTree()
+        tree.add_station([mt1, mt2])
+
+        periods = tree.get_periods()
+        assert np.array_equal(periods, np.array([1.0, 3.0, 5.0, 10.0, 20.0]))
