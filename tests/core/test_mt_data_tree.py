@@ -4,11 +4,13 @@
 
 import mtpy_data
 import numpy as np
+import pandas as pd
 import pytest
 import xarray as xr
 
 from mtpy.core import MTDataTree
 from mtpy.core.mt import MT
+from mtpy.core.mt_dataframe import MTDataFrame
 from mtpy.core.mt_stations import MTStations
 
 
@@ -245,6 +247,24 @@ class TestMTDataTreeNodeOperations:
         assert stations.station_locations is not None
         assert len(stations.station_locations) == len(loaded_profile_mt_objects)
 
+    def test_to_mt_stations_does_not_require_dataset_to_mt(
+        self, loaded_profile_mt_objects, monkeypatch
+    ):
+        tree = MTDataTree()
+        tree.add_station(loaded_profile_mt_objects)
+
+        def _fail(_station_ds):
+            raise AssertionError(
+                "to_mt_stations should not reconstruct full MT objects"
+            )
+
+        monkeypatch.setattr(MTDataTree, "_dataset_to_mt", staticmethod(_fail))
+
+        stations = tree.to_mt_stations()
+
+        assert isinstance(stations, MTStations)
+        assert len(stations.station_locations) == len(loaded_profile_mt_objects)
+
     def test_mt_stations_property_returns_mtstations(self, loaded_profile_mt_objects):
         tree = MTDataTree()
         tree.add_station(loaded_profile_mt_objects)
@@ -303,6 +323,27 @@ class TestMTDataTreePeriods:
 
 
 class TestMTDataTreeSpatialFiltering:
+    def test_station_locations_returns_dataframe_without_mt_conversion(
+        self, loaded_profile_mt_objects, monkeypatch
+    ):
+        tree = MTDataTree()
+        tree.add_station(loaded_profile_mt_objects)
+
+        def _fail(_station_ds):
+            raise AssertionError(
+                "station_locations should not reconstruct full MT objects"
+            )
+
+        monkeypatch.setattr(MTDataTree, "_dataset_to_mt", staticmethod(_fail))
+
+        station_df = tree.station_locations
+
+        assert isinstance(station_df, pd.DataFrame)
+        assert len(station_df) == len(loaded_profile_mt_objects)
+        assert set(station_df.station) == {
+            mt.station for mt in loaded_profile_mt_objects
+        }
+
     def test_apply_bounding_box_returns_subset_tree(self):
         mt1 = MT()
         mt1.survey = "s1"
@@ -338,3 +379,81 @@ class TestMTDataTreeSpatialFiltering:
         assert len(subset.mt_stations.station_locations) == len(
             loaded_profile_mt_objects
         )
+
+    def test_apply_bounding_box_does_not_require_dataset_to_mt(
+        self, loaded_profile_mt_objects, monkeypatch
+    ):
+        tree = MTDataTree()
+        tree.add_station(loaded_profile_mt_objects)
+
+        def _fail(_station_ds):
+            raise AssertionError(
+                "apply_bounding_box should not reconstruct full MT objects"
+            )
+
+        monkeypatch.setattr(MTDataTree, "_dataset_to_mt", staticmethod(_fail))
+
+        lon_values = [mt.longitude for mt in loaded_profile_mt_objects]
+        lat_values = [mt.latitude for mt in loaded_profile_mt_objects]
+        subset = tree.apply_bounding_box(
+            min(lon_values), max(lon_values), min(lat_values), max(lat_values)
+        )
+
+        assert len(subset.station_locations) == len(loaded_profile_mt_objects)
+
+
+class TestMTDataTreeDataFrames:
+    def test_to_dataframe_returns_concatenated_station_data(
+        self, loaded_profile_mt_objects
+    ):
+        tree = MTDataTree()
+        tree.add_station(loaded_profile_mt_objects)
+
+        df = tree.to_dataframe()
+
+        assert isinstance(df, pd.DataFrame)
+        assert set(df.station.unique()) == {
+            mt.station for mt in loaded_profile_mt_objects
+        }
+        assert np.array_equal(np.sort(df.period.unique()), tree.get_periods())
+
+    def test_to_mt_dataframe_returns_mt_dataframe(self, loaded_profile_mt_objects):
+        tree = MTDataTree()
+        tree.add_station(loaded_profile_mt_objects)
+
+        mt_df = tree.to_mt_dataframe()
+
+        assert isinstance(mt_df, MTDataFrame)
+        assert set(mt_df.dataframe.station.unique()) == {
+            mt.station for mt in loaded_profile_mt_objects
+        }
+
+    def test_from_dataframe_populates_tree(self, loaded_profile_mt_objects):
+        source_tree = MTDataTree()
+        source_tree.add_station(loaded_profile_mt_objects)
+        df = source_tree.to_dataframe()
+
+        tree = MTDataTree()
+        tree.from_dataframe(df)
+
+        assert len(tree._iter_station_paths()) == len(loaded_profile_mt_objects)
+        assert np.array_equal(tree.get_periods(), source_tree.get_periods())
+
+    def test_from_mt_dataframe_populates_tree(self, loaded_profile_mt_objects):
+        source_tree = MTDataTree()
+        source_tree.add_station(loaded_profile_mt_objects)
+        mt_df = source_tree.to_mt_dataframe()
+
+        tree = MTDataTree()
+        tree.from_mt_dataframe(mt_df)
+
+        assert len(tree._iter_station_paths()) == len(loaded_profile_mt_objects)
+        assert np.array_equal(tree.get_periods(), source_tree.get_periods())
+
+    def test_to_dataframe_empty_tree_returns_empty_dataframe(self):
+        tree = MTDataTree()
+
+        df = tree.to_dataframe()
+
+        assert isinstance(df, pd.DataFrame)
+        assert df.empty

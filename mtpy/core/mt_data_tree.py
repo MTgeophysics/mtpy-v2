@@ -12,7 +12,10 @@ from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
 import numpy as np
+import pandas as pd
 import xarray as xr
+
+from .mt_dataframe import MTDataFrame
 
 
 if TYPE_CHECKING:
@@ -154,6 +157,82 @@ class MTDataTree:
         return station_paths
 
     @staticmethod
+    def _crs_to_epsg(value: Any) -> Any:
+        """Convert a CRS-like value to an EPSG code when possible."""
+        if value in [None, "", "None", "none", "null"]:
+            return None
+        if hasattr(value, "to_epsg"):
+            return value.to_epsg()
+        return value
+
+    @staticmethod
+    def _station_locations_columns() -> list[str]:
+        """Column order matching MTStations.station_locations."""
+        return [
+            "survey",
+            "station",
+            "latitude",
+            "longitude",
+            "elevation",
+            "datum_epsg",
+            "east",
+            "north",
+            "utm_epsg",
+            "model_east",
+            "model_north",
+            "model_elevation",
+            "profile_offset",
+        ]
+
+    def _station_location_record(self, station_path: str) -> dict[str, Any]:
+        """Build one station-location record directly from dataset attrs."""
+        attrs = self.get_station(station_path).attrs
+        return {
+            "survey": attrs.get("survey"),
+            "station": attrs.get("station"),
+            "latitude": attrs.get("latitude"),
+            "longitude": attrs.get("longitude"),
+            "elevation": attrs.get("elevation"),
+            "datum_epsg": self._crs_to_epsg(attrs.get("datum_crs")),
+            "east": attrs.get("easting"),
+            "north": attrs.get("northing"),
+            "utm_epsg": self._crs_to_epsg(attrs.get("utm_crs")),
+            "model_east": attrs.get("model_east", 0.0),
+            "model_north": attrs.get("model_north", 0.0),
+            "model_elevation": attrs.get("model_elevation", 0.0),
+            "profile_offset": attrs.get("profile_offset", 0.0),
+        }
+
+    def _station_path_to_location_mt(self, station_path: str) -> "MT":
+        """Build a lightweight MT object containing only location metadata."""
+        from .mt import MT
+
+        attrs = self.get_station(station_path).attrs
+        mt_obj = MT()
+        if attrs.get("survey") is not None:
+            mt_obj.survey = attrs["survey"]
+        if attrs.get("station") is not None:
+            mt_obj.station = attrs["station"]
+        if attrs.get("datum_crs") is not None:
+            mt_obj.datum_crs = attrs["datum_crs"]
+        if attrs.get("utm_crs") is not None:
+            mt_obj.utm_crs = attrs["utm_crs"]
+        for attr_name, attr_value in [
+            ("latitude", attrs.get("latitude")),
+            ("longitude", attrs.get("longitude")),
+            ("elevation", attrs.get("elevation")),
+            ("east", attrs.get("easting")),
+            ("north", attrs.get("northing")),
+            ("model_east", attrs.get("model_east", 0.0)),
+            ("model_north", attrs.get("model_north", 0.0)),
+            ("model_elevation", attrs.get("model_elevation", 0.0)),
+            ("profile_offset", attrs.get("profile_offset", 0.0)),
+        ]:
+            if attr_value is not None:
+                setattr(mt_obj, attr_name, attr_value)
+        return mt_obj
+
+    @staticmethod
     def _get_utm_crs(mt_obj: "MT") -> Any:
         """Get UTM CRS information from MT object when available."""
         crs = getattr(mt_obj, "utm_crs", None)
@@ -217,9 +296,23 @@ class MTDataTree:
         from .mt_stations import MTStations
 
         mt_list = [
-            self.get_station(path, as_mt=True) for path in self._iter_station_paths()
+            self._station_path_to_location_mt(path)
+            for path in self._iter_station_paths()
         ]
         return MTStations(None, mt_list=mt_list)
+
+    @property
+    def station_locations(self) -> pd.DataFrame:
+        """Station-location table built directly from tree dataset attrs."""
+        columns = self._station_locations_columns()
+        station_paths = self._iter_station_paths()
+        if not station_paths:
+            return pd.DataFrame(columns=columns)
+
+        return pd.DataFrame(
+            [self._station_location_record(path) for path in station_paths],
+            columns=columns,
+        )
 
     @property
     def mt_stations(self) -> "MTStations":
@@ -295,6 +388,10 @@ class MTDataTree:
                 "utm_crs": self._get_utm_crs(mt_obj),
                 "easting": getattr(mt_obj, "east", None),
                 "northing": getattr(mt_obj, "north", None),
+                "model_east": getattr(mt_obj, "model_east", 0.0),
+                "model_north": getattr(mt_obj, "model_north", 0.0),
+                "model_elevation": getattr(mt_obj, "model_elevation", 0.0),
+                "profile_offset": getattr(mt_obj, "profile_offset", 0.0),
                 "coordinate_reference_frame": getattr(
                     mt_obj, "coordinate_reference_frame", None
                 ),
@@ -337,14 +434,22 @@ class MTDataTree:
         """Return a new tree containing only the requested station paths."""
         subset = self.__class__(**dict(self.attrs))
         for station_key in station_list:
-            subset.add_station(self.get_station(station_key, as_mt=True))
+            station_ds = self.get_station(station_key).copy()
+            attrs = station_ds.attrs
+            target_path = self._station_path(
+                self._clean_name(attrs.get("survey"), "default"),
+                self._clean_name(attrs.get("station"), "unknown_station"),
+            )
+            subset.tree[target_path] = subset._xarray_tree_cls(
+                name=target_path.rsplit("/", 1)[-1], dataset=station_ds
+            )
         return subset
 
     def apply_bounding_box(
         self, lon_min: float, lon_max: float, lat_min: float, lat_max: float
     ) -> "MTDataTree":
         """Return a new tree containing stations within a geographic bounding box."""
-        station_df = self.mt_stations.station_locations
+        station_df = self.station_locations
         if station_df is None or station_df.empty:
             return self.__class__(**dict(self.attrs))
 
@@ -364,6 +469,57 @@ class MTDataTree:
         ]
 
         return self.get_subset(station_keys)
+
+    def to_dataframe(
+        self,
+        utm_crs: Any | None = None,
+        cols: list[str] | None = None,
+        impedance_units: str = "mt",
+    ) -> pd.DataFrame:
+        """Convert all stations in the tree to a pandas DataFrame."""
+        df_list = [
+            self.get_station(path, as_mt=True)
+            .to_dataframe(utm_crs=utm_crs, cols=cols, impedance_units=impedance_units)
+            .dataframe
+            for path in self._iter_station_paths()
+        ]
+
+        if not df_list:
+            return pd.DataFrame()
+
+        df = pd.concat(df_list)
+        df.reset_index(drop=True, inplace=True)
+        return df
+
+    def to_mt_dataframe(
+        self, utm_crs: Any | None = None, impedance_units: str = "mt"
+    ) -> MTDataFrame:
+        """Create an MTDataFrame containing all stations in the tree."""
+        return MTDataFrame(
+            self.to_dataframe(utm_crs=utm_crs, impedance_units=impedance_units)
+        )
+
+    def from_dataframe(self, df: pd.DataFrame, impedance_units: str = "mt") -> None:
+        """Populate the tree from a pandas DataFrame of MT station data."""
+        from .mt import MT
+
+        if df.empty:
+            return
+
+        group_cols = ["station"]
+        if "survey" in df.columns:
+            group_cols = ["survey", "station"]
+
+        for _, sdf in df.groupby(group_cols, sort=False):
+            mt_object = MT(period=sdf.period.unique())
+            mt_object.from_dataframe(sdf, impedance_units=impedance_units)
+            self.add_station(mt_object)
+
+    def from_mt_dataframe(
+        self, mt_df: MTDataFrame, impedance_units: str = "mt"
+    ) -> None:
+        """Populate the tree from an MTDataFrame."""
+        self.from_dataframe(mt_df.dataframe, impedance_units=impedance_units)
 
     def get_periods(self) -> np.ndarray:
         """Return sorted unique periods across all station datasets in the tree."""
