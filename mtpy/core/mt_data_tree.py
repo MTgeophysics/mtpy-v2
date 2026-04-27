@@ -38,8 +38,14 @@ class MTDataTree:
     ROOT_NAME = "root"
     SURVEYS_NODE = "surveys"
     STATIONS_NODE = "stations"
+    METADATA_STORAGE_MODES = {"dict", "summary", "cache"}
 
-    def __init__(self, tree: Any | None = None, **attrs: Any) -> None:
+    def __init__(
+        self,
+        tree: Any | None = None,
+        metadata_storage: str = "dict",
+        **attrs: Any,
+    ) -> None:
         if hasattr(xr, "DataTree"):
             self._xarray_tree_cls = xr.DataTree
         elif hasattr(xr, "Tree"):
@@ -49,6 +55,20 @@ class MTDataTree:
                 "xarray tree support is not available. Install a version of xarray "
                 "that provides DataTree or Tree."
             )
+
+        storage_mode = str(metadata_storage).strip().lower()
+        if storage_mode not in self.METADATA_STORAGE_MODES:
+            raise ValueError(
+                "metadata_storage must be one of "
+                f"{sorted(self.METADATA_STORAGE_MODES)}"
+            )
+        self.metadata_storage = storage_mode
+
+        # Optional in-memory metadata cache keyed by station tree path.
+        self._metadata_cache: dict[str, dict[str, Any]] = {
+            "survey": {},
+            "station": {},
+        }
 
         self.tree = (
             tree
@@ -105,6 +125,71 @@ class MTDataTree:
                 except TypeError:
                     continue
         return {}
+
+    @staticmethod
+    def _metadata_to_summary(metadata: Any) -> dict[str, Any]:
+        """Build a lightweight metadata summary for fast per-station attrs."""
+        if metadata is None:
+            return {}
+        md_id = getattr(metadata, "id", None)
+        if md_id in [None, "", "None", "none", "null"]:
+            return {}
+        return {"id": str(md_id)}
+
+    def _serialize_metadata(self, metadata: Any) -> dict[str, Any]:
+        """Serialize metadata according to configured storage mode."""
+        if self.metadata_storage == "dict":
+            return self._metadata_to_dict(metadata)
+        return self._metadata_to_summary(metadata)
+
+    def _cache_metadata(
+        self, station_path: str, metadata_kind: str, metadata: Any
+    ) -> str | None:
+        """Cache full metadata object in-memory and return reference key."""
+        if self.metadata_storage != "cache" or metadata is None:
+            return None
+        self._metadata_cache[metadata_kind][station_path] = metadata
+        return station_path
+
+    @property
+    def metadata_cache(self) -> dict[str, dict[str, Any]]:
+        """In-memory metadata map keyed by station path for cache mode."""
+        return self._metadata_cache
+
+    def get_metadata(
+        self, station_key: str, metadata_kind: str = "station"
+    ) -> Any | dict[str, Any] | None:
+        """Return cached metadata object when available, else dataset attrs copy."""
+        if metadata_kind not in self._metadata_cache:
+            raise KeyError("metadata_kind must be 'survey' or 'station'")
+
+        cached = self._metadata_cache[metadata_kind].get(station_key)
+        if cached is not None:
+            return cached
+
+        ds = self.get_station(station_key)
+        return dict(ds.attrs.get(f"{metadata_kind}_metadata", {}))
+
+    def _hydrate_metadata_from_cache(
+        self, mt_obj: "MT", station_ds: xr.Dataset
+    ) -> None:
+        """Populate MT metadata objects from in-memory cache when references exist."""
+        attrs = station_ds.attrs
+        for metadata_kind in ["survey", "station"]:
+            ref_key = attrs.get(f"{metadata_kind}_metadata_ref")
+            if not isinstance(ref_key, str):
+                continue
+            cached_md = self._metadata_cache[metadata_kind].get(ref_key)
+            if cached_md is None:
+                continue
+
+            target_md = getattr(mt_obj, f"{metadata_kind}_metadata", None)
+            if target_md is None or not hasattr(target_md, "from_dict"):
+                continue
+
+            cached_dict = self._metadata_to_dict(cached_md)
+            if cached_dict:
+                target_md.from_dict(cached_dict)
 
     @staticmethod
     def _clean_name(value: Any, fallback: str) -> str:
@@ -376,6 +461,17 @@ class MTDataTree:
         else:
             raise TypeError("Could not extract xarray.Dataset from MT object")
 
+        station_path = self._station_path(survey, station)
+
+        survey_metadata_obj = getattr(mt_obj, "survey_metadata", None)
+        station_metadata_obj = getattr(mt_obj, "station_metadata", None)
+        survey_metadata_ref = self._cache_metadata(
+            station_path, "survey", survey_metadata_obj
+        )
+        station_metadata_ref = self._cache_metadata(
+            station_path, "station", station_metadata_obj
+        )
+
         station_ds.attrs.update(
             {
                 "survey": survey,
@@ -396,16 +492,13 @@ class MTDataTree:
                     mt_obj, "coordinate_reference_frame", None
                 ),
                 "impedance_units": getattr(mt_obj, "impedance_units", None),
-                "survey_metadata": self._metadata_to_dict(
-                    getattr(mt_obj, "survey_metadata", None)
-                ),
-                "station_metadata": self._metadata_to_dict(
-                    getattr(mt_obj, "station_metadata", None)
-                ),
+                "survey_metadata": self._serialize_metadata(survey_metadata_obj),
+                "station_metadata": self._serialize_metadata(station_metadata_obj),
+                "survey_metadata_ref": survey_metadata_ref,
+                "station_metadata_ref": station_metadata_ref,
             }
         )
 
-        station_path = self._station_path(survey, station)
         if self._path_exists(station_path) and not overwrite:
             raise KeyError(f"Station path already exists: {station_path}")
 
@@ -418,7 +511,9 @@ class MTDataTree:
         """Return a station by tree path as dataset or reconstructed MT object."""
         station_ds = self.tree[station_key].ds
         if as_mt:
-            return self._dataset_to_mt(station_ds)
+            mt_obj = self._dataset_to_mt(station_ds)
+            self._hydrate_metadata_from_cache(mt_obj, station_ds)
+            return mt_obj
         return station_ds
 
     def remove_station(self, station_key: str) -> None:
@@ -432,7 +527,10 @@ class MTDataTree:
 
     def get_subset(self, station_list: list[str]) -> "MTDataTree":
         """Return a new tree containing only the requested station paths."""
-        subset = self.__class__(**dict(self.attrs))
+        subset = self.__class__(
+            metadata_storage=self.metadata_storage,
+            **dict(self.attrs),
+        )
         for station_key in station_list:
             station_ds = self.get_station(station_key).copy()
             attrs = station_ds.attrs
@@ -440,6 +538,15 @@ class MTDataTree:
                 self._clean_name(attrs.get("survey"), "default"),
                 self._clean_name(attrs.get("station"), "unknown_station"),
             )
+
+            if self.metadata_storage == "cache":
+                for metadata_kind in ["survey", "station"]:
+                    cached_md = self._metadata_cache[metadata_kind].get(station_key)
+                    if cached_md is None:
+                        continue
+                    subset._metadata_cache[metadata_kind][target_path] = cached_md
+                    station_ds.attrs[f"{metadata_kind}_metadata_ref"] = target_path
+
             subset.tree[target_path] = subset._xarray_tree_cls(
                 name=target_path.rsplit("/", 1)[-1], dataset=station_ds
             )

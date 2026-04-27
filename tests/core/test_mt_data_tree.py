@@ -202,6 +202,55 @@ class TestMTDataTreeAddStation:
         ds = tree.get_station(station_path)
         assert isinstance(ds, xr.Dataset)
 
+    def test_add_station_summary_metadata_storage(self):
+        mt = MT()
+        mt.survey = "summary_survey"
+        mt.station = "summary_station"
+        mt.survey_metadata.id = "summary_survey_id"
+        mt.station_metadata.id = "summary_station_id"
+
+        tree = MTDataTree(metadata_storage="summary")
+        station_path = tree.add_station(mt)
+        ds = tree.get_station(station_path)
+
+        assert ds.attrs["survey_metadata"] == {"id": "summary_survey_id"}
+        assert ds.attrs["station_metadata"] == {"id": "summary_station_id"}
+        assert ds.attrs["survey_metadata_ref"] is None
+        assert ds.attrs["station_metadata_ref"] is None
+
+    def test_add_station_cache_metadata_storage(self):
+        mt = MT()
+        mt.survey = "cache_survey"
+        mt.station = "cache_station"
+        mt.survey_metadata.id = "cache_survey_id"
+        mt.station_metadata.id = "cache_station_id"
+
+        tree = MTDataTree(metadata_storage="cache")
+        station_path = tree.add_station(mt)
+        ds = tree.get_station(station_path)
+
+        assert ds.attrs["survey_metadata"] == {"id": "cache_survey_id"}
+        assert ds.attrs["station_metadata"] == {"id": "cache_station_id"}
+        assert ds.attrs["survey_metadata_ref"] == station_path
+        assert ds.attrs["station_metadata_ref"] == station_path
+        assert tree.metadata_cache["survey"][station_path] is mt.survey_metadata
+        assert tree.metadata_cache["station"][station_path] is mt.station_metadata
+
+    def test_get_station_as_mt_hydrates_cache_metadata(self):
+        mt = MT()
+        mt.survey = "cache_hydrate_survey"
+        mt.station = "cache_hydrate_station"
+        mt.survey_metadata.id = "cache_hydrate_survey_id"
+        mt.station_metadata.id = "cache_hydrate_station_id"
+
+        tree = MTDataTree(metadata_storage="cache")
+        station_path = tree.add_station(mt)
+
+        out = tree.get_station(station_path, as_mt=True)
+
+        assert out.survey_metadata.id == "cache_hydrate_survey_id"
+        assert out.station_metadata.id == "cache_hydrate_station_id"
+
 
 class TestMTDataTreeNodeOperations:
     def test_get_station_default_returns_dataset(self, basic_mt):
