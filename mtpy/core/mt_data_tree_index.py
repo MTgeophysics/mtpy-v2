@@ -507,6 +507,42 @@ class MTDataTreeIndexStore:
         ).fetchall()
         return [r["tree_path"] for r in rows]
 
+    def all_station_records(self) -> list[StationRow]:
+        """
+        Return all station records in insertion order as a single SQL query.
+
+        This is more efficient than calling :meth:`station_record` per path
+        because it avoids N round-trips to the database.
+        """
+        rows = self._conn.execute(
+            """
+            SELECT st.*, sv.name AS survey_name
+            FROM stations st
+            JOIN surveys sv ON sv.id = st.survey_id
+            ORDER BY st.id
+            """
+        ).fetchall()
+        return [
+            StationRow(
+                id=r["id"],
+                tree_path=r["tree_path"],
+                survey_name=r["survey_name"],
+                name=r["name"],
+                latitude=r["latitude"],
+                longitude=r["longitude"],
+                elevation=r["elevation"],
+                datum_epsg=r["datum_epsg"],
+                east=r["east"],
+                north=r["north"],
+                utm_epsg=r["utm_epsg"],
+                model_east=r["model_east"],
+                model_north=r["model_north"],
+                model_elevation=r["model_elevation"],
+                profile_offset=r["profile_offset"],
+            )
+            for r in rows
+        ]
+
     def all_surveys(self) -> list[SurveyRow]:
         """Return all survey records."""
         rows = self._conn.execute("SELECT * FROM surveys ORDER BY name").fetchall()

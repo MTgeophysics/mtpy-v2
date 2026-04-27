@@ -442,6 +442,9 @@ class MTDataTree:
 
     def _iter_station_paths(self) -> list[str]:
         """Return all station node paths under /surveys."""
+        if self._index is not None:
+            return self._index.all_station_paths()
+
         station_paths: list[str] = []
 
         def _walk(node: Any, node_path: str = "") -> None:
@@ -740,6 +743,33 @@ class MTDataTree:
     def station_locations(self) -> pd.DataFrame:
         """Station-location table built directly from tree dataset attrs."""
         columns = self._station_locations_columns()
+
+        if self._index is not None:
+            records = self._index.all_station_records()
+            if not records:
+                return pd.DataFrame(columns=columns)
+            return pd.DataFrame(
+                [
+                    {
+                        "survey": r.survey_name,
+                        "station": r.name,
+                        "latitude": r.latitude,
+                        "longitude": r.longitude,
+                        "elevation": r.elevation,
+                        "datum_epsg": r.datum_epsg,
+                        "east": r.east,
+                        "north": r.north,
+                        "utm_epsg": r.utm_epsg,
+                        "model_east": r.model_east,
+                        "model_north": r.model_north,
+                        "model_elevation": r.model_elevation,
+                        "profile_offset": r.profile_offset,
+                    }
+                    for r in records
+                ],
+                columns=columns,
+            )
+
         station_paths = self._iter_station_paths()
         if not station_paths:
             return pd.DataFrame(columns=columns)
@@ -1030,9 +1060,17 @@ class MTDataTree:
         index_db_path : str
             SQLite database path.  Defaults to ``":memory:"`` (in-process).
         """
-        if self._index is None or self._index._db_path != index_db_path:
-            self._index = MTDataTreeIndexStore(index_db_path)
-        self._index.rebuild_from_tree(self)
+        # Temporarily clear self._index so _iter_station_paths() uses the tree
+        # walk, not the (new, empty) index that would otherwise be returned.
+        saved = self._index
+        self._index = None
+        try:
+            new_index = MTDataTreeIndexStore(index_db_path)
+            new_index.rebuild_from_tree(self)
+        except Exception:
+            self._index = saved
+            raise
+        self._index = new_index
 
     def query_station_paths(
         self,
