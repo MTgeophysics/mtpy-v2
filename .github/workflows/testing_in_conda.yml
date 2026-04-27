@@ -69,7 +69,7 @@ jobs:
         uv pip install git+https://github.com/simpeg/pydiso.git
         uv pip install git+https://github.com/kujaku11/mt_metadata@main
         uv pip install git+https://github.com/kujaku11/mth5.git@master
-        uv pip install git+https://github.com/simpeg/aurora@main
+        uv pip install git+https://github.com/simpeg/aurora@test_mth5_split
         uv pip install git+https://github.com/MTgeophysics/mtpy_data.git
         
     - name: Install Our Package
