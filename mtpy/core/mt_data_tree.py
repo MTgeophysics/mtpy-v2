@@ -582,6 +582,146 @@ class MTDataTree:
 
         return mt_obj
 
+    @staticmethod
+    def _pick_channel_labels(
+        available: list[Any], candidates: list[str], required: int
+    ) -> list[Any] | None:
+        """Pick channel labels from available coordinates using preferred names."""
+        channel_map = {str(label).lower(): label for label in available}
+        selected: list[Any] = []
+        for candidate in candidates:
+            key = candidate.lower()
+            if key in channel_map and channel_map[key] not in selected:
+                selected.append(channel_map[key])
+            if len(selected) == required:
+                return selected
+        return None
+
+    @staticmethod
+    def _coerce_epsg_value(value: Any) -> str | None:
+        """Normalize CRS/EPSG values to a dataframe-compatible EPSG string."""
+        if value is None:
+            return None
+
+        if isinstance(value, (int, np.integer)):
+            return str(int(value))
+
+        try:
+            from pyproj import CRS
+
+            epsg = CRS.from_user_input(value).to_epsg()
+            if epsg is not None:
+                return str(int(epsg))
+        except Exception:
+            pass
+
+        value_str = str(value).strip()
+        if not value_str:
+            return None
+        if value_str.isdigit():
+            return str(int(value_str))
+        return value_str
+
+    def _station_dataset_to_dataframe(
+        self,
+        station_ds: xr.Dataset,
+        utm_crs: Any | None = None,
+        cols: list[str] | None = None,
+        impedance_units: str = "mt",
+    ) -> pd.DataFrame:
+        """Convert one station dataset directly into dataframe rows."""
+        from .transfer_function import Tipper, Z
+
+        period = np.asarray(station_ds.coords["period"].values, dtype=float)
+        n_entries = period.size
+        station_df = MTDataFrame(n_entries=n_entries)
+
+        attrs = station_ds.attrs
+        station_df.survey = attrs.get("survey", "")
+        station_df.station = attrs.get("station", "")
+        station_df.latitude = attrs.get("latitude", 0.0)
+        station_df.longitude = attrs.get("longitude", 0.0)
+        station_df.elevation = attrs.get("elevation", 0.0)
+        station_df.datum_epsg = self._coerce_epsg_value(attrs.get("datum_crs"))
+        station_df.east = attrs.get("easting", 0.0)
+        station_df.north = attrs.get("northing", 0.0)
+        station_df.utm_epsg = self._coerce_epsg_value(
+            utm_crs if utm_crs is not None else attrs.get("utm_crs")
+        )
+        station_df.model_east = attrs.get("model_east", 0.0)
+        station_df.model_north = attrs.get("model_north", 0.0)
+        station_df.model_elevation = attrs.get("model_elevation", 0.0)
+        station_df.profile_offset = attrs.get("profile_offset", 0.0)
+
+        station_df.dataframe.loc[:, "period"] = period
+
+        if "output" in station_ds.coords and "input" in station_ds.coords:
+            output_labels = list(station_ds.coords["output"].values)
+            input_labels = list(station_ds.coords["input"].values)
+
+            z_outputs = self._pick_channel_labels(
+                output_labels, ["ex", "ey", "x", "y"], 2
+            )
+            z_inputs = self._pick_channel_labels(
+                input_labels, ["hx", "hy", "x", "y"], 2
+            )
+            if z_outputs is not None and z_inputs is not None:
+                tf = (
+                    station_ds["transfer_function"]
+                    .sel(output=z_outputs, input=z_inputs)
+                    .values
+                )
+                tf_error = (
+                    station_ds["transfer_function_error"]
+                    .sel(output=z_outputs, input=z_inputs)
+                    .values
+                )
+                tf_model_error = (
+                    station_ds["transfer_function_model_error"]
+                    .sel(output=z_outputs, input=z_inputs)
+                    .values
+                )
+                z_object = Z(
+                    z=tf,
+                    z_error=tf_error,
+                    frequency=1.0 / period,
+                    z_model_error=tf_model_error,
+                    units=impedance_units,
+                )
+                station_df.from_z_object(z_object)
+
+            t_output = self._pick_channel_labels(output_labels, ["hz", "z"], 1)
+            t_inputs = self._pick_channel_labels(
+                input_labels, ["hx", "hy", "x", "y"], 2
+            )
+            if t_output is not None and t_inputs is not None:
+                tipper = (
+                    station_ds["transfer_function"]
+                    .sel(output=t_output, input=t_inputs)
+                    .values
+                )
+                tipper_error = (
+                    station_ds["transfer_function_error"]
+                    .sel(output=t_output, input=t_inputs)
+                    .values
+                )
+                tipper_model_error = (
+                    station_ds["transfer_function_model_error"]
+                    .sel(output=t_output, input=t_inputs)
+                    .values
+                )
+                tipper_object = Tipper(
+                    tipper=tipper,
+                    tipper_error=tipper_error,
+                    frequency=1.0 / period,
+                    tipper_model_error=tipper_model_error,
+                )
+                station_df.from_t_object(tipper_object)
+
+        if cols is None:
+            return station_df.dataframe
+        return station_df.dataframe.loc[:, cols]
+
     def to_mt_stations(self) -> "MTStations":
         """Build an MTStations view from station datasets in the tree."""
         from .mt_stations import MTStations
@@ -849,19 +989,35 @@ class MTDataTree:
         impedance_units: str = "mt",
     ) -> pd.DataFrame:
         """Convert all stations in the tree to a pandas DataFrame."""
-        df_list = [
-            self.get_station(path, as_mt=True)
-            .to_dataframe(utm_crs=utm_crs, cols=cols, impedance_units=impedance_units)
-            .dataframe
-            for path in self._iter_station_paths()
-        ]
+        station_paths = self._iter_station_paths()
+        df_list = []
+        for path in station_paths:
+            station_ds = self.tree[path].ds
+            try:
+                df_list.append(
+                    self._station_dataset_to_dataframe(
+                        station_ds,
+                        utm_crs=utm_crs,
+                        cols=cols,
+                        impedance_units=impedance_units,
+                    )
+                )
+            except Exception:
+                # Fallback keeps behavior for unexpected/legacy dataset layouts.
+                df_list.append(
+                    self._dataset_to_mt(station_ds)
+                    .to_dataframe(
+                        utm_crs=utm_crs,
+                        cols=cols,
+                        impedance_units=impedance_units,
+                    )
+                    .dataframe
+                )
 
         if not df_list:
             return pd.DataFrame()
 
-        df = pd.concat(df_list)
-        df.reset_index(drop=True, inplace=True)
-        return df
+        return pd.concat(df_list, ignore_index=True)
 
     def to_mt_dataframe(
         self, utm_crs: Any | None = None, impedance_units: str = "mt"
@@ -882,10 +1038,14 @@ class MTDataTree:
         if "survey" in df.columns:
             group_cols = ["survey", "station"]
 
+        mt_objects = []
         for _, sdf in df.groupby(group_cols, sort=False):
             mt_object = MT(period=sdf.period.unique())
             mt_object.from_dataframe(sdf, impedance_units=impedance_units)
-            self.add_station(mt_object)
+            mt_objects.append(mt_object)
+
+        if mt_objects:
+            self.add_stations(mt_objects)
 
     def from_mt_dataframe(
         self, mt_df: MTDataFrame, impedance_units: str = "mt"

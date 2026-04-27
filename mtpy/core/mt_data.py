@@ -774,9 +774,10 @@ class MTData(OrderedDict, MTStations):
             for mt_obj in self.values()
         ]
 
-        df = pd.concat(df_list)
-        df.reset_index(drop=True, inplace=True)
-        return df
+        if not df_list:
+            return pd.DataFrame()
+
+        return pd.concat(df_list, ignore_index=True)
 
     def to_mt_dataframe(
         self, utm_crs: Any | None = None, impedance_units: str = "mt"
@@ -815,11 +816,21 @@ class MTData(OrderedDict, MTStations):
 
         """
 
-        for station in df.station.unique():
-            sdf = df.loc[df.station == station]
+        if df.empty:
+            return
+
+        group_cols = ["station"]
+        if "survey" in df.columns:
+            group_cols = ["survey", "station"]
+
+        mt_objects = []
+        for _, sdf in df.groupby(group_cols, sort=False):
             mt_object = MT(period=sdf.period.unique())
             mt_object.from_dataframe(sdf, impedance_units=impedance_units)
-            self.add_station(mt_object, compute_relative_location=False)
+            mt_objects.append(mt_object)
+
+        if mt_objects:
+            self.add_station(mt_objects, compute_relative_location=False)
 
     def from_mt_dataframe(
         self, mt_df: MTDataFrame, impedance_units: str = "mt"
