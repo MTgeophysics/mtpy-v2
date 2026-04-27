@@ -586,7 +586,7 @@ class MTDataTree:
         """Build an MTStations view from station datasets in the tree."""
         from .mt_stations import MTStations
 
-        return MTStations.from_station_locations(self.station_locations)
+        return MTStations(None, station_locations=self.station_locations)
 
     @property
     def station_locations(self) -> pd.DataFrame:

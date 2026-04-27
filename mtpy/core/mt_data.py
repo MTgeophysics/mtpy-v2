@@ -386,9 +386,8 @@ class MTData(OrderedDict, MTStations):
 
         self._impedance_units = value
 
-        if self.mt_list is not None:
-            for mt_obj in self.values():
-                mt_obj.impedance_units = self._impedance_units
+        for mt_obj in self.values():
+            mt_obj.impedance_units = self._impedance_units
 
     @property
     def mt_list(self) -> list[MT]:
@@ -741,8 +740,7 @@ class MTData(OrderedDict, MTStations):
 
         """
 
-        if self.mt_list is not None:
-            return len(self.mt_list)
+        return len(self.values())
 
     def to_dataframe(
         self,
