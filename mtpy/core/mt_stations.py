@@ -105,6 +105,7 @@ class MTStations:
         self.shift_north = 0
         self.rotation_angle = 0.0
         self.mt_list = None
+        self._station_locations = None
         self.utm_epsg = utm_epsg
         self.datum_epsg = datum_epsg
 
@@ -117,6 +118,69 @@ class MTStations:
                 self.compute_relative_locations()
                 self.station_locations
 
+    @classmethod
+    def from_station_locations(
+        cls,
+        station_locations: pd.DataFrame,
+        utm_epsg: int | str | None = None,
+        datum_epsg: int | str | None = None,
+    ) -> "MTStations":
+        """Build an MTStations view directly from a station-locations dataframe."""
+        stations = cls(utm_epsg, datum_epsg=datum_epsg)
+        stations._set_station_locations(station_locations)
+        return stations
+
+    def _set_station_locations(self, station_locations: pd.DataFrame) -> None:
+        """Store a normalized station-locations dataframe for dataframe-backed use."""
+        if station_locations is None:
+            self._station_locations = None
+            return
+        if not isinstance(station_locations, pd.DataFrame):
+            raise TypeError("station_locations must be a pandas.DataFrame")
+
+        station_df = station_locations.copy()
+        expected_columns = list(self.dtype.keys())
+        for column in expected_columns:
+            if column not in station_df.columns:
+                if column in ["survey", "station", "datum_epsg", "utm_epsg"]:
+                    station_df[column] = ""
+                else:
+                    station_df[column] = 0.0
+
+        station_df = station_df.loc[:, expected_columns]
+        station_df = station_df.reset_index(drop=True)
+
+        validated_datum = self._validate_epsg(station_df, key="datum")
+        if validated_datum is not None:
+            self.datum_epsg = validated_datum
+
+        validated_utm = self._validate_epsg(station_df, key="utm")
+        if validated_utm is not None:
+            self.utm_epsg = validated_utm
+
+        self._station_locations = self._to_geodataframe(station_df)
+
+    def _to_geodataframe(self, station_df: pd.DataFrame) -> gpd.GeoDataFrame:
+        """Convert a station table into a GeoDataFrame with a consistent CRS."""
+        if isinstance(station_df, gpd.GeoDataFrame):
+            gdf = station_df.copy()
+        else:
+            gdf = gpd.GeoDataFrame(
+                station_df.copy(),
+                geometry=gpd.points_from_xy(
+                    station_df.longitude,
+                    station_df.latitude,
+                ),
+                crs=self.datum_crs,
+            )
+
+        if gdf.crs is None and self.datum_crs is not None:
+            gdf = gdf.set_crs(self.datum_crs)
+        elif gdf.crs is not None and self.datum_crs is not None:
+            gdf = gdf.to_crs(self.datum_crs)
+
+        return gdf
+
     def __str__(self) -> str:
         """
         String representation of MTStations.
@@ -127,9 +191,9 @@ class MTStations:
             Formatted string with station locations and center point
 
         """
-        if self.mt_list is None:
+        if self.station_locations is None:
             return ""
-        elif len(self.mt_list) == 0:
+        elif len(self) == 0:
             return ""
 
         fmt_dict = dict(
@@ -154,7 +218,10 @@ class MTStations:
         for row in self.station_locations.itertuples():
             l = []
             for key in self.station_locations.columns:
-                l.append(f"{getattr(row, key):{fmt_dict[key]}}")
+                if key not in fmt_dict:
+                    l.append(f"{getattr(row, key)}")
+                else:
+                    l.append(f"{getattr(row, key):{fmt_dict[key]}}")
             lines.append("".join(l))
 
         lines.append("\nModel Center:")
@@ -230,10 +297,11 @@ class MTStations:
             Number of MT stations in the list
 
         """
-        if self.mt_list is None:
-            return 0
-        else:
+        if self.mt_list is not None:
             return len(self.mt_list)
+        if self._station_locations is not None:
+            return len(self._station_locations)
+        return 0
 
     def copy(self) -> "MTStations":
         """
@@ -253,9 +321,11 @@ class MTStations:
 
         if self.mt_list is not None:
             mt_list_copy = [m.copy() for m in self.mt_list]
+            copied = MTStations(None, mt_list=mt_list_copy)
+        elif self._station_locations is not None:
+            copied = MTStations.from_station_locations(self._station_locations)
         else:
-            mt_list_copy = None
-        copied = MTStations(None, mt_list=mt_list_copy)
+            copied = MTStations(None, mt_list=None)
         for key in [
             "utm_crs",
             "datum_crs",
@@ -470,6 +540,9 @@ class MTStations:
 
         """
 
+        if self._station_locations is not None:
+            return self._station_locations.copy()
+
         # make a structured array to put station location information into
         if self.mt_list is None:
             return
@@ -500,7 +573,7 @@ class MTStations:
         self.datum_epsg = self._validate_epsg(station_df, key="datum")
         self.utm_epsg = self._validate_epsg(station_df, key="utm")
 
-        return station_df
+        return self._to_geodataframe(station_df)
 
     def _validate_epsg(self, df: pd.DataFrame, key: str = "datum") -> int | None:
         """
@@ -764,16 +837,10 @@ class MTStations:
 
         """
 
-        gdf = gpd.GeoDataFrame(
-            self.station_locations,
-            geometry=gpd.points_from_xy(
-                self.station_locations.longitude,
-                self.station_locations.latitude,
-            ),
-            crs=self.center_point.datum_crs,
-        )
-
-        return gdf
+        station_df = self.station_locations
+        if station_df is None:
+            return gpd.GeoDataFrame()
+        return self._to_geodataframe(station_df)
 
     def to_shp(self, shp_fn: str | Path) -> str | Path:
         """
@@ -1093,7 +1160,7 @@ class MTStations:
         x2: float,
         y2: float,
         radius: float | None,
-    ) -> list[Any]:
+    ) -> gpd.GeoDataFrame:
         """
         Extract stations along a profile line that lie within the given radius.
 
@@ -1145,22 +1212,35 @@ class MTStations:
         slope = (y2 - y1) / (x2 - x1)
         intersection = y1 - slope * x1
 
-        profile_list = []
-        offsets = []
-        for mt_obj in self.mt_list:
-            d = distance(mt_obj.east, mt_obj.north)
+        station_df = self.station_locations
+        if station_df is None or station_df.empty:
+            return gpd.GeoDataFrame(columns=list(self.dtype.keys()) + ["geometry"])
 
-            if d <= radius:
-                mt_obj.project_onto_profile_line(slope, intersection)
-                profile_list.append(mt_obj)
-                offsets.append(mt_obj.profile_offset)
+        profile_df = station_df.copy()
+        profile_df["_distance"] = distance(
+            profile_df.east.to_numpy(dtype=float),
+            profile_df.north.to_numpy(dtype=float),
+        )
+        profile_df = profile_df.loc[profile_df["_distance"] <= radius].copy()
 
-        offsets = np.array(offsets)
-        indexes = np.argsort(offsets)
+        if profile_df.empty:
+            return self._to_geodataframe(profile_df.drop(columns=["_distance"]))
 
-        sorted_profile_list = []
-        for index in indexes:
-            profile_list[index].profile_offset -= offsets.min()
-            sorted_profile_list.append(profile_list[index])
+        profile_vector = np.array([1.0, slope], dtype=float)
+        profile_vector /= np.linalg.norm(profile_vector)
+        station_vectors = np.column_stack(
+            [
+                profile_df.east.to_numpy(dtype=float),
+                profile_df.north.to_numpy(dtype=float) - intersection,
+            ]
+        )
+        scalar_projection = station_vectors @ profile_vector
+        offsets = np.abs(scalar_projection)
 
-        return sorted_profile_list
+        offsets -= offsets.min()
+        profile_df["profile_offset"] = offsets
+        profile_df.sort_values("profile_offset", inplace=True)
+        profile_df.drop(columns=["_distance"], inplace=True)
+        profile_df.reset_index(drop=True, inplace=True)
+
+        return self._to_geodataframe(profile_df)

@@ -1028,7 +1028,11 @@ class MTData(OrderedDict, MTStations):
         profile_stations = self._extract_profile(x1, y1, x2, y2, radius)
 
         mt_data = self.clone_empty()
-        for mt_obj in profile_stations:
+        for row in profile_stations.itertuples(index=False):
+            key = f"{validate_name(getattr(row, 'survey'))}.{getattr(row, 'station')}"
+            mt_obj = self[key].copy()
+            if hasattr(row, "profile_offset"):
+                mt_obj.profile_offset = getattr(row, "profile_offset")
             mt_data.add_station(mt_obj, compute_relative_location=False)
 
         return mt_data

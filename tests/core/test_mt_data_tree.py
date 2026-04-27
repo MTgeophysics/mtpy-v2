@@ -399,7 +399,8 @@ class TestMTDataTreeNodeOperations:
         stations = tree.to_mt_stations()
 
         assert isinstance(stations, MTStations)
-        assert len(stations.mt_list) == len(loaded_profile_mt_objects)
+        assert len(stations) == len(loaded_profile_mt_objects)
+        assert stations.mt_list is None
         assert stations.station_locations is not None
         assert len(stations.station_locations) == len(loaded_profile_mt_objects)
 

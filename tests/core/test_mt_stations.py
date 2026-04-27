@@ -14,6 +14,8 @@ Created on December 22, 2025
 @author: jpeacock (original unittest)
 """
 
+import geopandas as gpd
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -376,7 +378,7 @@ class TestMTStationProfile:
         extracted = profile_stations._extract_profile(
             243900.352, 4675969.408898517, 247900.352, 4679969.408898517, 1000
         )
-        extracted_names = [mt.station for mt in extracted]
+        extracted_names = extracted.station.tolist()
         assert extracted_names == expected_profile_station_names
 
     def test_extract_profile_tolerance(self, profile_stations):
@@ -393,6 +395,14 @@ class TestMTStationProfile:
         )
         # Should still find some stations
         assert len(extracted_tight) >= 0
+
+    def test_extract_profile_returns_geodataframe(self, profile_stations):
+        """Profile extraction should return a GeoDataFrame with geometry."""
+        extracted = profile_stations._extract_profile(
+            243900.352, 4675969.408898517, 247900.352, 4679969.408898517, 1000
+        )
+        assert isinstance(extracted, gpd.GeoDataFrame)
+        assert "geometry" in extracted.columns
 
 
 # =============================================================================
@@ -454,6 +464,17 @@ class TestMTStationsAdditional:
         df = grid_stations.station_locations
         assert df.shape[0] == 25  # 25 stations
         assert df.shape[1] >= 13  # At least 13 columns
+
+    def test_from_station_locations_dataframe(self, grid_stations):
+        """Test dataframe-backed MTStations initialization without mt_list."""
+        station_df = grid_stations.station_locations
+
+        stations = MTStations.from_station_locations(station_df)
+
+        assert stations.mt_list is None
+        assert len(stations) == len(station_df)
+        pd.testing.assert_frame_equal(stations.station_locations, station_df)
+        assert isinstance(stations.center_point, MTLocation)
 
     @pytest.mark.parametrize(
         "attr",
