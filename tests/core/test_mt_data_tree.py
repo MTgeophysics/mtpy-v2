@@ -51,6 +51,7 @@ class TestMTDataTreeInitialization:
         assert MTDataTree.SURVEYS_NODE in tree.tree.children
         assert tree.tree.attrs["schema_name"] == "mtpy.mt_data_tree"
         assert tree.tree.attrs["schema_version"] == "0.1.0"
+        assert tree.metadata_storage == "cache"
 
     def test_init_applies_custom_attrs(self):
         tree = MTDataTree(coordinate_reference_frame="ned", impedance_units="mt")
@@ -251,6 +252,97 @@ class TestMTDataTreeAddStation:
         assert out.survey_metadata.id == "cache_hydrate_survey_id"
         assert out.station_metadata.id == "cache_hydrate_station_id"
 
+    def test_add_station_invalid_dataset_copy_mode_raises(self, basic_mt):
+        tree = MTDataTree()
+        with pytest.raises(ValueError, match="dataset_copy_mode must be one of"):
+            tree.add_station(basic_mt, dataset_copy_mode="bad_mode")
+
+    def test_add_stations_bulk_returns_paths(self):
+        mt_1 = MT()
+        mt_1.survey = "bulk_survey"
+        mt_1.station = "bulk_01"
+
+        mt_2 = MT()
+        mt_2.survey = "bulk_survey"
+        mt_2.station = "bulk_02"
+
+        tree = MTDataTree()
+        out_paths = tree.add_stations([mt_1, mt_2])
+
+        assert out_paths == [
+            "surveys/bulk_survey/stations/bulk_01",
+            "surveys/bulk_survey/stations/bulk_02",
+        ]
+
+    def test_add_stations_precomputed_attrs(self):
+        mt_1 = MT()
+        mt_1.survey = "bulk_attr"
+        mt_1.station = "bulk_attr_01"
+
+        mt_2 = MT()
+        mt_2.survey = "bulk_attr"
+        mt_2.station = "bulk_attr_02"
+
+        precomputed = [
+            {"latitude": 1.25, "longitude": -2.5},
+            {"latitude": 3.5, "longitude": -4.75},
+        ]
+
+        tree = MTDataTree()
+        out_paths = tree.add_stations([mt_1, mt_2], precomputed_attrs=precomputed)
+
+        ds_1 = tree.get_station(out_paths[0])
+        ds_2 = tree.get_station(out_paths[1])
+
+        assert ds_1.attrs["latitude"] == 1.25
+        assert ds_1.attrs["longitude"] == -2.5
+        assert ds_2.attrs["latitude"] == 3.5
+        assert ds_2.attrs["longitude"] == -4.75
+
+    def test_add_station_overwrite_false_does_not_mutate_cache(self):
+        mt_existing = MT()
+        mt_existing.survey = "cache_overwrite"
+        mt_existing.station = "same_station"
+
+        mt_new = MT()
+        mt_new.survey = "cache_overwrite"
+        mt_new.station = "same_station"
+
+        tree = MTDataTree(metadata_storage="cache")
+        station_path = tree.add_station(mt_existing)
+
+        with pytest.raises(KeyError, match="Station path already exists"):
+            tree.add_station(mt_new, overwrite=False)
+
+        assert (
+            tree.metadata_cache["survey"][station_path] is mt_existing.survey_metadata
+        )
+        assert (
+            tree.metadata_cache["station"][station_path] is mt_existing.station_metadata
+        )
+
+    def test_add_stations_failure_does_not_mutate_cache(self):
+        mt_existing = MT()
+        mt_existing.survey = "cache_bulk"
+        mt_existing.station = "same_station"
+
+        mt_new = MT()
+        mt_new.survey = "cache_bulk"
+        mt_new.station = "same_station"
+
+        tree = MTDataTree(metadata_storage="cache")
+        station_path = tree.add_station(mt_existing)
+
+        with pytest.raises(KeyError, match="Station path already exists"):
+            tree.add_stations([mt_new], overwrite=False)
+
+        assert (
+            tree.metadata_cache["survey"][station_path] is mt_existing.survey_metadata
+        )
+        assert (
+            tree.metadata_cache["station"][station_path] is mt_existing.station_metadata
+        )
+
 
 class TestMTDataTreeNodeOperations:
     def test_get_station_default_returns_dataset(self, basic_mt):
@@ -277,6 +369,21 @@ class TestMTDataTreeNodeOperations:
         assert tree._path_exists(station_path)
         tree.remove_station(station_path)
         assert not tree._path_exists(station_path)
+
+    def test_remove_station_clears_cached_metadata(self):
+        mt = MT()
+        mt.survey = "remove_cache"
+        mt.station = "remove_station"
+        mt.survey_metadata.id = "remove_survey_id"
+        mt.station_metadata.id = "remove_station_id"
+
+        tree = MTDataTree(metadata_storage="cache")
+        station_path = tree.add_station(mt)
+
+        tree.remove_station(station_path)
+
+        assert station_path not in tree.metadata_cache["survey"]
+        assert station_path not in tree.metadata_cache["station"]
 
     def test_keys_returns_top_level_children(self, basic_mt):
         tree = MTDataTree()

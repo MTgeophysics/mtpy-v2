@@ -81,6 +81,7 @@ markers = [
     "integration: marks tests requiring external resources or end-to-end workflows",
     "unit: marks fast unit tests",
     "plotting: marks tests that create matplotlib plots",
+    "perf: marks performance / profiling tests in tests/perf/",
 ]
 
 [tool.black]

@@ -39,11 +39,13 @@ class MTDataTree:
     SURVEYS_NODE = "surveys"
     STATIONS_NODE = "stations"
     METADATA_STORAGE_MODES = {"dict", "summary", "cache"}
+    DATASET_COPY_MODES = {"deep", "shallow", "none"}
 
     def __init__(
         self,
         tree: Any | None = None,
-        metadata_storage: str = "dict",
+        metadata_storage: str = "cache",
+        dataset_copy_mode: str = "shallow",
         **attrs: Any,
     ) -> None:
         if hasattr(xr, "DataTree"):
@@ -63,6 +65,13 @@ class MTDataTree:
                 f"{sorted(self.METADATA_STORAGE_MODES)}"
             )
         self.metadata_storage = storage_mode
+
+        copy_mode = str(dataset_copy_mode).strip().lower()
+        if copy_mode not in self.DATASET_COPY_MODES:
+            raise ValueError(
+                "dataset_copy_mode must be one of " f"{sorted(self.DATASET_COPY_MODES)}"
+            )
+        self.dataset_copy_mode = copy_mode
 
         # Optional in-memory metadata cache keyed by station tree path.
         self._metadata_cache: dict[str, dict[str, Any]] = {
@@ -141,6 +150,203 @@ class MTDataTree:
         if self.metadata_storage == "dict":
             return self._metadata_to_dict(metadata)
         return self._metadata_to_summary(metadata)
+
+    def _metadata_ref(self, station_path: str, metadata: Any) -> str | None:
+        """Return metadata reference key for cache mode without mutating cache."""
+        if self.metadata_storage != "cache" or metadata is None:
+            return None
+        return station_path
+
+    def _commit_cached_metadata(
+        self,
+        station_path: str,
+        survey_metadata: Any,
+        station_metadata: Any,
+    ) -> None:
+        """Persist metadata objects in the in-memory cache after successful insert."""
+        if self.metadata_storage != "cache":
+            return
+        if survey_metadata is not None:
+            self._metadata_cache["survey"][station_path] = survey_metadata
+        if station_metadata is not None:
+            self._metadata_cache["station"][station_path] = station_metadata
+
+    def _clear_cached_metadata(self, node_path: str) -> None:
+        """Remove cached metadata for one node path or an entire subtree prefix."""
+        for metadata_kind in ["survey", "station"]:
+            keys_to_remove = [
+                key
+                for key in self._metadata_cache[metadata_kind]
+                if key == node_path or key.startswith(f"{node_path}/")
+            ]
+            for key in keys_to_remove:
+                self._metadata_cache[metadata_kind].pop(key, None)
+
+    def _resolve_dataset_copy_mode(self, dataset_copy_mode: str | None) -> str:
+        """Resolve copy mode from call-level override or instance default."""
+        mode = (
+            self.dataset_copy_mode if dataset_copy_mode is None else dataset_copy_mode
+        )
+        mode = str(mode).strip().lower()
+        if mode not in self.DATASET_COPY_MODES:
+            raise ValueError(
+                "dataset_copy_mode must be one of " f"{sorted(self.DATASET_COPY_MODES)}"
+            )
+        return mode
+
+    @staticmethod
+    def _copy_station_dataset(station_ds: xr.Dataset, mode: str) -> xr.Dataset:
+        """Copy station dataset according to selected copy mode."""
+        if mode == "none":
+            return station_ds
+        if mode == "deep":
+            return station_ds.copy(deep=True)
+        return station_ds.copy(deep=False)
+
+    def _extract_station_dataset(
+        self, mt_obj: "MT", dataset_copy_mode: str | None = None
+    ) -> xr.Dataset:
+        """Extract an xarray.Dataset from MT object transfer function."""
+        tf_obj = getattr(mt_obj, "_transfer_function", None)
+        if tf_obj is None:
+            raise TypeError("MT object is missing _transfer_function")
+
+        if isinstance(tf_obj, xr.Dataset):
+            source_ds = tf_obj
+        elif hasattr(tf_obj, "to_xarray"):
+            source_ds = tf_obj.to_xarray()
+        elif hasattr(tf_obj, "_dataset") and isinstance(tf_obj._dataset, xr.Dataset):
+            source_ds = tf_obj._dataset
+        else:
+            raise TypeError("Could not extract xarray.Dataset from MT object")
+
+        copy_mode = self._resolve_dataset_copy_mode(dataset_copy_mode)
+        return self._copy_station_dataset(source_ds, copy_mode)
+
+    def _build_station_attrs(
+        self,
+        mt_obj: "MT",
+        survey: str,
+        station: str,
+        survey_metadata: Any,
+        station_metadata: Any,
+        survey_metadata_ref: str | None,
+        station_metadata_ref: str | None,
+    ) -> dict[str, Any]:
+        """Build default station attrs payload for one MT object."""
+        return {
+            "survey": survey,
+            "station": station,
+            "tf_id": getattr(mt_obj, "tf_id", station),
+            "latitude": getattr(mt_obj, "latitude", None),
+            "longitude": getattr(mt_obj, "longitude", None),
+            "elevation": getattr(mt_obj, "elevation", None),
+            "datum_crs": getattr(mt_obj, "datum_crs", None),
+            "utm_crs": self._get_utm_crs(mt_obj),
+            "easting": getattr(mt_obj, "east", None),
+            "northing": getattr(mt_obj, "north", None),
+            "model_east": getattr(mt_obj, "model_east", 0.0),
+            "model_north": getattr(mt_obj, "model_north", 0.0),
+            "model_elevation": getattr(mt_obj, "model_elevation", 0.0),
+            "profile_offset": getattr(mt_obj, "profile_offset", 0.0),
+            "coordinate_reference_frame": getattr(
+                mt_obj, "coordinate_reference_frame", None
+            ),
+            "impedance_units": getattr(mt_obj, "impedance_units", None),
+            "survey_metadata": self._serialize_metadata(survey_metadata),
+            "station_metadata": self._serialize_metadata(station_metadata),
+            "survey_metadata_ref": survey_metadata_ref,
+            "station_metadata_ref": station_metadata_ref,
+        }
+
+    def _build_station_attrs_from_precomputed(
+        self,
+        mt_obj: "MT",
+        survey: str,
+        station: str,
+        survey_metadata: Any,
+        station_metadata: Any,
+        survey_metadata_ref: str | None,
+        station_metadata_ref: str | None,
+        precomputed_attrs: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Build attrs from precomputed payload plus required canonical keys."""
+        station_attrs = dict(precomputed_attrs)
+        station_attrs["survey"] = survey
+        station_attrs["station"] = station
+        station_attrs.setdefault("tf_id", getattr(mt_obj, "tf_id", station))
+        station_attrs.setdefault(
+            "survey_metadata", self._serialize_metadata(survey_metadata)
+        )
+        station_attrs.setdefault(
+            "station_metadata", self._serialize_metadata(station_metadata)
+        )
+        station_attrs["survey_metadata_ref"] = survey_metadata_ref
+        station_attrs["station_metadata_ref"] = station_metadata_ref
+        return station_attrs
+
+    def _coerce_and_prepare_station(
+        self,
+        mt_obj: "MT | str | Path",
+        dataset_copy_mode: str | None = None,
+        precomputed_attrs: dict[str, Any] | None = None,
+    ) -> tuple[str, str, xr.Dataset, dict[str, Any]]:
+        """Coerce station input and build station path/dataset payload."""
+        mt_obj = self._coerce_mt_object(mt_obj)
+
+        survey = self._clean_name(
+            getattr(mt_obj, "survey", None)
+            or getattr(getattr(mt_obj, "survey_metadata", None), "id", None),
+            "default",
+        )
+        station = self._clean_name(
+            getattr(mt_obj, "station", None)
+            or getattr(getattr(mt_obj, "station_metadata", None), "id", None),
+            "unknown_station",
+        )
+
+        station_path = self._station_path(survey, station)
+        station_ds = self._extract_station_dataset(
+            mt_obj, dataset_copy_mode=dataset_copy_mode
+        )
+
+        survey_metadata_obj = getattr(mt_obj, "survey_metadata", None)
+        station_metadata_obj = getattr(mt_obj, "station_metadata", None)
+        survey_metadata_ref = self._metadata_ref(station_path, survey_metadata_obj)
+        station_metadata_ref = self._metadata_ref(station_path, station_metadata_obj)
+
+        if precomputed_attrs is None:
+            station_attrs = self._build_station_attrs(
+                mt_obj,
+                survey,
+                station,
+                survey_metadata_obj,
+                station_metadata_obj,
+                survey_metadata_ref,
+                station_metadata_ref,
+            )
+        else:
+            station_attrs = self._build_station_attrs_from_precomputed(
+                mt_obj,
+                survey,
+                station,
+                survey_metadata_obj,
+                station_metadata_obj,
+                survey_metadata_ref,
+                station_metadata_ref,
+                precomputed_attrs,
+            )
+
+        station_ds.attrs.update(station_attrs)
+        return (
+            station_path,
+            station,
+            station_ds,
+            {
+                "survey": survey_metadata_obj,
+                "station": station_metadata_obj,
+            },
+        )
 
     def _cache_metadata(
         self, station_path: str, metadata_kind: str, metadata: Any
@@ -408,6 +614,7 @@ class MTDataTree:
         self,
         mt_obj: "MT | str | Path | list[MT | str | Path]",
         overwrite: bool = True,
+        dataset_copy_mode: str | None = None,
     ) -> str | list[str]:
         """
         Add an MT object as a station node in the tree.
@@ -422,6 +629,8 @@ class MTDataTree:
             input types.
         overwrite : bool, optional
             If False, raise if station path already exists.
+        dataset_copy_mode : {'deep', 'shallow', 'none'}, optional
+            Dataset copy behavior for station transfer-function storage.
 
         Returns
         -------
@@ -433,70 +642,20 @@ class MTDataTree:
             raise TypeError("mt_obj cannot be None")
 
         if isinstance(mt_obj, list):
-            return [self.add_station(item, overwrite=overwrite) for item in mt_obj]
+            return self.add_stations(
+                mt_obj,
+                overwrite=overwrite,
+                dataset_copy_mode=dataset_copy_mode,
+            )
 
-        mt_obj = self._coerce_mt_object(mt_obj)
-
-        survey = self._clean_name(
-            getattr(mt_obj, "survey", None)
-            or getattr(getattr(mt_obj, "survey_metadata", None), "id", None),
-            "default",
-        )
-        station = self._clean_name(
-            getattr(mt_obj, "station", None)
-            or getattr(getattr(mt_obj, "station_metadata", None), "id", None),
-            "unknown_station",
-        )
-
-        tf_obj = getattr(mt_obj, "_transfer_function", None)
-        if tf_obj is None:
-            raise TypeError("MT object is missing _transfer_function")
-
-        if isinstance(tf_obj, xr.Dataset):
-            station_ds = tf_obj.copy()
-        elif hasattr(tf_obj, "to_xarray"):
-            station_ds = tf_obj.to_xarray().copy()
-        elif hasattr(tf_obj, "_dataset") and isinstance(tf_obj._dataset, xr.Dataset):
-            station_ds = tf_obj._dataset.copy()
-        else:
-            raise TypeError("Could not extract xarray.Dataset from MT object")
-
-        station_path = self._station_path(survey, station)
-
-        survey_metadata_obj = getattr(mt_obj, "survey_metadata", None)
-        station_metadata_obj = getattr(mt_obj, "station_metadata", None)
-        survey_metadata_ref = self._cache_metadata(
-            station_path, "survey", survey_metadata_obj
-        )
-        station_metadata_ref = self._cache_metadata(
-            station_path, "station", station_metadata_obj
-        )
-
-        station_ds.attrs.update(
-            {
-                "survey": survey,
-                "station": station,
-                "tf_id": getattr(mt_obj, "tf_id", station),
-                "latitude": getattr(mt_obj, "latitude", None),
-                "longitude": getattr(mt_obj, "longitude", None),
-                "elevation": getattr(mt_obj, "elevation", None),
-                "datum_crs": getattr(mt_obj, "datum_crs", None),
-                "utm_crs": self._get_utm_crs(mt_obj),
-                "easting": getattr(mt_obj, "east", None),
-                "northing": getattr(mt_obj, "north", None),
-                "model_east": getattr(mt_obj, "model_east", 0.0),
-                "model_north": getattr(mt_obj, "model_north", 0.0),
-                "model_elevation": getattr(mt_obj, "model_elevation", 0.0),
-                "profile_offset": getattr(mt_obj, "profile_offset", 0.0),
-                "coordinate_reference_frame": getattr(
-                    mt_obj, "coordinate_reference_frame", None
-                ),
-                "impedance_units": getattr(mt_obj, "impedance_units", None),
-                "survey_metadata": self._serialize_metadata(survey_metadata_obj),
-                "station_metadata": self._serialize_metadata(station_metadata_obj),
-                "survey_metadata_ref": survey_metadata_ref,
-                "station_metadata_ref": station_metadata_ref,
-            }
+        (
+            station_path,
+            station,
+            station_ds,
+            metadata_objects,
+        ) = self._coerce_and_prepare_station(
+            mt_obj,
+            dataset_copy_mode=dataset_copy_mode,
         )
 
         if self._path_exists(station_path) and not overwrite:
@@ -505,7 +664,116 @@ class MTDataTree:
         self.tree[station_path] = self._xarray_tree_cls(
             name=station, dataset=station_ds
         )
+        self._commit_cached_metadata(
+            station_path,
+            metadata_objects["survey"],
+            metadata_objects["station"],
+        )
         return station_path
+
+    def add_stations(
+        self,
+        mt_objects: list["MT | str | Path"],
+        overwrite: bool = True,
+        dataset_copy_mode: str | None = None,
+        precomputed_attrs: list[dict[str, Any] | None] | None = None,
+    ) -> list[str]:
+        """
+        Bulk-add MT stations with optional precomputed attrs for fast ingest.
+
+        Parameters
+        ----------
+        mt_objects : list
+            List of MT objects, filename strings, or Paths.
+        overwrite : bool, optional
+            If False, raise if a station path already exists.
+        dataset_copy_mode : {'deep', 'shallow', 'none'}, optional
+            Dataset copy behavior for station transfer-function storage.
+        precomputed_attrs : list[dict | None], optional
+            Optional attrs payload aligned by index with mt_objects. When
+            provided, these attrs are used directly and only canonical keys are
+            enforced (survey/station and metadata refs).
+
+        Returns
+        -------
+        list[str]
+            Inserted station paths.
+        """
+        if mt_objects is None:
+            raise TypeError("mt_objects cannot be None")
+        if not isinstance(mt_objects, list):
+            raise TypeError("mt_objects must be a list")
+        if not mt_objects:
+            return []
+
+        if precomputed_attrs is not None:
+            if not isinstance(precomputed_attrs, list):
+                raise TypeError("precomputed_attrs must be a list when provided")
+            if len(precomputed_attrs) != len(mt_objects):
+                raise ValueError("precomputed_attrs must match mt_objects length")
+
+        prepared: list[tuple[str, str, xr.Dataset, dict[str, Any]]] = []
+        seen_paths: set[str] = set()
+        for index, mt_obj in enumerate(mt_objects):
+            attrs = None
+            if precomputed_attrs is not None:
+                attrs = precomputed_attrs[index]
+                if attrs is not None and not isinstance(attrs, dict):
+                    raise TypeError("Each precomputed_attrs entry must be dict or None")
+
+            (
+                station_path,
+                station,
+                station_ds,
+                metadata_objects,
+            ) = self._coerce_and_prepare_station(
+                mt_obj,
+                dataset_copy_mode=dataset_copy_mode,
+                precomputed_attrs=attrs,
+            )
+            if station_path in seen_paths and not overwrite:
+                raise KeyError(f"Station path already exists: {station_path}")
+            seen_paths.add(station_path)
+            if self._path_exists(station_path) and not overwrite:
+                raise KeyError(f"Station path already exists: {station_path}")
+            prepared.append((station_path, station, station_ds, metadata_objects))
+
+        parent_cache: dict[str, Any] = {}
+        inserted_paths: list[str] = []
+        for station_path, station, station_ds, metadata_objects in prepared:
+            parent_path, child_name = station_path.rsplit("/", 1)
+            parent_node = parent_cache.get(parent_path)
+            if parent_node is None:
+                try:
+                    parent_node = self.tree[parent_path]
+                except KeyError:
+                    _, survey_name, _ = parent_path.split("/", 2)
+                    survey_path = f"{self.SURVEYS_NODE}/{survey_name}"
+                    if not self._path_exists(survey_path):
+                        self.tree[survey_path] = self._xarray_tree_cls(
+                            name=survey_name,
+                            dataset=xr.Dataset(),
+                        )
+                    if not self._path_exists(parent_path):
+                        self.tree[parent_path] = self._xarray_tree_cls(
+                            name=self.STATIONS_NODE,
+                            dataset=xr.Dataset(),
+                        )
+                    parent_node = self.tree[parent_path]
+                parent_cache[parent_path] = parent_node
+
+            parent_node[child_name] = self._xarray_tree_cls(
+                name=station,
+                dataset=station_ds,
+            )
+            self._commit_cached_metadata(
+                station_path,
+                metadata_objects["survey"],
+                metadata_objects["station"],
+            )
+            inserted_paths.append(station_path)
+
+        return inserted_paths
 
     def get_station(self, station_key: str, as_mt: bool = False) -> xr.Dataset | "MT":
         """Return a station by tree path as dataset or reconstructed MT object."""
@@ -518,6 +786,7 @@ class MTDataTree:
 
     def remove_station(self, station_key: str) -> None:
         """Remove a station node from the tree."""
+        self._clear_cached_metadata(station_key)
         if "/" not in station_key:
             del self.tree[station_key]
             return
