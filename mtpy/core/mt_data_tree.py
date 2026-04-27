@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+from .mt_data_tree_index import MTDataTreeIndexStore
 from .mt_dataframe import MTDataFrame
 
 
@@ -46,6 +47,8 @@ class MTDataTree:
         tree: Any | None = None,
         metadata_storage: str = "cache",
         dataset_copy_mode: str = "shallow",
+        use_index: bool = False,
+        index_db_path: str = ":memory:",
         **attrs: Any,
     ) -> None:
         if hasattr(xr, "DataTree"):
@@ -78,6 +81,11 @@ class MTDataTree:
             "survey": {},
             "station": {},
         }
+
+        # Optional SQLite-backed index for fast geographic / period queries.
+        self._index: MTDataTreeIndexStore | None = (
+            MTDataTreeIndexStore(index_db_path) if use_index else None
+        )
 
         self.tree = (
             tree
@@ -805,6 +813,14 @@ class MTDataTree:
             metadata_objects["survey"],
             metadata_objects["station"],
         )
+        if self._index is not None:
+            station_row, period_row = MTDataTreeIndexStore._extract_rows(
+                station_path, station_ds
+            )
+            self._index.upsert_station(station_row)
+            if period_row is not None:
+                self._index.replace_station_period_rows(period_row)
+            self._index.refresh_survey_aggregates(station_row.survey_name)
         return station_path
 
     def add_stations(
@@ -909,6 +925,19 @@ class MTDataTree:
             )
             inserted_paths.append(station_path)
 
+        if self._index is not None:
+            updated_surveys: set[str] = set()
+            for station_path, _station, station_ds, _meta in prepared:
+                station_row, period_row = MTDataTreeIndexStore._extract_rows(
+                    station_path, station_ds
+                )
+                self._index.upsert_station(station_row)
+                if period_row is not None:
+                    self._index.replace_station_period_rows(period_row)
+                updated_surveys.add(station_row.survey_name)
+            for sv in updated_surveys:
+                self._index.refresh_survey_aggregates(sv)
+
         return inserted_paths
 
     def get_station(self, station_key: str, as_mt: bool = False) -> xr.Dataset | "MT":
@@ -923,6 +952,8 @@ class MTDataTree:
     def remove_station(self, station_key: str) -> None:
         """Remove a station node from the tree."""
         self._clear_cached_metadata(station_key)
+        if self._index is not None:
+            self._index.delete_station_by_tree_path(station_key)
         if "/" not in station_key:
             del self.tree[station_key]
             return
@@ -961,6 +992,12 @@ class MTDataTree:
         self, lon_min: float, lon_max: float, lat_min: float, lat_max: float
     ) -> "MTDataTree":
         """Return a new tree containing stations within a geographic bounding box."""
+        if self._index is not None:
+            station_keys = self._index.query_station_paths(
+                lon_min=lon_min, lon_max=lon_max, lat_min=lat_min, lat_max=lat_max
+            )
+            return self.get_subset(station_keys)
+
         station_df = self.station_locations
         if station_df is None or station_df.empty:
             return self.__class__(**dict(self.attrs))
@@ -981,6 +1018,61 @@ class MTDataTree:
         ]
 
         return self.get_subset(station_keys)
+
+    def rebuild_index(self, index_db_path: str = ":memory:") -> None:
+        """
+        Build or replace the station index from the current tree contents.
+
+        Enables the index if it was not already active.
+
+        Parameters
+        ----------
+        index_db_path : str
+            SQLite database path.  Defaults to ``":memory:"`` (in-process).
+        """
+        if self._index is None or self._index._db_path != index_db_path:
+            self._index = MTDataTreeIndexStore(index_db_path)
+        self._index.rebuild_from_tree(self)
+
+    def query_station_paths(
+        self,
+        survey: str | None = None,
+        lat_min: float | None = None,
+        lat_max: float | None = None,
+        lon_min: float | None = None,
+        lon_max: float | None = None,
+        period_min: float | None = None,
+        period_max: float | None = None,
+    ) -> list[str]:
+        """
+        Return station tree paths matching filter criteria via the index.
+
+        Requires the index to be enabled (``use_index=True`` or after calling
+        :meth:`rebuild_index`).
+
+        Parameters
+        ----------
+        survey, lat_min, lat_max, lon_min, lon_max, period_min, period_max
+            See :meth:`MTDataTreeIndexStore.query_station_paths`.
+
+        Returns
+        -------
+        list[str]
+        """
+        if self._index is None:
+            raise RuntimeError(
+                "Index not enabled. Pass use_index=True to the constructor "
+                "or call rebuild_index() first."
+            )
+        return self._index.query_station_paths(
+            survey=survey,
+            lat_min=lat_min,
+            lat_max=lat_max,
+            lon_min=lon_min,
+            lon_max=lon_max,
+            period_min=period_min,
+            period_max=period_max,
+        )
 
     def to_dataframe(
         self,
