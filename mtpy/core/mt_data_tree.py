@@ -8,6 +8,7 @@ Xarray tree representation for better scalability.
 
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
 from typing import Any, Callable, TYPE_CHECKING
 
@@ -373,7 +374,16 @@ class MTDataTree:
             return station_row.survey_name
         return None
 
-    def compute(self, station_paths: list[str] | None = None) -> "MTDataTree":
+    @staticmethod
+    def _is_dask_delayed(obj: Any) -> bool:
+        """Return True when *obj* is a dask delayed object."""
+        return obj.__class__.__name__ == "Delayed" and hasattr(obj, "dask")
+
+    def compute(
+        self,
+        station_paths: list[str] | None = None,
+        scheduler: str | None = None,
+    ) -> "MTDataTree":
         """Materialize deferred station transforms and update index state."""
         if not self._lazy_station_transforms:
             return self
@@ -388,11 +398,56 @@ class MTDataTree:
             requested = set(station_paths)
             paths_to_realize = [path for path in pending_paths if path in requested]
 
+        realized_datasets: dict[str, xr.Dataset] = {}
+        delayed_paths: list[str] = []
+        delayed_objs: list[Any] = []
+
+        for station_path in paths_to_realize:
+            transform = self._lazy_station_transforms.pop(station_path, None)
+            if transform is None:
+                continue
+            out = transform()
+            if self._is_dask_delayed(out):
+                delayed_paths.append(station_path)
+                delayed_objs.append(out)
+            else:
+                realized_datasets[station_path] = out
+
+        if delayed_objs:
+            try:
+                dask = importlib.import_module("dask")
+            except ImportError as exc:
+                raise RuntimeError(
+                    "Dask delayed transforms are pending but dask is not installed."
+                ) from exc
+            computed = dask.compute(*delayed_objs, scheduler=scheduler)
+            for station_path, station_ds in zip(delayed_paths, computed):
+                realized_datasets[station_path] = station_ds
+
         updated_surveys: set[str] = set()
         for station_path in paths_to_realize:
-            survey_name = self._realize_station(station_path)
-            if survey_name is not None:
-                updated_surveys.add(survey_name)
+            station_ds = realized_datasets.get(station_path)
+            if station_ds is None:
+                continue
+            if not isinstance(station_ds, xr.Dataset):
+                raise TypeError(
+                    "Deferred transform must return xr.Dataset, "
+                    f"got {type(station_ds)!r}"
+                )
+
+            self._set_station_dataset(station_path, station_ds)
+
+            if self._index is not None:
+                station_row, period_row = MTDataTreeIndexStore._extract_rows(
+                    station_path,
+                    station_ds,
+                )
+                if period_row is None:
+                    self._index.delete_station_by_tree_path(station_path)
+                self._index.upsert_station(station_row)
+                if period_row is not None:
+                    self._index.replace_station_period_rows(period_row)
+                updated_surveys.add(station_row.survey_name)
 
         if self._index is not None:
             for survey_name in updated_surveys:
@@ -400,9 +455,177 @@ class MTDataTree:
 
         return self
 
-    def persist(self, station_paths: list[str] | None = None) -> "MTDataTree":
+    def persist(
+        self,
+        station_paths: list[str] | None = None,
+        scheduler: str | None = None,
+    ) -> "MTDataTree":
         """Alias of compute for deferred station transforms."""
-        return self.compute(station_paths=station_paths)
+        return self.compute(station_paths=station_paths, scheduler=scheduler)
+
+    def as_dask(
+        self,
+        chunks: dict[str, int] | str | None,
+        station_paths: list[str] | None = None,
+        variables: list[str] | None = None,
+        inplace: bool = False,
+    ) -> "MTDataTree":
+        """Convert station datasets to dask-backed arrays using chunking."""
+        try:
+            importlib.import_module("dask.array")
+        except ImportError as exc:
+            raise RuntimeError("Dask is required for as_dask()") from exc
+
+        tree_obj = self if inplace else self.get_subset(self._iter_station_paths())
+        target_paths = tree_obj._iter_station_paths()
+        if station_paths is not None:
+            requested = set(station_paths)
+            target_paths = [path for path in target_paths if path in requested]
+
+        for station_path in target_paths:
+            station_ds = tree_obj.get_station(station_path)
+            if variables is not None:
+                missing = [
+                    name for name in variables if name not in station_ds.data_vars
+                ]
+                if missing:
+                    raise KeyError(f"Variables not found for chunking: {missing}")
+                chunked_ds = station_ds.copy(deep=False)
+                for var_name in variables:
+                    chunked_ds[var_name] = station_ds[var_name].chunk(chunks)
+            else:
+                chunked_ds = station_ds.chunk(chunks)
+            tree_obj._set_station_dataset(station_path, chunked_ds)
+        return tree_obj
+
+    def rechunk(
+        self,
+        chunks: dict[str, int] | str | None,
+        station_paths: list[str] | None = None,
+        variables: list[str] | None = None,
+        inplace: bool = True,
+    ) -> "MTDataTree":
+        """Rechunk dask-backed station arrays."""
+        return self.as_dask(
+            chunks=chunks,
+            station_paths=station_paths,
+            variables=variables,
+            inplace=inplace,
+        )
+
+    def is_dask_backed(self, station_paths: list[str] | None = None) -> bool:
+        """Return True when selected stations have dask-backed data variables."""
+        self.compute(station_paths=station_paths)
+        target_paths = self._iter_station_paths()
+        if station_paths is not None:
+            requested = set(station_paths)
+            target_paths = [path for path in target_paths if path in requested]
+        if not target_paths:
+            return False
+
+        for station_path in target_paths:
+            station_ds = self.get_station(station_path)
+            for da in station_ds.data_vars.values():
+                if getattr(da.data, "chunks", None) is None:
+                    return False
+        return True
+
+    def chunk_plan(
+        self,
+        station_paths: list[str] | None = None,
+    ) -> dict[str, dict[str, tuple[tuple[int, ...], ...] | None]]:
+        """Return chunk layout per station/data variable."""
+        self.compute(station_paths=station_paths)
+        target_paths = self._iter_station_paths()
+        if station_paths is not None:
+            requested = set(station_paths)
+            target_paths = [path for path in target_paths if path in requested]
+
+        plan: dict[str, dict[str, tuple[tuple[int, ...], ...] | None]] = {}
+        for station_path in target_paths:
+            station_ds = self.get_station(station_path)
+            plan[station_path] = {
+                var_name: da.chunks for var_name, da in station_ds.data_vars.items()
+            }
+        return plan
+
+    def map_stations(
+        self,
+        transform: Callable[[xr.Dataset], xr.Dataset],
+        station_paths: list[str] | None = None,
+        lazy: bool = True,
+        inplace: bool = False,
+    ) -> "MTDataTree":
+        """Apply a dataset transform across selected stations."""
+        tree_obj = self if inplace else self.get_subset(self._iter_station_paths())
+        tree_obj.compute()
+
+        target_paths = tree_obj._iter_station_paths()
+        if station_paths is not None:
+            requested = set(station_paths)
+            target_paths = [path for path in target_paths if path in requested]
+
+        for station_path in target_paths:
+            station_ds = tree_obj.get_station(station_path).copy(deep=False)
+            if lazy:
+                tree_obj._lazy_station_transforms[
+                    station_path
+                ] = lambda ds=station_ds, op=transform: op(ds)
+            else:
+                out_ds = transform(station_ds)
+                if not isinstance(out_ds, xr.Dataset):
+                    raise TypeError(
+                        "map_stations transform must return xr.Dataset, "
+                        f"got {type(out_ds)!r}"
+                    )
+                tree_obj._set_station_dataset(station_path, out_ds)
+        return tree_obj
+
+    def interpolate_dask(
+        self,
+        new_periods: np.ndarray,
+        f_type: str = "period",
+        bounds_error: bool = True,
+        chunks: dict[str, int] | str | None = None,
+        scheduler: str | None = None,
+        compute: bool = True,
+        inplace: bool = False,
+        **kwargs: Any,
+    ) -> "MTDataTree":
+        """Run interpolation using dask-delayed station tasks."""
+        try:
+            dask = importlib.import_module("dask")
+            delayed = getattr(dask, "delayed")
+        except ImportError as exc:
+            raise RuntimeError("Dask is required for interpolate_dask()") from exc
+
+        base_tree = self if inplace else self.get_subset(self._iter_station_paths())
+        if chunks is not None:
+            base_tree.as_dask(chunks=chunks, inplace=True)
+
+        lazy_tree = base_tree.interpolate_lazy(
+            new_periods,
+            f_type=f_type,
+            inplace=True,
+            bounds_error=bounds_error,
+            **kwargs,
+        )
+
+        for station_path, transform in list(lazy_tree._lazy_station_transforms.items()):
+            lazy_tree._lazy_station_transforms[
+                station_path
+            ] = lambda fn=transform: delayed(fn)()
+
+        if compute:
+            lazy_tree.compute(scheduler=scheduler)
+        elif scheduler is not None:
+            dask.config.set(scheduler=scheduler)
+        return lazy_tree
+
+    def finalize_index(self) -> None:
+        """Ensure index reflects the current tree contents."""
+        self.compute()
+        self.rebuild_index(index_db_path=self._index_db_path)
 
     def get_metadata(
         self, station_key: str, metadata_kind: str = "station"

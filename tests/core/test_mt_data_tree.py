@@ -621,6 +621,78 @@ class TestMTDataTreeInterpolation:
                 equal_nan=True,
             )
 
+    def test_interpolate_dask_matches_eager(self, loaded_profile_mt):
+        pytest.importorskip("dask")
+
+        tree = MTDataTree()
+        station_path = tree.add_station(loaded_profile_mt)
+        target_periods = tree.get_station(station_path).period.values[[6, 11, 19]]
+
+        eager_tree = tree.interpolate(target_periods, inplace=False)
+        dask_tree = tree.interpolate_dask(
+            target_periods,
+            chunks={"period": 16},
+            compute=True,
+            inplace=False,
+        )
+
+        eager_ds = eager_tree.get_station(station_path)
+        dask_ds = dask_tree.get_station(station_path)
+        assert np.array_equal(dask_ds.period.values, eager_ds.period.values)
+        for var_name in [
+            "transfer_function",
+            "transfer_function_error",
+            "transfer_function_model_error",
+        ]:
+            assert np.allclose(
+                dask_ds[var_name].values,
+                eager_ds[var_name].values,
+                equal_nan=True,
+            )
+
+
+class TestMTDataTreeDaskMethods:
+    def test_as_dask_and_chunk_plan(self, loaded_profile_mt):
+        pytest.importorskip("dask")
+
+        tree = MTDataTree()
+        station_path = tree.add_station(loaded_profile_mt)
+
+        dask_tree = tree.as_dask(chunks={"period": 16}, inplace=False)
+
+        assert dask_tree.is_dask_backed([station_path])
+        plan = dask_tree.chunk_plan([station_path])
+        assert plan[station_path]["transfer_function"] is not None
+
+    def test_rechunk_updates_chunk_layout(self, loaded_profile_mt):
+        pytest.importorskip("dask")
+
+        tree = MTDataTree()
+        station_path = tree.add_station(loaded_profile_mt)
+        tree = tree.as_dask(chunks={"period": 20}, inplace=False)
+
+        tree.rechunk(chunks={"period": 10}, inplace=True)
+
+        plan = tree.chunk_plan([station_path])
+        tf_chunks = plan[station_path]["transfer_function"]
+        assert tf_chunks is not None
+        assert max(tf_chunks[0]) <= 10
+
+    def test_map_stations_lazy_then_compute(self, loaded_profile_mt):
+        tree = MTDataTree()
+        station_path = tree.add_station(loaded_profile_mt)
+
+        lazy_tree = tree.map_stations(
+            lambda ds: ds.isel(period=slice(0, 5)),
+            lazy=True,
+            inplace=False,
+        )
+
+        assert lazy_tree.is_lazy
+        lazy_tree.compute()
+        assert not lazy_tree.is_lazy
+        assert lazy_tree.get_station(station_path).sizes["period"] == 5
+
 
 class TestMTDataTreeSpatialFiltering:
     def test_station_locations_returns_dataframe_without_mt_conversion(
