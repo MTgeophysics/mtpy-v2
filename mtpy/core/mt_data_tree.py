@@ -622,6 +622,53 @@ class MTDataTree:
             dask.config.set(scheduler=scheduler)
         return lazy_tree
 
+    def rotate_dask(
+        self,
+        rotation_angle: float | np.ndarray,
+        chunks: dict[str, int] | str | None = None,
+        scheduler: str | None = None,
+        compute: bool = True,
+        inplace: bool = False,
+    ) -> "MTDataTree":
+        """Run rotation using dask-delayed station tasks."""
+        try:
+            dask = importlib.import_module("dask")
+            delayed = getattr(dask, "delayed")
+        except ImportError as exc:
+            raise RuntimeError("Dask is required for rotate_dask()") from exc
+
+        base_tree = self if inplace else self.get_subset(self._iter_station_paths())
+        if chunks is not None:
+            base_tree.as_dask(chunks=chunks, inplace=True)
+
+        def _rotate_transform(ds: xr.Dataset) -> xr.Dataset:
+            crf = ds.attrs.get(
+                "coordinate_reference_frame",
+                self.attrs.get("coordinate_reference_frame", "ned"),
+            )
+            return MTDataTree._rotate_station_dataset(
+                ds,
+                rotation_angle,
+                coordinate_reference_frame=crf,
+            )
+
+        lazy_tree = base_tree.map_stations(
+            _rotate_transform,
+            lazy=True,
+            inplace=True,
+        )
+
+        for station_path, transform in list(lazy_tree._lazy_station_transforms.items()):
+            lazy_tree._lazy_station_transforms[
+                station_path
+            ] = lambda fn=transform: delayed(fn)()
+
+        if compute:
+            lazy_tree.compute(scheduler=scheduler)
+        elif scheduler is not None:
+            dask.config.set(scheduler=scheduler)
+        return lazy_tree
+
     def finalize_index(self) -> None:
         """Ensure index reflects the current tree contents."""
         self.compute()
@@ -1338,6 +1385,244 @@ class MTDataTree:
 
         interpolated_ds.attrs.update(attrs)
         return interpolated_ds
+
+    @staticmethod
+    def _rotate_station_dataset(
+        station_ds: xr.Dataset,
+        rotation_angle: float | np.ndarray,
+        coordinate_reference_frame: str = "ned",
+    ) -> xr.Dataset:
+        """Rotate impedance/tipper channel blocks with MT.rotate semantics."""
+        from mtpy.utils.calculator import (
+            rotate_matrix_with_errors,
+            rotate_vector_with_errors,
+        )
+
+        attrs = dict(station_ds.attrs)
+        rotated_ds = station_ds.copy(deep=True).load()
+
+        if (
+            "transfer_function" not in rotated_ds
+            or "period" not in rotated_ds.coords
+            or "output" not in rotated_ds.coords
+            or "input" not in rotated_ds.coords
+        ):
+            rotated_ds.attrs.update(attrs)
+            return rotated_ds
+
+        n_periods = int(rotated_ds.sizes.get("period", 0))
+        if n_periods == 0:
+            rotated_ds.attrs.update(attrs)
+            return rotated_ds
+
+        if isinstance(rotation_angle, (float, int, str, np.floating, np.integer)):
+            degree_angle = np.repeat(float(rotation_angle) % 360.0, n_periods)
+        elif isinstance(rotation_angle, (list, tuple, np.ndarray)):
+            angles = np.asarray(rotation_angle, dtype=float) % 360.0
+            if angles.size == 1:
+                degree_angle = np.repeat(float(angles[0]), n_periods)
+            elif angles.size == n_periods:
+                degree_angle = angles
+            else:
+                raise ValueError(
+                    "angles must be the same size as periods "
+                    f"{n_periods} not {angles.size}"
+                )
+        else:
+            raise ValueError(
+                f"Angle must be a valid number (in degrees) not {rotation_angle}"
+            )
+
+        crf = str(coordinate_reference_frame).lower()
+        if crf in ["ned", "+"]:
+            clockwise = True
+        elif crf in ["enu", "-"]:
+            clockwise = False
+        else:
+            raise ValueError(
+                f"coordinate_reference_frame {coordinate_reference_frame} not understood."
+            )
+
+        output_labels = list(rotated_ds.coords["output"].values)
+        input_labels = list(rotated_ds.coords["input"].values)
+
+        z_outputs = MTDataTree._pick_channel_labels(
+            output_labels, ["ex", "ey", "x", "y"], 2
+        )
+        z_inputs = MTDataTree._pick_channel_labels(
+            input_labels, ["hx", "hy", "x", "y"], 2
+        )
+        if z_outputs is not None and z_inputs is not None:
+            tf_block = (
+                rotated_ds["transfer_function"]
+                .sel(output=z_outputs, input=z_inputs)
+                .values.copy()
+            )
+            rot_tf = np.zeros_like(tf_block, dtype=complex)
+            for index, angle in enumerate(degree_angle):
+                rot_tf[index], _ = rotate_matrix_with_errors(
+                    tf_block[index],
+                    angle,
+                    clockwise=clockwise,
+                )
+            rotated_ds["transfer_function"].loc[
+                dict(output=z_outputs, input=z_inputs)
+            ] = rot_tf
+
+            if "transfer_function_error" in rotated_ds:
+                tf_error_block = (
+                    rotated_ds["transfer_function_error"]
+                    .sel(output=z_outputs, input=z_inputs)
+                    .values.copy()
+                )
+                rot_tf_error = np.zeros_like(tf_error_block, dtype=float)
+                for index, angle in enumerate(degree_angle):
+                    _, rot_tf_error[index] = rotate_matrix_with_errors(
+                        tf_block[index],
+                        angle,
+                        tf_error_block[index],
+                        clockwise=clockwise,
+                    )
+                rotated_ds["transfer_function_error"].loc[
+                    dict(output=z_outputs, input=z_inputs)
+                ] = rot_tf_error
+
+            if "transfer_function_model_error" in rotated_ds:
+                tf_model_error_block = (
+                    rotated_ds["transfer_function_model_error"]
+                    .sel(output=z_outputs, input=z_inputs)
+                    .values.copy()
+                )
+                rot_tf_model_error = np.zeros_like(tf_model_error_block, dtype=float)
+                for index, angle in enumerate(degree_angle):
+                    _, rot_tf_model_error[index] = rotate_matrix_with_errors(
+                        tf_block[index],
+                        angle,
+                        tf_model_error_block[index],
+                        clockwise=clockwise,
+                    )
+                rotated_ds["transfer_function_model_error"].loc[
+                    dict(output=z_outputs, input=z_inputs)
+                ] = rot_tf_model_error
+
+        t_output = MTDataTree._pick_channel_labels(output_labels, ["hz", "z"], 1)
+        t_inputs = MTDataTree._pick_channel_labels(
+            input_labels, ["hx", "hy", "x", "y"], 2
+        )
+        if t_output is not None and t_inputs is not None:
+            tf_tipper = (
+                rotated_ds["transfer_function"]
+                .sel(output=t_output, input=t_inputs)
+                .values.copy()
+            )
+            rot_tipper = np.zeros_like(tf_tipper, dtype=complex)
+            for index, angle in enumerate(degree_angle):
+                rot_tipper[index], _ = rotate_vector_with_errors(
+                    tf_tipper[index],
+                    angle,
+                    clockwise=clockwise,
+                )
+            rotated_ds["transfer_function"].loc[
+                dict(output=t_output, input=t_inputs)
+            ] = rot_tipper
+
+            if "transfer_function_error" in rotated_ds:
+                tipper_error = (
+                    rotated_ds["transfer_function_error"]
+                    .sel(output=t_output, input=t_inputs)
+                    .values.copy()
+                )
+                rot_tipper_error = np.zeros_like(tipper_error, dtype=float)
+                for index, angle in enumerate(degree_angle):
+                    _, rot_tipper_error[index] = rotate_vector_with_errors(
+                        tf_tipper[index],
+                        angle,
+                        tipper_error[index],
+                        clockwise=clockwise,
+                    )
+                rotated_ds["transfer_function_error"].loc[
+                    dict(output=t_output, input=t_inputs)
+                ] = rot_tipper_error
+
+            if "transfer_function_model_error" in rotated_ds:
+                tipper_model_error = (
+                    rotated_ds["transfer_function_model_error"]
+                    .sel(output=t_output, input=t_inputs)
+                    .values.copy()
+                )
+                rot_tipper_model_error = np.zeros_like(
+                    tipper_model_error,
+                    dtype=float,
+                )
+                for index, angle in enumerate(degree_angle):
+                    _, rot_tipper_model_error[index] = rotate_vector_with_errors(
+                        tf_tipper[index],
+                        angle,
+                        tipper_model_error[index],
+                        clockwise=clockwise,
+                    )
+                rotated_ds["transfer_function_model_error"].loc[
+                    dict(output=t_output, input=t_inputs)
+                ] = rot_tipper_model_error
+
+        rotated_ds.attrs.update(attrs)
+        return rotated_ds
+
+    def rotate(
+        self,
+        rotation_angle: float | np.ndarray,
+        inplace: bool = True,
+    ) -> "MTDataTree" | None:
+        """Rotate all station datasets by a given angle."""
+        tree_obj = self
+        if not inplace:
+            tree_obj = self.__class__(
+                metadata_storage=self.metadata_storage,
+                dataset_copy_mode=self.dataset_copy_mode,
+                use_index=self._index is not None,
+                index_db_path=self._index_db_path,
+                **dict(self.attrs),
+            )
+
+        updated_surveys: set[str] = set()
+        for station_path in self._iter_station_paths():
+            station_ds = self.get_station(station_path)
+            crf = station_ds.attrs.get(
+                "coordinate_reference_frame",
+                self.attrs.get("coordinate_reference_frame", "ned"),
+            )
+            rotated_ds = self._rotate_station_dataset(
+                station_ds,
+                rotation_angle,
+                coordinate_reference_frame=crf,
+            )
+            tree_obj._set_station_dataset(station_path, rotated_ds)
+
+            if tree_obj.metadata_storage == "cache":
+                for metadata_kind in ["survey", "station"]:
+                    cached_md = self._metadata_cache[metadata_kind].get(station_path)
+                    if cached_md is not None:
+                        tree_obj._metadata_cache[metadata_kind][
+                            station_path
+                        ] = cached_md
+
+            if tree_obj._index is not None:
+                station_row, period_row = MTDataTreeIndexStore._extract_rows(
+                    station_path,
+                    rotated_ds,
+                )
+                tree_obj._index.upsert_station(station_row)
+                if period_row is not None:
+                    tree_obj._index.replace_station_period_rows(period_row)
+                updated_surveys.add(station_row.survey_name)
+
+        if tree_obj._index is not None:
+            for survey_name in updated_surveys:
+                tree_obj._index.refresh_survey_aggregates(survey_name)
+
+        if not inplace:
+            return tree_obj
+        return None
 
     def interpolate(
         self,

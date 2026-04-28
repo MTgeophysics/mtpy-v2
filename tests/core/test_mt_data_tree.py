@@ -651,6 +651,115 @@ class TestMTDataTreeInterpolation:
             )
 
 
+class TestMTDataTreeRotation:
+    def test_rotate_matches_single_mt_rotate(self, loaded_profile_mt):
+        mt_obj = loaded_profile_mt.copy()
+        rotation_angle = 13.0
+
+        mt_rot = mt_obj.rotate(rotation_angle, inplace=False)
+
+        tree = MTDataTree()
+        station_path = tree.add_station(mt_obj)
+        tree_rot = tree.rotate(rotation_angle, inplace=False)
+
+        tree_ds = tree_rot.get_station(station_path)
+        mt_ds = mt_rot._transfer_function
+
+        for var_name in [
+            "transfer_function",
+            "transfer_function_error",
+            "transfer_function_model_error",
+        ]:
+            assert var_name in tree_ds
+            assert var_name in mt_ds
+            assert np.allclose(
+                tree_ds[var_name].values,
+                mt_ds[var_name].values,
+                equal_nan=True,
+            )
+
+    def test_rotate_returns_tree_without_mt_conversion(
+        self, loaded_profile_mt, monkeypatch
+    ):
+        tree = MTDataTree(metadata_storage="cache")
+        station_path = tree.add_station(loaded_profile_mt)
+        original_ds = tree.get_station(station_path).copy(deep=True)
+        rotation_angle = 22.5
+
+        def _fail(_station_ds):
+            raise AssertionError("rotate should not reconstruct full MT objects")
+
+        monkeypatch.setattr(MTDataTree, "_dataset_to_mt", staticmethod(_fail))
+
+        out = tree.rotate(rotation_angle, inplace=False)
+        out_ds = out.get_station(station_path)
+
+        assert isinstance(out, MTDataTree)
+        assert not np.allclose(
+            out_ds["transfer_function"].values,
+            original_ds["transfer_function"].values,
+            equal_nan=True,
+        )
+        assert np.allclose(
+            tree.get_station(station_path)["transfer_function"].values,
+            original_ds["transfer_function"].values,
+            equal_nan=True,
+        )
+        assert (
+            out.metadata_cache["survey"][station_path]
+            is loaded_profile_mt.survey_metadata
+        )
+        assert (
+            out.metadata_cache["station"][station_path]
+            is loaded_profile_mt.station_metadata
+        )
+
+    def test_rotate_inplace_updates_station_dataset(self, loaded_profile_mt):
+        tree = MTDataTree()
+        station_path = tree.add_station(loaded_profile_mt)
+        before = tree.get_station(station_path).copy(deep=True)
+
+        result = tree.rotate(17.5, inplace=True)
+
+        assert result is None
+        after = tree.get_station(station_path)
+        assert np.array_equal(after.period.values, before.period.values)
+        assert not np.allclose(
+            after["transfer_function"].values,
+            before["transfer_function"].values,
+            equal_nan=True,
+        )
+
+    def test_rotate_dask_matches_eager(self, loaded_profile_mt):
+        pytest.importorskip("dask")
+
+        tree = MTDataTree()
+        station_path = tree.add_station(loaded_profile_mt)
+        rotation_angle = 14.0
+
+        eager_tree = tree.rotate(rotation_angle, inplace=False)
+        dask_tree = tree.rotate_dask(
+            rotation_angle,
+            chunks={"period": 16},
+            compute=True,
+            inplace=False,
+        )
+
+        eager_ds = eager_tree.get_station(station_path)
+        dask_ds = dask_tree.get_station(station_path)
+
+        for var_name in [
+            "transfer_function",
+            "transfer_function_error",
+            "transfer_function_model_error",
+        ]:
+            assert np.allclose(
+                dask_ds[var_name].values,
+                eager_ds[var_name].values,
+                equal_nan=True,
+            )
+
+
 class TestMTDataTreeDaskMethods:
     def test_as_dask_and_chunk_plan(self, loaded_profile_mt):
         pytest.importorskip("dask")
