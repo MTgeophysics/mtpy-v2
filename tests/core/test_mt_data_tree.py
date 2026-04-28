@@ -478,6 +478,102 @@ class TestMTDataTreePeriods:
         assert np.array_equal(periods, expected)
 
 
+class TestMTDataTreeInterpolation:
+    def test_interpolate_matches_single_mt_interpolate(self, loaded_profile_mt):
+        mt_obj = loaded_profile_mt.copy()
+        source_periods = np.asarray(mt_obj.period, dtype=float)
+        target_periods = source_periods[[6, 15, 25, 35]]
+
+        mt_interp = mt_obj.interpolate(
+            target_periods, f_type="period", bounds_error=True
+        )
+
+        tree = MTDataTree()
+        station_path = tree.add_station(mt_obj)
+        tree_interp = tree.interpolate(
+            target_periods,
+            f_type="period",
+            bounds_error=True,
+            inplace=False,
+        )
+        tree_ds = tree_interp.get_station(station_path)
+        mt_ds = mt_interp._transfer_function
+
+        assert np.array_equal(tree_ds.period.values, mt_ds.period.values)
+        for var_name in [
+            "transfer_function",
+            "transfer_function_error",
+            "transfer_function_model_error",
+        ]:
+            assert var_name in tree_ds
+            assert var_name in mt_ds
+            assert np.allclose(
+                tree_ds[var_name].values,
+                mt_ds[var_name].values,
+                equal_nan=True,
+            )
+
+    def test_interpolate_returns_tree_without_mt_conversion(
+        self, loaded_profile_mt, monkeypatch
+    ):
+        tree = MTDataTree(metadata_storage="cache")
+        station_path = tree.add_station(loaded_profile_mt)
+        original_periods = tree.get_station(station_path).period.values.copy()
+        target_periods = original_periods[[5, 10, 20]]
+
+        def _fail(_station_ds):
+            raise AssertionError("interpolate should not reconstruct full MT objects")
+
+        monkeypatch.setattr(MTDataTree, "_dataset_to_mt", staticmethod(_fail))
+
+        out = tree.interpolate(target_periods, inplace=False)
+        out_ds = out.get_station(station_path)
+
+        assert isinstance(out, MTDataTree)
+        assert np.array_equal(out_ds.period.values, target_periods)
+        assert np.array_equal(
+            tree.get_station(station_path).period.values, original_periods
+        )
+        assert (
+            out.metadata_cache["survey"][station_path]
+            is loaded_profile_mt.survey_metadata
+        )
+        assert (
+            out.metadata_cache["station"][station_path]
+            is loaded_profile_mt.station_metadata
+        )
+
+    def test_interpolate_bounds_error_filters_to_station_range(self, loaded_profile_mt):
+        tree = MTDataTree()
+        station_path = tree.add_station(loaded_profile_mt)
+        station_periods = tree.get_station(station_path).period.values
+        target_periods = np.array(
+            [
+                station_periods.min() / 10.0,
+                station_periods[12],
+                station_periods.max() * 10.0,
+            ]
+        )
+
+        out = tree.interpolate(target_periods, inplace=False, bounds_error=True)
+
+        assert np.array_equal(
+            out.get_station(station_path).period.values, np.array([station_periods[12]])
+        )
+
+    def test_interpolate_inplace_updates_station_dataset(self, loaded_profile_mt):
+        tree = MTDataTree()
+        station_path = tree.add_station(loaded_profile_mt)
+        target_periods = tree.get_station(station_path).period.values[[3, 7, 11]]
+
+        result = tree.interpolate(target_periods, inplace=True)
+
+        assert result is None
+        assert np.array_equal(
+            tree.get_station(station_path).period.values, target_periods
+        )
+
+
 class TestMTDataTreeSpatialFiltering:
     def test_station_locations_returns_dataframe_without_mt_conversion(
         self, loaded_profile_mt_objects, monkeypatch

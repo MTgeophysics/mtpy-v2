@@ -21,7 +21,6 @@ from .mt_dataframe import MTDataFrame
 
 if TYPE_CHECKING:
     from .mt import MT
-    from .mt_data import MTData
     from .mt_stations import MTStations
 
 
@@ -51,16 +50,6 @@ class MTDataTree:
         index_db_path: str = ":memory:",
         **attrs: Any,
     ) -> None:
-        if hasattr(xr, "DataTree"):
-            self._xarray_tree_cls = xr.DataTree
-        elif hasattr(xr, "Tree"):
-            self._xarray_tree_cls = xr.Tree
-        else:
-            raise ImportError(
-                "xarray tree support is not available. Install a version of xarray "
-                "that provides DataTree or Tree."
-            )
-
         storage_mode = str(metadata_storage).strip().lower()
         if storage_mode not in self.METADATA_STORAGE_MODES:
             raise ValueError(
@@ -90,7 +79,7 @@ class MTDataTree:
         self.tree = (
             tree
             if tree is not None
-            else self._xarray_tree_cls(name=self.ROOT_NAME, dataset=xr.Dataset())
+            else xr.DataTree(name=self.ROOT_NAME, dataset=xr.Dataset())
         )
 
         # Keep root metadata lightweight and schema-focused at initialization.
@@ -101,32 +90,9 @@ class MTDataTree:
 
         # Initialize a predictable top-level path for survey grouping.
         if self.SURVEYS_NODE not in self.tree.children:
-            self.tree[self.SURVEYS_NODE] = self._xarray_tree_cls(
+            self.tree[self.SURVEYS_NODE] = xr.DataTree(
                 name=self.SURVEYS_NODE, dataset=xr.Dataset()
             )
-
-    @classmethod
-    def from_mt_data(cls, mt_data: "MTData", **attrs: Any) -> "MTDataTree":
-        """
-        Build an MTDataTree from an MTData instance.
-
-        TODO:
-            - Map each survey/station key to a stable tree path.
-            - Convert MT transfer function arrays into xarray variables.
-            - Preserve metadata and coordinate reference frame conventions.
-        """
-        _ = mt_data
-        return cls(**attrs)
-
-    def to_mt_data(self) -> "MTData":
-        """
-        Convert tree content back into MTData.
-
-        TODO:
-            - Reconstruct MT objects from node datasets.
-            - Restore collection-level metadata and modeling settings.
-        """
-        raise NotImplementedError("MTDataTree.to_mt_data is not implemented yet.")
 
     @staticmethod
     def _metadata_to_dict(metadata: Any) -> dict[str, Any]:
@@ -835,9 +801,7 @@ class MTDataTree:
         if self._path_exists(station_path) and not overwrite:
             raise KeyError(f"Station path already exists: {station_path}")
 
-        self.tree[station_path] = self._xarray_tree_cls(
-            name=station, dataset=station_ds
-        )
+        self.tree[station_path] = xr.DataTree(name=station, dataset=station_ds)
         self._commit_cached_metadata(
             station_path,
             metadata_objects["survey"],
@@ -932,19 +896,19 @@ class MTDataTree:
                     _, survey_name, _ = parent_path.split("/", 2)
                     survey_path = f"{self.SURVEYS_NODE}/{survey_name}"
                     if not self._path_exists(survey_path):
-                        self.tree[survey_path] = self._xarray_tree_cls(
+                        self.tree[survey_path] = xr.DataTree(
                             name=survey_name,
                             dataset=xr.Dataset(),
                         )
                     if not self._path_exists(parent_path):
-                        self.tree[parent_path] = self._xarray_tree_cls(
+                        self.tree[parent_path] = xr.DataTree(
                             name=self.STATIONS_NODE,
                             dataset=xr.Dataset(),
                         )
                     parent_node = self.tree[parent_path]
                 parent_cache[parent_path] = parent_node
 
-            parent_node[child_name] = self._xarray_tree_cls(
+            parent_node[child_name] = xr.DataTree(
                 name=station,
                 dataset=station_ds,
             )
@@ -1013,10 +977,144 @@ class MTDataTree:
                     subset._metadata_cache[metadata_kind][target_path] = cached_md
                     station_ds.attrs[f"{metadata_kind}_metadata_ref"] = target_path
 
-            subset.tree[target_path] = subset._xarray_tree_cls(
+            subset.tree[target_path] = xr.DataTree(
                 name=target_path.rsplit("/", 1)[-1], dataset=station_ds
             )
         return subset
+
+    def _set_station_dataset(self, station_path: str, station_ds: xr.Dataset) -> None:
+        """Insert or replace a station dataset at its tree path."""
+        parent_path, child_name = station_path.rsplit("/", 1)
+        try:
+            parent_node = self.tree[parent_path]
+        except KeyError:
+            _, survey_name, _ = parent_path.split("/", 2)
+            survey_path = f"{self.SURVEYS_NODE}/{survey_name}"
+            if not self._path_exists(survey_path):
+                self.tree[survey_path] = xr.DataTree(
+                    name=survey_name,
+                    dataset=xr.Dataset(),
+                )
+            if not self._path_exists(parent_path):
+                self.tree[parent_path] = xr.DataTree(
+                    name=self.STATIONS_NODE,
+                    dataset=xr.Dataset(),
+                )
+            parent_node = self.tree[parent_path]
+
+        parent_node[child_name] = xr.DataTree(name=child_name, dataset=station_ds)
+
+    @staticmethod
+    def _interpolate_station_dataset(
+        station_ds: xr.Dataset,
+        new_periods: np.ndarray,
+        **kwargs: Any,
+    ) -> xr.Dataset:
+        """Interpolate a stored station dataset with TFBase semantics."""
+        from .transfer_function.base import TFBase
+
+        target_periods = np.asarray(new_periods, dtype=float)
+        attrs = dict(station_ds.attrs)
+
+        if "period" not in station_ds.coords or not station_ds.data_vars:
+            coords = {
+                coord_name: coord.values
+                for coord_name, coord in station_ds.coords.items()
+                if coord_name != "period"
+            }
+            coords["period"] = target_periods
+            interpolated_ds = xr.Dataset(coords=coords)
+        elif target_periods.size == 0:
+            interpolated_ds = station_ds.isel(period=slice(0, 0)).copy(deep=True)
+        else:
+            tf_obj = TFBase()
+            tf_obj.from_xarray(station_ds.copy(deep=True))
+            interpolated_ds = tf_obj.interpolate(
+                target_periods,
+                inplace=False,
+                **kwargs,
+            ).to_xarray()
+
+        interpolated_ds.attrs.update(attrs)
+        return interpolated_ds
+
+    def interpolate(
+        self,
+        new_periods: np.ndarray,
+        f_type: str = "period",
+        inplace: bool = True,
+        bounds_error: bool = True,
+        **kwargs: Any,
+    ) -> "MTDataTree" | None:
+        """Interpolate all station datasets onto a common period range."""
+        if f_type not in ["frequency", "freq", "period", "per"]:
+            raise ValueError(
+                f"f_type must be either 'frequency' or 'period' not {f_type}"
+            )
+
+        target_periods = np.asarray(new_periods, dtype=float)
+        if target_periods.ndim != 1:
+            target_periods = target_periods.reshape(-1)
+        if f_type in ["frequency", "freq"]:
+            target_periods = 1.0 / target_periods
+
+        tree_obj = self
+        if not inplace:
+            tree_obj = self.__class__(
+                metadata_storage=self.metadata_storage,
+                dataset_copy_mode=self.dataset_copy_mode,
+                use_index=self._index is not None,
+                **dict(self.attrs),
+            )
+
+        updated_surveys: set[str] = set()
+        for station_path in self._iter_station_paths():
+            station_ds = self.get_station(station_path)
+            interp_periods = target_periods
+            if bounds_error and "period" in station_ds.coords:
+                station_periods = np.asarray(
+                    station_ds.coords["period"].values, dtype=float
+                )
+                if station_periods.size > 0:
+                    interp_periods = target_periods[
+                        (target_periods <= station_periods.max())
+                        & (target_periods >= station_periods.min())
+                    ]
+
+            interpolated_ds = self._interpolate_station_dataset(
+                station_ds,
+                interp_periods,
+                **kwargs,
+            )
+            tree_obj._set_station_dataset(station_path, interpolated_ds)
+
+            if tree_obj.metadata_storage == "cache":
+                for metadata_kind in ["survey", "station"]:
+                    cached_md = self._metadata_cache[metadata_kind].get(station_path)
+                    if cached_md is not None:
+                        tree_obj._metadata_cache[metadata_kind][
+                            station_path
+                        ] = cached_md
+
+            if tree_obj._index is not None:
+                station_row, period_row = MTDataTreeIndexStore._extract_rows(
+                    station_path,
+                    interpolated_ds,
+                )
+                if period_row is None:
+                    tree_obj._index.delete_station_by_tree_path(station_path)
+                tree_obj._index.upsert_station(station_row)
+                if period_row is not None:
+                    tree_obj._index.replace_station_period_rows(period_row)
+                updated_surveys.add(station_row.survey_name)
+
+        if tree_obj._index is not None:
+            for survey_name in updated_surveys:
+                tree_obj._index.refresh_survey_aggregates(survey_name)
+
+        if not inplace:
+            return tree_obj
+        return None
 
     def apply_bounding_box(
         self, lon_min: float, lon_max: float, lat_min: float, lat_max: float
