@@ -1028,12 +1028,15 @@ class MTDataTree:
             interpolated_ds = station_ds.isel(period=slice(0, 0)).copy(deep=True)
         else:
             tf_obj = TFBase()
-            tf_obj.from_xarray(station_ds.copy(deep=True))
-            interpolated_ds = tf_obj.interpolate(
+            # TFBase.interpolate reads source arrays and writes a new dataset,
+            # so we can avoid deep-copying the input and the return-object copy.
+            tf_obj.from_xarray(station_ds)
+            tf_obj.interpolate(
                 target_periods,
-                inplace=False,
+                inplace=True,
                 **kwargs,
-            ).to_xarray()
+            )
+            interpolated_ds = tf_obj.to_xarray()
 
         interpolated_ds.attrs.update(attrs)
         return interpolated_ds
