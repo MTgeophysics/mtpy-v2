@@ -9,7 +9,7 @@ Xarray tree representation for better scalability.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -75,6 +75,11 @@ class MTDataTree:
         self._index: MTDataTreeIndexStore | None = (
             MTDataTreeIndexStore(index_db_path) if use_index else None
         )
+        self._index_db_path = index_db_path
+        self._lazy_use_index = use_index
+
+        # Deferred station-level transforms keyed by station path.
+        self._lazy_station_transforms: dict[str, Callable[[], xr.Dataset]] = {}
 
         self.tree = (
             tree
@@ -335,6 +340,69 @@ class MTDataTree:
     def metadata_cache(self) -> dict[str, dict[str, Any]]:
         """In-memory metadata map keyed by station path for cache mode."""
         return self._metadata_cache
+
+    @property
+    def is_lazy(self) -> bool:
+        """True when one or more deferred station transforms are pending."""
+        return bool(self._lazy_station_transforms)
+
+    @property
+    def lazy_station_count(self) -> int:
+        """Number of stations with pending deferred transforms."""
+        return len(self._lazy_station_transforms)
+
+    def _realize_station(self, station_path: str) -> str | None:
+        """Materialize one deferred station transform if present."""
+        transform = self._lazy_station_transforms.pop(station_path, None)
+        if transform is None:
+            return None
+
+        station_ds = transform()
+        self._set_station_dataset(station_path, station_ds)
+
+        if self._index is not None:
+            station_row, period_row = MTDataTreeIndexStore._extract_rows(
+                station_path,
+                station_ds,
+            )
+            if period_row is None:
+                self._index.delete_station_by_tree_path(station_path)
+            self._index.upsert_station(station_row)
+            if period_row is not None:
+                self._index.replace_station_period_rows(period_row)
+            return station_row.survey_name
+        return None
+
+    def compute(self, station_paths: list[str] | None = None) -> "MTDataTree":
+        """Materialize deferred station transforms and update index state."""
+        if not self._lazy_station_transforms:
+            return self
+
+        if self._index is None and self._lazy_use_index:
+            self._index = MTDataTreeIndexStore(self._index_db_path)
+
+        pending_paths = list(self._lazy_station_transforms.keys())
+        if station_paths is None:
+            paths_to_realize = pending_paths
+        else:
+            requested = set(station_paths)
+            paths_to_realize = [path for path in pending_paths if path in requested]
+
+        updated_surveys: set[str] = set()
+        for station_path in paths_to_realize:
+            survey_name = self._realize_station(station_path)
+            if survey_name is not None:
+                updated_surveys.add(survey_name)
+
+        if self._index is not None:
+            for survey_name in updated_surveys:
+                self._index.refresh_survey_aggregates(survey_name)
+
+        return self
+
+    def persist(self, station_paths: list[str] | None = None) -> "MTDataTree":
+        """Alias of compute for deferred station transforms."""
+        return self.compute(station_paths=station_paths)
 
     def get_metadata(
         self, station_key: str, metadata_kind: str = "station"
@@ -778,6 +846,8 @@ class MTDataTree:
             Station node path for scalar inputs or list of paths for list
             inputs.
         """
+        self.compute()
+
         if mt_obj is None:
             raise TypeError("mt_obj cannot be None")
 
@@ -845,6 +915,8 @@ class MTDataTree:
         list[str]
             Inserted station paths.
         """
+        self.compute()
+
         if mt_objects is None:
             raise TypeError("mt_objects cannot be None")
         if not isinstance(mt_objects, list):
@@ -936,6 +1008,7 @@ class MTDataTree:
 
     def get_station(self, station_key: str, as_mt: bool = False) -> xr.Dataset | "MT":
         """Return a station by tree path as dataset or reconstructed MT object."""
+        self.compute(station_paths=[station_key])
         station_ds = self.tree[station_key].ds
         if as_mt:
             mt_obj = self._dataset_to_mt(station_ds)
@@ -945,6 +1018,8 @@ class MTDataTree:
 
     def remove_station(self, station_key: str) -> None:
         """Remove a station node from the tree."""
+        self.compute()
+        self._lazy_station_transforms.pop(station_key, None)
         self._clear_cached_metadata(station_key)
         if self._index is not None:
             self._index.delete_station_by_tree_path(station_key)
@@ -1067,6 +1142,7 @@ class MTDataTree:
                 metadata_storage=self.metadata_storage,
                 dataset_copy_mode=self.dataset_copy_mode,
                 use_index=self._index is not None,
+                index_db_path=self._index_db_path,
                 **dict(self.attrs),
             )
 
@@ -1118,6 +1194,85 @@ class MTDataTree:
         if not inplace:
             return tree_obj
         return None
+
+    def interpolate_lazy(
+        self,
+        new_periods: np.ndarray,
+        f_type: str = "period",
+        inplace: bool = False,
+        bounds_error: bool = True,
+        **kwargs: Any,
+    ) -> "MTDataTree":
+        """Build deferred station interpolation transforms without materializing."""
+        if f_type not in ["frequency", "freq", "period", "per"]:
+            raise ValueError(
+                f"f_type must be either 'frequency' or 'period' not {f_type}"
+            )
+
+        # Build lazy plans from realized source station datasets.
+        self.compute()
+
+        target_periods = np.asarray(new_periods, dtype=float)
+        if target_periods.ndim != 1:
+            target_periods = target_periods.reshape(-1)
+        if f_type in ["frequency", "freq"]:
+            target_periods = 1.0 / target_periods
+
+        tree_obj = self
+        if not inplace:
+            tree_obj = self.__class__(
+                metadata_storage=self.metadata_storage,
+                dataset_copy_mode=self.dataset_copy_mode,
+                use_index=False,
+                index_db_path=self._index_db_path,
+                **dict(self.attrs),
+            )
+            tree_obj._lazy_use_index = self._index is not None
+        else:
+            tree_obj._lazy_station_transforms.clear()
+
+        for station_path in self._iter_station_paths():
+            source_station_ds = self.get_station(station_path)
+
+            interp_periods = target_periods
+            if bounds_error and "period" in source_station_ds.coords:
+                station_periods = np.asarray(
+                    source_station_ds.coords["period"].values,
+                    dtype=float,
+                )
+                if station_periods.size > 0:
+                    interp_periods = target_periods[
+                        (target_periods <= station_periods.max())
+                        & (target_periods >= station_periods.min())
+                    ]
+
+            source_snapshot = source_station_ds.copy(deep=False)
+            target_snapshot = np.asarray(interp_periods, dtype=float)
+            interp_kwargs = dict(kwargs)
+
+            def _transform(
+                ds: xr.Dataset = source_snapshot,
+                periods: np.ndarray = target_snapshot,
+                op_kwargs: dict[str, Any] = interp_kwargs,
+            ) -> xr.Dataset:
+                return MTDataTree._interpolate_station_dataset(ds, periods, **op_kwargs)
+
+            tree_obj._lazy_station_transforms[station_path] = _transform
+
+            if not inplace:
+                tree_obj._set_station_dataset(
+                    station_path, source_snapshot.copy(deep=False)
+                )
+
+            if tree_obj.metadata_storage == "cache":
+                for metadata_kind in ["survey", "station"]:
+                    cached_md = self._metadata_cache[metadata_kind].get(station_path)
+                    if cached_md is not None:
+                        tree_obj._metadata_cache[metadata_kind][
+                            station_path
+                        ] = cached_md
+
+        return tree_obj
 
     def apply_bounding_box(
         self, lon_min: float, lon_max: float, lat_min: float, lat_max: float
@@ -1198,6 +1353,7 @@ class MTDataTree:
         -------
         list[str]
         """
+        self.compute()
         if self._index is None:
             raise RuntimeError(
                 "Index not enabled. Pass use_index=True to the constructor "
@@ -1220,10 +1376,11 @@ class MTDataTree:
         impedance_units: str = "mt",
     ) -> pd.DataFrame:
         """Convert all stations in the tree to a pandas DataFrame."""
+        self.compute()
         station_paths = self._iter_station_paths()
         df_list = []
         for path in station_paths:
-            station_ds = self.tree[path].ds
+            station_ds = self.get_station(path)
             try:
                 df_list.append(
                     self._station_dataset_to_dataframe(
@@ -1286,6 +1443,7 @@ class MTDataTree:
 
     def get_periods(self) -> np.ndarray:
         """Return sorted unique periods across all station datasets in the tree."""
+        self.compute()
         periods: list[np.ndarray] = []
 
         def _walk(node: Any) -> None:

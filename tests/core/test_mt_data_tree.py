@@ -573,6 +573,54 @@ class TestMTDataTreeInterpolation:
             tree.get_station(station_path).period.values, target_periods
         )
 
+    def test_interpolate_lazy_defers_materialization(self, loaded_profile_mt):
+        tree = MTDataTree(metadata_storage="cache")
+        station_path = tree.add_station(loaded_profile_mt)
+        original_periods = tree.get_station(station_path).period.values.copy()
+        target_periods = original_periods[[4, 9, 13]]
+
+        lazy_tree = tree.interpolate_lazy(target_periods, inplace=False)
+
+        assert isinstance(lazy_tree, MTDataTree)
+        assert lazy_tree.is_lazy
+        assert lazy_tree.lazy_station_count == 1
+        assert np.array_equal(
+            lazy_tree.tree[station_path].ds.period.values,
+            original_periods,
+        )
+
+        lazy_tree.compute()
+
+        assert not lazy_tree.is_lazy
+        assert lazy_tree.lazy_station_count == 0
+        assert np.array_equal(
+            lazy_tree.get_station(station_path).period.values, target_periods
+        )
+
+    def test_interpolate_lazy_matches_eager_after_compute(self, loaded_profile_mt):
+        tree = MTDataTree()
+        station_path = tree.add_station(loaded_profile_mt)
+        target_periods = tree.get_station(station_path).period.values[[5, 10, 15]]
+
+        eager_tree = tree.interpolate(target_periods, inplace=False)
+        lazy_tree = tree.interpolate_lazy(target_periods, inplace=False)
+        lazy_tree.compute()
+
+        eager_ds = eager_tree.get_station(station_path)
+        lazy_ds = lazy_tree.get_station(station_path)
+
+        assert np.array_equal(lazy_ds.period.values, eager_ds.period.values)
+        for var_name in [
+            "transfer_function",
+            "transfer_function_error",
+            "transfer_function_model_error",
+        ]:
+            assert np.allclose(
+                lazy_ds[var_name].values,
+                eager_ds[var_name].values,
+                equal_nan=True,
+            )
+
 
 class TestMTDataTreeSpatialFiltering:
     def test_station_locations_returns_dataframe_without_mt_conversion(
