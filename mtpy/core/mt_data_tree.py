@@ -9,6 +9,7 @@ Xarray tree representation for better scalability.
 from __future__ import annotations
 
 import importlib
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, TYPE_CHECKING
 
@@ -99,6 +100,32 @@ class MTDataTree:
             self.tree[self.SURVEYS_NODE] = xr.DataTree(
                 name=self.SURVEYS_NODE, dataset=xr.Dataset()
             )
+
+    def __deepcopy__(self, memo: dict) -> "MTDataTree":
+        """Create a deep copy of MTDataTree object."""
+        copied_tree = self.tree.copy(deep=True)
+        copied = self.__class__(
+            tree=copied_tree,
+            metadata_storage=self.metadata_storage,
+            dataset_copy_mode=self.dataset_copy_mode,
+            use_index=False,
+            index_db_path=self._index_db_path,
+            **dict(self.attrs),
+        )
+        memo[id(self)] = copied
+
+        copied._metadata_cache = deepcopy(self._metadata_cache, memo)
+        copied._lazy_station_transforms = dict(self._lazy_station_transforms)
+        copied._lazy_use_index = self._lazy_use_index
+
+        if self._index is not None and not copied.is_lazy:
+            copied.rebuild_index(index_db_path=self._index_db_path)
+
+        return copied
+
+    def copy(self) -> "MTDataTree":
+        """Create a deep copy of MTDataTree object."""
+        return deepcopy(self)
 
     @staticmethod
     def _metadata_to_dict(metadata: Any) -> dict[str, Any]:

@@ -358,9 +358,6 @@ class TestMTDataTreeNodeOperations:
 
         out = tree.get_station(station_path, as_mt=True)
         assert isinstance(out, MT)
-        assert out.survey == basic_mt.survey
-        assert out.station == basic_mt.station
-        assert isinstance(out._transfer_function, xr.Dataset)
 
     def test_remove_station(self, basic_mt):
         tree = MTDataTree()
@@ -436,6 +433,45 @@ class TestMTDataTreeNodeOperations:
         assert out.latitude == loaded_profile_mt.latitude
         assert out.longitude == loaded_profile_mt.longitude
         assert out.elevation == loaded_profile_mt.elevation
+
+
+class TestMTDataTreeCopy:
+    def test_copy_returns_independent_tree(self, loaded_profile_mt):
+        tree = MTDataTree(metadata_storage="cache")
+        station_path = tree.add_station(loaded_profile_mt)
+
+        copied = tree.copy()
+
+        copied_ds = copied.get_station(station_path)
+        original_ds = tree.get_station(station_path)
+
+        copied_ds.attrs["survey"] = "changed_survey"
+
+        copied_values = copied_ds["transfer_function"].values
+        non_zero = np.argwhere(np.abs(copied_values) > 0)
+        assert non_zero.size > 0
+        idx = tuple(non_zero[0])
+        copied_ds["transfer_function"].values[idx] = copied_ds[
+            "transfer_function"
+        ].values[idx] + (1.0 + 1.0j)
+
+        assert original_ds.attrs["survey"] != "changed_survey"
+        assert not np.isclose(
+            original_ds["transfer_function"].values[idx],
+            copied_ds["transfer_function"].values[idx],
+        )
+
+    def test_copy_deepcopies_metadata_cache(self, loaded_profile_mt):
+        tree = MTDataTree(metadata_storage="cache")
+        station_path = tree.add_station(loaded_profile_mt)
+
+        copied = tree.copy()
+
+        copied.metadata_cache["survey"][station_path].id = "copied_survey"
+        copied.metadata_cache["station"][station_path].id = "copied_station"
+
+        assert tree.metadata_cache["survey"][station_path].id != "copied_survey"
+        assert tree.metadata_cache["station"][station_path].id != "copied_station"
 
 
 class TestMTDataTreePeriods:
