@@ -11,6 +11,8 @@ from mtpy.core import MTDataTree
 from mtpy.core.mt import MT
 from mtpy.core.mt_dataframe import MTDataFrame
 from mtpy.core.mt_stations import MTStations
+from mtpy.modeling.modem import Data
+from mtpy.modeling.occam2d import Occam2DData
 
 
 @pytest.fixture(scope="session")
@@ -1486,3 +1488,100 @@ class TestMTDataTreeDataFrames:
 
         assert isinstance(df, pd.DataFrame)
         assert df.empty
+
+
+class TestMTDataTreeModEM:
+    def test_to_modem_returns_data_object(self, loaded_profile_mt_objects):
+        tree = MTDataTree()
+        tree.add_station(loaded_profile_mt_objects)
+
+        modem_data = tree.to_modem()
+
+        assert isinstance(modem_data, Data)
+        assert np.isclose(modem_data.center_point.latitude, tree.center_point.latitude)
+        assert np.isclose(
+            modem_data.center_point.longitude,
+            tree.center_point.longitude,
+        )
+        assert set(modem_data.dataframe.station.unique()) == {
+            mt.station for mt in loaded_profile_mt_objects
+        }
+        assert (
+            modem_data.z_model_error.error_parameters
+            == tree.z_model_error.error_parameters
+        )
+        assert (
+            modem_data.t_model_error.error_parameters
+            == tree.t_model_error.error_parameters
+        )
+
+    def test_to_modem_writes_file(self, loaded_profile_mt_objects, tmp_path):
+        tree = MTDataTree()
+        tree.add_station(loaded_profile_mt_objects)
+        out_fn = tmp_path / "tree_modem.dat"
+
+        modem_data = tree.to_modem(data_filename=out_fn)
+
+        assert isinstance(modem_data, Data)
+        assert out_fn.exists()
+
+    def test_from_modem_populates_tree_and_metadata(
+        self, loaded_profile_mt_objects, tmp_path
+    ):
+        source_tree = MTDataTree()
+        source_tree.add_station(loaded_profile_mt_objects)
+        source_tree.model_parameters = {"inv_mode": "2", "formatting": "1"}
+        out_fn = tmp_path / "roundtrip_modem.dat"
+        modem_data = source_tree.to_modem(data_filename=out_fn)
+
+        tree = MTDataTree()
+        tree.from_modem(out_fn, survey="tree_modem")
+
+        assert tree.survey_ids == ["tree_modem"]
+        assert tree.n_stations == len(loaded_profile_mt_objects)
+        assert tree.data_rotation_angle == 0
+        assert np.isclose(tree.center_point.latitude, modem_data.center_point.latitude)
+        assert np.isclose(
+            tree.center_point.longitude,
+            modem_data.center_point.longitude,
+        )
+        assert "inv_mode" in tree.model_parameters
+        assert "formatting" in tree.model_parameters
+
+
+class TestMTDataTreeOccam2D:
+    def test_to_occam2d_returns_occam2d_data_object(self, loaded_profile_mt_objects):
+        tree = MTDataTree()
+        tree.add_station(loaded_profile_mt_objects)
+
+        occam_data = tree.to_occam2d()
+
+        assert isinstance(occam_data, Occam2DData)
+        assert set(occam_data.dataframe.station.unique()) == {
+            mt.station for mt in loaded_profile_mt_objects
+        }
+
+    def test_to_occam2d_writes_file(self, loaded_profile_mt_objects, tmp_path):
+        tree = MTDataTree()
+        tree.add_station(loaded_profile_mt_objects)
+        out_fn = tmp_path / "tree_occam.dat"
+
+        occam_data = tree.to_occam2d(data_filename=out_fn)
+
+        assert isinstance(occam_data, Occam2DData)
+        assert out_fn.exists()
+
+    def test_from_occam2d_populates_tree(self, loaded_profile_mt_objects, tmp_path):
+        source_tree = MTDataTree()
+        source_tree.add_station(loaded_profile_mt_objects)
+        out_fn = tmp_path / "roundtrip_occam.dat"
+        source_tree.to_occam2d(data_filename=out_fn)
+
+        tree = MTDataTree()
+        tree.from_occam2d(out_fn, survey="data")
+
+        assert tree.survey_ids == ["data"]
+        assert tree.n_stations == len(loaded_profile_mt_objects)
+        assert "profile_origin" in tree.model_parameters
+        assert "profile_angle" in tree.model_parameters
+        assert "model_mode" in tree.model_parameters

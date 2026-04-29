@@ -122,6 +122,11 @@ class MTDataTree:
 
         self._impedance_unit_factors = dict(self.IMPEDANCE_UNITS)
         self._impedance_units = "mt"
+        self.data_rotation_angle = 0
+        self.model_parameters: dict[str, Any] = {}
+        self._center_lat = None
+        self._center_lon = None
+        self._center_elev = 0.0
 
         self.z_model_error = ModelErrors(
             error_value=5,
@@ -1255,6 +1260,66 @@ class MTDataTree:
 
         return MTStations(None, station_locations=self.station_locations)
 
+    @property
+    def center_point(self) -> Any:
+        """Return the collection center point using stored overrides when present."""
+        from .mt_location import MTLocation
+
+        if self._center_lat is not None and self._center_lon is not None:
+            center_location = MTLocation()
+            center_location.latitude = self._center_lat
+            center_location.longitude = self._center_lon
+            center_location.elevation = self._center_elev
+
+            utm_epsg = self.attrs.get("utm_epsg")
+            if utm_epsg not in [None, "", "None", "none", "null"]:
+                center_location.utm_epsg = utm_epsg
+
+            datum_crs = self.attrs.get("datum_crs")
+            if datum_crs not in [None, "", "None", "none", "null"]:
+                center_location.datum_crs = datum_crs
+
+            center_location.model_east = center_location.east
+            center_location.model_north = center_location.north
+            center_location.model_elevation = self._center_elev
+            return center_location
+
+        return self.to_mt_stations().center_point
+
+    def _dataframe_with_relative_locations(
+        self,
+        utm_crs: Any | None = None,
+        impedance_units: str = "mt",
+    ) -> pd.DataFrame:
+        """Return station dataframe with model coordinates populated when needed."""
+        df = self.to_dataframe(utm_crs=utm_crs, impedance_units=impedance_units).copy()
+        if df.empty:
+            return df
+
+        model_east = pd.to_numeric(df.get("model_east"), errors="coerce").fillna(0.0)
+        model_north = pd.to_numeric(df.get("model_north"), errors="coerce").fillna(0.0)
+        if not (np.allclose(model_east, 0.0) and np.allclose(model_north, 0.0)):
+            return df
+
+        east = pd.to_numeric(df.get("east"), errors="coerce").fillna(0.0)
+        north = pd.to_numeric(df.get("north"), errors="coerce").fillna(0.0)
+        if np.allclose(east, 0.0) or np.allclose(north, 0.0):
+            return df
+
+        center = self.center_point
+        if center.utm_epsg is None:
+            raise ValueError(
+                "Need to input data UTM EPSG or CRS to compute relative station locations"
+            )
+
+        df.loc[:, "model_east"] = east - center.east
+        df.loc[:, "model_north"] = north - center.north
+        df.loc[:, "model_elevation"] = (
+            pd.to_numeric(df.get("elevation"), errors="coerce").fillna(0.0)
+            - center.elevation
+        )
+        return df
+
     def to_geo_df(
         self,
         model_locations: bool = False,
@@ -1555,6 +1620,119 @@ class MTDataTree:
         ax.set_xlim((res_df.period.min(), res_df.period.max()))
 
         plt.show()
+
+    def to_modem(self, data_filename: str | Path | None = None, **kwargs: Any) -> Any:
+        """Create a ModEM Data object from the tree."""
+        from mtpy.modeling.modem import Data
+
+        modem_kwargs = dict(self.model_parameters)
+        modem_kwargs.update(kwargs)
+
+        modem_df = self._dataframe_with_relative_locations(
+            impedance_units=self.impedance_units
+        )
+        if modem_df.empty:
+            modem_df = self.to_dataframe(impedance_units=self.impedance_units)
+
+        modem_data = Data(
+            dataframe=modem_df,
+            center_point=self.center_point,
+            **modem_kwargs,
+        )
+        modem_data.z_model_error = self.z_model_error
+        modem_data.t_model_error = self.t_model_error
+        if data_filename is not None:
+            modem_data.write_data_file(file_name=data_filename)
+
+        return modem_data
+
+    def from_modem(
+        self, data_filename: str | Path, survey: str = "data", **kwargs: Any
+    ) -> None:
+        """Populate the tree from a ModEM data file."""
+        from mtpy.modeling.modem import Data
+
+        modem_data = Data(**kwargs)
+        mdf = modem_data.read_data_file(data_filename)
+        mdf.dataframe.loc[:, "survey"] = survey
+
+        self.from_mt_dataframe(mdf)
+        self.z_model_error = ModelErrors(
+            mode="impedance", **modem_data.z_model_error.error_parameters
+        )
+        self.t_model_error = ModelErrors(
+            mode="tipper", **modem_data.t_model_error.error_parameters
+        )
+        self.data_rotation_angle = modem_data.rotation_angle
+        self._center_lat = modem_data.center_point.latitude
+        self._center_lon = modem_data.center_point.longitude
+        self._center_elev = modem_data.center_point.elevation
+        self.attrs["utm_epsg"] = modem_data.center_point.utm_epsg
+        self.attrs["datum_crs"] = modem_data.center_point.datum_crs
+
+        self.model_parameters = {
+            key: value
+            for key, value in modem_data.model_parameters.items()
+            if "." not in key
+        }
+
+    def to_occam2d(self, data_filename: str | Path | None = None, **kwargs: Any) -> Any:
+        """Create an Occam2D data object from the tree.
+
+        Parameters
+        ----------
+        data_filename : str or Path, optional
+            Path to write the Occam2D data file.  If None the file is not
+            written.
+        **kwargs
+            Additional keyword arguments forwarded to ``Occam2DData``.
+
+        Returns
+        -------
+        Occam2DData
+            Populated Occam2D data object.
+        """
+        from mtpy.modeling.occam2d import Occam2DData
+
+        occam2d_data = Occam2DData(**kwargs)
+        occam2d_data.dataframe = self.to_dataframe()
+        if occam2d_data.profile_origin is None:
+            cp = self.center_point
+            occam2d_data.profile_origin = (cp.east, cp.north)
+        if data_filename is not None:
+            occam2d_data.write_data_file(data_filename)
+        return occam2d_data
+
+    def from_occam2d(
+        self,
+        data_filename: str | Path,
+        file_type: str = "data",
+        **kwargs: Any,
+    ) -> None:
+        """Populate the tree from an Occam2D data file.
+
+        Parameters
+        ----------
+        data_filename : str or Path
+            Path to the Occam2D data file.
+        file_type : str, optional
+            ``'data'`` or ``'response'``/``'model'``.  Controls the survey
+            label assigned to each row, by default ``'data'``.
+        **kwargs
+            Additional keyword arguments forwarded to ``Occam2DData``.
+        """
+        from mtpy.modeling.occam2d import Occam2DData
+
+        occam2d_data = Occam2DData(**kwargs)
+        occam2d_data.read_data_file(data_filename)
+        if file_type in ["data"]:
+            occam2d_data.dataframe["survey"] = "data"
+        elif file_type in ["response", "model"]:
+            occam2d_data.dataframe["survey"] = "model"
+        self.from_dataframe(occam2d_data.dataframe)
+        self.model_parameters["profile_origin"] = occam2d_data.profile_origin
+        self.model_parameters["profile_angle"] = occam2d_data.profile_angle
+        self.model_parameters["model_mode"] = occam2d_data.model_mode
 
     def estimate_spatial_static_shift(
         self,
