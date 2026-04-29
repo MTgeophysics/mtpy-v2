@@ -1262,7 +1262,27 @@ class MTDataTree:
 
     @property
     def center_point(self) -> Any:
-        """Return the collection center point using stored overrides when present."""
+        """Return the geographic center point of the station collection.
+
+        If explicit center coordinates have been stored (e.g. after reading a
+        ModEM data file), those values are returned directly.  Otherwise the
+        center is derived on-the-fly from all station locations via
+        :meth:`to_mt_stations`.
+
+        Returns
+        -------
+        MTLocation
+            Center location with ``latitude``, ``longitude``, ``elevation``,
+            ``east``, ``north``, and ``utm_epsg`` attributes populated.
+
+        Examples
+        --------
+        >>> from mtpy.core import MTDataTree
+        >>> tree = MTDataTree()
+        >>> # (add stations first)
+        >>> cp = tree.center_point
+        >>> print(cp.latitude, cp.longitude)
+        """
         from .mt_location import MTLocation
 
         if self._center_lat is not None and self._center_lon is not None:
@@ -1291,7 +1311,34 @@ class MTDataTree:
         utm_crs: Any | None = None,
         impedance_units: str = "mt",
     ) -> pd.DataFrame:
-        """Return station dataframe with model coordinates populated when needed."""
+        """Return a station dataframe with model-relative coordinates populated.
+
+        Calls :meth:`to_dataframe` and, if ``model_east``/``model_north`` are
+        all zero but absolute ``east``/``north`` values are available, computes
+        the model coordinates relative to :attr:`center_point`.
+
+        Parameters
+        ----------
+        utm_crs : pyproj CRS or int, optional
+            Override UTM CRS passed to :meth:`to_dataframe`, by default
+            ``None`` (use the tree's stored CRS).
+        impedance_units : str, optional
+            Units for the impedance tensor, e.g. ``'mt'`` or ``'ohm'``,
+            by default ``'mt'``.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Station dataframe with ``model_east``, ``model_north``, and
+            ``model_elevation`` columns filled.
+
+        Raises
+        ------
+        ValueError
+            If ``model_east``/``model_north`` are zero, absolute UTM
+            coordinates are available, but no UTM EPSG is set on
+            :attr:`center_point`.
+        """
         df = self.to_dataframe(utm_crs=utm_crs, impedance_units=impedance_units).copy()
         if df.empty:
             return df
@@ -1622,7 +1669,35 @@ class MTDataTree:
         plt.show()
 
     def to_modem(self, data_filename: str | Path | None = None, **kwargs: Any) -> Any:
-        """Create a ModEM Data object from the tree."""
+        """Create a ModEM Data object from the station collection.
+
+        Parameters
+        ----------
+        data_filename : str or pathlib.Path, optional
+            Path to write the ModEM data file.  When ``None`` (default) the
+            file is not written.
+        **kwargs
+            Additional keyword arguments forwarded to
+            :class:`mtpy.modeling.modem.Data` (e.g. ``rotation_angle``,
+            ``inv_mode``, ``formatting``).
+
+        Returns
+        -------
+        mtpy.modeling.modem.Data
+            Populated ModEM Data object with ``z_model_error`` and
+            ``t_model_error`` set from the tree.
+
+        Examples
+        --------
+        Create a data file and retrieve the Data object:
+
+        >>> from mtpy.core import MTDataTree
+        >>> tree = MTDataTree()
+        >>> # tree.add_station(...)  # populate with MT objects first
+        >>> tree.model_parameters = {"inv_mode": "1", "formatting": "1"}
+        >>> modem_data = tree.to_modem(data_filename="ModEM_data.dat")
+        >>> print(modem_data.center_point.latitude)
+        """
         from mtpy.modeling.modem import Data
 
         modem_kwargs = dict(self.model_parameters)
@@ -1649,7 +1724,30 @@ class MTDataTree:
     def from_modem(
         self, data_filename: str | Path, survey: str = "data", **kwargs: Any
     ) -> None:
-        """Populate the tree from a ModEM data file."""
+        """Populate the tree by reading an existing ModEM data file.
+
+        Station datasets, model-error parameters, the center point, and any
+        top-level model parameters (those without a dot in the key) are all
+        restored from the file.
+
+        Parameters
+        ----------
+        data_filename : str or pathlib.Path
+            Path to the ModEM ``.dat`` / ``.data`` file.
+        survey : str, optional
+            Survey label to assign to all imported stations,
+            by default ``'data'``.
+        **kwargs
+            Additional keyword arguments forwarded to
+            :class:`mtpy.modeling.modem.Data`.
+
+        Examples
+        --------
+        >>> from mtpy.core import MTDataTree
+        >>> tree = MTDataTree()
+        >>> tree.from_modem("ModEM_data.dat", survey="line1")
+        >>> print(tree.survey_ids)
+        """
         from mtpy.modeling.modem import Data
 
         modem_data = Data(**kwargs)
@@ -1677,20 +1775,38 @@ class MTDataTree:
         }
 
     def to_occam2d(self, data_filename: str | Path | None = None, **kwargs: Any) -> Any:
-        """Create an Occam2D data object from the tree.
+        """Create an Occam2D data object from the station collection.
 
         Parameters
         ----------
-        data_filename : str or Path, optional
-            Path to write the Occam2D data file.  If None the file is not
-            written.
+        data_filename : str or pathlib.Path, optional
+            Path to write the Occam2D data file.  When ``None`` (default) the
+            file is not written.
         **kwargs
-            Additional keyword arguments forwarded to ``Occam2DData``.
+            Additional keyword arguments forwarded to
+            :class:`mtpy.modeling.occam2d.Occam2DData` (e.g.
+            ``model_mode``, ``profile_angle``, ``res_te_err``).
 
         Returns
         -------
-        Occam2DData
-            Populated Occam2D data object.
+        mtpy.modeling.occam2d.Occam2DData
+            Populated Occam2D data object with ``profile_origin`` set from
+            :attr:`center_point` when not supplied via *kwargs*.
+
+        Notes
+        -----
+        All information is derived from the station dataframe.  The user
+        should create the profile, interpolate, and estimate model errors
+        from the tree before calling this method.
+
+        Examples
+        --------
+        >>> from mtpy.core import MTDataTree
+        >>> tree = MTDataTree()
+        >>> # tree.add_station(...)  # populate first
+        >>> occam_data = tree.to_occam2d(
+        ...     data_filename="OccamDataFile.dat", model_mode="5"
+        ... )
         """
         from mtpy.modeling.occam2d import Occam2DData
 
@@ -1709,17 +1825,34 @@ class MTDataTree:
         file_type: str = "data",
         **kwargs: Any,
     ) -> None:
-        """Populate the tree from an Occam2D data file.
+        """Populate the tree by reading an existing Occam2D data file.
+
+        After reading, ``profile_origin``, ``profile_angle``, and
+        ``model_mode`` are stored in :attr:`model_parameters`.
 
         Parameters
         ----------
-        data_filename : str or Path
+        data_filename : str or pathlib.Path
             Path to the Occam2D data file.
         file_type : str, optional
-            ``'data'`` or ``'response'``/``'model'``.  Controls the survey
-            label assigned to each row, by default ``'data'``.
+            ``'data'`` (default) or ``'response'``/``'model'``.  Controls the
+            survey label (``'data'`` or ``'model'``) assigned to each row.
         **kwargs
-            Additional keyword arguments forwarded to ``Occam2DData``.
+            Additional keyword arguments forwarded to
+            :class:`mtpy.modeling.occam2d.Occam2DData`.
+
+        Examples
+        --------
+        Read a data file:
+
+        >>> from mtpy.core import MTDataTree
+        >>> tree = MTDataTree()
+        >>> tree.from_occam2d("OccamDataFile.dat")
+        >>> print(tree.station_ids)
+
+        Read a response / model file:
+
+        >>> tree.from_occam2d("OccamResponse.dat", file_type="response")
         """
         from mtpy.modeling.occam2d import Occam2DData
 
@@ -1735,48 +1868,87 @@ class MTDataTree:
         self.model_parameters["model_mode"] = occam2d_data.model_mode
 
     def to_simpeg_2d(self, **kwargs: Any) -> Any:
-        """Create a Simpeg 2D data object from the tree.
+        """Create a SimPEG 2-D MT data object from the station collection.
 
         Parameters
         ----------
         **kwargs
-            Additional keyword arguments forwarded to ``Simpeg2DData`` (e.g.
-            ``include_elevation``, ``invert_te``, ``invert_tm``).
+            Additional keyword arguments forwarded to
+            :class:`mtpy.modeling.simpeg.data_2d.Simpeg2DData`.  Common
+            options include:
+
+            include_elevation : bool
+                Include station elevation in the receiver locations,
+                by default ``True``.
+            invert_te : bool
+                Include TE-mode apparent resistivity and phase,
+                by default ``True``.
+            invert_tm : bool
+                Include TM-mode apparent resistivity and phase,
+                by default ``True``.
 
         Returns
         -------
-        Simpeg2DData
-            Populated Simpeg 2D data object.
+        mtpy.modeling.simpeg.data_2d.Simpeg2DData
+            Populated SimPEG 2-D data object.
 
         Notes
         -----
-        All information is derived from the dataframe. The user should create
-        the profile, interpolate, and estimate model errors from the tree
-        first.
+        The impedance units are converted to ``'ohm'`` automatically.
+        The user should create the profile, interpolate, and estimate model
+        errors from the tree before calling this method.
+
+        Examples
+        --------
+        >>> from mtpy.core import MTDataTree
+        >>> tree = MTDataTree()
+        >>> # tree.add_station(...)  # populate first
+        >>> simpeg_2d = tree.to_simpeg_2d(invert_te=True, invert_tm=False)
         """
         from mtpy.modeling.simpeg.data_2d import Simpeg2DData
 
         return Simpeg2DData(self.to_dataframe(impedance_units="ohm"), **kwargs)
 
     def to_simpeg_3d(self, **kwargs: Any) -> Any:
-        """Create a Simpeg 3D data object from the tree.
+        """Create a SimPEG 3-D MT data object from the station collection.
 
         Parameters
         ----------
         **kwargs
-            Additional keyword arguments forwarded to ``Simpeg3DData`` (e.g.
-            ``include_elevation``, ``geographic_coordinates``,
-            ``invert_z_xy``, ``invert_t_zx``).
+            Additional keyword arguments forwarded to
+            :class:`mtpy.modeling.simpeg.data_3d.Simpeg3DData`.  Common
+            options include:
+
+            include_elevation : bool
+                Include station elevation in the receiver locations,
+                by default ``False``.
+            geographic_coordinates : bool
+                Use geographic (UTM) coordinates instead of model-relative
+                coordinates, by default ``True``.
+            invert_z_xx, invert_z_xy, invert_z_yx, invert_z_yy : bool
+                Select which impedance tensor components to include,
+                all default to ``True``.
+            invert_t_zx, invert_t_zy : bool
+                Select which tipper components to include,
+                both default to ``True``.
 
         Returns
         -------
-        Simpeg3DData
-            Populated Simpeg 3D data object.
+        mtpy.modeling.simpeg.data_3d.Simpeg3DData
+            Populated SimPEG 3-D data object.
 
         Notes
         -----
-        All information is derived from the dataframe. The user should
-        interpolate and estimate model errors from the tree first.
+        The impedance units are converted to ``'ohm'`` automatically.
+        The user should interpolate and estimate model errors from the tree
+        before calling this method.
+
+        Examples
+        --------
+        >>> from mtpy.core import MTDataTree
+        >>> tree = MTDataTree()
+        >>> # tree.add_station(...)  # populate first
+        >>> simpeg_3d = tree.to_simpeg_3d(invert_z_yy=False, include_elevation=True)
         """
         from mtpy.modeling.simpeg.data_3d import Simpeg3DData
 
@@ -1785,22 +1957,43 @@ class MTDataTree:
     def add_white_noise(
         self, value: float, inplace: bool = True
     ) -> "MTDataTree | None":
-        """Add white noise to the impedance and tipper data of every station.
+        """Add white noise to the impedance and tipper of every station.
+
+        Multiplies the real and imaginary parts of the transfer function by
+        independent random factors drawn from
+        ``1 ± U(0, value) `` and increments the transfer-function error by
+        *value*.  Useful for generating synthetic test datasets.
 
         Parameters
         ----------
         value : float
-            Noise level as a percentage.  Values greater than 1 are divided
-            by 100 first (e.g. ``10`` → ``0.10``).
+            Noise level expressed as a decimal fraction (0–1) or as a
+            percentage (>1).  Values greater than 1 are divided by 100
+            automatically (e.g. ``10`` becomes ``0.10``, i.e. 10 %).
         inplace : bool, optional
-            If ``True`` (default) modifies each station dataset in place and
-            returns ``None``.  If ``False`` returns a new ``MTDataTree``
-            containing noisy copies of each station.
+            When ``True`` (default) each station dataset is modified in place
+            and ``None`` is returned.  When ``False`` a new
+            :class:`MTDataTree` containing noisy copies is returned and the
+            original tree is left unchanged.
 
         Returns
         -------
         MTDataTree or None
-            New tree when *inplace* is ``False``, otherwise ``None``.
+            A new tree containing noisy station data when *inplace* is
+            ``False``; ``None`` otherwise.
+
+        Examples
+        --------
+        In-place noise addition:
+
+        >>> from mtpy.core import MTDataTree
+        >>> tree = MTDataTree()
+        >>> # tree.add_station(...)  # populate first
+        >>> tree.add_white_noise(5)  # adds 5 % noise in place
+
+        Non-destructive copy with noise:
+
+        >>> noisy_tree = tree.add_white_noise(0.05, inplace=False)
         """
         if value > 1:
             value = value / 100.0
