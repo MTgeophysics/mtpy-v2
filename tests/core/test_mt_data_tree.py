@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Pytest suite for MTDataTree scaffold behavior."""
 
-
 import mtpy_data
 import numpy as np
 import pandas as pd
@@ -472,6 +471,462 @@ class TestMTDataTreeNodeOperations:
         assert out.longitude == loaded_profile_mt.longitude
         assert out.elevation == loaded_profile_mt.elevation
 
+    def test_survey_ids_empty_tree(self):
+        tree = MTDataTree()
+
+        assert tree.survey_ids == []
+
+    def test_survey_ids_returns_unique_surveys(self):
+        mt_1 = MT()
+        mt_1.survey = "survey_a"
+        mt_1.station = "station_01"
+
+        mt_2 = MT()
+        mt_2.survey = "survey_a"
+        mt_2.station = "station_02"
+
+        mt_3 = MT()
+        mt_3.survey = "survey_b"
+        mt_3.station = "station_03"
+
+        tree = MTDataTree()
+        tree.add_stations([mt_1, mt_2, mt_3])
+
+        assert set(tree.survey_ids) == {"survey_a", "survey_b"}
+
+    def test_get_survey_returns_filtered_tree(self):
+        mt_1 = MT()
+        mt_1.survey = "survey_a"
+        mt_1.station = "station_01"
+
+        mt_2 = MT()
+        mt_2.survey = "survey_a"
+        mt_2.station = "station_02"
+
+        mt_3 = MT()
+        mt_3.survey = "survey_b"
+        mt_3.station = "station_03"
+
+        tree = MTDataTree()
+        tree.add_stations([mt_1, mt_2, mt_3])
+
+        survey_tree = tree.get_survey("survey_a")
+
+        assert isinstance(survey_tree, MTDataTree)
+        assert set(survey_tree.survey_ids) == {"survey_a"}
+        assert set(survey_tree._iter_station_paths()) == {
+            "surveys/survey_a/stations/station_01",
+            "surveys/survey_a/stations/station_02",
+        }
+
+    def test_get_survey_missing_id_returns_empty_tree(self):
+        mt = MT()
+        mt.survey = "survey_a"
+        mt.station = "station_01"
+
+        tree = MTDataTree()
+        tree.add_station(mt)
+
+        survey_tree = tree.get_survey("not_present")
+
+        assert isinstance(survey_tree, MTDataTree)
+        assert survey_tree._iter_station_paths() == []
+        assert survey_tree.survey_ids == []
+
+    def test_to_geo_df_station_locations(self):
+        geopandas = pytest.importorskip("geopandas")
+
+        mt_1 = MT()
+        mt_1.survey = "geo"
+        mt_1.station = "s01"
+        mt_1.latitude = 40.0
+        mt_1.longitude = -120.0
+        mt_1.east = 100.0
+        mt_1.north = 200.0
+        mt_1.utm_epsg = 32611
+
+        mt_2 = MT()
+        mt_2.survey = "geo"
+        mt_2.station = "s02"
+        mt_2.latitude = 41.0
+        mt_2.longitude = -121.0
+        mt_2.east = 130.0
+        mt_2.north = 240.0
+        mt_2.utm_epsg = 32611
+
+        tree = MTDataTree()
+        tree.add_stations([mt_1, mt_2])
+
+        gdf = tree.to_geo_df()
+
+        assert isinstance(gdf, geopandas.GeoDataFrame)
+        assert len(gdf) == 2
+        assert "geometry" in gdf.columns
+        assert set(gdf.station.tolist()) == {"s01", "s02"}
+
+    def test_to_geo_df_model_locations_uses_model_coordinates(self):
+        pytest.importorskip("geopandas")
+
+        mt = MT()
+        mt.survey = "geo_model"
+        mt.station = "m01"
+        mt.latitude = 40.0
+        mt.longitude = -120.0
+        mt.model_east = 12.5
+        mt.model_north = 34.5
+
+        tree = MTDataTree()
+        tree.add_station(mt)
+
+        gdf = tree.to_geo_df(model_locations=True)
+
+        assert np.isclose(float(gdf.geometry.x.iloc[0]), 12.5)
+        assert np.isclose(float(gdf.geometry.y.iloc[0]), 34.5)
+
+    def test_to_geo_df_invalid_data_type_raises(self):
+        tree = MTDataTree()
+
+        with pytest.raises(ValueError, match="unsupported"):
+            tree.to_geo_df(data_type="bad_type")
+
+    def test_get_nearby_stations_meters(self):
+        mt_1 = MT()
+        mt_1.survey = "near"
+        mt_1.station = "s01"
+        mt_1.utm_epsg = 32611
+        mt_1.east = 1.0
+        mt_1.north = 1.0
+
+        mt_2 = MT()
+        mt_2.survey = "near"
+        mt_2.station = "s02"
+        mt_2.utm_epsg = 32611
+        mt_2.east = 4.0
+        mt_2.north = 5.0
+
+        mt_3 = MT()
+        mt_3.survey = "near"
+        mt_3.station = "s03"
+        mt_3.utm_epsg = 32611
+        mt_3.east = 100.0
+        mt_3.north = 100.0
+
+        tree = MTDataTree()
+        tree.add_stations([mt_1, mt_2, mt_3])
+
+        out = tree.get_nearby_stations("near.s01", radius=6.0, radius_units="m")
+
+        assert out == ["near.s02"]
+
+    def test_get_nearby_stations_requires_utm_for_meters(self):
+        mt_1 = MT()
+        mt_1.survey = "no_utm"
+        mt_1.station = "s01"
+        mt_1.east = 0.0
+        mt_1.north = 0.0
+
+        mt_2 = MT()
+        mt_2.survey = "no_utm"
+        mt_2.station = "s02"
+        mt_2.east = 1.0
+        mt_2.north = 1.0
+
+        tree = MTDataTree()
+        tree.add_stations([mt_1, mt_2])
+
+        with pytest.raises(ValueError, match="UTM CRS"):
+            tree.get_nearby_stations("no_utm.s01", radius=10.0, radius_units="m")
+
+    def test_estimate_spatial_static_shift_no_nearby_returns_identity(
+        self, monkeypatch
+    ):
+        tree = MTDataTree()
+
+        monkeypatch.setattr(tree, "get_nearby_stations", lambda *_args, **_kwargs: [])
+
+        sx, sy = tree.estimate_spatial_static_shift(
+            station_key="survey.station",
+            radius=1000.0,
+            period_min=1.0,
+            period_max=10.0,
+        )
+
+        assert sx == 1.0
+        assert sy == 1.0
+
+    def test_estimate_spatial_static_shift_computes_and_applies_tolerance(
+        self, monkeypatch
+    ):
+        tree = MTDataTree()
+
+        class _FakeLocalSite:
+            def __init__(self):
+                self.period = np.array([1.0, 5.0, 10.0])
+
+                class _Z:
+                    res_xy = np.array([10.0, 10.0, 10.0])
+                    res_yx = np.array([10.0, 10.0, 10.0])
+
+                self.Z = _Z()
+
+            def interpolate(self, _periods):
+                return self
+
+        class _FakeSubset:
+            def interpolate(self, _periods):
+                return None
+
+            def to_dataframe(self):
+                return pd.DataFrame(
+                    {
+                        "res_xy": [20.0, 20.0, 20.0],
+                        "res_yx": [10.5, 10.5, 10.5],
+                    }
+                )
+
+        monkeypatch.setattr(
+            tree,
+            "get_nearby_stations",
+            lambda *_args, **_kwargs: ["near.s01"],
+        )
+        monkeypatch.setattr(tree, "_resolve_station_path", lambda key: key)
+        monkeypatch.setattr(tree, "get_subset", lambda _paths: _FakeSubset())
+        monkeypatch.setattr(
+            tree,
+            "get_station",
+            lambda _key, as_mt=False: _FakeLocalSite() if as_mt else None,
+        )
+
+        sx, sy = tree.estimate_spatial_static_shift(
+            station_key="local.s00",
+            radius=1000.0,
+            period_min=1.0,
+            period_max=10.0,
+            shift_tolerance=0.1,
+        )
+
+        assert np.isclose(sx, 2.0)
+        assert np.isclose(sy, 1.0)
+
+    def test_get_profile_returns_subset_with_profile_offsets(self):
+        mt_1 = MT()
+        mt_1.survey = "prof"
+        mt_1.station = "s01"
+        mt_1.utm_epsg = 32611
+        mt_1.east = 1.0
+        mt_1.north = 1.0
+
+        mt_2 = MT()
+        mt_2.survey = "prof"
+        mt_2.station = "s02"
+        mt_2.utm_epsg = 32611
+        mt_2.east = 20.0
+        mt_2.north = 1.0
+
+        mt_3 = MT()
+        mt_3.survey = "prof"
+        mt_3.station = "s03"
+        mt_3.utm_epsg = 32611
+        mt_3.east = 1.0
+        mt_3.north = 60.0
+
+        tree = MTDataTree()
+        tree.add_stations([mt_1, mt_2, mt_3])
+
+        profile_tree = tree.get_profile(
+            x1=1.0,
+            y1=1.0,
+            x2=200.0,
+            y2=1.0,
+            radius=5.0,
+        )
+
+        assert isinstance(profile_tree, MTDataTree)
+        assert set(profile_tree._iter_station_paths()) == {
+            "surveys/prof/stations/s01",
+            "surveys/prof/stations/s02",
+        }
+        offset_1 = profile_tree.get_station("surveys/prof/stations/s01").attrs[
+            "profile_offset"
+        ]
+        offset_2 = profile_tree.get_station("surveys/prof/stations/s02").attrs[
+            "profile_offset"
+        ]
+        assert np.isclose(offset_1, 0.0)
+        assert offset_2 > offset_1
+
+    def test_get_profile_no_matches_returns_empty_tree(self):
+        mt = MT()
+        mt.survey = "prof_empty"
+        mt.station = "s01"
+        mt.latitude = 40.0
+        mt.longitude = -120.0
+        mt.east = 100.0
+        mt.north = 100.0
+        mt.utm_epsg = 32611
+
+        tree = MTDataTree()
+        tree.add_station(mt)
+
+        profile_tree = tree.get_profile(
+            x1=0.0,
+            y1=0.0,
+            x2=200.0,
+            y2=0.0,
+            radius=5.0,
+        )
+
+        assert isinstance(profile_tree, MTDataTree)
+        assert profile_tree.n_stations == 0
+
+    def test_compute_model_errors_updates_transfer_function_model_error(
+        self, loaded_profile_mt
+    ):
+        tree = MTDataTree()
+        station_path = tree.add_station(loaded_profile_mt.copy())
+
+        before = tree.get_station(station_path)[
+            "transfer_function_model_error"
+        ].values.copy()
+
+        tree.compute_model_errors(
+            z_error_value=11,
+            z_error_type="absolute",
+            z_floor=False,
+            t_error_value=0.11,
+            t_error_type="absolute",
+            t_floor=False,
+        )
+
+        after = tree.get_station(station_path)["transfer_function_model_error"].values
+
+        assert not np.allclose(before, after, equal_nan=True)
+
+    def test_compute_model_errors_matches_mt_compute_methods(self, loaded_profile_mt):
+        mt_obj = loaded_profile_mt.copy()
+
+        tree = MTDataTree()
+        station_path = tree.add_station(mt_obj.copy())
+
+        z_kwargs = {
+            "error_value": 9,
+            "error_type": "absolute",
+            "floor": False,
+        }
+        t_kwargs = {
+            "error_value": 0.08,
+            "error_type": "absolute",
+            "floor": False,
+        }
+
+        mt_obj.compute_model_z_errors(**z_kwargs)
+        mt_obj.compute_model_t_errors(**t_kwargs)
+
+        tree.compute_model_errors(
+            z_error_value=z_kwargs["error_value"],
+            z_error_type=z_kwargs["error_type"],
+            z_floor=z_kwargs["floor"],
+            t_error_value=t_kwargs["error_value"],
+            t_error_type=t_kwargs["error_type"],
+            t_floor=t_kwargs["floor"],
+        )
+
+        expected = mt_obj._transfer_function["transfer_function_model_error"].values
+        actual = tree.get_station(station_path)["transfer_function_model_error"].values
+
+        assert np.allclose(actual, expected, equal_nan=True)
+
+    def test_estimate_starting_rho_plots_mean_and_median(self, loaded_profile_mt):
+        plt = pytest.importorskip("matplotlib.pyplot")
+
+        tree = MTDataTree()
+        tree.add_stations([loaded_profile_mt.copy(), loaded_profile_mt.copy()])
+
+        class _FakeAxes:
+            def __init__(self):
+                self.legend_labels = None
+                self.xlim = None
+
+            def loglog(self, x, y, **kwargs):
+                class _Line:
+                    pass
+
+                return (_Line(),)
+
+            def set_xlabel(self, *_args, **_kwargs):
+                return None
+
+            def set_ylabel(self, *_args, **_kwargs):
+                return None
+
+            def legend(self, _handles, labels, loc="upper left"):
+                self.legend_labels = labels
+                return None
+
+            def grid(self, **_kwargs):
+                return None
+
+            def set_xlim(self, value):
+                self.xlim = value
+                return None
+
+        class _FakeFigure:
+            def __init__(self, axes):
+                self._axes = axes
+
+            def add_subplot(self, *_args, **_kwargs):
+                return self._axes
+
+        fake_axes = _FakeAxes()
+        show_called = {"value": False}
+
+        monkeypatch = pytest.MonkeyPatch()
+        monkeypatch.setattr(plt, "figure", lambda: _FakeFigure(fake_axes))
+        monkeypatch.setattr(
+            plt,
+            "show",
+            lambda: show_called.__setitem__("value", True),
+        )
+
+        try:
+            tree.estimate_starting_rho()
+        finally:
+            monkeypatch.undo()
+
+        assert show_called["value"]
+        assert fake_axes.legend_labels is not None
+        assert fake_axes.legend_labels[0].startswith("Mean =")
+        assert fake_axes.legend_labels[1].startswith("Median =")
+        assert fake_axes.xlim is not None
+
+    def test_n_stations_counts_nodes(self):
+        tree = MTDataTree()
+        assert tree.n_stations == 0
+
+        mt_1 = MT()
+        mt_1.survey = "survey_a"
+        mt_1.station = "station_01"
+
+        mt_2 = MT()
+        mt_2.survey = "survey_b"
+        mt_2.station = "station_02"
+
+        tree.add_stations([mt_1, mt_2])
+
+        assert tree.n_stations == 2
+
+    def test_add_tf_aliases_add_station(self):
+        mt = MT()
+        mt.survey = "tf_survey"
+        mt.station = "tf_station"
+
+        tree = MTDataTree()
+        station_path = tree.add_tf(mt)
+
+        assert station_path == "surveys/tf_survey/stations/tf_station"
+        assert tree.n_stations == 1
+        assert isinstance(tree.get_station(station_path), xr.Dataset)
+
 
 class TestMTDataTreeCopy:
     def test_copy_returns_independent_tree(self, loaded_profile_mt):
@@ -510,6 +965,25 @@ class TestMTDataTreeCopy:
 
         assert tree.metadata_cache["survey"][station_path].id != "copied_survey"
         assert tree.metadata_cache["station"][station_path].id != "copied_station"
+
+    def test_clone_empty_preserves_attrs_without_stations(self, basic_mt):
+        tree = MTDataTree(
+            metadata_storage="cache",
+            dataset_copy_mode="shallow",
+            coordinate_reference_frame="ned",
+            impedance_units="mt",
+        )
+        tree.add_station(basic_mt)
+
+        empty = tree.clone_empty()
+
+        assert isinstance(empty, MTDataTree)
+        assert empty.metadata_storage == tree.metadata_storage
+        assert empty.dataset_copy_mode == tree.dataset_copy_mode
+        assert empty.coordinate_reference_frame == tree.coordinate_reference_frame
+        assert empty.impedance_units == tree.impedance_units
+        assert empty._iter_station_paths() == []
+        assert empty.n_stations == 0
 
 
 class TestMTDataTreePeriods:

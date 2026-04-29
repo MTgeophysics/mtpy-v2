@@ -18,6 +18,7 @@ import pandas as pd
 import xarray as xr
 
 from mtpy.core.transfer_function import IMPEDANCE_UNITS
+from mtpy.modeling.errors import ModelErrors
 
 from .mt_data_tree_index import MTDataTreeIndexStore
 from .mt_dataframe import MTDataFrame
@@ -122,6 +123,19 @@ class MTDataTree:
         self._impedance_unit_factors = dict(self.IMPEDANCE_UNITS)
         self._impedance_units = "mt"
 
+        self.z_model_error = ModelErrors(
+            error_value=5,
+            error_type="geometric_mean",
+            floor=True,
+            mode="impedance",
+        )
+        self.t_model_error = ModelErrors(
+            error_value=0.02,
+            error_type="absolute",
+            floor=True,
+            mode="tipper",
+        )
+
         # Initialize a predictable top-level path for survey grouping.
         if self.SURVEYS_NODE not in self.tree.children:
             self.tree[self.SURVEYS_NODE] = xr.DataTree(
@@ -158,6 +172,16 @@ class MTDataTree:
     def copy(self) -> "MTDataTree":
         """Create a deep copy of MTDataTree object."""
         return deepcopy(self)
+
+    def clone_empty(self) -> "MTDataTree":
+        """Create a copy of MTDataTree excluding all station datasets."""
+        return self.__class__(
+            metadata_storage=self.metadata_storage,
+            dataset_copy_mode=self.dataset_copy_mode,
+            use_index=self._index is not None or self._lazy_use_index,
+            index_db_path=self._index_db_path,
+            **dict(self.attrs),
+        )
 
     @staticmethod
     def _metadata_to_dict(metadata: Any) -> dict[str, Any]:
@@ -889,6 +913,26 @@ class MTDataTree:
         """Build canonical station path under /surveys."""
         return f"{self.SURVEYS_NODE}/{survey}/{self.STATIONS_NODE}/{station}"
 
+    def _resolve_station_path(self, station_key: str) -> str:
+        """Resolve a station key in dot or tree-path form to canonical tree path."""
+        if not isinstance(station_key, str) or not station_key.strip():
+            raise KeyError("station_key must be a non-empty string")
+
+        key = station_key.strip()
+        if key.startswith(f"{self.SURVEYS_NODE}/") and self._path_exists(key):
+            return key
+
+        if "." in key:
+            survey, station = key.split(".", 1)
+            candidate = self._station_path(
+                self._clean_name(survey, "default"),
+                self._clean_name(station, "unknown_station"),
+            )
+            if self._path_exists(candidate):
+                return candidate
+
+        raise KeyError(f"Station key not found: {station_key}")
+
     @staticmethod
     def _coerce_mt_object(mt_obj: "MT | str | Path") -> "MT":
         """Convert supported inputs to an MT instance."""
@@ -1211,6 +1255,55 @@ class MTDataTree:
 
         return MTStations(None, station_locations=self.station_locations)
 
+    def to_geo_df(
+        self,
+        model_locations: bool = False,
+        data_type: str = "station_locations",
+    ) -> Any:
+        """Create a GeoDataFrame for GIS operations."""
+        try:
+            import geopandas as gpd
+        except ImportError as exc:
+            raise ImportError(
+                "geopandas is required for to_geo_df but is not installed"
+            ) from exc
+
+        if data_type in ["station_locations", "stations"]:
+            df = self.station_locations
+        elif data_type in ["phase_tensor", "pt"]:
+            df = self.to_mt_dataframe().phase_tensor
+        elif data_type in ["tipper", "t"]:
+            df = self.to_mt_dataframe().tipper
+        elif data_type in ["both", "shapefiles"]:
+            df = self.to_mt_dataframe().for_shapefiles
+        else:
+            raise ValueError(f"Option for 'data_type' {data_type} is unsupported.")
+
+        if model_locations:
+            return gpd.GeoDataFrame(
+                df,
+                geometry=gpd.points_from_xy(df.model_east, df.model_north),
+                crs=None,
+            )
+
+        crs_value = None
+        if "datum_epsg" in df.columns:
+            for value in df["datum_epsg"].tolist():
+                epsg_value = self._coerce_epsg_value(value)
+                if epsg_value is None:
+                    continue
+                if str(epsg_value).isdigit():
+                    crs_value = f"EPSG:{epsg_value}"
+                else:
+                    crs_value = epsg_value
+                break
+
+        return gpd.GeoDataFrame(
+            df,
+            geometry=gpd.points_from_xy(df.longitude, df.latitude),
+            crs=crs_value,
+        )
+
     @property
     def station_locations(self) -> pd.DataFrame:
         """Station-location table built directly from tree dataset attrs."""
@@ -1255,6 +1348,294 @@ class MTDataTree:
     def mt_stations(self) -> "MTStations":
         """Convenience accessor for station locations represented by the tree."""
         return self.to_mt_stations()
+
+    def get_nearby_stations(
+        self,
+        station_key: str,
+        radius: float,
+        radius_units: str = "m",
+    ) -> list[str]:
+        """Find stations near a given station."""
+        self.compute()
+
+        station_path = self._resolve_station_path(station_key)
+        local_attrs = self.get_station(station_path).attrs
+
+        sdf = self.station_locations.copy()
+        if sdf.empty:
+            return []
+
+        if radius_units in ["m", "meters", "metres"]:
+            if "utm_epsg" not in sdf.columns or (
+                sdf["utm_epsg"].replace("", np.nan).dropna().empty
+            ):
+                raise ValueError(
+                    "Cannot estimate distances in meters without a UTM CRS. Set 'utm_crs' first."
+                )
+            sdf["radius"] = np.sqrt(
+                (
+                    float(local_attrs.get("easting", 0.0))
+                    - pd.to_numeric(sdf.east, errors="coerce").fillna(0.0)
+                )
+                ** 2
+                + (
+                    float(local_attrs.get("northing", 0.0))
+                    - pd.to_numeric(sdf.north, errors="coerce").fillna(0.0)
+                )
+                ** 2
+            )
+        elif radius_units in ["deg", "degrees"]:
+            sdf["radius"] = np.sqrt(
+                (
+                    float(local_attrs.get("longitude", 0.0))
+                    - pd.to_numeric(sdf.longitude, errors="coerce").fillna(0.0)
+                )
+                ** 2
+                + (
+                    float(local_attrs.get("latitude", 0.0))
+                    - pd.to_numeric(sdf.latitude, errors="coerce").fillna(0.0)
+                )
+                ** 2
+            )
+        else:
+            raise ValueError(
+                "radius_units must be one of: m, meters, metres, deg, degrees"
+            )
+
+        return [
+            f"{row.survey}.{row.station}"
+            for row in sdf.loc[(sdf.radius <= radius) & (sdf.radius > 0)].itertuples()
+        ]
+
+    def get_profile(
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        radius: float,
+    ) -> "MTDataTree":
+        """Get stations along a profile line."""
+        self.compute()
+
+        profile_stations = self.to_mt_stations()._extract_profile(
+            x1,
+            y1,
+            x2,
+            y2,
+            radius,
+        )
+
+        if profile_stations.empty:
+            return self.clone_empty()
+
+        key_to_path: dict[tuple[str, str], str] = {}
+        for station_path in self._iter_station_paths():
+            attrs = self.get_station(station_path).attrs
+            key = (str(attrs.get("survey", "")), str(attrs.get("station", "")))
+            key_to_path[key] = station_path
+
+        selected_paths: list[str] = []
+        for row in profile_stations.itertuples(index=False):
+            key = (str(getattr(row, "survey")), str(getattr(row, "station")))
+            station_path = key_to_path.get(key)
+            if station_path is not None:
+                selected_paths.append(station_path)
+
+        profile_tree = self.get_subset(selected_paths)
+
+        for row in profile_stations.itertuples(index=False):
+            survey = self._clean_name(getattr(row, "survey", None), "default")
+            station = self._clean_name(
+                getattr(row, "station", None),
+                "unknown_station",
+            )
+            station_path = profile_tree._station_path(survey, station)
+            if not profile_tree._path_exists(station_path):
+                continue
+            if hasattr(row, "profile_offset"):
+                profile_tree.get_station(station_path).attrs["profile_offset"] = float(
+                    getattr(row, "profile_offset")
+                )
+
+        return profile_tree
+
+    def compute_model_errors(
+        self,
+        z_error_value: float | None = None,
+        z_error_type: str | None = None,
+        z_floor: bool | None = None,
+        t_error_value: float | None = None,
+        t_error_type: str | None = None,
+        t_floor: bool | None = None,
+    ) -> None:
+        """Compute model errors for all stations in the tree."""
+        self.compute()
+
+        if z_error_value is not None:
+            self.z_model_error.error_value = z_error_value
+        if z_error_type is not None:
+            self.z_model_error.error_type = z_error_type
+        if z_floor is not None:
+            self.z_model_error.floor = z_floor
+
+        if t_error_value is not None:
+            self.t_model_error.error_value = t_error_value
+        if t_error_type is not None:
+            self.t_model_error.error_type = t_error_type
+        if t_floor is not None:
+            self.t_model_error.floor = t_floor
+
+        for station_path in self._iter_station_paths():
+            station_ds = self.get_station(station_path)
+            attrs = dict(station_ds.attrs)
+
+            mt_obj = self._dataset_to_mt(station_ds)
+            self._hydrate_metadata_from_cache(mt_obj, station_ds)
+
+            mt_obj.compute_model_z_errors(**self.z_model_error.error_parameters)
+            mt_obj.compute_model_t_errors(**self.t_model_error.error_parameters)
+
+            out_ds = mt_obj._transfer_function
+            out_ds.attrs = attrs
+            self._set_station_dataset(station_path, out_ds)
+
+    def estimate_starting_rho(self) -> None:
+        """Estimate starting resistivity from all station data and plot summary curves."""
+        import matplotlib.pyplot as plt
+
+        self.compute()
+
+        entries: list[dict[str, float]] = []
+        for station_path in self._iter_station_paths():
+            mt_obj = self.get_station(station_path, as_mt=True)
+            for period, res_det in zip(mt_obj.period, mt_obj.Z.res_det):
+                entries.append({"period": period, "res_det": res_det})
+
+        res_df = pd.DataFrame(entries)
+
+        mean_rho = res_df.groupby("period").mean()
+        median_rho = res_df.groupby("period").median()
+
+        fig = plt.figure()
+
+        ax = fig.add_subplot(1, 1, 1)
+        (l1,) = ax.loglog(mean_rho.index, mean_rho.res_det, lw=2, color=(0.75, 0.25, 0))
+        (l2,) = ax.loglog(
+            median_rho.index, median_rho.res_det, lw=2, color=(0, 0.25, 0.75)
+        )
+
+        ax.loglog(
+            mean_rho.index,
+            np.repeat(mean_rho.res_det.mean(), mean_rho.shape[0]),
+            ls="--",
+            lw=2,
+            color=(0.75, 0.25, 0),
+        )
+        ax.loglog(
+            median_rho.index,
+            np.repeat(median_rho.res_det.median(), median_rho.shape[0]),
+            ls="--",
+            lw=2,
+            color=(0, 0.25, 0.75),
+        )
+
+        ax.set_xlabel("Period (s)", fontdict={"size": 12, "weight": "bold"})
+        ax.set_ylabel("Resistivity (Ohm-m)", fontdict={"size": 12, "weight": "bold"})
+
+        ax.legend(
+            [l1, l2],
+            [
+                f"Mean = {mean_rho.res_det.mean():.1f}",
+                f"Median = {median_rho.res_det.median():.1f}",
+            ],
+            loc="upper left",
+        )
+        ax.grid(which="both", ls="--", color=(0.75, 0.75, 0.75))
+        ax.set_xlim((res_df.period.min(), res_df.period.max()))
+
+        plt.show()
+
+    def estimate_spatial_static_shift(
+        self,
+        station_key: str,
+        radius: float,
+        period_min: float,
+        period_max: float,
+        radius_units: str = "m",
+        shift_tolerance: float = 0.15,
+    ) -> tuple[float, float]:
+        """Estimate static shift from nearby stations."""
+        nearby_keys = self.get_nearby_stations(station_key, radius, radius_units)
+        if len(nearby_keys) == 0:
+            return 1.0, 1.0
+
+        nearby_paths = [self._resolve_station_path(key) for key in nearby_keys]
+        md = self.get_subset(nearby_paths)
+
+        local_site = self.get_station(
+            self._resolve_station_path(station_key),
+            as_mt=True,
+        )
+
+        interp_periods = local_site.period[
+            np.where(
+                (local_site.period >= period_min) & (local_site.period <= period_max)
+            )
+        ]
+
+        local_site = local_site.interpolate(interp_periods)
+        md.interpolate(interp_periods)
+
+        df = md.to_dataframe()
+
+        sx = np.nanmedian(df.res_xy) / np.nanmedian(local_site.Z.res_xy)
+        sy = np.nanmedian(df.res_yx) / np.nanmedian(local_site.Z.res_yx)
+
+        if 1 - shift_tolerance < sx < 1 + shift_tolerance:
+            sx = 1.0
+        if 1 - shift_tolerance < sy < 1 + shift_tolerance:
+            sy = 1.0
+
+        return sx, sy
+
+    @property
+    def n_stations(self) -> int:
+        """Total number of stations in the collection."""
+        self.compute()
+
+        if self._index is not None:
+            return self._index.n_stations()
+        return len(self._iter_station_paths())
+
+    @property
+    def survey_ids(self) -> list[str]:
+        """Unique survey IDs in the collection."""
+        self.compute()
+
+        if self._index is not None:
+            return [row.name for row in self._index.all_surveys()]
+
+        return list(
+            {
+                path.split("/", 3)[1]
+                for path in self._iter_station_paths()
+                if path.count("/") >= 3
+            }
+        )
+
+    def get_survey(self, survey_id: str) -> "MTDataTree":
+        """Get all stations belonging to a specific survey."""
+        self.compute()
+
+        station_list = [
+            station_path
+            for station_path in self._iter_station_paths()
+            if station_path.startswith(
+                f"{self.SURVEYS_NODE}/{survey_id}/{self.STATIONS_NODE}/"
+            )
+        ]
+        return self.get_subset(station_list)
 
     def add_station(
         self,
@@ -1324,6 +1705,14 @@ class MTDataTree:
                 self._index.replace_station_period_rows(period_row)
             self._index.refresh_survey_aggregates(station_row.survey_name)
         return station_path
+
+    def add_tf(
+        self,
+        tf: "MT | str | Path | list[MT | str | Path]",
+        **kwargs: Any,
+    ) -> str | list[str]:
+        """Alias for add_station to mirror MTData API."""
+        return self.add_station(tf, **kwargs)
 
     def add_stations(
         self,

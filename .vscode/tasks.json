@@ -1,0 +1,23 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "pytest-mt-data-tree",
+			"type": "shell",
+			"command": "C:/Users/peaco/miniconda3/envs/py313/python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"tests/core/test_mt_data_tree.py",
+				"-q"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "pytest-mt-data-tree-exitfile",
+			"type": "shell",
+			"command": "C:/Users/peaco/miniconda3/envs/py313/python.exe -m pytest tests/core/test_mt_data_tree.py -q *> .pytest_mt_data_tree.log; Set-Content -Path .pytest_mt_data_tree.exit -Value $LASTEXITCODE",
+			"isBackground": false
+		}
+	]
+}
