@@ -1631,3 +1631,45 @@ class TestMTDataTreeSimPEG:
 
         assert simpeg_data.include_elevation is True
         assert simpeg_data.invert_z_yy is False
+
+
+class TestMTDataTreeAddWhiteNoise:
+    def test_add_white_noise_inplace_changes_data(self, loaded_profile_mt_objects):
+        tree = MTDataTree()
+        tree.add_station(loaded_profile_mt_objects)
+
+        before = tree.to_dataframe()
+        before_z = before[["z_xx", "z_xy", "z_yx", "z_yy"]].values.copy()
+
+        tree.add_white_noise(0.05)
+
+        after = tree.to_dataframe()
+        after_z = after[["z_xx", "z_xy", "z_yx", "z_yy"]].values
+
+        assert not np.allclose(before_z, after_z, equal_nan=True)
+
+    def test_add_white_noise_inplace_returns_none(self, loaded_profile_mt_objects):
+        tree = MTDataTree()
+        tree.add_station(loaded_profile_mt_objects)
+
+        result = tree.add_white_noise(5)
+
+        assert result is None
+
+    def test_add_white_noise_not_inplace_returns_new_tree(
+        self, loaded_profile_mt_objects
+    ):
+        tree = MTDataTree()
+        tree.add_station(loaded_profile_mt_objects)
+
+        before_z = tree.to_dataframe()[["z_xx", "z_xy", "z_yx", "z_yy"]].values.copy()
+
+        new_tree = tree.add_white_noise(0.05, inplace=False)
+
+        assert isinstance(new_tree, MTDataTree)
+        assert new_tree.n_stations == tree.n_stations
+        after_z = new_tree.to_dataframe()[["z_xx", "z_xy", "z_yx", "z_yy"]].values
+        assert not np.allclose(before_z, after_z, equal_nan=True)
+        # original tree must be unchanged
+        orig_z = tree.to_dataframe()[["z_xx", "z_xy", "z_yx", "z_yy"]].values
+        assert np.allclose(before_z, orig_z, equal_nan=True)

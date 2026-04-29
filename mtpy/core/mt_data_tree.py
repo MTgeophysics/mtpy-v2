@@ -1782,6 +1782,46 @@ class MTDataTree:
 
         return Simpeg3DData(self.to_dataframe(impedance_units="ohm"), **kwargs)
 
+    def add_white_noise(
+        self, value: float, inplace: bool = True
+    ) -> "MTDataTree | None":
+        """Add white noise to the impedance and tipper data of every station.
+
+        Parameters
+        ----------
+        value : float
+            Noise level as a percentage.  Values greater than 1 are divided
+            by 100 first (e.g. ``10`` → ``0.10``).
+        inplace : bool, optional
+            If ``True`` (default) modifies each station dataset in place and
+            returns ``None``.  If ``False`` returns a new ``MTDataTree``
+            containing noisy copies of each station.
+
+        Returns
+        -------
+        MTDataTree or None
+            New tree when *inplace* is ``False``, otherwise ``None``.
+        """
+        if value > 1:
+            value = value / 100.0
+
+        paths = self._iter_station_paths()
+
+        if inplace:
+            for path in paths:
+                mt_obj = self.get_station(path, as_mt=True)
+                mt_obj.add_white_noise(value)
+                self.add_station(mt_obj)
+            return None
+        else:
+            mt_list = []
+            for path in paths:
+                mt_obj = self.get_station(path, as_mt=True)
+                mt_list.append(mt_obj.add_white_noise(value, inplace=False))
+            new_tree = self.clone_empty()
+            new_tree.add_stations(mt_list)
+            return new_tree
+
     def estimate_spatial_static_shift(
         self,
         station_key: str,
