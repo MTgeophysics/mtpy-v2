@@ -1585,3 +1585,49 @@ class TestMTDataTreeOccam2D:
         assert "profile_origin" in tree.model_parameters
         assert "profile_angle" in tree.model_parameters
         assert "model_mode" in tree.model_parameters
+
+
+class TestMTDataTreeSimPEG:
+    def test_to_simpeg_2d_returns_object(self, loaded_profile_mt_objects):
+        from mtpy.modeling.simpeg.data_2d import Simpeg2DData
+
+        tree = MTDataTree()
+        tree.add_station(loaded_profile_mt_objects)
+
+        simpeg_data = tree.to_simpeg_2d()
+
+        assert isinstance(simpeg_data, Simpeg2DData)
+        assert set(simpeg_data.dataframe.station.unique()) == {
+            mt.station for mt in loaded_profile_mt_objects
+        }
+
+    def test_to_simpeg_2d_kwargs_applied(self, loaded_profile_mt_objects):
+        tree = MTDataTree()
+        tree.add_station(loaded_profile_mt_objects)
+
+        simpeg_data = tree.to_simpeg_2d(include_elevation=False, invert_tm=False)
+
+        assert simpeg_data.include_elevation is False
+        assert simpeg_data.invert_tm is False
+
+    def test_to_simpeg_3d_returns_object(self, loaded_profile_mt_objects):
+        from mtpy.modeling.simpeg.data_3d import Simpeg3DData
+
+        tree = MTDataTree()
+        tree.add_station(loaded_profile_mt_objects)
+
+        simpeg_data = tree.to_simpeg_3d()
+
+        assert isinstance(simpeg_data, Simpeg3DData)
+        assert set(simpeg_data.dataframe.station.unique()) == {
+            mt.station for mt in loaded_profile_mt_objects
+        }
+
+    def test_to_simpeg_3d_kwargs_applied(self, loaded_profile_mt_objects):
+        tree = MTDataTree()
+        tree.add_station(loaded_profile_mt_objects)
+
+        simpeg_data = tree.to_simpeg_3d(include_elevation=True, invert_z_yy=False)
+
+        assert simpeg_data.include_elevation is True
+        assert simpeg_data.invert_z_yy is False

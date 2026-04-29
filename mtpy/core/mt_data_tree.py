@@ -1734,6 +1734,54 @@ class MTDataTree:
         self.model_parameters["profile_angle"] = occam2d_data.profile_angle
         self.model_parameters["model_mode"] = occam2d_data.model_mode
 
+    def to_simpeg_2d(self, **kwargs: Any) -> Any:
+        """Create a Simpeg 2D data object from the tree.
+
+        Parameters
+        ----------
+        **kwargs
+            Additional keyword arguments forwarded to ``Simpeg2DData`` (e.g.
+            ``include_elevation``, ``invert_te``, ``invert_tm``).
+
+        Returns
+        -------
+        Simpeg2DData
+            Populated Simpeg 2D data object.
+
+        Notes
+        -----
+        All information is derived from the dataframe. The user should create
+        the profile, interpolate, and estimate model errors from the tree
+        first.
+        """
+        from mtpy.modeling.simpeg.data_2d import Simpeg2DData
+
+        return Simpeg2DData(self.to_dataframe(impedance_units="ohm"), **kwargs)
+
+    def to_simpeg_3d(self, **kwargs: Any) -> Any:
+        """Create a Simpeg 3D data object from the tree.
+
+        Parameters
+        ----------
+        **kwargs
+            Additional keyword arguments forwarded to ``Simpeg3DData`` (e.g.
+            ``include_elevation``, ``geographic_coordinates``,
+            ``invert_z_xy``, ``invert_t_zx``).
+
+        Returns
+        -------
+        Simpeg3DData
+            Populated Simpeg 3D data object.
+
+        Notes
+        -----
+        All information is derived from the dataframe. The user should
+        interpolate and estimate model errors from the tree first.
+        """
+        from mtpy.modeling.simpeg.data_3d import Simpeg3DData
+
+        return Simpeg3DData(self.to_dataframe(impedance_units="ohm"), **kwargs)
+
     def estimate_spatial_static_shift(
         self,
         station_key: str,
