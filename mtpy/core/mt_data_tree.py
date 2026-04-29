@@ -17,8 +17,27 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+from mtpy.core.transfer_function import IMPEDANCE_UNITS
+
 from .mt_data_tree_index import MTDataTreeIndexStore
 from .mt_dataframe import MTDataFrame
+
+
+COORDINATE_REFERENCE_FRAME_OPTIONS = {
+    "+": "ned",
+    "-": "enu",
+    "z+": "ned",
+    "z-": "enu",
+    "nez+": "ned",
+    "enz-": "enu",
+    "ned": "ned",
+    "enu": "enu",
+    "exp(+ i\\omega t)": "ned",
+    "exp(+i\\omega t)": "ned",
+    "exp(- i\\omega t)": "enu",
+    "exp(-i\\omega t)": "enu",
+    None: "ned",
+}
 
 
 if TYPE_CHECKING:
@@ -42,6 +61,8 @@ class MTDataTree:
     STATIONS_NODE = "stations"
     METADATA_STORAGE_MODES = {"dict", "summary", "cache"}
     DATASET_COPY_MODES = {"deep", "shallow", "none"}
+    COORDINATE_REFERENCE_FRAME = COORDINATE_REFERENCE_FRAME_OPTIONS
+    IMPEDANCE_UNITS = IMPEDANCE_UNITS
 
     def __init__(
         self,
@@ -95,11 +116,22 @@ class MTDataTree:
         self.tree.attrs.update(attrs)
         self.attrs = self.tree.attrs
 
+        self._coordinate_reference_frame_options = dict(self.COORDINATE_REFERENCE_FRAME)
+        self._coordinate_reference_frame = "+"
+
+        self._impedance_unit_factors = dict(self.IMPEDANCE_UNITS)
+        self._impedance_units = "mt"
+
         # Initialize a predictable top-level path for survey grouping.
         if self.SURVEYS_NODE not in self.tree.children:
             self.tree[self.SURVEYS_NODE] = xr.DataTree(
                 name=self.SURVEYS_NODE, dataset=xr.Dataset()
             )
+
+        self.coordinate_reference_frame = self.attrs.get(
+            "coordinate_reference_frame", "ned"
+        )
+        self.impedance_units = self.attrs.get("impedance_units", "mt")
 
     def __deepcopy__(self, memo: dict) -> "MTDataTree":
         """Create a deep copy of MTDataTree object."""
@@ -378,6 +410,115 @@ class MTDataTree:
     def lazy_station_count(self) -> int:
         """Number of stations with pending deferred transforms."""
         return len(self._lazy_station_transforms)
+
+    @property
+    def coordinate_reference_frame(self) -> str:
+        """
+        Coordinate reference frame.
+
+        Returns
+        -------
+        str
+            Reference frame identifier ('NED' or 'ENU')
+
+        """
+        return self._coordinate_reference_frame_options[
+            self._coordinate_reference_frame
+        ].upper()
+
+    @coordinate_reference_frame.setter
+    def coordinate_reference_frame(self, value: str) -> None:
+        """
+        Set coordinate reference frame.
+
+        Parameters
+        ----------
+        value : str
+            Reference frame identifier. Options:
+
+            - 'NED': x=North, y=East, z=+down
+            - 'ENU': x=East, y=North, z=+up
+
+        Raises
+        ------
+        ValueError
+            If value is not a recognized reference frame
+
+        Notes
+        -----
+        Updates coordinate reference frame for all MT objects in collection
+
+        """
+
+        if not isinstance(value, str):
+            raise TypeError("Coordinate reference frame input must be a string.")
+
+        normalized = value.strip().lower()
+        if normalized not in self._coordinate_reference_frame_options:
+            raise ValueError(
+                f"{value} is not understood as a reference frame. "
+                f"Options are {self._coordinate_reference_frame_options}"
+            )
+        if normalized in ["ned", "+"]:
+            normalized = "+"
+        elif normalized in ["enu", "-"]:
+            normalized = "-"
+
+        self._coordinate_reference_frame = normalized
+        self.attrs["coordinate_reference_frame"] = self.coordinate_reference_frame
+
+        for station_path in self._iter_station_paths():
+            station_ds = self.get_station(station_path)
+            station_ds.attrs[
+                "coordinate_reference_frame"
+            ] = self.coordinate_reference_frame
+
+    @property
+    def impedance_units(self) -> str:
+        """
+        Impedance units.
+
+        Returns
+        -------
+        str
+            Impedance units ('mt' or 'ohm')
+
+        """
+        return self._impedance_units
+
+    @impedance_units.setter
+    def impedance_units(self, value: str) -> None:
+        """
+        Set impedance units.
+
+        Parameters
+        ----------
+        value : str
+            Impedance units. Options: 'mt' [mV/km/nT] or 'ohm' [Ohms]
+
+        Raises
+        ------
+        TypeError
+            If value is not a string
+        ValueError
+            If value is not 'mt' or 'ohm'
+
+        Notes
+        -----
+        Updates impedance units for all MT objects in collection
+
+        """
+        if not isinstance(value, str):
+            raise TypeError("Units input must be a string.")
+        if value.lower() not in self._impedance_unit_factors.keys():
+            raise ValueError(f"{value} is not an acceptable unit for impedance.")
+
+        self._impedance_units = value.lower()
+        self.attrs["impedance_units"] = self._impedance_units
+
+        for station_path in self._iter_station_paths():
+            station_ds = self.get_station(station_path)
+            station_ds.attrs["impedance_units"] = self._impedance_units
 
     def _realize_station(self, station_path: str) -> str | None:
         """Materialize one deferred station transform if present."""

@@ -74,7 +74,6 @@ include-package-data = true
 ]
 
 [tool.pytest.ini_options]
-collect_ignore = ["setup.py"]
 testpaths = ["tests"]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",

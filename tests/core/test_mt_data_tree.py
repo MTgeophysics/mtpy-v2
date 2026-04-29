@@ -56,9 +56,47 @@ class TestMTDataTreeInitialization:
     def test_init_applies_custom_attrs(self):
         tree = MTDataTree(coordinate_reference_frame="ned", impedance_units="mt")
 
-        assert tree.tree.attrs["coordinate_reference_frame"] == "ned"
+        assert tree.tree.attrs["coordinate_reference_frame"] == "NED"
         assert tree.tree.attrs["impedance_units"] == "mt"
         assert tree.attrs is tree.tree.attrs
+
+    def test_coordinate_reference_frame_set_propagates_to_stations(
+        self, loaded_profile_mt_objects
+    ):
+        tree = MTDataTree()
+        station_paths = tree.add_stations(loaded_profile_mt_objects)
+
+        tree.coordinate_reference_frame = "enu"
+
+        assert tree.coordinate_reference_frame == "ENU"
+        assert tree.tree.attrs["coordinate_reference_frame"] == "ENU"
+        for station_path in station_paths:
+            assert (
+                tree.get_station(station_path).attrs["coordinate_reference_frame"]
+                == "ENU"
+            )
+
+    def test_impedance_units_set_propagates_to_stations(self, loaded_profile_mt):
+        tree = MTDataTree()
+        station_path = tree.add_station(loaded_profile_mt)
+
+        tree.impedance_units = "ohm"
+
+        assert tree.impedance_units == "ohm"
+        assert tree.tree.attrs["impedance_units"] == "ohm"
+        assert tree.get_station(station_path).attrs["impedance_units"] == "ohm"
+
+    def test_coordinate_reference_frame_invalid_raises(self):
+        tree = MTDataTree()
+
+        with pytest.raises(ValueError, match="is not understood as a reference frame"):
+            tree.coordinate_reference_frame = "bad_frame"
+
+    def test_impedance_units_invalid_raises(self):
+        tree = MTDataTree()
+
+        with pytest.raises(ValueError, match="is not an acceptable unit"):
+            tree.impedance_units = "bad_unit"
 
 
 class TestMTDataTreeAddStation:
