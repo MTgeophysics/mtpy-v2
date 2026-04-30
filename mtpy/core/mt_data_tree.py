@@ -16,6 +16,7 @@ from typing import Any, Callable, TYPE_CHECKING
 import numpy as np
 import pandas as pd
 import xarray as xr
+from loguru import logger
 
 from mtpy.core.transfer_function import IMPEDANCE_UNITS
 from mtpy.modeling.errors import ModelErrors
@@ -199,6 +200,108 @@ class MTDataTree:
             copied.rebuild_index(index_db_path=self._index_db_path)
 
         return copied
+
+    def __repr__(self) -> str:
+        """Return a concise constructor-like summary for debugging."""
+        station_paths = self._iter_station_paths()
+        survey_names = sorted(
+            {
+                path.split("/")[1]
+                for path in station_paths
+                if isinstance(path, str) and path.count("/") >= 3
+            }
+        )
+        index_enabled = self._index is not None or self._lazy_use_index
+        return (
+            "MTDataTree("
+            f"stations={len(station_paths)}, "
+            f"surveys={len(survey_names)}, "
+            f"lazy_stations={self.lazy_station_count}, "
+            f"metadata_storage='{self.metadata_storage}', "
+            f"dataset_copy_mode='{self.dataset_copy_mode}', "
+            f"index_enabled={index_enabled}"
+            ")"
+        )
+
+    def __str__(self) -> str:
+        """Return a human-readable summary of tree content and paths."""
+        station_paths = sorted(self._iter_station_paths())
+        survey_names = sorted(
+            {
+                path.split("/")[1]
+                for path in station_paths
+                if isinstance(path, str) and path.count("/") >= 3
+            }
+        )
+        preview_limit = 8
+        preview_paths = station_paths[:preview_limit]
+        index_enabled = self._index is not None or self._lazy_use_index
+
+        lines = [
+            "MTDataTree Summary",
+            f"  stations: {len(station_paths)}",
+            f"  surveys: {len(survey_names)}",
+            f"  lazy stations: {self.lazy_station_count}",
+            f"  index enabled: {index_enabled}",
+            f"  metadata storage: {self.metadata_storage}",
+            f"  dataset copy mode: {self.dataset_copy_mode}",
+            f"  impedance units: {self.impedance_units}",
+            ("  coordinate reference frame: " f"{self.coordinate_reference_frame}"),
+            "  survey names:",
+        ]
+
+        if survey_names:
+            lines.extend([f"    - {name}" for name in survey_names])
+        else:
+            lines.append("    - <none>")
+
+        lines.append("  station paths:")
+        if preview_paths:
+            lines.extend([f"    - {path}" for path in preview_paths])
+            if len(station_paths) > preview_limit:
+                lines.append(f"    - ... ({len(station_paths) - preview_limit} more)")
+        else:
+            lines.append("    - <none>")
+
+        return "\n".join(lines)
+
+    def __add__(self, other: Any) -> "MTDataTree":
+        """Return a new tree containing stations from ``self`` and ``other``.
+
+        Notes
+        -----
+        Existing station paths from ``self`` are overwritten by ``other`` when
+        duplicates are found. A warning is emitted for each overwritten path.
+        """
+        if not isinstance(other, MTDataTree):
+            return NotImplemented
+
+        merged = self.copy()
+        other.compute()
+
+        for station_path in other._iter_station_paths():
+            if merged._path_exists(station_path):
+                logger.warning(
+                    "Overwriting existing station path during MTDataTree merge: {}",
+                    station_path,
+                )
+
+            station_ds = other.get_station(station_path).copy(deep=True)
+            merged._set_station_dataset(station_path, station_ds)
+
+            # Replace cached metadata entries for overwritten/new paths.
+            merged._clear_cached_metadata(station_path)
+            for metadata_kind in ["survey", "station"]:
+                cached_md = other._metadata_cache[metadata_kind].get(station_path)
+                if cached_md is not None:
+                    merged._metadata_cache[metadata_kind][station_path] = deepcopy(
+                        cached_md
+                    )
+
+        if merged._index is not None and not merged.is_lazy:
+            merged.rebuild_index(index_db_path=merged._index_db_path)
+
+        return merged
 
     def copy(self) -> "MTDataTree":
         """Create a deep copy of MTDataTree object."""

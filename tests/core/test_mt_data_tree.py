@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
+from loguru import logger
 
 from mtpy.core import MTDataTree
 from mtpy.core.mt import MT
@@ -98,6 +99,113 @@ class TestMTDataTreeInitialization:
 
         with pytest.raises(ValueError, match="is not an acceptable unit"):
             tree.impedance_units = "bad_unit"
+
+
+class TestMTDataTreeStringRepresentation:
+    def test_str_empty_tree_contains_summary_sections(self):
+        tree = MTDataTree()
+
+        text = str(tree)
+
+        assert "MTDataTree Summary" in text
+        assert "stations: 0" in text
+        assert "surveys: 0" in text
+        assert "survey names:" in text
+        assert "station paths:" in text
+        assert "<none>" in text
+
+    def test_str_populated_tree_lists_station_paths(self):
+        mt_1 = MT()
+        mt_1.survey = "survey_a"
+        mt_1.station = "station_01"
+
+        mt_2 = MT()
+        mt_2.survey = "survey_b"
+        mt_2.station = "station_02"
+
+        tree = MTDataTree()
+        tree.add_stations([mt_1, mt_2])
+
+        text = str(tree)
+
+        assert "stations: 2" in text
+        assert "surveys: 2" in text
+        assert "surveys/survey_a/stations/station_01" in text
+        assert "surveys/survey_b/stations/station_02" in text
+
+    def test_repr_includes_core_counts_and_modes(self):
+        mt = MT()
+        mt.survey = "survey_a"
+        mt.station = "station_01"
+
+        tree = MTDataTree(metadata_storage="summary", dataset_copy_mode="deep")
+        tree.add_station(mt)
+
+        text = repr(tree)
+
+        assert text.startswith("MTDataTree(")
+        assert "stations=1" in text
+        assert "surveys=1" in text
+        assert "metadata_storage='summary'" in text
+        assert "dataset_copy_mode='deep'" in text
+
+
+class TestMTDataTreeAddDunder:
+    def test_add_returns_new_tree_with_union_of_station_paths(self):
+        mt_left = MT()
+        mt_left.survey = "survey_a"
+        mt_left.station = "station_01"
+
+        mt_right = MT()
+        mt_right.survey = "survey_b"
+        mt_right.station = "station_02"
+
+        left = MTDataTree()
+        right = MTDataTree()
+        left_path = left.add_station(mt_left)
+        right_path = right.add_station(mt_right)
+
+        merged = left + right
+
+        assert isinstance(merged, MTDataTree)
+        assert merged is not left
+        assert merged is not right
+        assert set(merged._iter_station_paths()) == {left_path, right_path}
+        assert set(left._iter_station_paths()) == {left_path}
+        assert set(right._iter_station_paths()) == {right_path}
+
+    def test_add_overwrites_duplicate_paths_and_logs_warning(self):
+        mt_old = MT()
+        mt_old.survey = "survey_a"
+        mt_old.station = "station_01"
+        mt_old.latitude = 10.0
+
+        mt_new = MT()
+        mt_new.survey = "survey_a"
+        mt_new.station = "station_01"
+        mt_new.latitude = 20.0
+
+        left = MTDataTree()
+        right = MTDataTree()
+        station_path = left.add_station(mt_old)
+        right.add_station(mt_new)
+
+        warning_messages = []
+
+        sink_id = logger.add(
+            lambda message: warning_messages.append(str(message)), level="WARNING"
+        )
+
+        merged = left + right
+
+        logger.remove(sink_id)
+
+        assert merged.get_station(station_path).attrs["latitude"] == 20.0
+        assert left.get_station(station_path).attrs["latitude"] == 10.0
+        assert any(
+            "Overwriting existing station path during MTDataTree merge" in msg
+            for msg in warning_messages
+        )
 
 
 class TestMTDataTreeAddStation:
