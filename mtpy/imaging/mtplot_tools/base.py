@@ -4,6 +4,7 @@ Base classes for plotting classes
 
 :author: jpeacock
 """
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -743,9 +744,35 @@ class PlotBaseProfile(PlotBase):
             Rotation angle in degrees to apply to all data
 
         """
-        for tf in self.mt_data:
-            tf.rotation_angle = value
+        if hasattr(self.mt_data, "rotate") and hasattr(self.mt_data, "get_station"):
+            self.mt_data.rotate(value, inplace=True)
+        else:
+            for tf in self._iter_mt_objects():
+                tf.rotation_angle = value
         self._rotation_angle = value
+
+    def _iter_mt_objects(self):
+        """Yield MT objects from supported container types."""
+        if hasattr(self.mt_data, "values"):
+            yield from self.mt_data.values()
+            return
+
+        if hasattr(self.mt_data, "_iter_station_paths") and hasattr(
+            self.mt_data, "get_station"
+        ):
+            if hasattr(self.mt_data, "compute"):
+                self.mt_data.compute()
+            for station_path in self.mt_data._iter_station_paths():
+                yield self.mt_data.get_station(station_path, as_mt=True)
+            return
+
+        raise TypeError(
+            "mt_data must provide values() or MTDataTree-style station access"
+        )
+
+    def _get_mt_objects(self):
+        """Return MT objects as a list for repeated profile operations."""
+        return list(self._iter_mt_objects())
 
     def _get_profile_line(
         self, x: np.ndarray | None = None, y: np.ndarray | None = None
@@ -775,11 +802,13 @@ class PlotBaseProfile(PlotBase):
         if np.any(self.mt_data.station_locations.profile_offset != 0):
             return
 
-        if x is None and y is None:
-            x = np.zeros(self.mt_data.n_stations)
-            y = np.zeros(self.mt_data.n_stations)
+        mt_objects = self._get_mt_objects()
 
-            for ii, tf in enumerate(self.mt_data.values()):
+        if x is None and y is None:
+            x = np.zeros(len(mt_objects))
+            y = np.zeros(len(mt_objects))
+
+            for ii, tf in enumerate(mt_objects):
                 x[ii] = tf.longitude
                 y[ii] = tf.latitude
 
@@ -801,7 +830,7 @@ class PlotBaseProfile(PlotBase):
         else:
             self.profile_line = profile1[:2]
 
-        for mt_obj in self.mt_data.values():
+        for mt_obj in mt_objects:
             mt_obj.project_onto_profile_line(self.profile_line[0], self.profile_line[1])
 
     def _get_offset(self, tf) -> float:

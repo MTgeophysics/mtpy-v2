@@ -369,14 +369,16 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
 
         self._get_profile_line()
 
+        mt_objects = self._get_mt_objects()
+
         y_min = 1
         y_max = 1
         station_list = np.zeros(
-            self.mt_data.n_stations,
+            len(mt_objects),
             dtype=[("offset", float), ("station", "U10")],
         )
 
-        for ii, tf in enumerate(self.mt_data.values()):
+        for ii, tf in enumerate(mt_objects):
             offset, station = self._get_patch(tf)
             station_list[ii]["station"] = station
             station_list[ii]["offset"] = offset
