@@ -205,8 +205,9 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
         self._get_profile_line()
 
         entries = []
+        mt_objects = self._get_mt_objects()
 
-        for ii, tf in enumerate(self.mt_data.values()):
+        for tf in mt_objects:
             offset = self._get_offset(tf)
             rp = tf.Z
 
