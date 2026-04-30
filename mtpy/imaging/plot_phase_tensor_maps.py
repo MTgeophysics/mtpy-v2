@@ -17,6 +17,7 @@ Revision History:
         - using interp function for faster plotting.
 
 """
+
 import matplotlib.colorbar as mcb
 import matplotlib.colors as colors
 import matplotlib.patches as patches
@@ -173,9 +174,36 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
     @rotation_angle.setter
     def rotation_angle(self, value):
         """Only a single value is allowed."""
-        for tf in self.mt_data:
-            tf.rotation_angle = value
+        # Prefer container-level rotation for MTDataTree-like objects.
+        if hasattr(self.mt_data, "rotate") and hasattr(self.mt_data, "get_station"):
+            self.mt_data.rotate(value, inplace=True)
+        else:
+            for tf in self._iter_mt_objects():
+                tf.rotation_angle = value
         self._rotation_angle = value
+
+    def _iter_mt_objects(self):
+        """Yield MT objects from supported container types."""
+        if hasattr(self.mt_data, "values"):
+            yield from self.mt_data.values()
+            return
+
+        if hasattr(self.mt_data, "_iter_station_paths") and hasattr(
+            self.mt_data, "get_station"
+        ):
+            if hasattr(self.mt_data, "compute"):
+                self.mt_data.compute()
+            for station_path in self.mt_data._iter_station_paths():
+                yield self.mt_data.get_station(station_path, as_mt=True)
+            return
+
+        raise TypeError(
+            "mt_data must provide values() or MTDataTree-style station access"
+        )
+
+    def _get_mt_objects(self):
+        """Return MT objects as a list for repeated plotting passes."""
+        return list(self._iter_mt_objects())
 
     def _get_pt(self, tf):
         """Get phase tensor object from TF object.
@@ -723,10 +751,12 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
 
         self._get_tick_format()
 
+        mt_objects = self._get_mt_objects()
+
         # make some empty arrays
-        self.plot_xarr = np.zeros(len(self.mt_data))
-        self.plot_yarr = np.zeros(len(self.mt_data))
-        for index, tf in enumerate(self.mt_data.values()):
+        self.plot_xarr = np.zeros(len(mt_objects))
+        self.plot_yarr = np.zeros(len(mt_objects))
+        for index, tf in enumerate(mt_objects):
             if self.pt_type == "ellipses":
                 plot_x, plot_y = self._get_patch_ellipse(tf)
             elif self.pt_type == "wedges":
