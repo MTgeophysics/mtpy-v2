@@ -31,7 +31,8 @@ from loguru import logger
 from mt_metadata import TF_EDI_CGG
 from mth5.helpers import close_open_files
 
-from mtpy import MT, MTCollection, MTData
+from mtpy import MT, MTCollection
+from mtpy.core import MTDataTree
 from mtpy.core.transfer_function import MT_TO_OHM_FACTOR, Z
 
 
@@ -696,9 +697,9 @@ def fresh_mt_collection(global_mt_collection, worker_id, session_mt_collection_o
 
 
 @pytest.fixture
-def mt_collection_from_mt_data(tf_file_list, worker_id):
+def mt_collection_from_mt_data_tree(tf_file_list, worker_id):
     """
-    Function-scoped fixture providing MTCollection created from MTData.
+    Function-scoped fixture providing MTCollection created from MTDataTree.
 
     This creates a fresh collection for each test.
     """
@@ -708,12 +709,18 @@ def mt_collection_from_mt_data(tf_file_list, worker_id):
         Path(temp_dir) / f"test_collection_mtdata_{worker_id}_{unique_id}.h5"
     )
 
-    mt_data_obj = MTData()
-    mt_data_obj.add_station(tf_file_list, survey="test")
+    mt_data_obj = MTDataTree()
+    mt_objects = []
+    for fn in tf_file_list:
+        mt_obj = MT(fn)
+        mt_obj.read()
+        mt_obj.survey = "test"
+        mt_objects.append(mt_obj)
+    mt_data_obj.add_station(mt_objects)
 
     mc = MTCollection()
     mc.open_collection(collection_file)
-    mc.from_mt_data(mt_data_obj)
+    mc.from_mt_data_tree(mt_data_obj)
 
     yield mc, mt_data_obj
 
@@ -728,6 +735,12 @@ def mt_collection_from_mt_data(tf_file_list, worker_id):
         collection_file.parent.rmdir()
     except (OSError, PermissionError):
         pass
+
+
+@pytest.fixture
+def mt_collection_from_mt_data(mt_collection_from_mt_data_tree):
+    """Backward-compatible alias for mt_collection_from_mt_data_tree."""
+    return mt_collection_from_mt_data_tree
 
 
 @pytest.fixture
