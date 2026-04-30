@@ -222,7 +222,7 @@ class StructuredMesh:
                 self.station_locations[:, 1],
                 marker=kwargs.get("marker", "v"),
                 s=kwargs.get("s", 35),
-                c=kwargs.get("c", (0, 0, 0)),
+                color=kwargs.get("color", kwargs.get("c", (0, 0, 0))),
                 zorder=1000,
             )
             ax.set_xlim(

@@ -370,15 +370,14 @@ class EMTFStats:
             raise ValueError("No DataFrame to analyze")
 
         ### make a copy of the data fram to put quality factors in
+        # Build as float columns already filled with NaN to avoid assigning
+        # through read-only array views seen with newer pandas versions.
         qual_df = pd.DataFrame(
-            np.zeros(
-                stat_df.shape[0],
-                dtype=[(key, float) for key in sorted(self.types)],
-            ),
+            np.nan,
             index=stat_df.index,
+            columns=sorted(self.types),
+            dtype=float,
         )
-        for col in qual_df.columns:
-            qual_df[col].values[:] = np.nan
 
         ### loop over quality factors
         for qkey in self.stat_limits.keys():

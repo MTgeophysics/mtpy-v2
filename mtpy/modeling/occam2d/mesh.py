@@ -262,7 +262,7 @@ class Mesh:
         x_pad_cell = np.max([x_left, x_right])
 
         # add x pad small cells
-        for ii in range(self.num_x_pad_small_cells):
+        for ii in range(self.num_x_pad_small_cells - 1):
             left_cell = self.x_grid[0]
             right_cell = self.x_grid[-1]
             pad_cell = x_pad_cell
@@ -322,9 +322,10 @@ class Mesh:
         self.z_nodes = np.append(ztarget, zpadding)
 
         # calculate actual distances of depth layers
-        self.z_grid = np.array(
-            [self.z_nodes[: ii + 1].sum() for ii in range(self.z_nodes.shape[0])]
-        )
+        # self.z_grid = np.array(
+        #     [self.z_nodes[: ii + 1].sum() for ii in range(self.z_nodes.shape[0])]
+        # )
+        self.z_grid = np.hstack([[0.0], np.cumsum(self.z_nodes)])
 
         self.mesh_values = np.zeros(
             (self.x_nodes.shape[0], self.z_nodes.shape[0], 4), dtype=str
@@ -391,9 +392,10 @@ class Mesh:
 
         # add vertical nodes and values to mesh_values
         self.z_nodes = np.append([self.z1_layer] * num_elev_layers, self.z_nodes)
-        self.z_grid = np.array(
-            [self.z_nodes[: ii + 1].sum() for ii in range(self.z_nodes.shape[0])]
-        )
+        self.z_grid = np.hstack([[0.0], np.cumsum(self.z_nodes)])
+        # self.z_grid = np.array(
+        #     [self.z_nodes[: ii + 1].sum() for ii in range(self.z_nodes.shape[0])]
+        # )
         # this assumes that mesh_values have not been changed yet and are all ?
         self.mesh_values = np.zeros(
             (self.x_grid.shape[0], self.z_grid.shape[0], 4), dtype=str
