@@ -600,7 +600,7 @@ def multiplymatrices_incl_errors(
             "ERROR - two 2x2 arrays with same dimensions needed as input"
         )
 
-    prod = np.array(np.dot(np.matrix(inmatrix1), np.matrix(inmatrix2)))
+    prod = np.matmul(np.asarray(inmatrix1), np.asarray(inmatrix2))
 
     if (inmatrix1_error is None) or (inmatrix1_error is None):
         return prod, None

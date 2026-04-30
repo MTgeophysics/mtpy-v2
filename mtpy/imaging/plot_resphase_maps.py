@@ -14,6 +14,7 @@ Revision History:
 
 
 """
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -147,6 +148,29 @@ class PlotResPhaseMaps(PlotBaseMaps):
         else:
             self.scale = 1.0
 
+    def _iter_mt_objects(self):
+        """Yield MT objects from supported container types."""
+        if hasattr(self.mt_data, "values"):
+            yield from self.mt_data.values()
+            return
+
+        if hasattr(self.mt_data, "_iter_station_paths") and hasattr(
+            self.mt_data, "get_station"
+        ):
+            if hasattr(self.mt_data, "compute"):
+                self.mt_data.compute()
+            for station_path in self.mt_data._iter_station_paths():
+                yield self.mt_data.get_station(station_path, as_mt=True)
+            return
+
+        raise TypeError(
+            "mt_data must provide values() or MTDataTree-style station access"
+        )
+
+    def _get_mt_objects(self):
+        """Return MT objects as a list for repeated map calculations."""
+        return list(self._iter_mt_objects())
+
     def _get_n_rows(self):
         """Get the number of rows in the subplot.
         :return: DESCRIPTION.
@@ -231,8 +255,10 @@ class PlotResPhaseMaps(PlotBaseMaps):
     def _get_data_array(self):
         """Make a data array to plot."""
 
+        mt_objects = self._get_mt_objects()
+
         plot_array = np.zeros(
-            self.mt_data.n_stations,
+            len(mt_objects),
             dtype=[
                 ("station", "U20"),
                 ("latitude", float),
@@ -251,7 +277,7 @@ class PlotResPhaseMaps(PlotBaseMaps):
             ],
         )
 
-        for ii, tf in enumerate(self.mt_data.values()):
+        for ii, tf in enumerate(mt_objects):
             try:
                 z = self._get_interpolated_z(tf)
             except ValueError:

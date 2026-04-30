@@ -211,6 +211,12 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
             offset = self._get_offset(tf)
             rp = tf.Z
 
+            def _safe_log10(value):
+                value = float(value)
+                if value <= 0:
+                    return 0.0
+                return np.log10(value)
+
             for ii, period in enumerate(tf.period):
                 if rp.phase_yx[ii] != 0:
                     rp.phase_yx[ii] += 180
@@ -219,11 +225,11 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
                     "station": tf.station,
                     "offset": offset,
                     "period": np.log10(period),
-                    "res_xx": np.log10(rp.res_xx[ii]),
-                    "res_xy": np.log10(rp.res_xy[ii]),
-                    "res_yx": np.log10(rp.res_yx[ii]),
-                    "res_yy": np.log10(rp.res_yy[ii]),
-                    "res_det": np.log10(rp.res_det[ii]),
+                    "res_xx": _safe_log10(rp.res_xx[ii]),
+                    "res_xy": _safe_log10(rp.res_xy[ii]),
+                    "res_yx": _safe_log10(rp.res_yx[ii]),
+                    "res_yy": _safe_log10(rp.res_yy[ii]),
+                    "res_det": _safe_log10(rp.res_det[ii]),
                     "phase_xx": rp.phase_xx[ii],
                     "phase_xy": rp.phase_xy[ii],
                     "phase_yx": rp.phase_yx[ii] + 180,
