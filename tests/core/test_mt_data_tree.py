@@ -591,6 +591,123 @@ class TestMTDataTreeNodeOperations:
         with pytest.raises(ValueError, match="unsupported"):
             tree.to_geo_df(data_type="bad_type")
 
+    def test_to_shp_pt_tipper_estimates_sizes_and_forwards_defaults(
+        self, basic_mt, monkeypatch, tmp_path
+    ):
+        captured = {}
+
+        class _FakeShapefileCreator:
+            def __init__(self, mt_df, output_crs, save_dir):
+                captured["mt_df"] = mt_df
+                captured["output_crs"] = output_crs
+                captured["save_dir"] = save_dir
+                self.utm = False
+                self.ellipse_size = None
+                self.arrow_size = None
+
+            def estimate_ellipse_size(self):
+                captured["ellipse_estimated"] = True
+                return 12.5
+
+            def estimate_arrow_size(self):
+                captured["arrow_estimated"] = True
+                return 7.25
+
+            def make_shp_files(
+                self, pt=True, tipper=True, periods=None, period_tol=None
+            ):
+                captured["pt"] = pt
+                captured["tipper"] = tipper
+                captured["periods"] = periods
+                captured["period_tol"] = period_tol
+                captured["utm"] = self.utm
+                captured["ellipse_size"] = self.ellipse_size
+                captured["arrow_size"] = self.arrow_size
+                return {"pt": ["pt.shp"], "tipper": ["tipper.shp"]}
+
+        monkeypatch.setattr(
+            "mtpy.gis.shapefile_creator.ShapefileCreator", _FakeShapefileCreator
+        )
+
+        tree = MTDataTree()
+        tree.add_station(basic_mt)
+
+        out = tree.to_shp_pt_tipper(save_dir=tmp_path, output_crs=4326, utm=True)
+
+        assert isinstance(captured["mt_df"], MTDataFrame)
+        assert captured["output_crs"] == 4326
+        assert captured["save_dir"] == tmp_path
+        assert captured["ellipse_estimated"] is True
+        assert captured["arrow_estimated"] is True
+        assert captured["pt"] is True
+        assert captured["tipper"] is True
+        assert captured["periods"] is None
+        assert captured["period_tol"] is None
+        assert captured["utm"] is True
+        assert np.isclose(captured["ellipse_size"], 12.5)
+        assert np.isclose(captured["arrow_size"], 7.25)
+        assert out == {"pt": ["pt.shp"], "tipper": ["tipper.shp"]}
+
+    def test_to_shp_pt_tipper_uses_explicit_sizes_and_options(
+        self, basic_mt, monkeypatch, tmp_path
+    ):
+        captured = {}
+
+        class _FakeShapefileCreator:
+            def __init__(self, _mt_df, _output_crs, save_dir):
+                captured["save_dir"] = save_dir
+                self.utm = False
+                self.ellipse_size = None
+                self.arrow_size = None
+
+            def estimate_ellipse_size(self):
+                raise AssertionError("estimate_ellipse_size should not be called")
+
+            def estimate_arrow_size(self):
+                raise AssertionError("estimate_arrow_size should not be called")
+
+            def make_shp_files(
+                self, pt=True, tipper=True, periods=None, period_tol=None
+            ):
+                captured["pt"] = pt
+                captured["tipper"] = tipper
+                captured["periods"] = periods
+                captured["period_tol"] = period_tol
+                captured["utm"] = self.utm
+                captured["ellipse_size"] = self.ellipse_size
+                captured["arrow_size"] = self.arrow_size
+                return {"pt": [], "tipper": []}
+
+        monkeypatch.setattr(
+            "mtpy.gis.shapefile_creator.ShapefileCreator", _FakeShapefileCreator
+        )
+
+        tree = MTDataTree()
+        tree.add_station(basic_mt)
+        periods = np.array([1.0, 10.0])
+
+        out = tree.to_shp_pt_tipper(
+            save_dir=tmp_path,
+            output_crs="EPSG:4326",
+            utm=False,
+            pt=False,
+            tipper=True,
+            periods=periods,
+            period_tol=0.05,
+            ellipse_size=9.0,
+            arrow_size=3.5,
+        )
+
+        assert captured["save_dir"] == tmp_path
+        assert captured["pt"] is False
+        assert captured["tipper"] is True
+        assert np.array_equal(captured["periods"], periods)
+        assert np.isclose(captured["period_tol"], 0.05)
+        assert captured["utm"] is False
+        assert np.isclose(captured["ellipse_size"], 9.0)
+        assert np.isclose(captured["arrow_size"], 3.5)
+        assert out == {"pt": [], "tipper": []}
+
     def test_get_nearby_stations_meters(self):
         mt_1 = MT()
         mt_1.survey = "near"

@@ -74,6 +74,32 @@ class MTDataTree:
         index_db_path: str = ":memory:",
         **attrs: Any,
     ) -> None:
+        """Initialize an MTDataTree container.
+
+        Parameters
+        ----------
+        tree : Any, optional
+            Existing tree-like object, typically an ``xarray.DataTree``.
+            When ``None``, an empty tree with a root dataset is created.
+        metadata_storage : {'dict', 'summary', 'cache'}, optional
+            Strategy used to store station and survey metadata in dataset
+            attributes.
+        dataset_copy_mode : {'deep', 'shallow', 'none'}, optional
+            Default dataset copy behavior used when adding stations.
+        use_index : bool, optional
+            If ``True``, enable an SQLite-backed station/period index for fast
+            geographic and period queries.
+        index_db_path : str, optional
+            SQLite database path used by the index.
+        **attrs
+            Additional root-level attributes stored on ``self.tree.attrs``.
+
+        Raises
+        ------
+        ValueError
+            If *metadata_storage* or *dataset_copy_mode* is not a supported
+            option.
+        """
         storage_mode = str(metadata_storage).strip().lower()
         if storage_mode not in self.METADATA_STORAGE_MODES:
             raise ValueError(
@@ -581,7 +607,22 @@ class MTDataTree:
         station_paths: list[str] | None = None,
         scheduler: str | None = None,
     ) -> "MTDataTree":
-        """Materialize deferred station transforms and update index state."""
+        """Materialize deferred station transforms and refresh index state.
+
+        Parameters
+        ----------
+        station_paths : list[str], optional
+            Subset of station tree paths to realize. When ``None``, all pending
+            lazy station transforms are computed.
+        scheduler : str, optional
+            Dask scheduler name passed through when delayed transforms are
+            present.
+
+        Returns
+        -------
+        MTDataTree
+            The current tree instance.
+        """
         if not self._lazy_station_transforms:
             return self
 
@@ -657,7 +698,20 @@ class MTDataTree:
         station_paths: list[str] | None = None,
         scheduler: str | None = None,
     ) -> "MTDataTree":
-        """Alias of compute for deferred station transforms."""
+        """Alias for :meth:`compute`.
+
+        Parameters
+        ----------
+        station_paths : list[str], optional
+            Station paths to realize.
+        scheduler : str, optional
+            Dask scheduler name.
+
+        Returns
+        -------
+        MTDataTree
+            The current tree instance.
+        """
         return self.compute(station_paths=station_paths, scheduler=scheduler)
 
     def as_dask(
@@ -667,7 +721,38 @@ class MTDataTree:
         variables: list[str] | None = None,
         inplace: bool = False,
     ) -> "MTDataTree":
-        """Convert station datasets to dask-backed arrays using chunking."""
+        """Chunk station datasets to dask-backed arrays.
+
+        Parameters
+        ----------
+        chunks : dict[str, int] or str or None
+            Chunk specification passed to xarray ``chunk``.
+        station_paths : list[str], optional
+            Subset of station paths to chunk.
+        variables : list[str], optional
+            Data-variable names to chunk. When ``None``, all variables are
+            chunked.
+        inplace : bool, optional
+            If ``True``, modify this tree in place. Otherwise return a chunked
+            subset copy.
+
+        Returns
+        -------
+        MTDataTree
+            Chunked tree (same instance when *inplace* is ``True``).
+
+        Raises
+        ------
+        RuntimeError
+            If dask is not installed.
+        KeyError
+            If a requested variable is missing for a selected station.
+
+        Examples
+        --------
+        >>> tree = tree.as_dask(chunks={"period": 32})
+        >>> tree = tree.as_dask(chunks="auto", variables=["transfer_function"])
+        """
         try:
             importlib.import_module("dask.array")
         except ImportError as exc:
@@ -702,7 +787,24 @@ class MTDataTree:
         variables: list[str] | None = None,
         inplace: bool = True,
     ) -> "MTDataTree":
-        """Rechunk dask-backed station arrays."""
+        """Rechunk station datasets.
+
+        Parameters
+        ----------
+        chunks : dict[str, int] or str or None
+            Chunk specification passed to :meth:`as_dask`.
+        station_paths : list[str], optional
+            Subset of station paths to rechunk.
+        variables : list[str], optional
+            Data variables to rechunk.
+        inplace : bool, optional
+            If ``True`` (default), modify the current tree.
+
+        Returns
+        -------
+        MTDataTree
+            Rechunked tree.
+        """
         return self.as_dask(
             chunks=chunks,
             station_paths=station_paths,
@@ -711,7 +813,19 @@ class MTDataTree:
         )
 
     def is_dask_backed(self, station_paths: list[str] | None = None) -> bool:
-        """Return True when selected stations have dask-backed data variables."""
+        """Check whether selected stations are dask-backed.
+
+        Parameters
+        ----------
+        station_paths : list[str], optional
+            Station subset to inspect. When ``None``, all stations are checked.
+
+        Returns
+        -------
+        bool
+            ``True`` only when each selected station has dask-backed arrays for
+            all data variables.
+        """
         self.compute(station_paths=station_paths)
         target_paths = self._iter_station_paths()
         if station_paths is not None:
@@ -731,7 +845,19 @@ class MTDataTree:
         self,
         station_paths: list[str] | None = None,
     ) -> dict[str, dict[str, tuple[tuple[int, ...], ...] | None]]:
-        """Return chunk layout per station/data variable."""
+        """Return per-station chunk layout for each data variable.
+
+        Parameters
+        ----------
+        station_paths : list[str], optional
+            Station subset to summarize.
+
+        Returns
+        -------
+        dict[str, dict[str, tuple[tuple[int, ...], ...] or None]]
+            Mapping from station path to variable chunk tuples (or ``None`` for
+            NumPy-backed variables).
+        """
         self.compute(station_paths=station_paths)
         target_paths = self._iter_station_paths()
         if station_paths is not None:
@@ -753,7 +879,38 @@ class MTDataTree:
         lazy: bool = True,
         inplace: bool = False,
     ) -> "MTDataTree":
-        """Apply a dataset transform across selected stations."""
+        """Apply a dataset transform to selected stations.
+
+        Parameters
+        ----------
+        transform : callable
+            Function receiving one station ``xr.Dataset`` and returning an
+            ``xr.Dataset``.
+        station_paths : list[str], optional
+            Station subset to transform.
+        lazy : bool, optional
+            If ``True`` (default), register deferred transforms. If ``False``,
+            apply immediately.
+        inplace : bool, optional
+            If ``True``, mutate this tree. Otherwise return a transformed copy.
+
+        Returns
+        -------
+        MTDataTree
+            Tree with registered or applied transforms.
+
+        Raises
+        ------
+        TypeError
+            If *lazy* is ``False`` and *transform* does not return an
+            ``xr.Dataset``.
+
+        Examples
+        --------
+        >>> def keep_short_periods(ds):
+        ...     return ds.sel(period=ds.period <= 10.0)
+        >>> out = tree.map_stations(keep_short_periods, lazy=False, inplace=False)
+        """
         tree_obj = self if inplace else self.get_subset(self._iter_station_paths())
         tree_obj.compute()
 
@@ -789,7 +946,32 @@ class MTDataTree:
         inplace: bool = False,
         **kwargs: Any,
     ) -> "MTDataTree":
-        """Run interpolation using dask-delayed station tasks."""
+        """Interpolate stations with dask-delayed execution.
+
+        Parameters
+        ----------
+        new_periods : ndarray
+            Target periods or frequencies depending on *f_type*.
+        f_type : str, optional
+            ``'period'`` (default) or ``'frequency'``/``'freq'``.
+        bounds_error : bool, optional
+            Restrict interpolation to each station's native period range.
+        chunks : dict[str, int] or str or None, optional
+            Optional chunking applied before creating delayed transforms.
+        scheduler : str, optional
+            Dask scheduler used during computation when *compute* is ``True``.
+        compute : bool, optional
+            If ``True`` (default), execute delayed transforms immediately.
+        inplace : bool, optional
+            If ``True``, modify this tree.
+        **kwargs
+            Forwarded to the station interpolation routine.
+
+        Returns
+        -------
+        MTDataTree
+            Tree with interpolated results or pending delayed transforms.
+        """
         try:
             dask = importlib.import_module("dask")
             delayed = getattr(dask, "delayed")
@@ -827,7 +1009,26 @@ class MTDataTree:
         compute: bool = True,
         inplace: bool = False,
     ) -> "MTDataTree":
-        """Run rotation using dask-delayed station tasks."""
+        """Rotate stations using dask-delayed execution.
+
+        Parameters
+        ----------
+        rotation_angle : float or ndarray
+            Rotation angle in degrees, scalar or per-period array.
+        chunks : dict[str, int] or str or None, optional
+            Optional chunking applied before creating delayed transforms.
+        scheduler : str, optional
+            Dask scheduler used when *compute* is ``True``.
+        compute : bool, optional
+            If ``True`` (default), execute delayed transforms immediately.
+        inplace : bool, optional
+            If ``True``, modify this tree.
+
+        Returns
+        -------
+        MTDataTree
+            Tree with rotated results or pending delayed transforms.
+        """
         try:
             dask = importlib.import_module("dask")
             delayed = getattr(dask, "delayed")
@@ -867,14 +1068,33 @@ class MTDataTree:
         return lazy_tree
 
     def finalize_index(self) -> None:
-        """Ensure index reflects the current tree contents."""
+        """Recompute deferred stations and rebuild the index."""
         self.compute()
         self.rebuild_index(index_db_path=self._index_db_path)
 
     def get_metadata(
         self, station_key: str, metadata_kind: str = "station"
     ) -> Any | dict[str, Any] | None:
-        """Return cached metadata object when available, else dataset attrs copy."""
+        """Return survey or station metadata for one station.
+
+        Parameters
+        ----------
+        station_key : str
+            Station tree path.
+        metadata_kind : {'survey', 'station'}, optional
+            Metadata object to fetch.
+
+        Returns
+        -------
+        object or dict or None
+            Cached metadata object in ``metadata_storage='cache'`` mode when
+            present, otherwise a dictionary copy from station attrs.
+
+        Raises
+        ------
+        KeyError
+            If *metadata_kind* is not ``'survey'`` or ``'station'``.
+        """
         if metadata_kind not in self._metadata_cache:
             raise KeyError("metadata_kind must be 'survey' or 'station'")
 
@@ -1255,7 +1475,13 @@ class MTDataTree:
         return station_df.dataframe.loc[:, cols]
 
     def to_mt_stations(self) -> "MTStations":
-        """Build an MTStations view from station datasets in the tree."""
+        """Build an :class:`MTStations` view from current station locations.
+
+        Returns
+        -------
+        MTStations
+            Station-location container backed by ``self.station_locations``.
+        """
         from .mt_stations import MTStations
 
         return MTStations(None, station_locations=self.station_locations)
@@ -1372,7 +1598,29 @@ class MTDataTree:
         model_locations: bool = False,
         data_type: str = "station_locations",
     ) -> Any:
-        """Create a GeoDataFrame for GIS operations."""
+        """Create a GeoDataFrame for GIS workflows.
+
+        Parameters
+        ----------
+        model_locations : bool, optional
+            If ``True``, use ``model_east``/``model_north`` as geometry.
+            Otherwise use longitude/latitude.
+        data_type : str, optional
+            One of ``'station_locations'`` (or ``'stations'``), ``'pt'``,
+            ``'tipper'``, or ``'both'``.
+
+        Returns
+        -------
+        geopandas.GeoDataFrame
+            GeoDataFrame with point geometries.
+
+        Raises
+        ------
+        ImportError
+            If geopandas is not installed.
+        ValueError
+            If *data_type* is unsupported.
+        """
         try:
             import geopandas as gpd
         except ImportError as exc:
@@ -1414,6 +1662,73 @@ class MTDataTree:
             df,
             geometry=gpd.points_from_xy(df.longitude, df.latitude),
             crs=crs_value,
+        )
+
+    def to_shp_pt_tipper(
+        self,
+        save_dir: str | Path,
+        output_crs: Any | None = None,
+        utm: bool = False,
+        pt: bool = True,
+        tipper: bool = True,
+        periods: np.ndarray | None = None,
+        period_tol: float | None = None,
+        ellipse_size: float | None = None,
+        arrow_size: float | None = None,
+    ) -> dict[str, list[str]]:
+        """Write phase-tensor and tipper shapefiles.
+
+        Parameters
+        ----------
+        save_dir : str or pathlib.Path
+            Output directory for shapefiles.
+        output_crs : Any, optional
+            Output coordinate reference system.
+        utm : bool, optional
+            If ``True``, export in UTM coordinates.
+        pt : bool, optional
+            If ``True``, write phase-tensor shapefiles.
+        tipper : bool, optional
+            If ``True``, write tipper shapefiles.
+        periods : numpy.ndarray, optional
+            Periods to export. When ``None``, use all available periods.
+        period_tol : float, optional
+            Period matching tolerance.
+        ellipse_size : float, optional
+            Phase-tensor ellipse size. When ``None`` and *pt* is ``True``, the
+            size is estimated automatically.
+        arrow_size : float, optional
+            Tipper arrow size. When ``None`` and *tipper* is ``True``, the size
+            is estimated automatically.
+
+        Returns
+        -------
+        dict[str, list[str]]
+            Mapping of output type to written shapefile paths.
+
+        Notes
+        -----
+        For mixed station period sampling, interpolate first so all stations
+        share a common period set.
+        """
+        from mtpy.gis.shapefile_creator import ShapefileCreator
+
+        sc = ShapefileCreator(self.to_mt_dataframe(), output_crs, save_dir=save_dir)
+        sc.utm = utm
+        if ellipse_size is None and pt:
+            sc.ellipse_size = sc.estimate_ellipse_size()
+        else:
+            sc.ellipse_size = ellipse_size
+        if arrow_size is None and tipper:
+            sc.arrow_size = sc.estimate_arrow_size()
+        else:
+            sc.arrow_size = arrow_size
+
+        return sc.make_shp_files(
+            pt=pt,
+            tipper=tipper,
+            periods=periods,
+            period_tol=period_tol,
         )
 
     @property
@@ -1467,7 +1782,34 @@ class MTDataTree:
         radius: float,
         radius_units: str = "m",
     ) -> list[str]:
-        """Find stations near a given station."""
+        """Find neighboring stations around a reference station.
+
+        Parameters
+        ----------
+        station_key : str
+            Reference station key as canonical tree path or ``survey.station``.
+        radius : float
+            Search radius in the units specified by *radius_units*.
+        radius_units : {'m', 'meters', 'metres', 'deg', 'degrees'}, optional
+            Distance units for *radius*.
+
+        Returns
+        -------
+        list[str]
+            Matching stations as ``survey.station`` keys (excluding the
+            reference station).
+
+        Raises
+        ------
+        ValueError
+            If metric units are requested without UTM coordinate information,
+            or if *radius_units* is unsupported.
+
+        Examples
+        --------
+        >>> nearby = tree.get_nearby_stations("surveyA.station01", radius=5000)
+        >>> nearby_deg = tree.get_nearby_stations("surveyA.station01", 0.1, "deg")
+        """
         self.compute()
 
         station_path = self._resolve_station_path(station_key)
@@ -1527,7 +1869,22 @@ class MTDataTree:
         y2: float,
         radius: float,
     ) -> "MTDataTree":
-        """Get stations along a profile line."""
+        """Extract stations within a corridor around a profile line.
+
+        Parameters
+        ----------
+        x1, y1, x2, y2 : float
+            Profile start and end coordinates in the same coordinate system as
+            station locations.
+        radius : float
+            Corridor half-width around the profile line.
+
+        Returns
+        -------
+        MTDataTree
+            New tree containing only stations that fall within the profile
+            corridor.
+        """
         self.compute()
 
         profile_stations = self.to_mt_stations()._extract_profile(
@@ -1581,7 +1938,15 @@ class MTDataTree:
         t_error_type: str | None = None,
         t_floor: bool | None = None,
     ) -> None:
-        """Compute model errors for all stations in the tree."""
+        """Recompute impedance and tipper model errors for all stations.
+
+        Parameters
+        ----------
+        z_error_value, z_error_type, z_floor : optional
+            Overrides for impedance model-error settings.
+        t_error_value, t_error_type, t_floor : optional
+            Overrides for tipper model-error settings.
+        """
         self.compute()
 
         if z_error_value is not None:
@@ -2024,7 +2389,26 @@ class MTDataTree:
         radius_units: str = "m",
         shift_tolerance: float = 0.15,
     ) -> tuple[float, float]:
-        """Estimate static shift from nearby stations."""
+        """Estimate static-shift scale factors from nearby stations.
+
+        Parameters
+        ----------
+        station_key : str
+            Target station key.
+        radius : float
+            Neighbor search radius.
+        period_min, period_max : float
+            Period bounds used for comparison.
+        radius_units : str, optional
+            Radius units passed to :meth:`get_nearby_stations`.
+        shift_tolerance : float, optional
+            Values within ``1 +/- shift_tolerance`` are snapped to ``1.0``.
+
+        Returns
+        -------
+        tuple[float, float]
+            Estimated ``(sx, sy)`` static-shift factors.
+        """
         nearby_keys = self.get_nearby_stations(station_key, radius, radius_units)
         if len(nearby_keys) == 0:
             return 1.0, 1.0
@@ -2084,7 +2468,18 @@ class MTDataTree:
         )
 
     def get_survey(self, survey_id: str) -> "MTDataTree":
-        """Get all stations belonging to a specific survey."""
+        """Return a subset tree for one survey.
+
+        Parameters
+        ----------
+        survey_id : str
+            Survey identifier.
+
+        Returns
+        -------
+        MTDataTree
+            Tree containing all stations under the selected survey.
+        """
         self.compute()
 
         station_list = [
@@ -2293,7 +2688,25 @@ class MTDataTree:
         return inserted_paths
 
     def get_station(self, station_key: str, as_mt: bool = False) -> xr.Dataset | "MT":
-        """Return a station by tree path as dataset or reconstructed MT object."""
+        """Return one station as a dataset or reconstructed MT object.
+
+        Parameters
+        ----------
+        station_key : str
+            Canonical station tree path.
+        as_mt : bool, optional
+            If ``True``, convert the stored dataset to an ``MT`` object.
+
+        Returns
+        -------
+        xarray.Dataset or MT
+            Station dataset (default) or reconstructed MT object.
+
+        Examples
+        --------
+        >>> ds = tree.get_station("surveys/surveyA/stations/st01")
+        >>> mt_obj = tree.get_station("surveys/surveyA/stations/st01", as_mt=True)
+        """
         self.compute(station_paths=[station_key])
         station_ds = self.tree[station_key].ds
         if as_mt:
@@ -2303,7 +2716,13 @@ class MTDataTree:
         return station_ds
 
     def remove_station(self, station_key: str) -> None:
-        """Remove a station node from the tree."""
+        """Remove one station node and its cached/indexed metadata.
+
+        Parameters
+        ----------
+        station_key : str
+            Canonical station tree path.
+        """
         self.compute()
         self._lazy_station_transforms.pop(station_key, None)
         self._clear_cached_metadata(station_key)
@@ -2317,7 +2736,19 @@ class MTDataTree:
         del self.tree[parent_path][child_name]
 
     def get_subset(self, station_list: list[str]) -> "MTDataTree":
-        """Return a new tree containing only the requested station paths."""
+        """Create a tree containing only selected station paths.
+
+        Parameters
+        ----------
+        station_list : list[str]
+            Station tree paths to copy into the subset.
+
+        Returns
+        -------
+        MTDataTree
+            New tree with copied station datasets and relevant metadata cache
+            entries.
+        """
         subset = self.__class__(
             metadata_storage=self.metadata_storage,
             **dict(self.attrs),
@@ -2589,7 +3020,20 @@ class MTDataTree:
         rotation_angle: float | np.ndarray,
         inplace: bool = True,
     ) -> "MTDataTree" | None:
-        """Rotate all station datasets by a given angle."""
+        """Rotate all station transfer functions.
+
+        Parameters
+        ----------
+        rotation_angle : float or ndarray
+            Scalar rotation angle in degrees or per-period angle array.
+        inplace : bool, optional
+            If ``True`` (default), mutate this tree and return ``None``.
+
+        Returns
+        -------
+        MTDataTree or None
+            Rotated copy when *inplace* is ``False``; otherwise ``None``.
+        """
         tree_obj = self
         if not inplace:
             tree_obj = self.__class__(
@@ -2648,7 +3092,33 @@ class MTDataTree:
         bounds_error: bool = True,
         **kwargs: Any,
     ) -> "MTDataTree" | None:
-        """Interpolate all station datasets onto a common period range."""
+        """Interpolate all stations to a shared period grid.
+
+        Parameters
+        ----------
+        new_periods : ndarray
+            Target period array, or frequency array when *f_type* is
+            ``'frequency'``/``'freq'``.
+        f_type : {'frequency', 'freq', 'period', 'per'}, optional
+            Specifies the meaning of *new_periods*.
+        inplace : bool, optional
+            If ``True`` (default), update this tree in place.
+        bounds_error : bool, optional
+            If ``True``, clip target periods to each station's native period
+            range.
+        **kwargs
+            Forwarded to station interpolation.
+
+        Returns
+        -------
+        MTDataTree or None
+            Interpolated copy when *inplace* is ``False``; otherwise ``None``.
+
+        Raises
+        ------
+        ValueError
+            If *f_type* is unsupported.
+        """
         if f_type not in ["frequency", "freq", "period", "per"]:
             raise ValueError(
                 f"f_type must be either 'frequency' or 'period' not {f_type}"
@@ -2727,7 +3197,29 @@ class MTDataTree:
         bounds_error: bool = True,
         **kwargs: Any,
     ) -> "MTDataTree":
-        """Build deferred station interpolation transforms without materializing."""
+        """Register deferred interpolation transforms for all stations.
+
+        Parameters
+        ----------
+        new_periods : ndarray
+            Target period array, or frequency array when *f_type* indicates
+            frequency input.
+        f_type : {'frequency', 'freq', 'period', 'per'}, optional
+            Specifies the meaning of *new_periods*.
+        inplace : bool, optional
+            If ``True``, clear and replace lazy transforms on this instance.
+            Otherwise return a new tree with lazy transforms attached.
+        bounds_error : bool, optional
+            If ``True``, clip target periods to each station's native period
+            range.
+        **kwargs
+            Forwarded to station interpolation at compute time.
+
+        Returns
+        -------
+        MTDataTree
+            Tree with pending interpolation transforms.
+        """
         if f_type not in ["frequency", "freq", "period", "per"]:
             raise ValueError(
                 f"f_type must be either 'frequency' or 'period' not {f_type}"
@@ -2801,7 +3293,20 @@ class MTDataTree:
     def apply_bounding_box(
         self, lon_min: float, lon_max: float, lat_min: float, lat_max: float
     ) -> "MTDataTree":
-        """Return a new tree containing stations within a geographic bounding box."""
+        """Return stations that fall inside a lon/lat bounding box.
+
+        Parameters
+        ----------
+        lon_min, lon_max : float
+            Longitude bounds.
+        lat_min, lat_max : float
+            Latitude bounds.
+
+        Returns
+        -------
+        MTDataTree
+            Subset tree containing stations inside the bounding box.
+        """
         if self._index is not None:
             station_keys = self._index.query_station_paths(
                 lon_min=lon_min, lon_max=lon_max, lat_min=lat_min, lat_max=lat_max
@@ -2899,7 +3404,22 @@ class MTDataTree:
         cols: list[str] | None = None,
         impedance_units: str = "mt",
     ) -> pd.DataFrame:
-        """Convert all stations in the tree to a pandas DataFrame."""
+        """Convert all stations to a concatenated pandas DataFrame.
+
+        Parameters
+        ----------
+        utm_crs : Any, optional
+            CRS override used when exporting station locations.
+        cols : list[str], optional
+            Column subset to include.
+        impedance_units : str, optional
+            Impedance unit convention for exported transfer-function values.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Concatenated station dataframe.
+        """
         self.compute()
         station_paths = self._iter_station_paths()
         df_list = []
@@ -2934,13 +3454,35 @@ class MTDataTree:
     def to_mt_dataframe(
         self, utm_crs: Any | None = None, impedance_units: str = "mt"
     ) -> MTDataFrame:
-        """Create an MTDataFrame containing all stations in the tree."""
+        """Create an :class:`MTDataFrame` from all stations.
+
+        Parameters
+        ----------
+        utm_crs : Any, optional
+            CRS override used during dataframe conversion.
+        impedance_units : str, optional
+            Impedance unit convention for exported values.
+
+        Returns
+        -------
+        MTDataFrame
+            MTDataFrame wrapping the concatenated station dataframe.
+        """
         return MTDataFrame(
             self.to_dataframe(utm_crs=utm_crs, impedance_units=impedance_units)
         )
 
     def from_dataframe(self, df: pd.DataFrame, impedance_units: str = "mt") -> None:
-        """Populate the tree from a pandas DataFrame of MT station data."""
+        """Populate the tree from a station dataframe.
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            Dataframe containing MT rows, grouped by station (and survey when
+            available).
+        impedance_units : str, optional
+            Unit convention used by impedance values in *df*.
+        """
         from .mt import MT
 
         if df.empty:
@@ -2962,11 +3504,25 @@ class MTDataTree:
     def from_mt_dataframe(
         self, mt_df: MTDataFrame, impedance_units: str = "mt"
     ) -> None:
-        """Populate the tree from an MTDataFrame."""
+        """Populate the tree from an :class:`MTDataFrame`.
+
+        Parameters
+        ----------
+        mt_df : MTDataFrame
+            Input MTDataFrame.
+        impedance_units : str, optional
+            Unit convention used by impedance values.
+        """
         self.from_dataframe(mt_df.dataframe, impedance_units=impedance_units)
 
     def get_periods(self) -> np.ndarray:
-        """Return sorted unique periods across all station datasets in the tree."""
+        """Return sorted unique periods across all stations.
+
+        Returns
+        -------
+        numpy.ndarray
+            One-dimensional array of unique periods in ascending order.
+        """
         self.compute()
         periods: list[np.ndarray] = []
 
@@ -2987,5 +3543,11 @@ class MTDataTree:
         return unique_periods
 
     def keys(self) -> list[str]:
-        """Return immediate child node keys for quick inspection."""
+        """Return immediate top-level child node keys.
+
+        Returns
+        -------
+        list[str]
+            Names of direct children under the tree root.
+        """
         return list(self.tree.children.keys())
