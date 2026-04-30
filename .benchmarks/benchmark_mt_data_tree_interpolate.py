@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """End-to-end benchmark for interpolation at multiple station counts.
 
-This script compares legacy MTData interpolation against MTDataTree eager and
-Dask-backed interpolation using MTDataTree.interpolate_dask.
+This script compares legacy MTData interpolation against MTData eager and
+Dask-backed interpolation using MTData.interpolate_dask.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from typing import Any
 import mtpy_data
 import numpy as np
 
-from mtpy.core import MTDataTree
+from mtpy.core import MTData
 from mtpy.core.mt import MT
 from mtpy.core.mt_data import MTData
 
@@ -46,7 +46,7 @@ def build_mt_objects(n_stations: int, seeds: list[MT]) -> list[MT]:
 
 
 def time_eager(
-    tree: MTDataTree,
+    tree: MTData,
     target_periods: np.ndarray,
     method: str,
 ) -> float:
@@ -78,7 +78,7 @@ def time_mtdata(
 
 
 def time_dask(
-    tree: MTDataTree,
+    tree: MTData,
     target_periods: np.ndarray,
     method: str,
     chunks: dict[str, int],
@@ -126,7 +126,7 @@ def benchmark_case(
 
     for _ in range(repeats):
         t0 = time.perf_counter()
-        tree = MTDataTree()
+        tree = MTData()
         tree.add_stations(mt_objects)
         build_elapsed = time.perf_counter() - t0
         build_times.append(build_elapsed)
@@ -160,7 +160,7 @@ def benchmark_case(
 
 def print_report(results: list[dict[str, Any]], repeats: int, scheduler: str) -> None:
     """Print benchmark results in a compact table."""
-    print("\nMTData vs MTDataTree interpolate benchmark")
+    print("\nMTData vs MTData interpolate benchmark")
     print(f"repeats={repeats} scheduler={scheduler}")
     print(
         "stations | build_med_s | mtdata_med_s | tree_med_s | dask_med_s | tree_vs_mtdata"

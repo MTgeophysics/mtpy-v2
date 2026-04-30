@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Tests for MTDataTreeIndexStore and MTDataTree integration."""
+"""Tests for MTDataTreeIndexStore and MTData integration."""
 
 import mtpy_data
 import pytest
 
-from mtpy.core import MTDataTree
+from mtpy.core import MTData
 from mtpy.core.mt import MT
 from mtpy.core.mt_data_tree_index import (
     MTDataTreeIndexStore,
@@ -36,7 +36,7 @@ def mt_objects(edi_files):
 
 @pytest.fixture(scope="session")
 def indexed_tree(mt_objects):
-    tree = MTDataTree(use_index=True)
+    tree = MTData(use_index=True)
     tree.add_stations(mt_objects)
     return tree
 
@@ -224,21 +224,21 @@ class TestQueryStationPaths:
 
 
 # ---------------------------------------------------------------------------
-# Integration tests with MTDataTree
+# Integration tests with MTData
 # ---------------------------------------------------------------------------
 
 
 class TestMTDataTreeIndexIntegration:
     def test_use_index_flag_creates_index(self):
-        tree = MTDataTree(use_index=True)
+        tree = MTData(use_index=True)
         assert tree._index is not None
 
     def test_no_index_by_default(self):
-        tree = MTDataTree()
+        tree = MTData()
         assert tree._index is None
 
     def test_add_station_populates_index(self, mt_objects):
-        tree = MTDataTree(use_index=True)
+        tree = MTData(use_index=True)
         path = tree.add_station(mt_objects[0])
         assert tree._index.n_stations() == 1
         rec = tree._index.station_record(path)
@@ -249,7 +249,7 @@ class TestMTDataTreeIndexIntegration:
         assert indexed_tree._index.n_stations() == len(mt_objects)
 
     def test_remove_station_updates_index(self, mt_objects):
-        tree = MTDataTree(use_index=True)
+        tree = MTData(use_index=True)
         path = tree.add_station(mt_objects[0])
         assert tree._index.n_stations() == 1
         tree.remove_station(path)
@@ -257,7 +257,7 @@ class TestMTDataTreeIndexIntegration:
 
     def test_rebuild_index_builds_from_existing_tree(self, mt_objects):
         # Start without index, then rebuild
-        tree = MTDataTree(use_index=False)
+        tree = MTData(use_index=False)
         tree.add_stations(mt_objects)
         tree.rebuild_index()
         assert tree._index is not None
@@ -284,7 +284,7 @@ class TestMTDataTreeIndexIntegration:
         assert result._iter_station_paths()
 
     def test_query_station_paths_raises_without_index(self):
-        tree = MTDataTree(use_index=False)
+        tree = MTData(use_index=False)
         with pytest.raises(RuntimeError, match="Index not enabled"):
             tree.query_station_paths(survey="any")
 

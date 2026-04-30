@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Tests for PlotResidualPTPseudoSection MTDataTree compatibility."""
+"""Tests for PlotResidualPTPseudoSection MTData compatibility."""
 
 import pytest
 from mt_metadata import TF_EDI_CGG
 
 from mtpy import MT
-from mtpy.core import MTDataTree
+from mtpy.core import MTData
 from mtpy.imaging.plot_residual_pt_ps import PlotResidualPTPseudoSection
 
 
@@ -22,7 +22,7 @@ def mt_object_cache():
 
 @pytest.fixture
 def paired_trees(mt_object_cache):
-    """Build two MTDataTree containers with matching stations."""
+    """Build two MTData containers with matching stations."""
     mt1_a = mt_object_cache.copy()
     mt1_a.station = "TEST01"
 
@@ -39,16 +39,16 @@ def paired_trees(mt_object_cache):
     mt2_a = mt1_a.copy()
     mt2_b = mt1_b.copy()
 
-    tree_01 = MTDataTree()
+    tree_01 = MTData()
     tree_01.add_stations([mt1_a, mt1_b])
 
-    tree_02 = MTDataTree()
+    tree_02 = MTData()
     tree_02.add_stations([mt2_a, mt2_b])
 
     return tree_01, tree_02
 
 
-class TestPlotResidualPTPseudoSectionMTDataTree:
+class TestPlotResidualPTPseudoSectionMTData:
     def test_container_items_from_tree(self, paired_trees):
         tree_01, tree_02 = paired_trees
         plotter = PlotResidualPTPseudoSection(tree_01, tree_02, show_plot=False)

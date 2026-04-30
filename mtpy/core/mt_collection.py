@@ -26,7 +26,7 @@ from loguru import logger
 from mth5.mth5 import MTH5
 
 from mtpy import MT
-from mtpy.core.mt_data_tree import MTDataTree
+from mtpy.core.mt_data import MTData
 from mtpy.imaging import (
     PlotMultipleResponses,
     PlotPenetrationDepth1D,
@@ -373,7 +373,7 @@ class MTCollection:
 
     def add_tf(
         self,
-        transfer_function: MT | str | Path | list | MTDataTree,
+        transfer_function: MT | str | Path | list | MTData,
         new_survey: str | None = None,
         tf_id_extra: str | None = None,
     ) -> None:
@@ -382,8 +382,8 @@ class MTCollection:
 
         Parameters
         ----------
-        transfer_function : MT, str, Path, list, MTDataTree
-            Transfer function object(s), file path(s), or MTDataTree object
+        transfer_function : MT, str, Path, list, MTData
+            Transfer function object(s), file path(s), or MTData object
         new_survey : str, optional
             New survey name, by default None
         tf_id_extra : str, optional
@@ -394,7 +394,7 @@ class MTCollection:
         For efficiency, create list first then add using add_tf([list])
 
         """
-        if isinstance(transfer_function, MTDataTree):
+        if isinstance(transfer_function, MTData):
             self.from_mt_data_tree(
                 transfer_function,
                 new_survey=new_survey,
@@ -596,28 +596,28 @@ class MTCollection:
         self,
         bounding_box: tuple[float, float, float, float] | None = None,
         **kwargs: Any,
-    ) -> MTDataTree:
+    ) -> MTData:
         """
-        Get transfer functions as MTDataTree object.
+        Get transfer functions as MTData object.
 
         Parameters
         ----------
         bounding_box : tuple of float, optional
             Bounding box (lon_min, lon_max, lat_min, lat_max), by default None
         **kwargs : dict
-            Additional parameters passed to MTDataTree
+            Additional parameters passed to MTData
 
         Returns
         -------
-        MTDataTree
-            MTDataTree object containing transfer functions
+        MTData
+            MTData object containing transfer functions
 
         """
 
         if bounding_box is not None:
             self.apply_bbox(*bounding_box)
 
-        mt_data_tree = MTDataTree(**kwargs)
+        mt_data_tree = MTData(**kwargs)
 
         for row in self.dataframe.itertuples():
             tf = self.get_tf(row.tf_id, survey=row.survey)
@@ -630,23 +630,23 @@ class MTCollection:
         self,
         bounding_box: tuple[float, float, float, float] | None = None,
         **kwargs: Any,
-    ) -> MTDataTree:
+    ) -> MTData:
         """Backward-compatible alias for :meth:`to_mt_data_tree`."""
         return self.to_mt_data_tree(bounding_box=bounding_box, **kwargs)
 
     def from_mt_data_tree(
         self,
-        mt_data_tree: MTDataTree,
+        mt_data_tree: MTData,
         new_survey: str | None = None,
         tf_id_extra: str | None = None,
     ) -> None:
         """
-        Add data from MTDataTree object to collection.
+        Add data from MTData object to collection.
 
         Parameters
         ----------
-        mt_data_tree : MTDataTree
-            MTDataTree object containing transfer functions
+        mt_data_tree : MTData
+            MTData object containing transfer functions
         new_survey : str, optional
             New survey name, by default None
         tf_id_extra : str, optional
@@ -679,7 +679,7 @@ class MTCollection:
 
     def from_mt_data(
         self,
-        mt_data_tree: MTDataTree,
+        mt_data_tree: MTData,
         new_survey: str | None = None,
         tf_id_extra: str | None = None,
     ) -> None:
@@ -973,7 +973,7 @@ class MTCollection:
             Plot object from MT.plot_mt_response or PlotMultipleResponses
 
         """
-        mt_data_tree = MTDataTree()
+        mt_data_tree = MTData()
         if isinstance(tf_id, str):
             mt_object = self.get_tf(tf_id, survey=survey)
             return mt_object.plot_mt_response(**kwargs)
@@ -1021,14 +1021,14 @@ class MTCollection:
             gdf = self.to_geo_df(epsg=map_epsg, bounding_box=bounding_box)
             return PlotStations(gdf, **kwargs)
 
-    def plot_strike(self, mt_data_tree: MTDataTree | None = None, **kwargs: Any) -> Any:
+    def plot_strike(self, mt_data_tree: MTData | None = None, **kwargs: Any) -> Any:
         """
         Plot strike angle.
 
         Parameters
         ----------
-        mt_data_tree : MTDataTree, optional
-            MTDataTree object, by default None (uses collection data)
+        mt_data_tree : MTData, optional
+            MTData object, by default None (uses collection data)
         **kwargs : Any
             Additional keyword arguments passed to PlotStrike
 
@@ -1076,15 +1076,15 @@ class MTCollection:
         return tf_obj.plot_phase_tensor(**kwargs)
 
     def plot_phase_tensor_map(
-        self, mt_data_tree: MTDataTree | None = None, **kwargs: Any
+        self, mt_data_tree: MTData | None = None, **kwargs: Any
     ) -> Any:
         """
         Plot phase tensor maps for transfer functions.
 
         Parameters
         ----------
-        mt_data_tree : MTDataTree, optional
-            MTDataTree object, by default None (uses collection data)
+        mt_data_tree : MTData, optional
+            MTData object, by default None (uses collection data)
         **kwargs : Any
             Additional keyword arguments passed to PlotPhaseTensorMaps
 
@@ -1109,15 +1109,15 @@ class MTCollection:
         return PlotPhaseTensorMaps(mt_data=mt_data_tree, **kwargs)
 
     def plot_phase_tensor_pseudosection(
-        self, mt_data_tree: MTDataTree | None = None, **kwargs: Any
+        self, mt_data_tree: MTData | None = None, **kwargs: Any
     ) -> Any:
         """
         Plot pseudosection of phase tensor ellipses and induction vectors.
 
         Parameters
         ----------
-        mt_data_tree : MTDataTree, optional
-            MTDataTree object, by default None (uses collection data)
+        mt_data_tree : MTData, optional
+            MTData object, by default None (uses collection data)
         **kwargs : Any
             Additional keyword arguments passed to PlotPhaseTensorPseudoSection
 
@@ -1143,8 +1143,8 @@ class MTCollection:
 
     def plot_residual_phase_tensor(
         self,
-        mt_data_01: MTDataTree,
-        mt_data_02: MTDataTree,
+        mt_data_01: MTData,
+        mt_data_02: MTData,
         plot_type: str = "map",
         **kwargs: Any,
     ) -> Any:
@@ -1153,10 +1153,10 @@ class MTCollection:
 
         Parameters
         ----------
-        mt_data_01 : MTDataTree
-            First MTDataTree object
-        mt_data_02 : MTDataTree
-            Second MTDataTree object
+        mt_data_01 : MTData
+            First MTData object
+        mt_data_02 : MTData
+            Second MTData object
         plot_type : str, optional
             Type of plot: 'map' or 'pseudosection'/'ps', by default 'map'
         **kwargs : Any
@@ -1209,15 +1209,15 @@ class MTCollection:
         return PlotPenetrationDepth1D(tf_object, **kwargs)
 
     def plot_penetration_depth_map(
-        self, mt_data_tree: MTDataTree | None = None, **kwargs: Any
+        self, mt_data_tree: MTData | None = None, **kwargs: Any
     ) -> Any:
         """
         Plot penetration depth in map view for a single period.
 
         Parameters
         ----------
-        mt_data_tree : MTDataTree, optional
-            MTDataTree object, by default None (uses collection data)
+        mt_data_tree : MTData, optional
+            MTData object, by default None (uses collection data)
         **kwargs : Any
             Additional keyword arguments passed to PlotPenetrationDepthMap
 
@@ -1242,15 +1242,15 @@ class MTCollection:
         return PlotPenetrationDepthMap(mt_data_tree, **kwargs)
 
     def plot_resistivity_phase_maps(
-        self, mt_data_tree: MTDataTree | None = None, **kwargs: Any
+        self, mt_data_tree: MTData | None = None, **kwargs: Any
     ) -> Any:
         """
         Plot apparent resistivity and impedance phase maps.
 
         Parameters
         ----------
-        mt_data_tree : MTDataTree, optional
-            MTDataTree object, by default None (uses collection data)
+        mt_data_tree : MTData, optional
+            MTData object, by default None (uses collection data)
         **kwargs : Any
             Additional keyword arguments passed to PlotResPhaseMaps
 
@@ -1275,15 +1275,15 @@ class MTCollection:
         return PlotResPhaseMaps(mt_data_tree, **kwargs)
 
     def plot_resistivity_phase_pseudosections(
-        self, mt_data_tree: MTDataTree | None = None, **kwargs: Any
+        self, mt_data_tree: MTData | None = None, **kwargs: Any
     ) -> Any:
         """
         Plot resistivity and phase pseudosections along a profile.
 
         Parameters
         ----------
-        mt_data_tree : MTDataTree, optional
-            MTDataTree object, by default None (uses collection data)
+        mt_data_tree : MTData, optional
+            MTData object, by default None (uses collection data)
         **kwargs : Any
             Additional keyword arguments passed to PlotResPhasePseudoSection
 

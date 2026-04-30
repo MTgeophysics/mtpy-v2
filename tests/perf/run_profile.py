@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Standalone profiling runner for MTDataTree.add_station / add_stations.
+Standalone profiling runner for MTData.add_station / add_stations.
 
 Usage
 -----
@@ -28,7 +28,7 @@ from typing import Any
 import mt_metadata
 
 from mtpy.core.mt import MT
-from mtpy.core.mt_data_tree import MTDataTree
+from mtpy.core.mt_data import MTData
 
 
 # ---------------------------------------------------------------------------
@@ -59,7 +59,7 @@ def _make_real_mt(template: MT, i: int) -> MT:
 
 def _run(
     label: str,
-    tree: MTDataTree,
+    tree: MTData,
     objs: list[MT],
     *,
     bulk: bool = False,
@@ -84,7 +84,7 @@ def _run(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Profile MTDataTree.add_station")
+    parser = argparse.ArgumentParser(description="Profile MTData.add_station")
     parser.add_argument("--n", type=int, default=300, help="Number of stations")
     parser.add_argument("--save", type=str, default=None, help="Save .prof to file")
     parser.add_argument("--top", type=int, default=30, help="cProfile rows to show")
@@ -93,7 +93,7 @@ def main() -> None:
     n = args.n
 
     print(f"\n{'='*72}")
-    print(f"MTDataTree.add_station profiler   n={n}")
+    print(f"MTData.add_station profiler   n={n}")
     print(f"{'='*72}")
 
     # ------------------------------------------------------------------
@@ -120,58 +120,58 @@ def main() -> None:
 
     _run(
         "basic / loop / cache / shallow",
-        MTDataTree(metadata_storage="cache", dataset_copy_mode="shallow"),
+        MTData(metadata_storage="cache", dataset_copy_mode="shallow"),
         basic_objs,
     )
     _run(
         "basic / loop / cache / none",
-        MTDataTree(metadata_storage="cache", dataset_copy_mode="none"),
+        MTData(metadata_storage="cache", dataset_copy_mode="none"),
         basic_objs,
     )
 
     print()
     _run(
         "realistic / loop / dict / deep  [legacy]",
-        MTDataTree(metadata_storage="dict", dataset_copy_mode="deep"),
+        MTData(metadata_storage="dict", dataset_copy_mode="deep"),
         real_objs,
     )
     _run(
         "realistic / loop / dict / shallow",
-        MTDataTree(metadata_storage="dict", dataset_copy_mode="shallow"),
+        MTData(metadata_storage="dict", dataset_copy_mode="shallow"),
         real_objs,
     )
     _run(
         "realistic / loop / summary / shallow",
-        MTDataTree(metadata_storage="summary", dataset_copy_mode="shallow"),
+        MTData(metadata_storage="summary", dataset_copy_mode="shallow"),
         real_objs,
     )
     _run(
         "realistic / loop / cache / shallow",
-        MTDataTree(metadata_storage="cache", dataset_copy_mode="shallow"),
+        MTData(metadata_storage="cache", dataset_copy_mode="shallow"),
         real_objs,
     )
     _run(
         "realistic / loop / cache / none",
-        MTDataTree(metadata_storage="cache", dataset_copy_mode="none"),
+        MTData(metadata_storage="cache", dataset_copy_mode="none"),
         real_objs,
     )
 
     print()
     _run(
         "realistic / BULK / cache / shallow",
-        MTDataTree(metadata_storage="cache", dataset_copy_mode="shallow"),
+        MTData(metadata_storage="cache", dataset_copy_mode="shallow"),
         real_objs,
         bulk=True,
     )
     _run(
         "realistic / BULK / cache / none",
-        MTDataTree(metadata_storage="cache", dataset_copy_mode="none"),
+        MTData(metadata_storage="cache", dataset_copy_mode="none"),
         real_objs,
         bulk=True,
     )
     _run(
         "realistic / BULK+precomputed / cache / none",
-        MTDataTree(metadata_storage="cache", dataset_copy_mode="none"),
+        MTData(metadata_storage="cache", dataset_copy_mode="none"),
         real_objs,
         bulk=True,
         precomputed_attrs=pre,
@@ -187,7 +187,7 @@ def main() -> None:
     print(f"{'─'*72}")
     chunk_size = max(1, n // 8)
     scale_objs = real_objs[:n]
-    scale_tree = MTDataTree(metadata_storage="cache", dataset_copy_mode="shallow")
+    scale_tree = MTData(metadata_storage="cache", dataset_copy_mode="shallow")
 
     for start in range(0, len(scale_objs), chunk_size):
         chunk = scale_objs[start : start + chunk_size]
@@ -210,7 +210,7 @@ def main() -> None:
     print(f"{'─'*72}")
 
     prof_objs = [_make_real_mt(mt_template, i) for i in range(n)]
-    prof_tree = MTDataTree(metadata_storage="cache", dataset_copy_mode="none")
+    prof_tree = MTData(metadata_storage="cache", dataset_copy_mode="none")
 
     pr = cProfile.Profile()
     pr.enable()

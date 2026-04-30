@@ -32,7 +32,7 @@ from mt_metadata import TF_EDI_CGG
 from mth5.helpers import close_open_files
 
 from mtpy import MT, MTCollection
-from mtpy.core import MTDataTree
+from mtpy.core import MTData
 from mtpy.core.transfer_function import MT_TO_OHM_FACTOR, Z
 
 
@@ -699,7 +699,7 @@ def fresh_mt_collection(global_mt_collection, worker_id, session_mt_collection_o
 @pytest.fixture
 def mt_collection_from_mt_data_tree(tf_file_list, worker_id):
     """
-    Function-scoped fixture providing MTCollection created from MTDataTree.
+    Function-scoped fixture providing MTCollection created from MTData.
 
     This creates a fresh collection for each test.
     """
@@ -709,7 +709,7 @@ def mt_collection_from_mt_data_tree(tf_file_list, worker_id):
         Path(temp_dir) / f"test_collection_mtdata_{worker_id}_{unique_id}.h5"
     )
 
-    mt_data_obj = MTDataTree()
+    mt_data_obj = MTData()
     mt_objects = []
     for fn in tf_file_list:
         mt_obj = MT(fn)

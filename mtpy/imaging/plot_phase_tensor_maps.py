@@ -174,7 +174,7 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
     @rotation_angle.setter
     def rotation_angle(self, value):
         """Only a single value is allowed."""
-        # Prefer container-level rotation for MTDataTree-like objects.
+        # Prefer container-level rotation for MTData-like objects.
         if hasattr(self.mt_data, "rotate") and hasattr(self.mt_data, "get_station"):
             self.mt_data.rotate(value, inplace=True)
         else:
@@ -197,9 +197,7 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
                 yield self.mt_data.get_station(station_path, as_mt=True)
             return
 
-        raise TypeError(
-            "mt_data must provide values() or MTDataTree-style station access"
-        )
+        raise TypeError("mt_data must provide values() or MTData-style station access")
 
     def _get_mt_objects(self):
         """Return MT objects as a list for repeated plotting passes."""

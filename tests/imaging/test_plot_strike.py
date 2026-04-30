@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-"""Tests for PlotStrike MTDataTree compatibility."""
+"""Tests for PlotStrike MTData compatibility."""
 
 import pandas as pd
 import pytest
 from mt_metadata import TF_EDI_CGG
 
 from mtpy import MT
-from mtpy.core import MTDataTree
+from mtpy.core import MTData
 from mtpy.imaging.plot_strike import PlotStrike
 
 
@@ -23,7 +23,7 @@ def mt_object_cache():
 
 @pytest.fixture
 def mt_data_tree(mt_object_cache):
-    """Build MTDataTree with two stations."""
+    """Build MTData with two stations."""
     mt_1 = mt_object_cache.copy()
     mt_1.station = "TEST01"
 
@@ -34,12 +34,12 @@ def mt_data_tree(mt_object_cache):
     if mt_2.latitude is not None:
         mt_2.latitude = float(mt_2.latitude) + 0.01
 
-    tree = MTDataTree()
+    tree = MTData()
     tree.add_stations([mt_1, mt_2])
     return tree
 
 
-class TestPlotStrikeMTDataTree:
+class TestPlotStrikeMTData:
     def test_iter_mt_objects_from_tree(self, mt_data_tree):
         plotter = PlotStrike(mt_data_tree, show_plot=False)
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Performance tests for MTDataTree.add_station and MTDataTree.add_stations.
+Performance tests for MTData.add_station and MTData.add_stations.
 
 These tests are marked ``slow`` and are excluded from the default test run::
 
@@ -28,7 +28,7 @@ import mt_metadata
 import pytest
 
 from mtpy.core.mt import MT
-from mtpy.core.mt_data_tree import MTDataTree
+from mtpy.core.mt_data import MTData
 
 
 # ---------------------------------------------------------------------------
@@ -90,7 +90,7 @@ def _timed_insert(
     request: pytest.FixtureRequest | None = None,
 ) -> float:
     """Insert stations and return total wall-time in seconds."""
-    tree = MTDataTree(
+    tree = MTData(
         metadata_storage=metadata_storage,
         dataset_copy_mode=dataset_copy_mode,
     )
@@ -154,7 +154,7 @@ CEILING_REALISTIC_BULK_PRECOMPUTED_MS = 50.0
 
 @pytest.mark.slow
 class TestAddStationPerf:
-    """Wall-time regression tests for MTDataTree.add_station."""
+    """Wall-time regression tests for MTData.add_station."""
 
     N_BASIC = 500
     N_REALISTIC = 200
@@ -250,7 +250,7 @@ class TestAddStationPerf:
 
 @pytest.mark.slow
 class TestAddStationsBulkPerf:
-    """Wall-time regression tests for MTDataTree.add_stations (bulk API)."""
+    """Wall-time regression tests for MTData.add_stations (bulk API)."""
 
     N = 300
 
@@ -334,7 +334,7 @@ class TestAddStationScaling:
             for i in range(self.N_TOTAL)
         ]
 
-        tree = MTDataTree(metadata_storage="cache", dataset_copy_mode="shallow")
+        tree = MTData(metadata_storage="cache", dataset_copy_mode="shallow")
         chunk_ms: list[float] = []
 
         for start in range(0, self.N_TOTAL, self.CHUNK):

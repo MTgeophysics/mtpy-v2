@@ -4,7 +4,7 @@ from .transfer_function import PhaseTensor
 from .mt_location import MTLocation
 from .mt_stations import MTStations
 from .mt_dataframe import MTDataFrame
-from .mt_data_tree import MTDataTree
+from .mt_data import MTData
 
 __all__ = [
     "Z",
@@ -13,7 +13,7 @@ __all__ = [
     "MTLocation",
     "MTStations",
     "MTDataFrame",
-    "MTDataTree",
+    "MTData",
 ]
 
 # coordinate reference frames

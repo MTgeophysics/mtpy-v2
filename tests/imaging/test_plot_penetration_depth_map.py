@@ -8,7 +8,7 @@ from matplotlib.figure import Figure
 from mt_metadata import TF_EDI_CGG
 
 from mtpy import MT
-from mtpy.core import MTDataTree
+from mtpy.core import MTData
 from mtpy.imaging.plot_penetration_depth_map import PlotPenetrationDepthMap
 
 
@@ -25,7 +25,7 @@ def mt_object_cache():
 
 @pytest.fixture
 def mt_data_tree(mt_object_cache):
-    """Build an MTDataTree with two stations."""
+    """Build an MTData with two stations."""
     mt_1 = mt_object_cache.copy()
     mt_1.station = "TEST01"
 
@@ -34,12 +34,12 @@ def mt_data_tree(mt_object_cache):
     if mt_2.longitude is not None:
         mt_2.longitude = float(mt_2.longitude) + 0.02
 
-    tree = MTDataTree()
+    tree = MTData()
     tree.add_stations([mt_1, mt_2])
     return tree
 
 
-class TestPlotPenetrationDepthMapMTDataTree:
+class TestPlotPenetrationDepthMapMTData:
     def test_iter_mt_objects_from_tree(self, mt_data_tree):
         plotter = PlotPenetrationDepthMap(mt_data_tree, show_plot=False)
 

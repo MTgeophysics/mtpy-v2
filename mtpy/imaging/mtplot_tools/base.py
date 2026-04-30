@@ -766,9 +766,7 @@ class PlotBaseProfile(PlotBase):
                 yield self.mt_data.get_station(station_path, as_mt=True)
             return
 
-        raise TypeError(
-            "mt_data must provide values() or MTDataTree-style station access"
-        )
+        raise TypeError("mt_data must provide values() or MTData-style station access")
 
     def _get_mt_objects(self):
         """Return MT objects as a list for repeated profile operations."""

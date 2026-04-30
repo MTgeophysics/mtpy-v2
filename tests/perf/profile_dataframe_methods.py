@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Profile dataframe conversion methods for MTData and MTDataTree."""
+"""Profile dataframe conversion methods for MTData and MTData."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from typing import Callable
 import mt_metadata
 
 from mtpy import MT, MTData
-from mtpy.core import MTDataTree
+from mtpy.core import MTData
 
 
 def get_tf_file_list() -> list[str]:
@@ -63,7 +63,7 @@ def run_profile(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Profile to_dataframe/from_dataframe in MTData and MTDataTree"
+        description="Profile to_dataframe/from_dataframe in MTData and MTData"
     )
     parser.add_argument("--n-stations", type=int, default=20)
     parser.add_argument("--repeat", type=int, default=1)
@@ -74,7 +74,7 @@ def main() -> None:
     print(f"Loaded {len(mt_objects)} stations")
 
     md = MTData(mt_list=mt_objects)
-    tree = MTDataTree()
+    tree = MTData()
     tree.add_stations(mt_objects)
 
     base_df = md.to_dataframe()
@@ -87,7 +87,7 @@ def main() -> None:
     )
 
     run_profile(
-        "MTDataTree.to_dataframe",
+        "MTData.to_dataframe",
         lambda: tree.to_dataframe(),
         repeat=args.repeat,
     )
@@ -99,8 +99,8 @@ def main() -> None:
     )
 
     run_profile(
-        "MTDataTree.from_dataframe",
-        lambda: MTDataTree().from_dataframe(base_df),
+        "MTData.from_dataframe",
+        lambda: MTData().from_dataframe(base_df),
         repeat=args.repeat,
     )
 

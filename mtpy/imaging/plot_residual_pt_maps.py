@@ -245,7 +245,7 @@ class PlotResidualPTMaps(PlotBase):
         return ""
 
     def _container_items(self, container):
-        """Return ``(key, MT)`` pairs from MTData-like or MTDataTree containers."""
+        """Return ``(key, MT)`` pairs from MTData-like or MTData containers."""
         if hasattr(container, "items"):
             return list(container.items())
 
@@ -259,9 +259,7 @@ class PlotResidualPTMaps(PlotBase):
                 for station_path in container._iter_station_paths()
             ]
 
-        raise TypeError(
-            "Container must provide items() or MTDataTree-style station access"
-        )
+        raise TypeError("Container must provide items() or MTData-style station access")
 
     def _match_lists(self, one, two):
         """Match the input lists by transfer function id.

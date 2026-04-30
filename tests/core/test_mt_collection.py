@@ -38,7 +38,7 @@ import pytest
 from mth5.helpers import close_open_files, validate_name
 
 from mtpy import MT, MTCollection
-from mtpy.core import MTDataTree
+from mtpy.core import MTData
 
 
 # =============================================================================
@@ -145,12 +145,12 @@ class TestMTCollection:
     def test_to_mt_data_tree(
         self, fresh_mt_collection, tf_file_list, expected_dataframe
     ):
-        """Test conversion to MTDataTree object."""
+        """Test conversion to MTData object."""
         mc = fresh_mt_collection
 
         mt_data_01 = mc.to_mt_data_tree(utm_crs=32610)
 
-        mt_data_02 = MTDataTree(utm_crs=32610)
+        mt_data_02 = MTData(utm_crs=32610)
         for tf_fn in tf_file_list:
             original = MT(tf_fn)
             original.read()
@@ -176,16 +176,16 @@ class TestMTCollection:
 
 
 # =============================================================================
-# Test MTCollection from MTDataTree
+# Test MTCollection from MTData
 # =============================================================================
 
 
 @pytest.mark.slow
-class TestMTCollectionFromMTDataTree01:
+class TestMTCollectionFromMTData01:
     """
-    Test MTCollection creation from MTDataTree with survey parameter.
+    Test MTCollection creation from MTData with survey parameter.
 
-    Marked as slow due to MTDataTree creation and collection building.
+    Marked as slow due to MTData creation and collection building.
     """
 
     def test_survey_unique(self, mt_collection_from_mt_data_tree):
@@ -205,11 +205,11 @@ class TestMTCollectionFromMTDataTree01:
 
 
 @pytest.mark.slow
-class TestMTCollectionFromMTDataTree02:
+class TestMTCollectionFromMTData02:
     """
     Test MTCollection with new_survey and tf_id_extra parameters.
 
-    Marked as slow due to MTDataTree creation and collection building.
+    Marked as slow due to MTData creation and collection building.
     """
 
     @pytest.fixture(scope="class")
@@ -221,7 +221,7 @@ class TestMTCollectionFromMTDataTree02:
             Path(temp_dir) / f"test_collection_extras_{worker_id}_{unique_id}.h5"
         )
 
-        mt_data_obj = MTDataTree()
+        mt_data_obj = MTData()
         mt_data_obj.add_station(tf_file_list)
 
         mc = MTCollection()
@@ -266,11 +266,11 @@ class TestMTCollectionFromMTDataTree02:
 
 
 @pytest.mark.slow
-class TestMTCollectionFromMTDataTree03:
+class TestMTCollectionFromMTData03:
     """
-    Test MTCollection using add_tf with MTDataTree object.
+    Test MTCollection using add_tf with MTData object.
 
-    Marked as slow due to MTDataTree creation and collection building.
+    Marked as slow due to MTData creation and collection building.
     """
 
     @pytest.fixture(scope="class")
@@ -282,7 +282,7 @@ class TestMTCollectionFromMTDataTree03:
             Path(temp_dir) / f"test_collection_addtf_{worker_id}_{unique_id}.h5"
         )
 
-        mt_data_obj = MTDataTree()
+        mt_data_obj = MTData()
         mt_data_obj.add_station(tf_file_list)
 
         mc = MTCollection()

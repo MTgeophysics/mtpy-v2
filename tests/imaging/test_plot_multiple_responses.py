@@ -8,7 +8,7 @@ import pytest
 from mt_metadata import TF_EDI_CGG
 
 from mtpy import MT
-from mtpy.core import MTDataTree
+from mtpy.core import MTData
 from mtpy.imaging.plot_mt_responses import PlotMultipleResponses
 
 
@@ -31,13 +31,13 @@ def mt_object(mt_object_cache):
 
 @pytest.fixture
 def mt_data_tree(mt_object):
-    """Build a single-station MTDataTree."""
-    tree = MTDataTree()
+    """Build a single-station MTData."""
+    tree = MTData()
     tree.add_station(mt_object)
     return tree
 
 
-class TestPlotMultipleResponsesMTDataTree:
+class TestPlotMultipleResponsesMTData:
     def test_iter_mt_objects_from_tree(self, mt_data_tree):
         plotter = PlotMultipleResponses(mt_data_tree, show_plot=False)
 
@@ -73,7 +73,7 @@ class TestPlotMultipleResponsesMTDataTree:
                 plt.close(fig)
 
     def test_get_mt_objects_returns_station_count(self, mt_object):
-        tree = MTDataTree()
+        tree = MTData()
         mt_2 = mt_object.copy()
         mt_2.station = f"{mt_object.station}_2"
         tree.add_stations([mt_object, mt_2])
