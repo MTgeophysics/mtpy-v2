@@ -20,6 +20,8 @@ try:
         BasicTicker,
         ColorBar,
         ColumnDataSource,
+        CustomJSTickFormatter,
+        FixedTicker,
         HoverTool,
         LinearColorMapper,
         Whisker,
@@ -33,6 +35,8 @@ except ImportError:  # pragma: no cover - optional dependency
     BasicTicker = None
     ColorBar = None
     ColumnDataSource = None
+    CustomJSTickFormatter = None
+    FixedTicker = None
     HoverTool = None
     LinearColorMapper = None
     Turbo256 = None
@@ -274,15 +278,18 @@ class PlotMTResponse(PlotBase):
             self.renderers.setdefault(comp_key, []).append(whisker)
 
     def _make_resistivity_figure(self, x_range=None):
+        kw = {}
+        if x_range is not None:
+            kw["x_range"] = x_range
         return figure(
             title=None,
             x_axis_type="log",
             y_axis_type="log",
-            x_range=x_range,
             height=320,
             width=800,
             tools="pan,wheel_zoom,box_zoom,reset,save",
             active_scroll="wheel_zoom",
+            **kw,
         )
 
     def _make_phase_figure(self, x_range):
@@ -316,15 +323,26 @@ class PlotMTResponse(PlotBase):
             active_scroll="wheel_zoom",
         )
 
+    def _apply_log_period_ticks(self, fig):
+        """Replace a linear-x axis with 10^n period labels."""
+        pmin_log = np.log10(float(self.x_limits[0]))
+        pmax_log = np.log10(float(self.x_limits[1]))
+        ticks = list(range(int(np.floor(pmin_log)), int(np.ceil(pmax_log)) + 1))
+        fig.xaxis.ticker = FixedTicker(ticks=ticks)
+        fig.xaxis.formatter = CustomJSTickFormatter(
+            code="return '10\u207f'.replace('\u207f', String(Math.round(tick)));"
+        )
+        fig.xaxis.axis_label = "Period (s)"
+
     def _format_res_axis(self, fig):
         fig.yaxis.axis_label = "App. Res. (Ohm m)"
         fig.xaxis.visible = False
-        fig.grid.grid_alpha = 0.25
+        fig.grid.grid_line_alpha = 0.25
 
     def _format_phase_axis(self, fig):
         fig.yaxis.axis_label = "Phase (deg)"
         fig.xaxis.axis_label = "Period (s)"
-        fig.grid.grid_alpha = 0.25
+        fig.grid.grid_line_alpha = 0.25
 
     def _set_axis_limits(self, fig, y_limits):
         if self.x_limits is not None:
@@ -454,14 +472,17 @@ class PlotMTResponse(PlotBase):
         tip_fig.y_range.start = tip_limits[0]
         tip_fig.y_range.end = tip_limits[1]
         tip_fig.yaxis.axis_label = "Tipper"
-        tip_fig.xaxis.axis_label = "log10(Period s)"
-        tip_fig.grid.grid_alpha = 0.25
+        tip_fig.grid.grid_line_alpha = 0.25
+        self._apply_log_period_ticks(tip_fig)
 
         tip_fig.add_tools(
             HoverTool(
                 tooltips=[
                     ("Period (s)", "@period"),
-                    ("x0", "@x0{0.00}"),
+                    ("Real x", "@xr{0.000}"),
+                    ("Real y", "@yr{0.000}"),
+                    ("Imag x", "@xi{0.000}"),
+                    ("Imag y", "@yi{0.000}"),
                 ]
             )
         )
@@ -483,14 +504,19 @@ class PlotMTResponse(PlotBase):
         width = np.ones_like(height) * self.ellipse_size
         angle = np.deg2rad(90.0 - azimuth[valid])
 
+        n_valid = int(np.count_nonzero(valid))
         source = ColumnDataSource(
             data={
                 "x": x[valid],
-                "y": np.zeros(np.count_nonzero(valid)),
+                "y": np.zeros(n_valid),
                 "width": width,
                 "height": height,
                 "angle": angle,
                 "color_value": color_array[valid],
+                "phimin": phimin[valid],
+                "phimax": phimax[valid],
+                "azimuth": azimuth[valid],
+                "period": period[valid],
             }
         )
 
@@ -519,13 +545,26 @@ class PlotMTResponse(PlotBase):
         )
         pt_fig.add_layout(cb, "right")
 
+        pt_fig.add_tools(
+            HoverTool(
+                renderers=[pt_renderer],
+                tooltips=[
+                    ("Period (s)", "@period{0.000}"),
+                    (f"{self.ellipse_colorby}", "@color_value{0.0}"),
+                    ("phimin (deg)", "@phimin{0.0}"),
+                    ("phimax (deg)", "@phimax{0.0}"),
+                    ("azimuth (deg)", "@azimuth{0.0}"),
+                ],
+            )
+        )
+
         pt_fig.x_range.start = np.log10(self.x_limits[0])
         pt_fig.x_range.end = np.log10(self.x_limits[1])
         pt_fig.y_range.start = -1.5 * self.ellipse_size
         pt_fig.y_range.end = 1.5 * self.ellipse_size
         pt_fig.yaxis.visible = False
-        pt_fig.xaxis.axis_label = "log10(Period s)"
-        pt_fig.grid.grid_alpha = 0.25
+        pt_fig.grid.grid_line_alpha = 0.25
+        self._apply_log_period_ticks(pt_fig)
 
     def _plot_od_components(self, res_fig, phase_fig):
         xy_source_res = self._component_source(self.period, self.Z, "xy", kind="res")
@@ -835,6 +874,24 @@ class PlotMTResponse(PlotBase):
             step=0.1,
         )
 
+        _preset_map = {
+            "Off-diagonal": [
+                k for k in ["xy", "yx", "tip_real", "tip_imag", "pt"] if k in available
+            ],
+            "Full tensor": [
+                k
+                for k in ["xy", "yx", "xx", "yy", "tip_real", "tip_imag", "pt"]
+                if k in available
+            ],
+            "All": available,
+        }
+        preset_widget = pn.widgets.RadioButtonGroup(
+            name="Preset",
+            options=list(_preset_map.keys()),
+            value="Off-diagonal",
+            button_type="warning",
+        )
+
         def _refresh_from_error_mode(event):
             self.plot_model_error = event.new == "model"
             self.plot()
@@ -848,14 +905,25 @@ class PlotMTResponse(PlotBase):
         def _update_period(event):
             self._set_period_window(event.new)
 
+        def _apply_preset(event):
+            component_widget.value = _preset_map[event.new]
+
         error_widget.param.watch(_refresh_from_error_mode, "value")
         component_widget.param.watch(_update_visibility, "value")
         period_widget.param.watch(_update_period, "value")
+        preset_widget.param.watch(_apply_preset, "value")
 
+        # initialise with Off-diagonal preset active
+        component_widget.value = _preset_map["Off-diagonal"]
         self._set_component_visibility(component_widget.value)
         self._set_period_window(period_widget.value)
 
-        controls = pn.Row(component_widget, error_widget, period_widget)
+        controls = pn.Row(
+            pn.Column(pn.pane.Markdown("**Preset**"), preset_widget),
+            pn.Column(pn.pane.Markdown("**Components**"), component_widget),
+            pn.Column(pn.pane.Markdown("**Error Type**"), error_widget),
+            pn.Column(pn.pane.Markdown("**Period Window**"), period_widget),
+        )
 
         return pn.Column(
             pn.pane.Markdown(f"## {title}"),
