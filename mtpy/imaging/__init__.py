@@ -12,7 +12,7 @@ from .plot_residual_pt_ps import PlotResidualPTPseudoSection
 from .plot_penetration_depth_1d import PlotPenetrationDepth1D
 from .plot_penetration_depth_map import PlotPenetrationDepthMap
 from .plot_resphase_maps import PlotResPhaseMaps
-
+from .bokeh_plots import PlotMTResponse as PlotMTResponseBokeh
 
 __all__ = [
     "PlotMTResponse",
@@ -28,4 +28,5 @@ __all__ = [
     "PlotPenetrationDepth1D",
     "PlotPenetrationDepthMap",
     "PlotResPhaseMaps",
+    "PlotMTResponseBokeh",
 ]
