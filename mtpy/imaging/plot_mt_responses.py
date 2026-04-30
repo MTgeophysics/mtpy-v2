@@ -105,9 +105,40 @@ class PlotMultipleResponses(PlotBase):
     @rotation_angle.setter
     def rotation_angle(self, value):
         """Only a single value is allowed."""
-        for tf in self.mt_data:
-            tf.rotation_angle = value
+        # Prefer container-level rotation for MTDataTree to avoid repeated
+        # dataset->MT reconstruction.
+        if hasattr(self.mt_data, "rotate") and hasattr(self.mt_data, "get_station"):
+            self.mt_data.rotate(value, inplace=True)
+        else:
+            for tf in self._iter_mt_objects():
+                tf.rotation_angle = value
         self._rotation_angle = value
+
+    def _iter_mt_objects(self):
+        """Yield MT objects from supported containers.
+
+        Supports legacy MTData-like containers and MTDataTree instances.
+        """
+        if hasattr(self.mt_data, "values"):
+            yield from self.mt_data.values()
+            return
+
+        if hasattr(self.mt_data, "_iter_station_paths") and hasattr(
+            self.mt_data, "get_station"
+        ):
+            if hasattr(self.mt_data, "compute"):
+                self.mt_data.compute()
+            for station_path in self.mt_data._iter_station_paths():
+                yield self.mt_data.get_station(station_path, as_mt=True)
+            return
+
+        raise TypeError(
+            "mt_data must provide values() or MTDataTree-style station access"
+        )
+
+    def _get_mt_objects(self):
+        """Return MT objects as a list for repeated plotting passes."""
+        return list(self._iter_mt_objects())
 
     @property
     def plot_model_error(self):
@@ -473,7 +504,8 @@ class PlotMultipleResponses(PlotBase):
 
     def _plot_all(self):
         """Plot all."""
-        ns = self.mt_data.n_stations
+        mt_objects = self._get_mt_objects()
+        ns = len(mt_objects)
 
         # set figure size according to what the plot will be.
         if self.fig_size is None:
@@ -486,7 +518,7 @@ class PlotMultipleResponses(PlotBase):
         # make a figure instance
         self.fig = plt.figure(self.fig_num, self.fig_size, dpi=self.fig_dpi)
 
-        for ii, mt in enumerate(self.mt_data.values()):
+        for ii, mt in enumerate(mt_objects):
             (
                 axr,
                 axp,
@@ -546,7 +578,8 @@ class PlotMultipleResponses(PlotBase):
             raise ValueError(
                 "Compare mode does not support plotting diagonal components yet"
             )
-        ns = self.mt_data.n_stations
+        mt_objects = self._get_mt_objects()
+        ns = len(mt_objects)
 
         # make color lists for the plots going light to dark
         cxy = [(0, 0 + float(cc) / ns, 1 - float(cc) / ns) for cc in range(ns)]
@@ -592,7 +625,7 @@ class PlotMultipleResponses(PlotBase):
 
         period = []
 
-        for ii, mt in enumerate(self.mt_data.values()):
+        for ii, mt in enumerate(mt_objects):
             period.append(mt.period.min())
             period.append(mt.period.max())
             self.xy_color = cxy[ii]
@@ -738,7 +771,7 @@ class PlotMultipleResponses(PlotBase):
     def _plot_single(self):
         """Plot single."""
         p_dict = {}
-        for ii, tf in enumerate(self.mt_data.values(), 1):
+        for ii, tf in enumerate(self._iter_mt_objects(), 1):
             p = tf.plot_mt_response(
                 **{
                     "fig_num": ii,
