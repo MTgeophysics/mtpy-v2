@@ -201,16 +201,26 @@ class MTData:
 
         return copied
 
-    def __repr__(self) -> str:
-        """Return a concise constructor-like summary for debugging."""
-        station_paths = self._iter_station_paths()
-        survey_names = sorted(
+    @property
+    def station_paths(self) -> list[str]:
+        """Return sorted station paths present in the tree."""
+        return sorted(self._iter_station_paths())
+
+    @property
+    def survey_names(self) -> list[str]:
+        """Return sorted survey names inferred from station paths."""
+        return sorted(
             {
                 path.split("/")[1]
-                for path in station_paths
+                for path in self.station_paths
                 if isinstance(path, str) and path.count("/") >= 3
             }
         )
+
+    def __repr__(self) -> str:
+        """Return a concise constructor-like summary for debugging."""
+        station_paths = self.station_paths
+        survey_names = self.survey_names
         index_enabled = self._index is not None or self._lazy_use_index
         return (
             "MTData("
@@ -225,14 +235,8 @@ class MTData:
 
     def __str__(self) -> str:
         """Return a human-readable summary of tree content and paths."""
-        station_paths = sorted(self._iter_station_paths())
-        survey_names = sorted(
-            {
-                path.split("/")[1]
-                for path in station_paths
-                if isinstance(path, str) and path.count("/") >= 3
-            }
-        )
+        station_paths = self.station_paths
+        survey_names = self.survey_names
         preview_limit = 8
         preview_paths = station_paths[:preview_limit]
         index_enabled = self._index is not None or self._lazy_use_index
