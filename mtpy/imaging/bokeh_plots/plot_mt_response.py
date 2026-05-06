@@ -17,6 +17,7 @@ try:
     from bokeh.io import show
     from bokeh.layouts import gridplot
     from bokeh.models import (
+        Arrow,
         BasicTicker,
         ColorBar,
         ColumnDataSource,
@@ -24,6 +25,7 @@ try:
         FixedTicker,
         HoverTool,
         LinearColorMapper,
+        NormalHead,
         Whisker,
     )
     from bokeh.palettes import Turbo256
@@ -32,6 +34,7 @@ try:
 except ImportError:  # pragma: no cover - optional dependency
     show = None
     gridplot = None
+    Arrow = None
     BasicTicker = None
     ColorBar = None
     ColumnDataSource = None
@@ -39,6 +42,7 @@ except ImportError:  # pragma: no cover - optional dependency
     FixedTicker = None
     HoverTool = None
     LinearColorMapper = None
+    NormalHead = None
     Turbo256 = None
     Whisker = None
     figure = None
@@ -153,6 +157,8 @@ class PlotMTResponse(PlotBase):
             or ColumnDataSource is None
             or Whisker is None
             or LinearColorMapper is None
+            or Arrow is None
+            or NormalHead is None
         ):
             raise ImportError(
                 "Bokeh is required for PlotMTResponse bokeh plots. "
@@ -186,6 +192,18 @@ class PlotMTResponse(PlotBase):
 
     @staticmethod
     def _tuple_to_hex(color):
+        if isinstance(color, str):
+            short_map = {
+                "k": "#000000",
+                "w": "#ffffff",
+                "r": "#ff0000",
+                "g": "#008000",
+                "b": "#0000ff",
+                "c": "#00ffff",
+                "m": "#ff00ff",
+                "y": "#ffff00",
+            }
+            return short_map.get(color.lower(), color)
         if isinstance(color, tuple) and len(color) == 3:
             r, g, b = [int(np.clip(c, 0, 1) * 255) for c in color]
             return f"#{r:02x}{g:02x}{b:02x}"
@@ -366,20 +384,50 @@ class PlotMTResponse(PlotBase):
 
     def _tipper_vectors(self):
         period = np.asarray(1.0 / self.Tipper.frequency, dtype=float)
-        log_period = np.log10(period)
+        txr = np.asarray(
+            self.Tipper.mag_real
+            * np.cos(
+                np.deg2rad(-self.Tipper.angle_real) + self.arrow_direction * np.pi
+            ),
+            dtype=float,
+        )
+        tyr = np.asarray(
+            self.Tipper.mag_real
+            * np.sin(
+                np.deg2rad(-self.Tipper.angle_real) + self.arrow_direction * np.pi
+            ),
+            dtype=float,
+        )
+        txi = np.asarray(
+            self.Tipper.mag_imag
+            * np.cos(
+                np.deg2rad(-self.Tipper.angle_imag) + self.arrow_direction * np.pi
+            ),
+            dtype=float,
+        )
+        tyi = np.asarray(
+            self.Tipper.mag_imag
+            * np.sin(
+                np.deg2rad(-self.Tipper.angle_imag) + self.arrow_direction * np.pi
+            ),
+            dtype=float,
+        )
 
-        txr = self.Tipper.mag_real * np.cos(
-            np.deg2rad(-self.Tipper.angle_real) + self.arrow_direction * np.pi
+        valid = (
+            np.isfinite(period)
+            & (period > 0)
+            & np.isfinite(txr)
+            & np.isfinite(tyr)
+            & np.isfinite(txi)
+            & np.isfinite(tyi)
         )
-        tyr = self.Tipper.mag_real * np.sin(
-            np.deg2rad(-self.Tipper.angle_real) + self.arrow_direction * np.pi
-        )
-        txi = self.Tipper.mag_imag * np.cos(
-            np.deg2rad(-self.Tipper.angle_imag) + self.arrow_direction * np.pi
-        )
-        tyi = self.Tipper.mag_imag * np.sin(
-            np.deg2rad(-self.Tipper.angle_imag) + self.arrow_direction * np.pi
-        )
+        period = period[valid]
+        txr = txr[valid]
+        tyr = tyr[valid]
+        txi = txi[valid]
+        tyi = tyi[valid]
+
+        log_period = np.log10(period)
 
         x_end_real = log_period + txr * log_period
         x_end_imag = log_period + txi * log_period
@@ -393,11 +441,15 @@ class PlotMTResponse(PlotBase):
             "yi": tyi,
             "tyr": tyr,
             "tyi": tyi,
+            "period": period,
         }
 
     def _plot_tipper(self, tip_fig):
         vectors = self._tipper_vectors()
-        period_labels = [f"{10**pp:.3g}" for pp in vectors["x0"]]
+        if vectors["x0"].size == 0:
+            self.logger.info("No valid tipper vectors to plot.")
+            return
+        period_labels = [f"{pp:.3g}" for pp in vectors["period"]]
 
         source = ColumnDataSource(
             data={
@@ -415,45 +467,56 @@ class PlotMTResponse(PlotBase):
         imag_color = self._tuple_to_hex(self.arrow_color_imag)
 
         if "r" in self.plot_tipper:
-            real_seg = tip_fig.segment(
-                x0="x0",
-                y0="y0",
-                x1="xr",
-                y1="yr",
+            real_arrow = Arrow(
+                end=NormalHead(
+                    size=8,
+                    fill_color=real_color,
+                    line_color=real_color,
+                ),
                 source=source,
+                x_start="x0",
+                y_start="y0",
+                x_end="xr",
+                y_end="yr",
+                line_color=real_color,
+                line_width=max(self.arrow_lw * 2, 1),
+            )
+            tip_fig.add_layout(real_arrow)
+            real_legend = tip_fig.line(
+                x=[np.nan],
+                y=[np.nan],
                 color=real_color,
                 line_width=max(self.arrow_lw * 2, 1),
                 legend_label="tip real",
             )
-            real_head = tip_fig.triangle(
-                x="xr",
-                y="yr",
-                source=source,
-                size=7,
-                color=real_color,
-            )
-            self.renderers.setdefault("tip_real", []).extend([real_seg, real_head])
+            self.renderers.setdefault("tip_real", []).extend([real_arrow, real_legend])
 
         if "i" in self.plot_tipper:
-            imag_seg = tip_fig.segment(
-                x0="x0",
-                y0="y0",
-                x1="xi",
-                y1="yi",
+            imag_arrow = Arrow(
+                end=NormalHead(
+                    size=8,
+                    fill_color=imag_color,
+                    line_color=imag_color,
+                ),
                 source=source,
-                color=imag_color,
+                x_start="x0",
+                y_start="y0",
+                x_end="xi",
+                y_end="yi",
+                line_color=imag_color,
                 line_width=max(self.arrow_lw * 2, 1),
                 line_dash="dashed",
+            )
+            tip_fig.add_layout(imag_arrow)
+            imag_legend = tip_fig.line(
+                x=[np.nan],
+                y=[np.nan],
+                color=imag_color,
+                line_dash="dashed",
+                line_width=max(self.arrow_lw * 2, 1),
                 legend_label="tip imag",
             )
-            imag_head = tip_fig.inverted_triangle(
-                x="xi",
-                y="yi",
-                source=source,
-                size=7,
-                color=imag_color,
-            )
-            self.renderers.setdefault("tip_imag", []).extend([imag_seg, imag_head])
+            self.renderers.setdefault("tip_imag", []).extend([imag_arrow, imag_legend])
 
         tip_fig.line(
             x=[np.log10(self.x_limits[0]), np.log10(self.x_limits[1])],
