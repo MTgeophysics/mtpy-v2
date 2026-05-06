@@ -4,6 +4,7 @@ Created on Tue Mar  7 19:01:14 2023
 
 @author: jpeacock
 """
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -54,7 +55,6 @@ class Occam2DData:
     """
 
     def __init__(self, dataframe=None, center_point=None, **kwargs):
-
         self.logger = logger
         self.dataframe = dataframe
         self.data_filename = None
@@ -564,11 +564,11 @@ class Occam2DData:
                 )
                 if np.any(filt):
                     for key in ["res_xy", "res_yx", "phase_xy", "phase_yx"]:
-                        self.dataframe[key][filt] = np.unique(
-                            self.dataframe[key][filt]
+                        self.dataframe.loc[filt, key] = np.unique(
+                            self.dataframe.loc[filt, key]
                         )[0]
-                        self.dataframe[key + "_model_error"][filt] = np.unique(
-                            self.dataframe[key + "_model_error"][filt]
+                        self.dataframe.loc[filt, key + "_model_error"] = np.unique(
+                            self.dataframe.loc[filt, key + "_model_error"]
                         )[0]
                     tx_real_vals = np.unique(np.real(self.dataframe["t_zy"][filt]))
                     tx_imag_vals = np.unique(np.imag(self.dataframe["t_zy"][filt]))
@@ -580,7 +580,9 @@ class Occam2DData:
                         if len(tx_imag_vals[tx_imag_vals != 0]) > 0:
                             tx_imag_val = tx_imag_vals[tx_imag_vals != 0][0]
 
-                        self.dataframe["t_zy"][filt] = tx_real_val + 1j * tx_imag_val
+                        self.dataframe.loc[filt, "t_zy"] = (
+                            tx_real_val + 1j * tx_imag_val
+                        )
 
                     self.dataframe.drop(self.dataframe[filt].index[1:], inplace=True)
 
@@ -689,7 +691,6 @@ class Occam2DData:
                 "im_tip",
                 "re_tip",
             ]:
-
                 for i in range(len(self.freq)):
                     if self.data[i_ocdm][dmode][0][i] == 0:
                         self.data[i_ocd][dmode][0][i] = 0.0
