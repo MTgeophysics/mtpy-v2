@@ -285,38 +285,70 @@ class Mesh:
 
         # 2) make vertical nodes so that they increase with depth
         # --> make depth grid
-        log_z = np.logspace(
-            np.log10(self.z1_layer),
-            np.log10(
-                self.z_target_depth
-                - np.logspace(
-                    np.log10(self.z1_layer),
-                    np.log10(self.z_target_depth),
-                    num=self.n_layers,
-                )[-2]
-            ),
-            num=self.n_layers - self.num_z_pad_cells,
-        )
+        bottom_cell_size = self.z1_layer
+        increment = 10 ** np.floor(np.log10(self.z1_layer))
+        for _ in range(100000):  # maximum iterations
+            log_z = np.logspace(
+                np.log10(self.z1_layer),
+                np.log10(bottom_cell_size),
+                self.n_layers - self.num_z_pad_cells,
+            )
+            ztarget = np.array([zz - zz % 10 ** np.floor(np.log10(zz)) for zz in log_z])
+            if ztarget.sum() > self.z_target_depth:
+                break
+            bottom_cell_size += increment
+        # log_z = np.logspace(
+        #     np.log10(self.z1_layer),
+        #     np.log10(
+        #         self.z_target_depth
+        #         - np.logspace(
+        #             np.log10(self.z1_layer),
+        #             np.log10(self.z_target_depth),
+        #             num=self.n_layers,
+        #         )[-2]
+        #     ),
+        #     num=self.n_layers - self.num_z_pad_cells,
+        # )
 
         # round the layers to be whole numbers
-        ztarget = np.array([zz - zz % 10 ** np.floor(np.log10(zz)) for zz in log_z])
+        # ztarget = np.around(log_z)
+        # ztarget = np.array([zz - zz % 10 ** np.floor(np.log10(zz)) for zz in log_z])
 
         # --> create padding cells past target depth
-        log_zpad = np.logspace(
-            np.log10(self.z_target_depth),
-            np.log10(
-                self.z_bottom
-                - np.logspace(
-                    np.log10(self.z_target_depth),
-                    np.log10(self.z_bottom),
-                    num=self.num_z_pad_cells,
-                )[-2]
-            ),
-            num=self.num_z_pad_cells,
-        )
+
+        bottom_pad_cell_size = ztarget[-1]
+        increment = 10 ** np.floor(np.log10(ztarget[-1]))
+        for _ in range(100000):  # maximum iterations
+            log_zpad = np.logspace(
+                np.log10(ztarget[-1]),
+                np.log10(bottom_pad_cell_size),
+                self.num_z_pad_cells + 1,
+            )
+            zpadding = np.array(
+                [zz - zz % 10 ** np.floor(np.log10(zz)) for zz in log_zpad]
+            )[1:]
+            if zpadding.sum() > self.z_bottom - ztarget.sum():
+                break
+            bottom_pad_cell_size += increment
+
+        # log_zpad = np.logspace(
+        #     np.log10(self.z_target_depth),
+        #     np.log10(
+        #         self.z_bottom
+        #         - np.logspace(
+        #             np.log10(self.z_target_depth),
+        #             np.log10(self.z_bottom),
+        #             num=self.num_z_pad_cells,
+        #         )[-2]
+        #     ),
+        #     num=self.num_z_pad_cells,
+        # )
         # round the layers to be whole numbers
-        zpadding = np.array([zz - zz % 10 ** np.floor(np.log10(zz)) for zz in log_zpad])
-        zpadding.sort()
+        # zpadding = np.around(log_zpad)
+        # zpadding = np.array(
+        #     [zz - zz % 10 ** np.floor(np.log10(zz)) for zz in log_zpad]
+        # )[1:]
+        # zpadding.sort()
 
         # create the vertical nodes
         self.z_nodes = np.append(ztarget, zpadding)
