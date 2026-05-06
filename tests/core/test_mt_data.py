@@ -1943,3 +1943,233 @@ class TestMTDataAddWhiteNoise:
         # original tree must be unchanged
         orig_z = tree.to_dataframe()[["z_xx", "z_xy", "z_yx", "z_yy"]].values
         assert np.allclose(before_z, orig_z, equal_nan=True)
+
+
+class TestMTDataPlottingCompatibility:
+    def test_resolve_plot_station_key_with_station_id_and_survey(
+        self, loaded_profile_mt
+    ):
+        tree = MTData()
+        station_path = tree.add_station(loaded_profile_mt)
+
+        resolved = tree._resolve_plot_station_key(
+            station_id=loaded_profile_mt.station,
+            survey_id=loaded_profile_mt.survey,
+        )
+
+        assert resolved == station_path
+
+    def test_resolve_plot_station_key_ambiguous_without_survey(self):
+        mt_1 = MT()
+        mt_1.survey = "survey_01"
+        mt_1.station = "same_station"
+
+        mt_2 = MT()
+        mt_2.survey = "survey_02"
+        mt_2.station = "same_station"
+
+        tree = MTData()
+        tree.add_stations([mt_1, mt_2])
+
+        with pytest.raises(ValueError, match="Provide survey_id"):
+            tree._resolve_plot_station_key(station_id="same_station")
+
+    def test_plot_phase_tensor_uses_mt_object_accessor(
+        self, loaded_profile_mt, monkeypatch
+    ):
+        tree = MTData()
+        station_path = tree.add_station(loaded_profile_mt)
+
+        called = {}
+
+        class _FakeMT:
+            def plot_phase_tensor(self, **kwargs):
+                called["kwargs"] = kwargs
+                return "phase_tensor_plot"
+
+        def _fake_get_station(station_key, as_mt=False):
+            called["station_key"] = station_key
+            called["as_mt"] = as_mt
+            return _FakeMT()
+
+        monkeypatch.setattr(tree, "get_station", _fake_get_station)
+
+        out = tree.plot_phase_tensor(station_key=station_path, color="k")
+
+        assert out == "phase_tensor_plot"
+        assert called["station_key"] == station_path
+        assert called["as_mt"] is True
+        assert called["kwargs"] == {"color": "k"}
+
+    def test_plot_phase_tensor_pseudosection_uses_mt_data_argument(
+        self, loaded_profile_mt, monkeypatch
+    ):
+        import mtpy.core.mt_data as mt_data_module
+
+        tree = MTData()
+        tree.add_station(loaded_profile_mt)
+        other = MTData()
+
+        captured = {}
+
+        def _fake_plotter(*, mt_data, **kwargs):
+            captured["mt_data"] = mt_data
+            captured["kwargs"] = kwargs
+            return "pseudo"
+
+        monkeypatch.setattr(
+            mt_data_module, "PlotPhaseTensorPseudoSection", _fake_plotter
+        )
+
+        out = tree.plot_phase_tensor_pseudosection(mt_data=other, foo=1)
+
+        assert out == "pseudo"
+        assert captured["mt_data"] is other
+        assert captured["kwargs"] == {"foo": 1}
+
+    def test_plot_stations_applies_bounding_box(self, loaded_profile_mt, monkeypatch):
+        import mtpy.core.mt_data as mt_data_module
+
+        tree = MTData()
+        tree.add_station(loaded_profile_mt)
+
+        captured = {}
+
+        class _Subset:
+            def to_geo_df(self, model_locations=False, data_type="station_locations"):
+                captured["model_locations"] = model_locations
+                captured["data_type"] = data_type
+                return "gdf"
+
+        def _fake_apply_bounding_box(lon_min, lon_max, lat_min, lat_max):
+            captured["bbox"] = (lon_min, lon_max, lat_min, lat_max)
+            return _Subset()
+
+        def _fake_plot_stations(gdf, **kwargs):
+            captured["gdf"] = gdf
+            captured["kwargs"] = kwargs
+            return "stations_plot"
+
+        monkeypatch.setattr(tree, "apply_bounding_box", _fake_apply_bounding_box)
+        monkeypatch.setattr(mt_data_module, "PlotStations", _fake_plot_stations)
+
+        out = tree.plot_stations(map_epsg=3857, bounding_box=(0, 1, 2, 3))
+
+        assert out == "stations_plot"
+        assert captured["bbox"] == (0, 1, 2, 3)
+        assert captured["gdf"] == "gdf"
+        assert captured["kwargs"]["map_epsg"] == 3857
+
+    def test_plot_tipper_map_preserves_explicit_kwargs(
+        self, loaded_profile_mt, monkeypatch
+    ):
+        import mtpy.core.mt_data as mt_data_module
+
+        tree = MTData()
+        tree.add_station(loaded_profile_mt)
+
+        captured = {}
+
+        def _fake_plotter(*, mt_data, **kwargs):
+            captured["mt_data"] = mt_data
+            captured["kwargs"] = kwargs
+            return "tipper"
+
+        monkeypatch.setattr(mt_data_module, "PlotPhaseTensorMaps", _fake_plotter)
+
+        out = tree.plot_tipper_map(plot_pt=True, plot_tipper="abc")
+
+        assert out == "tipper"
+        assert captured["mt_data"] is tree
+        assert captured["kwargs"]["plot_pt"] is True
+        assert captured["kwargs"]["plot_tipper"] == "abc"
+
+    def test_plot_resistivity_phase_wrappers_pass_mt_data(
+        self, loaded_profile_mt, monkeypatch
+    ):
+        import mtpy.core.mt_data as mt_data_module
+
+        tree = MTData()
+        tree.add_station(loaded_profile_mt)
+
+        captured = {}
+
+        def _fake_maps(*, mt_data, **kwargs):
+            captured["maps"] = (mt_data, kwargs)
+            return "maps"
+
+        def _fake_ps(*, mt_data, **kwargs):
+            captured["ps"] = (mt_data, kwargs)
+            return "ps"
+
+        monkeypatch.setattr(mt_data_module, "PlotResPhaseMaps", _fake_maps)
+        monkeypatch.setattr(mt_data_module, "PlotResPhasePseudoSection", _fake_ps)
+
+        out_maps = tree.plot_resistivity_phase_maps(a=1)
+        out_ps = tree.plot_resistivity_phase_pseudosections(b=2)
+
+        assert out_maps == "maps"
+        assert out_ps == "ps"
+        assert captured["maps"][0] is tree
+        assert captured["maps"][1] == {"a": 1}
+        assert captured["ps"][0] is tree
+        assert captured["ps"][1] == {"b": 2}
+
+    def test_plot_penetration_depth_map_passes_mt_data(
+        self, loaded_profile_mt, monkeypatch
+    ):
+        import mtpy.core.mt_data as mt_data_module
+
+        tree = MTData()
+        tree.add_station(loaded_profile_mt)
+
+        captured = {}
+
+        def _fake_plotter(*, mt_data, **kwargs):
+            captured["mt_data"] = mt_data
+            captured["kwargs"] = kwargs
+            return "depth_map"
+
+        monkeypatch.setattr(mt_data_module, "PlotPenetrationDepthMap", _fake_plotter)
+
+        out = tree.plot_penetration_depth_map(plot_period=10)
+
+        assert out == "depth_map"
+        assert captured["mt_data"] is tree
+        assert captured["kwargs"] == {"plot_period": 10}
+
+    def test_plot_residual_phase_tensor_maps_validates_surveys(
+        self, loaded_profile_mt, monkeypatch
+    ):
+        import mtpy.core.mt_data as mt_data_module
+
+        mt_1 = MT()
+        mt_1.survey = "survey_a"
+        mt_1.station = "st01"
+
+        mt_2 = MT()
+        mt_2.survey = "survey_b"
+        mt_2.station = "st02"
+
+        tree = MTData()
+        tree.add_stations([mt_1, mt_2])
+
+        captured = {}
+
+        def _fake_plotter(mt_data_01, mt_data_02, **kwargs):
+            captured["s1"] = mt_data_01
+            captured["s2"] = mt_data_02
+            captured["kwargs"] = kwargs
+            return "residual"
+
+        monkeypatch.setattr(mt_data_module, "PlotResidualPTMaps", _fake_plotter)
+
+        out = tree.plot_residual_phase_tensor_maps("survey_a", "survey_b", c=3)
+
+        assert out == "residual"
+        assert captured["s1"].n_stations == 1
+        assert captured["s2"].n_stations == 1
+        assert captured["kwargs"] == {"c": 3}
+
+        with pytest.raises(KeyError, match="Survey not found"):
+            tree.plot_residual_phase_tensor_maps("survey_a", "missing")

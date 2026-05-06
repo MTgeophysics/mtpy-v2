@@ -19,6 +19,17 @@ import xarray as xr
 from loguru import logger
 
 from mtpy.core.transfer_function import IMPEDANCE_UNITS
+from mtpy.imaging import (
+    PlotMultipleResponses,
+    PlotPenetrationDepthMap,
+    PlotPhaseTensorMaps,
+    PlotPhaseTensorPseudoSection,
+    PlotResidualPTMaps,
+    PlotResPhaseMaps,
+    PlotResPhasePseudoSection,
+    PlotStations,
+    PlotStrike,
+)
 from mtpy.modeling.errors import ModelErrors
 
 from .mt_data_tree_index import MTDataTreeIndexStore
@@ -3717,3 +3728,514 @@ class MTData:
             Names of direct children under the tree root.
         """
         return list(self.tree.children.keys())
+
+    def _resolve_plot_station_key(
+        self,
+        station_key: str | None = None,
+        station_id: str | None = None,
+        survey_id: str | None = None,
+    ) -> str:
+        """Resolve plotting selectors to one canonical station tree path.
+
+        Parameters
+        ----------
+        station_key : str, optional
+            Canonical station path or alternate station key accepted by
+            :meth:`_resolve_station_path`.
+        station_id : str, optional
+            Station identifier.
+        survey_id : str, optional
+            Survey identifier used to disambiguate duplicate station IDs.
+
+        Returns
+        -------
+        str
+            Canonical station tree path.
+
+        Raises
+        ------
+        ValueError
+            If both *station_key* and *station_id* are missing, or if
+            *station_id* is ambiguous without *survey_id*.
+        KeyError
+            If no matching station can be resolved.
+        """
+        if station_key is not None:
+            return self._resolve_station_path(station_key)
+
+        if station_id is None:
+            raise ValueError("Provide station_key or station_id")
+
+        station_name = self._clean_name(station_id, "unknown_station")
+        if survey_id is not None:
+            survey_name = self._clean_name(survey_id, "default")
+            return self._resolve_station_path(
+                self._station_path(survey_name, station_name)
+            )
+
+        matches = [
+            path
+            for path in self.station_paths
+            if path.rsplit("/", 1)[-1] == station_name
+        ]
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) == 0:
+            raise KeyError(
+                "Station key not found for station_id without survey_id: "
+                f"{station_id}"
+            )
+
+        raise ValueError(
+            "Multiple stations matched station_id. "
+            "Provide survey_id to disambiguate."
+        )
+
+    def plot_mt_response(
+        self,
+        station_key: str | list[str] | None = None,
+        station_id: str | list[str] | None = None,
+        survey_id: str | list[str] | None = None,
+        **kwargs: Any,
+    ) -> PlotMultipleResponses | Any:
+        """
+        Plot MT response for one or more stations.
+
+        Parameters
+        ----------
+        station_key : str, list of str, optional
+            Station key(s) in canonical or accepted alternate form.
+        station_id : str, list of str, optional
+            Station ID(s). When provided without *survey_id*, each station ID
+            must be unique across surveys.
+        survey_id : str, list of str, optional
+            Survey ID(s) used with *station_id*. If list-valued, must align
+            one-to-one with *station_id*.
+        **kwargs : dict
+            Additional plotting keyword arguments.
+
+        Returns
+        -------
+        PlotMultipleResponses or plot object
+            Multi-station response plot for list-valued selectors, otherwise
+            a single-station MT response plot object.
+
+        Raises
+        ------
+        ValueError
+            If list-valued *survey_id* does not match list-valued
+            *station_id*, or if station selection is ambiguous.
+        KeyError
+            If a requested station cannot be resolved.
+
+        Examples
+        --------
+        >>> tree.plot_mt_response(station_key="survey_a/st01")
+        >>> tree.plot_mt_response(station_id="st01", survey_id="survey_a")
+        >>> tree.plot_mt_response(
+        ...     station_id=["st01", "st02"],
+        ...     survey_id=["survey_a", "survey_b"],
+        ... )
+
+        """
+
+        if isinstance(station_key, (list, tuple)):
+            station_keys = [self._resolve_station_path(sk) for sk in station_key]
+            return PlotMultipleResponses(self.get_subset(station_keys), **kwargs)
+
+        elif isinstance(station_id, (list, tuple)):
+            station_ids = list(station_id)
+            if isinstance(survey_id, (list, tuple)):
+                survey_ids = list(survey_id)
+                if len(survey_ids) != len(station_ids):
+                    raise ValueError("Number of survey must match number of stations")
+            else:
+                survey_ids = [survey_id] * len(station_ids)
+
+            station_keys = [
+                self._resolve_plot_station_key(
+                    station_id=station,
+                    survey_id=survey,
+                )
+                for survey, station in zip(survey_ids, station_ids)
+            ]
+            return PlotMultipleResponses(self.get_subset(station_keys), **kwargs)
+
+        else:
+            station_path = self._resolve_plot_station_key(
+                station_id=station_id,
+                survey_id=survey_id,
+                station_key=station_key,
+            )
+            mt_object = self.get_station(station_path, as_mt=True)
+            return mt_object.plot_mt_response(**kwargs)
+
+    def plot_stations(
+        self,
+        map_epsg: int = 4326,
+        bounding_box: tuple[float, float, float, float] | None = None,
+        model_locations: bool = False,
+        **kwargs: Any,
+    ) -> PlotStations:
+        """
+        Plot station locations on a map.
+
+        Parameters
+        ----------
+        map_epsg : int, optional
+            EPSG code forwarded to :class:`PlotStations` as ``map_epsg``.
+        bounding_box : tuple of float, optional
+            Optional ``(lon_min, lon_max, lat_min, lat_max)`` used to subset
+            stations before plotting.
+        model_locations : bool, optional
+            Use model coordinates instead of geographic coordinates.
+        **kwargs : dict
+            Additional plotting keyword arguments.
+
+        Returns
+        -------
+        PlotStations
+            Station plot object
+
+        Raises
+        ------
+        ValueError
+            If *bounding_box* is provided and does not contain four values.
+
+        Examples
+        --------
+        >>> tree.plot_stations()
+        >>> tree.plot_stations(map_epsg=3857)
+        >>> tree.plot_stations(bounding_box=(-121.5, -120.0, 36.5, 38.0))
+
+        """
+        mt_data = self
+        if bounding_box is not None:
+            if len(bounding_box) != 4:
+                raise ValueError(
+                    "bounding_box must be (lon_min, lon_max, lat_min, lat_max)"
+                )
+            mt_data = self.apply_bounding_box(*bounding_box)
+
+        gdf = mt_data.to_geo_df(model_locations=model_locations)
+        if model_locations:
+            kwargs["plot_cx"] = False
+        kwargs.setdefault("map_epsg", map_epsg)
+        return PlotStations(gdf, **kwargs)
+
+    def plot_strike(self, **kwargs: Any) -> PlotStrike:
+        """
+        Plot strike angle.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional plotting keyword arguments.
+
+        Returns
+        -------
+        PlotStrike
+            Strike plot object
+
+        Examples
+        --------
+        >>> tree.plot_strike()
+        >>> tree.plot_strike(show_plot=False)
+
+        """
+
+        return PlotStrike(self, **kwargs)
+
+    def plot_phase_tensor(
+        self,
+        station_key: str | None = None,
+        station_id: str | None = None,
+        survey_id: str | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """
+        Plot phase tensor elements for a station.
+
+        Parameters
+        ----------
+        station_key : str, optional
+            Station key in canonical or accepted alternate form.
+        station_id : str, optional
+            Station ID.
+        survey_id : str, optional
+            Survey ID used to disambiguate duplicate station IDs.
+        **kwargs : dict
+            Additional plotting keyword arguments.
+
+        Returns
+        -------
+        plot object
+            Phase tensor plot object
+
+        Raises
+        ------
+        ValueError
+            If station selection is ambiguous.
+        KeyError
+            If the station cannot be resolved.
+
+        Examples
+        --------
+        >>> tree.plot_phase_tensor(station_key="survey_a/st01")
+        >>> tree.plot_phase_tensor(station_id="st01", survey_id="survey_a")
+
+        """
+
+        station_path = self._resolve_plot_station_key(
+            station_id=station_id,
+            survey_id=survey_id,
+            station_key=station_key,
+        )
+        mt_object = self.get_station(station_path, as_mt=True)
+        return mt_object.plot_phase_tensor(**kwargs)
+
+    def plot_phase_tensor_map(self, **kwargs: Any) -> PlotPhaseTensorMaps:
+        """
+        Plot phase tensor maps.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional plotting keyword arguments.
+
+        Returns
+        -------
+        PlotPhaseTensorMaps
+            Phase tensor map plot object
+
+        Examples
+        --------
+        >>> tree.plot_phase_tensor_map(plot_period=10)
+        >>> tree.plot_phase_tensor_map(plot_station=True)
+
+        """
+
+        return PlotPhaseTensorMaps(mt_data=self, **kwargs)
+
+    def plot_tipper_map(self, **kwargs: Any) -> PlotPhaseTensorMaps:
+        """
+        Plot tipper (induction vector) maps.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional plotting keyword arguments. Defaults are
+            ``plot_pt=False`` and ``plot_tipper='yri'`` when not explicitly
+            provided.
+
+        Returns
+        -------
+        PlotPhaseTensorMaps
+            Tipper map plot object
+
+        Examples
+        --------
+        >>> tree.plot_tipper_map()
+        >>> tree.plot_tipper_map(plot_tipper="yri", plot_pt=False)
+
+        """
+        kwargs.setdefault("plot_pt", False)
+        kwargs.setdefault("plot_tipper", "yri")
+        return PlotPhaseTensorMaps(mt_data=self, **kwargs)
+
+    def plot_phase_tensor_pseudosection(
+        self, mt_data: "MTData" | None = None, **kwargs: Any
+    ) -> PlotPhaseTensorPseudoSection:
+        """
+        Plot phase tensor pseudosection.
+
+        Parameters
+        ----------
+        mt_data : MTData, optional
+            MTData object to plot. Defaults to ``self``.
+        **kwargs : dict
+            Additional plotting keyword arguments.
+
+        Returns
+        -------
+        PlotPhaseTensorPseudoSection
+            Pseudosection plot object
+
+        Examples
+        --------
+        >>> tree.plot_phase_tensor_pseudosection()
+        >>> subset = tree.get_survey("survey_a")
+        >>> tree.plot_phase_tensor_pseudosection(mt_data=subset)
+
+        """
+
+        if mt_data is None:
+            mt_data = self
+        return PlotPhaseTensorPseudoSection(mt_data=mt_data, **kwargs)
+
+    def plot_penetration_depth_1d(
+        self,
+        station_key: str | None = None,
+        station_id: str | None = None,
+        survey_id: str | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """
+        Plot 1D penetration depth.
+
+        Parameters
+        ----------
+        station_key : str, optional
+            Station key in canonical or accepted alternate form.
+        station_id : str, optional
+            Station ID.
+        survey_id : str, optional
+            Survey ID used to disambiguate duplicate station IDs.
+        **kwargs : dict
+            Additional plotting keyword arguments.
+
+        Returns
+        -------
+        plot object
+            Penetration depth plot object
+
+        Raises
+        ------
+        ValueError
+            If station selection is ambiguous.
+        KeyError
+            If the station cannot be resolved.
+
+        Notes
+        -----
+        Based on Niblett-Bostick transformation
+
+        Examples
+        --------
+        >>> tree.plot_penetration_depth_1d(station_key="survey_a/st01")
+        >>> tree.plot_penetration_depth_1d(
+        ...     station_id="st01", survey_id="survey_a", depth_units="km"
+        ... )
+
+        """
+
+        station_path = self._resolve_plot_station_key(
+            station_id=station_id,
+            survey_id=survey_id,
+            station_key=station_key,
+        )
+        mt_object = self.get_station(station_path, as_mt=True)
+
+        return mt_object.plot_depth_of_penetration(**kwargs)
+
+    def plot_penetration_depth_map(self, **kwargs: Any) -> PlotPenetrationDepthMap:
+        """
+        Plot penetration depth in map view.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional plotting keyword arguments.
+
+        Returns
+        -------
+        PlotPenetrationDepthMap
+            Penetration depth map plot object
+
+        Examples
+        --------
+        >>> tree.plot_penetration_depth_map(plot_period=10)
+        >>> tree.plot_penetration_depth_map(depth_units="km")
+
+        """
+        return PlotPenetrationDepthMap(mt_data=self, **kwargs)
+
+    def plot_resistivity_phase_maps(self, **kwargs: Any) -> PlotResPhaseMaps:
+        """
+        Plot apparent resistivity and/or phase maps.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional plotting keyword arguments.
+
+        Returns
+        -------
+        PlotResPhaseMaps
+            Resistivity/phase map plot object
+
+        Examples
+        --------
+        >>> tree.plot_resistivity_phase_maps(plot_period=10)
+        >>> tree.plot_resistivity_phase_maps(plot_xy=True, plot_yx=False)
+
+        """
+        return PlotResPhaseMaps(mt_data=self, **kwargs)
+
+    def plot_resistivity_phase_pseudosections(
+        self, **kwargs: Any
+    ) -> PlotResPhasePseudoSection:
+        """
+        Plot resistivity and phase pseudosections.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional plotting keyword arguments.
+
+        Returns
+        -------
+        PlotResPhasePseudoSection
+            Pseudosection plot object
+
+        Examples
+        --------
+        >>> tree.plot_resistivity_phase_pseudosections()
+        >>> tree.plot_resistivity_phase_pseudosections(interpolation_method="nearest")
+
+        """
+        return PlotResPhasePseudoSection(mt_data=self, **kwargs)
+
+    def plot_residual_phase_tensor_maps(
+        self, survey_01: str, survey_02: str, **kwargs: Any
+    ) -> PlotResidualPTMaps:
+        """
+        Plot residual phase tensor maps.
+
+        Parameters
+        ----------
+        survey_01 : str
+            First survey ID.
+        survey_02 : str
+            Second survey ID.
+        **kwargs : dict
+            Additional plotting keyword arguments.
+
+        Returns
+        -------
+        PlotResidualPTMaps
+            Residual phase tensor map plot object
+
+        Raises
+        ------
+        KeyError
+            If either survey ID is not present in the current MTData.
+
+        Examples
+        --------
+        >>> tree.plot_residual_phase_tensor_maps("survey_a", "survey_b")
+        >>> tree.plot_residual_phase_tensor_maps(
+        ...     "survey_a", "survey_b", plot_freq=1.0
+        ... )
+
+        """
+
+        survey_data_01 = self.get_survey(survey_01)
+        survey_data_02 = self.get_survey(survey_02)
+
+        if survey_data_01.n_stations == 0:
+            raise KeyError(f"Survey not found: {survey_01}")
+        if survey_data_02.n_stations == 0:
+            raise KeyError(f"Survey not found: {survey_02}")
+
+        return PlotResidualPTMaps(survey_data_01, survey_data_02, **kwargs)
