@@ -207,6 +207,19 @@ class MTData:
         return sorted(self._iter_station_paths())
 
     @property
+    def short_station_paths(self) -> list[str]:
+        """Return sorted station paths in ``survey/station`` form."""
+        return sorted(
+            [
+                f"{parts[1]}/{parts[3]}"
+                for path in self.station_paths
+                if isinstance(path, str)
+                for parts in [path.split("/")]
+                if len(parts) >= 4
+            ]
+        )
+
+    @property
     def survey_names(self) -> list[str]:
         """Return sorted survey names inferred from station paths."""
         return sorted(
@@ -737,6 +750,7 @@ class MTData:
             self._index = MTDataTreeIndexStore(self._index_db_path)
 
         pending_paths = list(self._lazy_station_transforms.keys())
+        station_paths = self._normalize_station_paths(station_paths)
         if station_paths is None:
             paths_to_realize = pending_paths
         else:
@@ -865,6 +879,7 @@ class MTData:
         except ImportError as exc:
             raise RuntimeError("Dask is required for as_dask()") from exc
 
+        station_paths = self._normalize_station_paths(station_paths)
         tree_obj = self if inplace else self.get_subset(self._iter_station_paths())
         target_paths = tree_obj._iter_station_paths()
         if station_paths is not None:
@@ -933,6 +948,7 @@ class MTData:
             ``True`` only when each selected station has dask-backed arrays for
             all data variables.
         """
+        station_paths = self._normalize_station_paths(station_paths)
         self.compute(station_paths=station_paths)
         target_paths = self._iter_station_paths()
         if station_paths is not None:
@@ -965,6 +981,7 @@ class MTData:
             Mapping from station path to variable chunk tuples (or ``None`` for
             NumPy-backed variables).
         """
+        station_paths = self._normalize_station_paths(station_paths)
         self.compute(station_paths=station_paths)
         target_paths = self._iter_station_paths()
         if station_paths is not None:
@@ -1018,6 +1035,7 @@ class MTData:
         ...     return ds.sel(period=ds.period <= 10.0)
         >>> out = tree.map_stations(keep_short_periods, lazy=False, inplace=False)
         """
+        station_paths = self._normalize_station_paths(station_paths)
         tree_obj = self if inplace else self.get_subset(self._iter_station_paths())
         tree_obj.compute()
 
@@ -1246,24 +1264,63 @@ class MTData:
         return f"{self.SURVEYS_NODE}/{survey}/{self.STATIONS_NODE}/{station}"
 
     def _resolve_station_path(self, station_key: str) -> str:
-        """Resolve a station key in dot or tree-path form to canonical tree path."""
+        """Resolve a public station key to the canonical stored tree path."""
         if not isinstance(station_key, str) or not station_key.strip():
             raise KeyError("station_key must be a non-empty string")
 
-        key = station_key.strip()
-        if key.startswith(f"{self.SURVEYS_NODE}/") and self._path_exists(key):
-            return key
+        key = station_key.strip().strip("/")
+        candidates: list[str] = []
 
+        def _append(candidate: str) -> None:
+            if candidate not in candidates:
+                candidates.append(candidate)
+
+        if key.startswith(f"{self.SURVEYS_NODE}/"):
+            _append(key)
         if "." in key:
             survey, station = key.split(".", 1)
-            candidate = self._station_path(
-                self._clean_name(survey, "default"),
-                self._clean_name(station, "unknown_station"),
+            _append(
+                self._station_path(
+                    self._clean_name(survey, "default"),
+                    self._clean_name(station, "unknown_station"),
+                )
             )
-            if self._path_exists(candidate):
+        if key.count("/") == 1:
+            survey, station = key.split("/", 1)
+            _append(
+                self._station_path(
+                    self._clean_name(survey, "default"),
+                    self._clean_name(station, "unknown_station"),
+                )
+            )
+        _append(key)
+
+        for candidate in candidates:
+            if (
+                self._path_exists(candidate)
+                or candidate in self._lazy_station_transforms
+            ):
                 return candidate
 
         raise KeyError(f"Station key not found: {station_key}")
+
+    def _normalize_station_paths(
+        self, station_paths: list[str] | None
+    ) -> list[str] | None:
+        """Normalize public station-path inputs while preserving no-match behavior."""
+        if station_paths is None:
+            return None
+
+        normalized: list[str] = []
+        for station_key in station_paths:
+            try:
+                normalized.append(self._resolve_station_path(station_key))
+            except KeyError:
+                if isinstance(station_key, str):
+                    normalized.append(station_key.strip().strip("/"))
+                else:
+                    normalized.append(station_key)
+        return normalized
 
     @staticmethod
     def _coerce_mt_object(mt_obj: "MT | str | Path") -> "MT":
@@ -2798,7 +2855,8 @@ class MTData:
         Parameters
         ----------
         station_key : str
-            Canonical station tree path.
+            Station identifier in canonical tree-path, ``survey/station``, or
+            ``survey.station`` form.
         as_mt : bool, optional
             If ``True``, convert the stored dataset to an ``MT`` object.
 
@@ -2810,10 +2868,12 @@ class MTData:
         Examples
         --------
         >>> ds = tree.get_station("surveys/surveyA/stations/st01")
+        >>> ds = tree.get_station("surveyA/st01")
         >>> mt_obj = tree.get_station("surveys/surveyA/stations/st01", as_mt=True)
         """
-        self.compute(station_paths=[station_key])
-        station_ds = self.tree[station_key].ds
+        station_path = self._resolve_station_path(station_key)
+        self.compute(station_paths=[station_path])
+        station_ds = self.tree[station_path].ds
         if as_mt:
             mt_obj = self._dataset_to_mt(station_ds)
             self._hydrate_metadata_from_cache(mt_obj, station_ds)
@@ -2826,8 +2886,10 @@ class MTData:
         Parameters
         ----------
         station_key : str
-            Canonical station tree path.
+            Station identifier in canonical tree-path, ``survey/station``, or
+            ``survey.station`` form.
         """
+        station_key = self._resolve_station_path(station_key)
         self.compute()
         self._lazy_station_transforms.pop(station_key, None)
         self._clear_cached_metadata(station_key)
@@ -2854,6 +2916,9 @@ class MTData:
             New tree with copied station datasets and relevant metadata cache
             entries.
         """
+        station_list = [
+            self._resolve_station_path(station_key) for station_key in station_list
+        ]
         subset = self.__class__(
             metadata_storage=self.metadata_storage,
             **dict(self.attrs),

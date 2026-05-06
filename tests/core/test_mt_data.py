@@ -506,6 +506,16 @@ class TestMTDataNodeOperations:
         out = tree.get_station(station_path, as_mt=True)
         assert isinstance(out, MT)
 
+    def test_get_station_accepts_short_path(self, basic_mt):
+        tree = MTData()
+        station_path = tree.add_station(basic_mt)
+        short_path = f"{basic_mt.survey}/{basic_mt.station}"
+
+        out = tree.get_station(short_path)
+
+        assert isinstance(out, xr.Dataset)
+        assert out.identical(tree.get_station(station_path))
+
     def test_remove_station(self, basic_mt):
         tree = MTData()
         station_path = tree.add_station(basic_mt)
@@ -513,6 +523,24 @@ class TestMTDataNodeOperations:
         assert tree._path_exists(station_path)
         tree.remove_station(station_path)
         assert not tree._path_exists(station_path)
+
+    def test_remove_station_accepts_short_path(self, basic_mt):
+        tree = MTData()
+        station_path = tree.add_station(basic_mt)
+        short_path = f"{basic_mt.survey}/{basic_mt.station}"
+
+        tree.remove_station(short_path)
+
+        assert not tree._path_exists(station_path)
+
+    def test_get_subset_accepts_short_path(self, basic_mt):
+        tree = MTData()
+        station_path = tree.add_station(basic_mt)
+        short_path = f"{basic_mt.survey}/{basic_mt.station}"
+
+        subset = tree.get_subset([short_path])
+
+        assert subset._path_exists(station_path)
 
     def test_remove_station_clears_cached_metadata(self):
         mt = MT()
@@ -603,6 +631,23 @@ class TestMTDataNodeOperations:
         tree.add_stations([mt_1, mt_2, mt_3])
 
         assert set(tree.survey_ids) == {"survey_a", "survey_b"}
+
+    def test_short_station_paths_returns_survey_station_form(self):
+        mt_1 = MT()
+        mt_1.survey = "survey_a"
+        mt_1.station = "station_01"
+
+        mt_2 = MT()
+        mt_2.survey = "survey_b"
+        mt_2.station = "station_02"
+
+        tree = MTData()
+        tree.add_stations([mt_2, mt_1])
+
+        assert tree.short_station_paths == [
+            "survey_a/station_01",
+            "survey_b/station_02",
+        ]
 
     def test_get_survey_returns_filtered_tree(self):
         mt_1 = MT()

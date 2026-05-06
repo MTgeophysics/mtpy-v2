@@ -248,12 +248,31 @@ class TestMTDataTreeIndexIntegration:
     def test_add_stations_bulk_populates_index(self, indexed_tree, mt_objects):
         assert indexed_tree._index.n_stations() == len(mt_objects)
 
+    def test_get_station_accepts_short_path_with_index(self, mt_objects):
+        tree = MTData(use_index=True)
+        path = tree.add_station(mt_objects[0])
+        short_path = f"{mt_objects[0].survey}/{mt_objects[0].station}"
+
+        out = tree.get_station(short_path)
+
+        assert out.identical(tree.get_station(path))
+
     def test_remove_station_updates_index(self, mt_objects):
         tree = MTData(use_index=True)
         path = tree.add_station(mt_objects[0])
         assert tree._index.n_stations() == 1
         tree.remove_station(path)
         assert tree._index.n_stations() == 0
+
+    def test_remove_station_accepts_short_path_with_index(self, mt_objects):
+        tree = MTData(use_index=True)
+        path = tree.add_station(mt_objects[0])
+        short_path = f"{mt_objects[0].survey}/{mt_objects[0].station}"
+
+        tree.remove_station(short_path)
+
+        assert tree._index.n_stations() == 0
+        assert tree._index.station_record(path) is None
 
     def test_rebuild_index_builds_from_existing_tree(self, mt_objects):
         # Start without index, then rebuild
