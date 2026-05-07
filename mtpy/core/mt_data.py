@@ -3046,9 +3046,7 @@ class MTData:
         new_periods: np.ndarray,
         **kwargs: Any,
     ) -> xr.Dataset:
-        """Interpolate a stored station dataset with TFBase semantics."""
-        from .transfer_function.base import TFBase
-
+        """Interpolate a stored station dataset via the dataset tf accessor."""
         target_periods = np.asarray(new_periods, dtype=float)
         attrs = dict(station_ds.attrs)
 
@@ -3060,22 +3058,15 @@ class MTData:
             }
             coords["period"] = target_periods
             interpolated_ds = xr.Dataset(coords=coords)
-        elif target_periods.size == 0:
-            interpolated_ds = station_ds.isel(period=slice(0, 0)).copy(deep=True)
-        else:
-            tf_obj = TFBase()
-            # TFBase.interpolate reads source arrays and writes a new dataset,
-            # so we can avoid deep-copying the input and the return-object copy.
-            tf_obj.from_xarray(station_ds)
-            tf_obj.interpolate(
-                target_periods,
-                inplace=True,
-                **kwargs,
-            )
-            interpolated_ds = tf_obj.to_xarray()
+            interpolated_ds.attrs.update(attrs)
+            return interpolated_ds
 
-        interpolated_ds.attrs.update(attrs)
-        return interpolated_ds
+        if target_periods.size == 0:
+            interpolated_ds = station_ds.isel(period=slice(0, 0)).copy(deep=True)
+            interpolated_ds.attrs.update(attrs)
+            return interpolated_ds
+
+        return station_ds.tf.interpolate(target_periods, inplace=False, **kwargs)
 
     @staticmethod
     def _rotate_station_dataset(
@@ -3083,177 +3074,22 @@ class MTData:
         rotation_angle: float | np.ndarray,
         coordinate_reference_frame: str = "ned",
     ) -> xr.Dataset:
-        """Rotate impedance/tipper channel blocks with MT.rotate semantics."""
-        from mtpy.utils.calculator import (
-            rotate_matrix_with_errors,
-            rotate_vector_with_errors,
-        )
-
-        attrs = dict(station_ds.attrs)
-        rotated_ds = station_ds.copy(deep=True).load()
-
+        """Rotate impedance/tipper channel blocks via the dataset tf accessor."""
         if (
-            "transfer_function" not in rotated_ds
-            or "period" not in rotated_ds.coords
-            or "output" not in rotated_ds.coords
-            or "input" not in rotated_ds.coords
+            "transfer_function" not in station_ds
+            or "period" not in station_ds.coords
+            or station_ds.sizes.get("period", 0) == 0
         ):
-            rotated_ds.attrs.update(attrs)
-            return rotated_ds
+            return station_ds
 
-        n_periods = int(rotated_ds.sizes.get("period", 0))
-        if n_periods == 0:
-            rotated_ds.attrs.update(attrs)
-            return rotated_ds
-
-        if isinstance(rotation_angle, (float, int, str, np.floating, np.integer)):
-            degree_angle = np.repeat(float(rotation_angle) % 360.0, n_periods)
-        elif isinstance(rotation_angle, (list, tuple, np.ndarray)):
-            angles = np.asarray(rotation_angle, dtype=float) % 360.0
-            if angles.size == 1:
-                degree_angle = np.repeat(float(angles[0]), n_periods)
-            elif angles.size == n_periods:
-                degree_angle = angles
-            else:
-                raise ValueError(
-                    "angles must be the same size as periods "
-                    f"{n_periods} not {angles.size}"
-                )
-        else:
-            raise ValueError(
-                f"Angle must be a valid number (in degrees) not {rotation_angle}"
+        try:
+            return station_ds.tf.rotate(
+                rotation_angle,
+                coordinate_reference_frame=coordinate_reference_frame,
+                inplace=False,
             )
-
-        crf = str(coordinate_reference_frame).lower()
-        if crf in ["ned", "+"]:
-            clockwise = True
-        elif crf in ["enu", "-"]:
-            clockwise = False
-        else:
-            raise ValueError(
-                f"coordinate_reference_frame {coordinate_reference_frame} not understood."
-            )
-
-        output_labels = list(rotated_ds.coords["output"].values)
-        input_labels = list(rotated_ds.coords["input"].values)
-
-        z_outputs = MTData._pick_channel_labels(
-            output_labels, ["ex", "ey", "x", "y"], 2
-        )
-        z_inputs = MTData._pick_channel_labels(input_labels, ["hx", "hy", "x", "y"], 2)
-        if z_outputs is not None and z_inputs is not None:
-            tf_block = (
-                rotated_ds["transfer_function"]
-                .sel(output=z_outputs, input=z_inputs)
-                .values.copy()
-            )
-            rot_tf = np.zeros_like(tf_block, dtype=complex)
-            for index, angle in enumerate(degree_angle):
-                rot_tf[index], _ = rotate_matrix_with_errors(
-                    tf_block[index],
-                    angle,
-                    clockwise=clockwise,
-                )
-            rotated_ds["transfer_function"].loc[
-                dict(output=z_outputs, input=z_inputs)
-            ] = rot_tf
-
-            if "transfer_function_error" in rotated_ds:
-                tf_error_block = (
-                    rotated_ds["transfer_function_error"]
-                    .sel(output=z_outputs, input=z_inputs)
-                    .values.copy()
-                )
-                rot_tf_error = np.zeros_like(tf_error_block, dtype=float)
-                for index, angle in enumerate(degree_angle):
-                    _, rot_tf_error[index] = rotate_matrix_with_errors(
-                        tf_block[index],
-                        angle,
-                        tf_error_block[index],
-                        clockwise=clockwise,
-                    )
-                rotated_ds["transfer_function_error"].loc[
-                    dict(output=z_outputs, input=z_inputs)
-                ] = rot_tf_error
-
-            if "transfer_function_model_error" in rotated_ds:
-                tf_model_error_block = (
-                    rotated_ds["transfer_function_model_error"]
-                    .sel(output=z_outputs, input=z_inputs)
-                    .values.copy()
-                )
-                rot_tf_model_error = np.zeros_like(tf_model_error_block, dtype=float)
-                for index, angle in enumerate(degree_angle):
-                    _, rot_tf_model_error[index] = rotate_matrix_with_errors(
-                        tf_block[index],
-                        angle,
-                        tf_model_error_block[index],
-                        clockwise=clockwise,
-                    )
-                rotated_ds["transfer_function_model_error"].loc[
-                    dict(output=z_outputs, input=z_inputs)
-                ] = rot_tf_model_error
-
-        t_output = MTData._pick_channel_labels(output_labels, ["hz", "z"], 1)
-        t_inputs = MTData._pick_channel_labels(input_labels, ["hx", "hy", "x", "y"], 2)
-        if t_output is not None and t_inputs is not None:
-            tf_tipper = (
-                rotated_ds["transfer_function"]
-                .sel(output=t_output, input=t_inputs)
-                .values.copy()
-            )
-            rot_tipper = np.zeros_like(tf_tipper, dtype=complex)
-            for index, angle in enumerate(degree_angle):
-                rot_tipper[index], _ = rotate_vector_with_errors(
-                    tf_tipper[index],
-                    angle,
-                    clockwise=clockwise,
-                )
-            rotated_ds["transfer_function"].loc[
-                dict(output=t_output, input=t_inputs)
-            ] = rot_tipper
-
-            if "transfer_function_error" in rotated_ds:
-                tipper_error = (
-                    rotated_ds["transfer_function_error"]
-                    .sel(output=t_output, input=t_inputs)
-                    .values.copy()
-                )
-                rot_tipper_error = np.zeros_like(tipper_error, dtype=float)
-                for index, angle in enumerate(degree_angle):
-                    _, rot_tipper_error[index] = rotate_vector_with_errors(
-                        tf_tipper[index],
-                        angle,
-                        tipper_error[index],
-                        clockwise=clockwise,
-                    )
-                rotated_ds["transfer_function_error"].loc[
-                    dict(output=t_output, input=t_inputs)
-                ] = rot_tipper_error
-
-            if "transfer_function_model_error" in rotated_ds:
-                tipper_model_error = (
-                    rotated_ds["transfer_function_model_error"]
-                    .sel(output=t_output, input=t_inputs)
-                    .values.copy()
-                )
-                rot_tipper_model_error = np.zeros_like(
-                    tipper_model_error,
-                    dtype=float,
-                )
-                for index, angle in enumerate(degree_angle):
-                    _, rot_tipper_model_error[index] = rotate_vector_with_errors(
-                        tf_tipper[index],
-                        angle,
-                        tipper_model_error[index],
-                        clockwise=clockwise,
-                    )
-                rotated_ds["transfer_function_model_error"].loc[
-                    dict(output=t_output, input=t_inputs)
-                ] = rot_tipper_model_error
-
-        rotated_ds.attrs.update(attrs)
-        return rotated_ds
+        except ValueError:
+            return station_ds
 
     def rotate(
         self,
