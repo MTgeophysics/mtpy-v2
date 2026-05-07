@@ -32,6 +32,7 @@ from mtpy.imaging import (
 )
 from mtpy.modeling.errors import ModelErrors
 
+from . import mt_data_accessor as _mt_data_accessor  # noqa: F401
 from .mt_data_tree_index import MTDataTreeIndexStore
 from .mt_dataframe import MTDataFrame
 
@@ -1124,14 +1125,22 @@ class MTData:
                 tree_obj._lazy_station_transforms[
                     station_path
                 ] = lambda ds=station_ds, op=transform: op(ds)
-            else:
-                out_ds = transform(station_ds)
+        if not lazy:
+
+            def _validated_transform(ds: xr.Dataset) -> xr.Dataset:
+                out_ds = transform(ds)
                 if not isinstance(out_ds, xr.Dataset):
                     raise TypeError(
                         "map_stations transform must return xr.Dataset, "
                         f"got {type(out_ds)!r}"
                     )
-                tree_obj._set_station_dataset(station_path, out_ds)
+                return out_ds
+
+            tree_obj.tree.mt.map_stations(
+                _validated_transform,
+                station_paths=target_paths,
+                inplace=True,
+            )
         return tree_obj
 
     def interpolate_dask(

@@ -1622,6 +1622,41 @@ class TestMTDataDaskMethods:
         assert not lazy_tree.is_lazy
         assert lazy_tree.get_station(station_path).sizes["period"] == 5
 
+    def test_map_stations_eager_delegates_to_tree_accessor(
+        self, loaded_profile_mt, monkeypatch
+    ):
+        import mtpy.core.mt_data_accessor as mt_data_accessor
+
+        tree = MTData()
+        station_path = tree.add_station(loaded_profile_mt)
+        called = {"value": False}
+
+        original_map = mt_data_accessor.MTDataTreeAccessor.map_stations
+
+        def _wrapped(self, transform, station_paths=None, inplace=False):
+            called["value"] = True
+            return original_map(
+                self,
+                transform,
+                station_paths=station_paths,
+                inplace=inplace,
+            )
+
+        monkeypatch.setattr(
+            mt_data_accessor.MTDataTreeAccessor,
+            "map_stations",
+            _wrapped,
+        )
+
+        out = tree.map_stations(
+            lambda ds: ds.isel(period=slice(0, 4)),
+            lazy=False,
+            inplace=False,
+        )
+
+        assert called["value"] is True
+        assert out.get_station(station_path).sizes["period"] == 4
+
 
 class TestMTDataSpatialFiltering:
     def test_station_locations_returns_dataframe_without_mt_conversion(
@@ -2173,3 +2208,63 @@ class TestMTDataPlottingCompatibility:
 
         with pytest.raises(KeyError, match="Survey not found"):
             tree.plot_residual_phase_tensor_maps("survey_a", "missing")
+
+
+class TestMTDataTreeAccessor:
+    def test_station_paths_and_short_paths(self, loaded_profile_mt_objects):
+        tree = MTData()
+        station_paths = tree.add_stations(loaded_profile_mt_objects)
+
+        assert sorted(tree.tree.mt.station_paths) == sorted(station_paths)
+        assert len(tree.tree.mt.short_station_paths) == len(station_paths)
+        assert sorted(tree.tree.mt.survey_names) == sorted(tree.survey_ids)
+
+    def test_get_station_dataset_from_short_key(self, loaded_profile_mt):
+        tree = MTData()
+        station_path = tree.add_station(loaded_profile_mt)
+        survey = station_path.split("/")[1]
+        station = station_path.split("/")[3]
+
+        ds_short = tree.tree.mt.get_station_dataset(f"{survey}/{station}")
+        ds_full = tree.get_station(station_path)
+        assert ds_short.identical(ds_full)
+
+    def test_set_station_dataset_non_inplace_returns_new_tree(self, loaded_profile_mt):
+        tree = MTData()
+        station_path = tree.add_station(loaded_profile_mt)
+
+        source_ds = tree.tree.mt.get_station_dataset(station_path, copy=True, deep=True)
+        source_ds.attrs["custom_accessor_flag"] = "new"
+
+        out_tree = tree.tree.mt.set_station_dataset(
+            station_path,
+            source_ds,
+            inplace=False,
+        )
+
+        assert out_tree is not None
+        assert "custom_accessor_flag" not in tree.get_station(station_path).attrs
+        assert out_tree[station_path].ds.attrs["custom_accessor_flag"] == "new"
+
+    def test_map_stations_applies_transform(self, loaded_profile_mt_objects):
+        tree = MTData()
+        tree.add_stations(loaded_profile_mt_objects)
+
+        def _trim(ds):
+            return ds.isel(period=slice(0, 3))
+
+        mapped_tree = tree.tree.mt.map_stations(_trim, inplace=False)
+        assert mapped_tree is not None
+        for station_path in tree.tree.mt.station_paths:
+            assert mapped_tree[station_path].ds.sizes["period"] == 3
+            assert tree.get_station(station_path).sizes["period"] > 3
+
+    def test_select_stations_returns_subset(self, loaded_profile_mt_objects):
+        tree = MTData()
+        station_paths = tree.add_stations(loaded_profile_mt_objects)
+        selected = station_paths[:1]
+
+        subset_tree = tree.tree.mt.select_stations(selected)
+
+        assert sorted(subset_tree.mt.station_paths) == sorted(selected)
+        assert subset_tree.attrs["schema_name"] == tree.tree.attrs["schema_name"]
