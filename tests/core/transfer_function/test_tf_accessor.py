@@ -244,6 +244,12 @@ class TestTFAccessorZ:
         assert np.allclose(ds.tf.tipper(), tipper.tipper)
         assert np.allclose(ds.tf.tipper_error(), tipper.tipper_error)
         assert np.allclose(ds.tf.tipper_model_error(), tipper.tipper_model_error)
+        assert np.allclose(ds.tf.t_zx, tipper.tipper[:, 0, 0])
+        assert np.allclose(ds.tf.t_zy, tipper.tipper[:, 0, 1])
+        assert np.allclose(ds.tf.t_zx_error, tipper.tipper_error[:, 0, 0])
+        assert np.allclose(ds.tf.t_zy_error, tipper.tipper_error[:, 0, 1])
+        assert np.allclose(ds.tf.t_zx_model_error, tipper.tipper_model_error[:, 0, 0])
+        assert np.allclose(ds.tf.t_zy_model_error, tipper.tipper_model_error[:, 0, 1])
         assert np.allclose(ds.tf.tipper_amplitude, tipper.amplitude)
         assert np.allclose(ds.tf.tipper_phase, tipper.phase)
         assert np.allclose(ds.tf.tipper_amplitude_error, tipper.amplitude_error)
@@ -276,6 +282,12 @@ class TestTFAccessorZ:
 
         monkeypatch.setattr(TFDatasetAccessor, "to_tipper", fail_to_tipper)
 
+        assert ds.tf.t_zx is not None
+        assert ds.tf.t_zy is not None
+        assert ds.tf.t_zx_error is not None
+        assert ds.tf.t_zy_error is not None
+        assert ds.tf.t_zx_model_error is not None
+        assert ds.tf.t_zy_model_error is not None
         assert ds.tf.tipper_amplitude is not None
         assert ds.tf.tipper_phase is not None
         assert ds.tf.tipper_amplitude_error is not None
@@ -312,6 +324,18 @@ class TestTFAccessorZ:
         assert np.allclose(ds.tf.pt, pt.pt)
         assert np.allclose(ds.tf.pt_error, pt.pt_error)
         assert np.allclose(ds.tf.pt_model_error, pt.pt_model_error)
+        assert np.allclose(ds.tf.pt_xx, pt.pt[:, 0, 0])
+        assert np.allclose(ds.tf.pt_xy, pt.pt[:, 0, 1])
+        assert np.allclose(ds.tf.pt_yx, pt.pt[:, 1, 0])
+        assert np.allclose(ds.tf.pt_yy, pt.pt[:, 1, 1])
+        assert np.allclose(ds.tf.pt_error_xx, pt.pt_error[:, 0, 0])
+        assert np.allclose(ds.tf.pt_error_xy, pt.pt_error[:, 0, 1])
+        assert np.allclose(ds.tf.pt_error_yx, pt.pt_error[:, 1, 0])
+        assert np.allclose(ds.tf.pt_error_yy, pt.pt_error[:, 1, 1])
+        assert np.allclose(ds.tf.pt_model_error_xx, pt.pt_model_error[:, 0, 0])
+        assert np.allclose(ds.tf.pt_model_error_xy, pt.pt_model_error[:, 0, 1])
+        assert np.allclose(ds.tf.pt_model_error_yx, pt.pt_model_error[:, 1, 0])
+        assert np.allclose(ds.tf.pt_model_error_yy, pt.pt_model_error[:, 1, 1])
         assert np.allclose(ds.tf.pt_trace, pt.trace)
         assert np.allclose(ds.tf.pt_trace_error, pt.trace_error)
         assert np.allclose(ds.tf.pt_trace_model_error, pt.trace_model_error)
@@ -387,6 +411,18 @@ class TestTFAccessorZ:
         assert ds.tf.pt is not None
         assert ds.tf.pt_error is not None
         assert ds.tf.pt_model_error is not None
+        assert ds.tf.pt_xx is not None
+        assert ds.tf.pt_xy is not None
+        assert ds.tf.pt_yx is not None
+        assert ds.tf.pt_yy is not None
+        assert ds.tf.pt_error_xx is not None
+        assert ds.tf.pt_error_xy is not None
+        assert ds.tf.pt_error_yx is not None
+        assert ds.tf.pt_error_yy is not None
+        assert ds.tf.pt_model_error_xx is not None
+        assert ds.tf.pt_model_error_xy is not None
+        assert ds.tf.pt_model_error_yx is not None
+        assert ds.tf.pt_model_error_yy is not None
         assert ds.tf.pt_trace is not None
         assert ds.tf.pt_trace_error is not None
         assert ds.tf.pt_trace_model_error is not None

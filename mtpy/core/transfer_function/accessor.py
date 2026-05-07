@@ -208,6 +208,15 @@ class TFDatasetAccessor:
         """Return tipper model errors."""
         return self._tipper_dataarray("transfer_function_model_error").values
 
+    @staticmethod
+    def _get_tipper_component(comp: str, array: np.ndarray | None) -> np.ndarray | None:
+        """Return one tipper component from a (n_period, 1, 2) array stack."""
+        if array is None:
+            return None
+
+        index_dict = {"zx": 0, "zy": 1}
+        return array[:, 0, index_dict[comp.lower()]]
+
     def _z_mt(self) -> np.ndarray:
         """Return impedance tensor in internal mt units."""
         return self._impedance_dataarray("transfer_function").values
@@ -425,6 +434,36 @@ class TFDatasetAccessor:
         return compute_tipper_amplitude(self.tipper())
 
     @property
+    def t_zx(self) -> np.ndarray | None:
+        """zx component of the tipper."""
+        return self._get_tipper_component("zx", self.tipper())
+
+    @property
+    def t_zy(self) -> np.ndarray | None:
+        """zy component of the tipper."""
+        return self._get_tipper_component("zy", self.tipper())
+
+    @property
+    def t_zx_error(self) -> np.ndarray | None:
+        """zx component error of the tipper."""
+        return self._get_tipper_component("zx", self.tipper_error())
+
+    @property
+    def t_zy_error(self) -> np.ndarray | None:
+        """zy component error of the tipper."""
+        return self._get_tipper_component("zy", self.tipper_error())
+
+    @property
+    def t_zx_model_error(self) -> np.ndarray | None:
+        """zx component model error of the tipper."""
+        return self._get_tipper_component("zx", self.tipper_model_error())
+
+    @property
+    def t_zy_model_error(self) -> np.ndarray | None:
+        """zy component model error of the tipper."""
+        return self._get_tipper_component("zy", self.tipper_model_error())
+
+    @property
     def tipper_phase(self) -> np.ndarray | None:
         """Tipper phase in degrees derived from the accessor tipper view."""
         return compute_tipper_phase(self.tipper())
@@ -507,6 +546,66 @@ class TFDatasetAccessor:
     def pt_model_error(self) -> np.ndarray | None:
         """Phase tensor model error array derived from impedance channels."""
         return compute_phase_tensor_error(self._z_mt(), self._z_model_error_mt())
+
+    @property
+    def pt_xx(self) -> np.ndarray | None:
+        """xx component of the phase tensor."""
+        return self._get_component("xx", self.pt)
+
+    @property
+    def pt_xy(self) -> np.ndarray | None:
+        """xy component of the phase tensor."""
+        return self._get_component("xy", self.pt)
+
+    @property
+    def pt_yx(self) -> np.ndarray | None:
+        """yx component of the phase tensor."""
+        return self._get_component("yx", self.pt)
+
+    @property
+    def pt_yy(self) -> np.ndarray | None:
+        """yy component of the phase tensor."""
+        return self._get_component("yy", self.pt)
+
+    @property
+    def pt_error_xx(self) -> np.ndarray | None:
+        """xx component error of the phase tensor."""
+        return self._get_component("xx", self.pt_error)
+
+    @property
+    def pt_error_xy(self) -> np.ndarray | None:
+        """xy component error of the phase tensor."""
+        return self._get_component("xy", self.pt_error)
+
+    @property
+    def pt_error_yx(self) -> np.ndarray | None:
+        """yx component error of the phase tensor."""
+        return self._get_component("yx", self.pt_error)
+
+    @property
+    def pt_error_yy(self) -> np.ndarray | None:
+        """yy component error of the phase tensor."""
+        return self._get_component("yy", self.pt_error)
+
+    @property
+    def pt_model_error_xx(self) -> np.ndarray | None:
+        """xx component model error of the phase tensor."""
+        return self._get_component("xx", self.pt_model_error)
+
+    @property
+    def pt_model_error_xy(self) -> np.ndarray | None:
+        """xy component model error of the phase tensor."""
+        return self._get_component("xy", self.pt_model_error)
+
+    @property
+    def pt_model_error_yx(self) -> np.ndarray | None:
+        """yx component model error of the phase tensor."""
+        return self._get_component("yx", self.pt_model_error)
+
+    @property
+    def pt_model_error_yy(self) -> np.ndarray | None:
+        """yy component model error of the phase tensor."""
+        return self._get_component("yy", self.pt_model_error)
 
     @property
     def pt_phimin(self) -> np.ndarray | None:
