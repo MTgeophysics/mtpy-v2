@@ -7,6 +7,7 @@ import numpy as np
 import xarray as xr
 
 from mtpy.core.transfer_function import MT_TO_OHM_FACTOR
+from mtpy.core.transfer_function.accessor import TFDatasetAccessor
 from mtpy.core.transfer_function.z import Z
 
 
@@ -125,6 +126,32 @@ class TestTFAccessorZ:
         assert np.allclose(ds.tf.phase_error, z.phase_error)
         assert np.allclose(ds.tf.resistivity_model_error, z.resistivity_model_error)
         assert np.allclose(ds.tf.phase_model_error, z.phase_model_error)
+
+    def test_direct_properties_do_not_require_to_z(self, monkeypatch):
+        z = Z(
+            z=np.array(
+                [[[1.0 + 2.0j, 3.0 + 4.0j], [5.0 + 6.0j, 7.0 + 8.0j]]],
+                dtype=complex,
+            ),
+            z_error=np.full((1, 2, 2), 0.1, dtype=float),
+            z_model_error=np.full((1, 2, 2), 0.2, dtype=float),
+            frequency=np.array([1.0]),
+            units="mt",
+        )
+        ds = z.to_xarray()
+        ds.attrs["impedance_units"] = "mt"
+
+        def fail_to_z(self, units=None):
+            raise AssertionError("to_z should not be called")
+
+        monkeypatch.setattr(TFDatasetAccessor, "to_z", fail_to_z)
+
+        assert ds.tf.resistivity is not None
+        assert ds.tf.phase is not None
+        assert ds.tf.resistivity_error is not None
+        assert ds.tf.phase_error is not None
+        assert ds.tf.resistivity_model_error is not None
+        assert ds.tf.phase_model_error is not None
 
     def test_remove_ss_wrapper_returns_z_and_dataset(self):
         z = Z(

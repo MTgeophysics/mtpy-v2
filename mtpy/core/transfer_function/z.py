@@ -23,6 +23,13 @@ import numpy as np
 
 from . import IMPEDANCE_UNITS, MT_TO_OHM_FACTOR
 from .base import TFBase
+from .impedance_helpers import (
+    compute_impedance_error,
+    compute_phase,
+    compute_phase_error,
+    compute_resistivity,
+    compute_resistivity_error,
+)
 from .pt import PhaseTensor
 from .z_analysis import (
     calculate_depth_of_investigation,
@@ -413,17 +420,13 @@ class Z(TFBase):
     def resistivity(self) -> np.ndarray | None:
         """Resistivity of impedance."""
         if self.z is not None:
-            return np.apply_along_axis(
-                lambda x: np.abs(x) ** 2 / self.frequency * 0.2,
-                0,
-                self.z * self._scale_factor,
-            )
+            return compute_resistivity(self.z * self._scale_factor, self.frequency)
 
     @property
     def phase(self) -> np.ndarray | None:
         """Phase of impedance."""
         if self.z is not None:
-            return np.rad2deg(np.angle(self.z * self._scale_factor))
+            return compute_phase(self.z * self._scale_factor)
 
     @property
     def resistivity_error(self) -> np.ndarray | None:
@@ -435,14 +438,11 @@ class Z(TFBase):
 
         """
         if self.z is not None and self.z_error is not None:
-            with np.errstate(divide="ignore", invalid="ignore"):
-                return np.apply_along_axis(
-                    lambda x: x / self.frequency * 0.2,
-                    0,
-                    2
-                    * (self.z_error * self._scale_factor)
-                    * np.abs(self.z * self._scale_factor),
-                )
+            return compute_resistivity_error(
+                self.z * self._scale_factor,
+                self.z_error * self._scale_factor,
+                self.frequency,
+            )
 
     @property
     def phase_error(self) -> np.ndarray | None:
@@ -456,28 +456,23 @@ class Z(TFBase):
 
         """
         if self.z is not None and self.z_error is not None:
-            with np.errstate(divide="ignore", invalid="ignore"):
-                return np.degrees(np.arctan(self.z_error / np.abs(self.z)))
+            return compute_phase_error(self.z, self.z_error)
 
     @property
     def resistivity_model_error(self) -> np.ndarray | None:
         """Resistivity model error of impedance."""
         if self.z is not None and self.z_model_error is not None:
-            with np.errstate(divide="ignore", invalid="ignore"):
-                return np.apply_along_axis(
-                    lambda x: x / self.frequency * 0.2,
-                    0,
-                    2
-                    * (self.z_model_error * self._scale_factor)
-                    * np.abs(self.z * self._scale_factor),
-                )
+            return compute_resistivity_error(
+                self.z * self._scale_factor,
+                self.z_model_error * self._scale_factor,
+                self.frequency,
+            )
 
     @property
     def phase_model_error(self) -> np.ndarray | None:
         """Phase model error of impedance."""
         if self.z is not None and self.z_model_error is not None:
-            with np.errstate(divide="ignore", invalid="ignore"):
-                return np.degrees(np.arctan(self.z_model_error / np.abs(self.z)))
+            return compute_phase_error(self.z, self.z_model_error)
 
     def _compute_z_error(
         self, res_error: np.ndarray | None, phase_error: np.ndarray | None
@@ -498,15 +493,7 @@ class Z(TFBase):
             Impedance error array
 
         """
-        if res_error is None:
-            return None
-
-        # not extremely positive where the 250 comes from it is roughly 5 x 50
-        # which is about 5 * (2*pi)**2
-        return np.abs(
-            np.sqrt(self.frequency * (res_error.T) * 250).T
-            * np.tan(np.radians(phase_error))
-        )
+        return compute_impedance_error(res_error, phase_error, self.frequency)
 
     def set_resistivity_phase(
         self,

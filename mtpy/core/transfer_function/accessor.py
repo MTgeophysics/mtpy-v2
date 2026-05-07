@@ -8,6 +8,12 @@ import numpy as np
 import xarray as xr
 
 from . import IMPEDANCE_UNITS
+from .impedance_helpers import (
+    compute_phase,
+    compute_phase_error,
+    compute_resistivity,
+    compute_resistivity_error,
+)
 from .z import Z
 
 
@@ -134,6 +140,18 @@ class TFDatasetAccessor:
             self._impedance_dataarray("transfer_function_model_error").values / factor
         )
 
+    def _z_mt(self) -> np.ndarray:
+        """Return impedance tensor in internal mt units."""
+        return self._impedance_dataarray("transfer_function").values
+
+    def _z_error_mt(self) -> np.ndarray:
+        """Return impedance error tensor in internal mt units."""
+        return self._impedance_dataarray("transfer_function_error").values
+
+    def _z_model_error_mt(self) -> np.ndarray:
+        """Return impedance model-error tensor in internal mt units."""
+        return self._impedance_dataarray("transfer_function_model_error").values
+
     def to_z(self, units: str | None = None) -> Z:
         """Build a :class:`Z` object lazily from Dataset-backed transfer functions."""
         resolved_units = self.impedance_units if units is None else units.lower()
@@ -148,33 +166,41 @@ class TFDatasetAccessor:
 
     @property
     def resistivity(self) -> np.ndarray | None:
-        """Apparent resistivity tensor computed through :class:`Z` logic."""
-        return self.to_z().resistivity
+        """Apparent resistivity tensor computed directly from Dataset values."""
+        return compute_resistivity(self._z_mt(), self.frequency)
 
     @property
     def phase(self) -> np.ndarray | None:
-        """Impedance phase tensor (degrees) computed through :class:`Z` logic."""
-        return self.to_z().phase
+        """Impedance phase tensor (degrees) computed directly from Dataset values."""
+        return compute_phase(self._z_mt())
 
     @property
     def resistivity_error(self) -> np.ndarray | None:
-        """Apparent resistivity error computed through :class:`Z` logic."""
-        return self.to_z().resistivity_error
+        """Apparent resistivity error computed directly from Dataset values."""
+        return compute_resistivity_error(
+            self._z_mt(),
+            self._z_error_mt(),
+            self.frequency,
+        )
 
     @property
     def phase_error(self) -> np.ndarray | None:
-        """Impedance phase error (degrees) computed through :class:`Z` logic."""
-        return self.to_z().phase_error
+        """Impedance phase error (degrees) computed directly from Dataset values."""
+        return compute_phase_error(self._z_mt(), self._z_error_mt())
 
     @property
     def resistivity_model_error(self) -> np.ndarray | None:
-        """Apparent resistivity model error computed through :class:`Z` logic."""
-        return self.to_z().resistivity_model_error
+        """Apparent resistivity model error computed directly from Dataset values."""
+        return compute_resistivity_error(
+            self._z_mt(),
+            self._z_model_error_mt(),
+            self.frequency,
+        )
 
     @property
     def phase_model_error(self) -> np.ndarray | None:
-        """Impedance phase model error (degrees) computed through :class:`Z` logic."""
-        return self.to_z().phase_model_error
+        """Impedance phase model error (degrees) computed directly from Dataset values."""
+        return compute_phase_error(self._z_mt(), self._z_model_error_mt())
 
     @property
     def phase_tensor(self) -> Any:
