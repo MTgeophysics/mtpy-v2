@@ -23,14 +23,14 @@ import numpy as np
 
 from . import IMPEDANCE_UNITS, MT_TO_OHM_FACTOR
 from .base import TFBase
-from .impedance_helpers import (
+from .pt import PhaseTensor
+from .tf_helpers import (
     compute_impedance_error,
     compute_phase,
     compute_phase_error,
     compute_resistivity,
     compute_resistivity_error,
 )
-from .pt import PhaseTensor
 from .z_analysis import (
     calculate_depth_of_investigation,
     find_distortion,

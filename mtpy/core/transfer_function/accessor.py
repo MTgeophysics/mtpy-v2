@@ -8,17 +8,32 @@ import numpy as np
 import xarray as xr
 
 from . import IMPEDANCE_UNITS
-from .impedance_helpers import (
+from .pt import PhaseTensor
+from .tf_helpers import (
     compute_phase,
     compute_phase_error,
     compute_phase_tensor,
     compute_phase_tensor_error,
+    compute_pt_alpha,
+    compute_pt_alpha_error,
     compute_pt_azimuth,
+    compute_pt_azimuth_error,
+    compute_pt_beta,
+    compute_pt_beta_error,
+    compute_pt_det,
+    compute_pt_det_error,
     compute_pt_eccentricity,
+    compute_pt_eccentricity_error,
     compute_pt_ellipticity,
+    compute_pt_ellipticity_error,
     compute_pt_phimax,
+    compute_pt_phimax_error,
     compute_pt_phimin,
+    compute_pt_phimin_error,
     compute_pt_skew,
+    compute_pt_skew_error,
+    compute_pt_trace,
+    compute_pt_trace_error,
     compute_resistivity,
     compute_resistivity_error,
     compute_tipper_amp_phase_error,
@@ -31,7 +46,6 @@ from .impedance_helpers import (
     compute_tipper_magnitude_real,
     compute_tipper_phase,
 )
-from .pt import PhaseTensor
 from .tipper import Tipper
 from .z import Z
 
@@ -500,9 +514,74 @@ class TFDatasetAccessor:
         return compute_pt_phimin(self.pt)
 
     @property
+    def pt_phimin_error(self) -> np.ndarray | None:
+        """Minimum phase angle error of the phase tensor in degrees."""
+        return compute_pt_phimin_error(self.pt, self.pt_error)
+
+    @property
+    def pt_phimin_model_error(self) -> np.ndarray | None:
+        """Minimum phase angle model error of the phase tensor in degrees."""
+        return compute_pt_phimin_error(self.pt, self.pt_model_error)
+
+    @property
     def pt_phimax(self) -> np.ndarray | None:
         """Maximum phase angle of the phase tensor in degrees."""
         return compute_pt_phimax(self.pt)
+
+    @property
+    def pt_phimax_error(self) -> np.ndarray | None:
+        """Maximum phase angle error of the phase tensor in degrees."""
+        return compute_pt_phimax_error(self.pt, self.pt_error)
+
+    @property
+    def pt_phimax_model_error(self) -> np.ndarray | None:
+        """Maximum phase angle model error of the phase tensor in degrees."""
+        return compute_pt_phimax_error(self.pt, self.pt_model_error)
+
+    @property
+    def pt_trace(self) -> np.ndarray | None:
+        """Trace of the phase tensor."""
+        return compute_pt_trace(self.pt)
+
+    @property
+    def pt_trace_error(self) -> np.ndarray | None:
+        """Trace error of the phase tensor."""
+        return compute_pt_trace_error(self.pt_error)
+
+    @property
+    def pt_trace_model_error(self) -> np.ndarray | None:
+        """Trace model error of the phase tensor."""
+        return compute_pt_trace_error(self.pt_model_error)
+
+    @property
+    def pt_alpha(self) -> np.ndarray | None:
+        """Principal axis angle of the phase tensor in degrees."""
+        return compute_pt_alpha(self.pt)
+
+    @property
+    def pt_alpha_error(self) -> np.ndarray | None:
+        """Principal axis angle error of the phase tensor in degrees."""
+        return compute_pt_alpha_error(self.pt, self.pt_error)
+
+    @property
+    def pt_alpha_model_error(self) -> np.ndarray | None:
+        """Principal axis angle model error of the phase tensor in degrees."""
+        return compute_pt_alpha_error(self.pt, self.pt_model_error)
+
+    @property
+    def pt_beta(self) -> np.ndarray | None:
+        """3D-dimensionality angle of the phase tensor in degrees."""
+        return compute_pt_beta(self.pt)
+
+    @property
+    def pt_beta_error(self) -> np.ndarray | None:
+        """3D-dimensionality angle error of the phase tensor in degrees."""
+        return compute_pt_beta_error(self.pt, self.pt_error)
+
+    @property
+    def pt_beta_model_error(self) -> np.ndarray | None:
+        """3D-dimensionality angle model error of the phase tensor in degrees."""
+        return compute_pt_beta_error(self.pt, self.pt_model_error)
 
     @property
     def pt_azimuth(self) -> np.ndarray | None:
@@ -510,9 +589,44 @@ class TFDatasetAccessor:
         return compute_pt_azimuth(self.pt)
 
     @property
+    def pt_azimuth_error(self) -> np.ndarray | None:
+        """Phase tensor azimuth error in degrees."""
+        return compute_pt_azimuth_error(self.pt, self.pt_error)
+
+    @property
+    def pt_azimuth_model_error(self) -> np.ndarray | None:
+        """Phase tensor azimuth model error in degrees."""
+        return compute_pt_azimuth_error(self.pt, self.pt_model_error)
+
+    @property
     def pt_skew(self) -> np.ndarray | None:
         """Phase tensor skew in degrees."""
         return compute_pt_skew(self.pt)
+
+    @property
+    def pt_skew_error(self) -> np.ndarray | None:
+        """Phase tensor skew error in degrees."""
+        return compute_pt_skew_error(self.pt, self.pt_error)
+
+    @property
+    def pt_skew_model_error(self) -> np.ndarray | None:
+        """Phase tensor skew model error in degrees."""
+        return compute_pt_skew_error(self.pt, self.pt_model_error)
+
+    @property
+    def pt_det(self) -> np.ndarray | None:
+        """Determinant of the phase tensor."""
+        return compute_pt_det(self.pt)
+
+    @property
+    def pt_det_error(self) -> np.ndarray | None:
+        """Determinant error of the phase tensor."""
+        return compute_pt_det_error(self.pt, self.pt_error)
+
+    @property
+    def pt_det_model_error(self) -> np.ndarray | None:
+        """Determinant model error of the phase tensor."""
+        return compute_pt_det_error(self.pt, self.pt_model_error)
 
     @property
     def pt_ellipticity(self) -> np.ndarray | None:
@@ -520,9 +634,29 @@ class TFDatasetAccessor:
         return compute_pt_ellipticity(self.pt)
 
     @property
+    def pt_ellipticity_error(self) -> np.ndarray | None:
+        """Phase tensor ellipticity error."""
+        return compute_pt_ellipticity_error(self.pt, self.pt_error)
+
+    @property
+    def pt_ellipticity_model_error(self) -> np.ndarray | None:
+        """Phase tensor ellipticity model error."""
+        return compute_pt_ellipticity_error(self.pt, self.pt_model_error)
+
+    @property
     def pt_eccentricity(self) -> np.ndarray | None:
         """Phase tensor eccentricity."""
         return compute_pt_eccentricity(self.pt)
+
+    @property
+    def pt_eccentricity_error(self) -> np.ndarray | None:
+        """Phase tensor eccentricity error."""
+        return compute_pt_eccentricity_error(self.pt, self.pt_error)
+
+    @property
+    def pt_eccentricity_model_error(self) -> np.ndarray | None:
+        """Phase tensor eccentricity model error."""
+        return compute_pt_eccentricity_error(self.pt, self.pt_model_error)
 
     @property
     def phase_tensor(self) -> Any:

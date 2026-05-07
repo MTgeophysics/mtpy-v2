@@ -312,12 +312,58 @@ class TestTFAccessorZ:
         assert np.allclose(ds.tf.pt, pt.pt)
         assert np.allclose(ds.tf.pt_error, pt.pt_error)
         assert np.allclose(ds.tf.pt_model_error, pt.pt_model_error)
+        assert np.allclose(ds.tf.pt_trace, pt.trace)
+        assert np.allclose(ds.tf.pt_trace_error, pt.trace_error)
+        assert np.allclose(ds.tf.pt_trace_model_error, pt.trace_model_error)
+        assert np.allclose(ds.tf.pt_alpha, pt.alpha)
+        assert np.allclose(ds.tf.pt_alpha_error, pt.alpha_error, equal_nan=True)
+        assert np.allclose(
+            ds.tf.pt_alpha_model_error, pt.alpha_model_error, equal_nan=True
+        )
+        assert np.allclose(ds.tf.pt_beta, pt.beta)
+        assert np.allclose(ds.tf.pt_beta_error, pt.beta_error)
+        assert np.allclose(ds.tf.pt_beta_model_error, pt.beta_model_error)
+        assert np.allclose(ds.tf.pt_det, pt.det)
+        assert np.allclose(ds.tf.pt_det_error, pt.det_error)
+        assert np.allclose(ds.tf.pt_det_model_error, pt.det_model_error)
         assert np.allclose(ds.tf.pt_phimin, pt.phimin)
+        assert np.allclose(ds.tf.pt_phimin_error, pt.phimin_error, equal_nan=True)
+        assert np.allclose(
+            ds.tf.pt_phimin_model_error, pt.phimin_model_error, equal_nan=True
+        )
         assert np.allclose(ds.tf.pt_phimax, pt.phimax)
+        assert np.allclose(ds.tf.pt_phimax_error, pt.phimax_error, equal_nan=True)
+        assert np.allclose(
+            ds.tf.pt_phimax_model_error, pt.phimax_model_error, equal_nan=True
+        )
         assert np.allclose(ds.tf.pt_azimuth, pt.azimuth)
+        assert np.allclose(ds.tf.pt_azimuth_error, pt.azimuth_error, equal_nan=True)
+        assert np.allclose(
+            ds.tf.pt_azimuth_model_error, pt.azimuth_model_error, equal_nan=True
+        )
         assert np.allclose(ds.tf.pt_skew, pt.skew)
+        assert np.allclose(ds.tf.pt_skew_error, pt.skew_error, equal_nan=True)
+        assert np.allclose(
+            ds.tf.pt_skew_model_error, pt.skew_model_error, equal_nan=True
+        )
         assert np.allclose(ds.tf.pt_ellipticity, pt.ellipticity)
+        assert np.allclose(
+            ds.tf.pt_ellipticity_error, pt.ellipticity_error, equal_nan=True
+        )
+        assert np.allclose(
+            ds.tf.pt_ellipticity_model_error,
+            pt.ellipticity_model_error,
+            equal_nan=True,
+        )
         assert np.allclose(ds.tf.pt_eccentricity, pt.eccentricity)
+        assert np.allclose(
+            ds.tf.pt_eccentricity_error, pt.eccentricity_error, equal_nan=True
+        )
+        assert np.allclose(
+            ds.tf.pt_eccentricity_model_error,
+            pt.eccentricity_model_error,
+            equal_nan=True,
+        )
 
     def test_direct_pt_properties_do_not_require_to_pt(self, monkeypatch):
         z_values = np.array([[[0, 1 + 1j], [-1 - 1j, 0]]])
@@ -339,9 +385,33 @@ class TestTFAccessorZ:
         assert ds.tf.pt is not None
         assert ds.tf.pt_error is not None
         assert ds.tf.pt_model_error is not None
+        assert ds.tf.pt_trace is not None
+        assert ds.tf.pt_trace_error is not None
+        assert ds.tf.pt_trace_model_error is not None
+        assert ds.tf.pt_alpha is not None
+        assert ds.tf.pt_alpha_error is not None
+        assert ds.tf.pt_alpha_model_error is not None
+        assert ds.tf.pt_beta is not None
+        assert ds.tf.pt_beta_error is not None
+        assert ds.tf.pt_beta_model_error is not None
+        assert ds.tf.pt_det is not None
+        assert ds.tf.pt_det_error is not None
+        assert ds.tf.pt_det_model_error is not None
         assert ds.tf.pt_phimin is not None
+        assert ds.tf.pt_phimin_error is not None
+        assert ds.tf.pt_phimin_model_error is not None
         assert ds.tf.pt_phimax is not None
+        assert ds.tf.pt_phimax_error is not None
+        assert ds.tf.pt_phimax_model_error is not None
         assert ds.tf.pt_azimuth is not None
+        assert ds.tf.pt_azimuth_error is not None
+        assert ds.tf.pt_azimuth_model_error is not None
         assert ds.tf.pt_skew is not None
+        assert ds.tf.pt_skew_error is not None
+        assert ds.tf.pt_skew_model_error is not None
         assert ds.tf.pt_ellipticity is not None
+        assert ds.tf.pt_ellipticity_error is not None
+        assert ds.tf.pt_ellipticity_model_error is not None
         assert ds.tf.pt_eccentricity is not None
+        assert ds.tf.pt_eccentricity_error is not None
+        assert ds.tf.pt_eccentricity_model_error is not None
