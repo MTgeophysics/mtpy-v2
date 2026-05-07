@@ -32,7 +32,8 @@ Click on the `Binder` badge above to interact with Jupyter Notebook examples.  T
     contributing
     authors
     history
-    conventions   
+    conventions
+    tf_accessor
 
 .. toctree::
     :maxdepth: 1
