@@ -659,6 +659,34 @@ class TFDatasetAccessor:
         return compute_pt_eccentricity_error(self.pt, self.pt_model_error)
 
     @property
+    def pt_only1d(self) -> np.ndarray | None:
+        """Phase tensor expressed in the 1D convenience form."""
+        if self.pt is None:
+            return None
+
+        pt_1d = self.pt.copy()
+        pt_1d[:, 0, 1] = 0
+        pt_1d[:, 1, 0] = 0
+
+        mean_1d = 0.5 * (pt_1d[:, 0, 0] + pt_1d[:, 1, 1])
+        pt_1d[:, 0, 0] = mean_1d
+        pt_1d[:, 1, 1] = mean_1d
+        return pt_1d
+
+    @property
+    def pt_only2d(self) -> np.ndarray | None:
+        """Phase tensor expressed in the 2D convenience form."""
+        if self.pt is None:
+            return None
+
+        pt_2d = self.pt.copy()
+        pt_2d[:, 0, 1] = 0
+        pt_2d[:, 1, 0] = 0
+        pt_2d[:, 0, 0] = self.pt_phimax[:]
+        pt_2d[:, 1, 1] = self.pt_phimin[:]
+        return pt_2d
+
+    @property
     def phase_tensor(self) -> Any:
         """Phase tensor object derived from the accessor impedance view."""
         return self.to_z().phase_tensor

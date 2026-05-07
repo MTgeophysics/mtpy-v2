@@ -364,6 +364,8 @@ class TestTFAccessorZ:
             pt.eccentricity_model_error,
             equal_nan=True,
         )
+        assert np.allclose(ds.tf.pt_only1d, pt.only1d)
+        assert np.allclose(ds.tf.pt_only2d, pt.only2d)
 
     def test_direct_pt_properties_do_not_require_to_pt(self, monkeypatch):
         z_values = np.array([[[0, 1 + 1j], [-1 - 1j, 0]]])
@@ -415,3 +417,5 @@ class TestTFAccessorZ:
         assert ds.tf.pt_eccentricity is not None
         assert ds.tf.pt_eccentricity_error is not None
         assert ds.tf.pt_eccentricity_model_error is not None
+        assert ds.tf.pt_only1d is not None
+        assert ds.tf.pt_only2d is not None
