@@ -378,7 +378,8 @@ class MTCollection:
         self.mth5_collection.open_mth5(self.mth5_filename, mode, **kwargs)
         try:
             self.mt_data = self.to_mt_data_tree()
-        except Exception:
+        except Exception as error:
+            self.logger.warning(f"Failed to initialize mt_data: {error}")
             self.mt_data = MTData()
 
     def close_collection(self) -> None:
