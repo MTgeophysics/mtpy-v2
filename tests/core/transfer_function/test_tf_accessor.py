@@ -1,0 +1,179 @@
+# -*- coding: utf-8 -*-
+"""Tests for the xarray transfer-function accessor."""
+
+from __future__ import annotations
+
+import numpy as np
+import xarray as xr
+
+from mtpy.core.transfer_function import MT_TO_OHM_FACTOR
+from mtpy.core.transfer_function.z import Z
+
+
+class TestTFAccessorZ:
+    """Validate Dataset.tf accessor behavior for impedance (Z)."""
+
+    def test_accessor_registered(self):
+        z = Z(
+            z=np.ones((2, 2, 2), dtype=complex),
+            z_error=np.ones((2, 2, 2), dtype=float),
+            z_model_error=np.ones((2, 2, 2), dtype=float),
+            frequency=np.array([1.0, 0.1]),
+        )
+        ds = z.to_xarray()
+
+        assert hasattr(ds, "tf")
+        assert ds.tf.validate()
+
+    def test_z_roundtrip_mt_units(self):
+        z = Z(
+            z=np.array(
+                [
+                    [[1.0 + 2.0j, 3.0 + 4.0j], [5.0 + 6.0j, 7.0 + 8.0j]],
+                    [[2.0 + 1.0j, 4.0 + 3.0j], [6.0 + 5.0j, 8.0 + 7.0j]],
+                ],
+                dtype=complex,
+            ),
+            z_error=np.full((2, 2, 2), 0.1, dtype=float),
+            z_model_error=np.full((2, 2, 2), 0.2, dtype=float),
+            frequency=np.array([1.0, 0.1]),
+            units="mt",
+        )
+        ds = z.to_xarray()
+        ds.attrs["impedance_units"] = "mt"
+
+        assert np.allclose(ds.tf.z(), z.z)
+        assert np.allclose(ds.tf.z_error(), z.z_error)
+        assert np.allclose(ds.tf.z_model_error(), z.z_model_error)
+
+        z_from_accessor = ds.tf.to_z()
+        assert np.allclose(z_from_accessor.z, z.z)
+        assert np.allclose(z_from_accessor.z_error, z.z_error)
+        assert np.allclose(z_from_accessor.z_model_error, z.z_model_error)
+        assert np.allclose(z_from_accessor.frequency, z.frequency)
+
+    def test_z_unit_scaling_to_ohm(self):
+        z_mt = np.array(
+            [[[10.0 + 0.0j, 20.0 + 0.0j], [30.0 + 0.0j, 40.0 + 0.0j]]],
+            dtype=complex,
+        )
+        z = Z(
+            z=z_mt,
+            z_error=np.ones((1, 2, 2), dtype=float),
+            z_model_error=np.ones((1, 2, 2), dtype=float),
+            frequency=np.array([1.0]),
+            units="mt",
+        )
+        ds = z.to_xarray()
+
+        expected_ohm = z_mt / MT_TO_OHM_FACTOR
+        assert np.allclose(ds.tf.z(units="ohm"), expected_ohm)
+
+    def test_channel_selection_from_full_tf_dataset(self):
+        period = np.array([1.0, 10.0], dtype=float)
+        output = np.array(["ex", "ey", "hz"], dtype=object)
+        input_ = np.array(["hx", "hy"], dtype=object)
+
+        tf = np.array(
+            [
+                [[1 + 1j, 2 + 2j], [3 + 3j, 4 + 4j], [9 + 9j, 10 + 10j]],
+                [[5 + 5j, 6 + 6j], [7 + 7j, 8 + 8j], [11 + 11j, 12 + 12j]],
+            ],
+            dtype=complex,
+        )
+        tf_err = np.ones_like(tf, dtype=float)
+        tf_model_err = 2 * np.ones_like(tf, dtype=float)
+
+        ds = xr.Dataset(
+            data_vars={
+                "transfer_function": (("period", "output", "input"), tf),
+                "transfer_function_error": (("period", "output", "input"), tf_err),
+                "transfer_function_model_error": (
+                    ("period", "output", "input"),
+                    tf_model_err,
+                ),
+            },
+            coords={"period": period, "output": output, "input": input_},
+            attrs={"impedance_units": "mt"},
+        )
+
+        z_view = ds.tf.z()
+        assert z_view.shape == (2, 2, 2)
+        assert np.allclose(z_view, tf[:, :2, :])
+        assert np.allclose(ds.tf.frequency, np.array([1.0, 0.1]))
+
+    def test_resistivity_phase_parity_with_z(self):
+        z = Z(
+            z=np.array(
+                [
+                    [[1.0 + 2.0j, 3.0 + 4.0j], [5.0 + 6.0j, 7.0 + 8.0j]],
+                    [[2.0 + 1.0j, 4.0 + 3.0j], [6.0 + 5.0j, 8.0 + 7.0j]],
+                ],
+                dtype=complex,
+            ),
+            z_error=np.full((2, 2, 2), 0.1, dtype=float),
+            z_model_error=np.full((2, 2, 2), 0.2, dtype=float),
+            frequency=np.array([1.0, 0.1]),
+            units="mt",
+        )
+        ds = z.to_xarray()
+        ds.attrs["impedance_units"] = "mt"
+
+        assert np.allclose(ds.tf.resistivity, z.resistivity)
+        assert np.allclose(ds.tf.phase, z.phase)
+        assert np.allclose(ds.tf.resistivity_error, z.resistivity_error)
+        assert np.allclose(ds.tf.phase_error, z.phase_error)
+        assert np.allclose(ds.tf.resistivity_model_error, z.resistivity_model_error)
+        assert np.allclose(ds.tf.phase_model_error, z.phase_model_error)
+
+    def test_remove_ss_wrapper_returns_z_and_dataset(self):
+        z = Z(
+            z=np.array(
+                [[[0.1 - 0.1j, 10.0 + 10.0j], [-10.0 - 10.0j, -0.1 + 0.1j]]],
+                dtype=complex,
+            ),
+            z_error=np.ones((1, 2, 2), dtype=float),
+            z_model_error=np.ones((1, 2, 2), dtype=float),
+            frequency=np.array([1.0]),
+            units="mt",
+        )
+        ds = z.to_xarray()
+        ds.attrs["impedance_units"] = "mt"
+
+        z_out = ds.tf.remove_ss(0.5, 1.5, as_dataset=False)
+        assert isinstance(z_out, Z)
+
+        ds_out = ds.tf.remove_ss(0.5, 1.5, as_dataset=True)
+        assert isinstance(ds_out, xr.Dataset)
+        assert np.allclose(ds_out.tf.z(), z_out.z)
+
+    def test_dimensionality_and_distortion_helpers(self):
+        z = Z(
+            z=np.array(
+                [
+                    [
+                        [-7.420305 - 15.02897j, 53.44306 + 114.4988j],
+                        [-49.96444 - 116.4191j, 11.95081 + 21.52367j],
+                    ],
+                    [
+                        [-1.420305 - 1.02897j, 603.44306 + 814.4988j],
+                        [-10.96444 - 21.4191j, 1.95081 + 1.52367j],
+                    ],
+                ],
+                dtype=complex,
+            ),
+            z_error=np.ones((2, 2, 2), dtype=float),
+            z_model_error=np.ones((2, 2, 2), dtype=float),
+            frequency=np.array([10.0, 1.0]),
+            units="mt",
+        )
+        ds = z.to_xarray()
+        ds.attrs["impedance_units"] = "mt"
+
+        dim = ds.tf.estimate_dimensionality()
+        assert isinstance(dim, np.ndarray)
+        assert dim.size == 2
+
+        distortion, distortion_error = ds.tf.estimate_distortion()
+        assert isinstance(distortion, np.ndarray)
+        assert isinstance(distortion_error, np.ndarray)

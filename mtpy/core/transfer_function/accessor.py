@@ -1,0 +1,274 @@
+"""xarray Dataset accessor for transfer-function representations."""
+
+from __future__ import annotations
+
+from typing import Any
+
+import numpy as np
+import xarray as xr
+
+from . import IMPEDANCE_UNITS
+from .z import Z
+
+
+@xr.register_dataset_accessor("tf")
+class TFDatasetAccessor:
+    """Accessor exposing transfer-function views from an xarray Dataset.
+
+    Notes
+    -----
+    This first implementation focuses on impedance (Z) access. Tipper and
+    phase tensor support can be layered on top of the same validation and
+    channel-selection helpers.
+    """
+
+    _REQUIRED_VARIABLES = (
+        "transfer_function",
+        "transfer_function_error",
+        "transfer_function_model_error",
+    )
+
+    def __init__(self, xarray_obj: xr.Dataset) -> None:
+        self._obj = xarray_obj
+        self._cache: dict[str, Any] = {}
+
+    def validate(self) -> bool:
+        """Validate that required transfer-function variables and coords exist."""
+        for variable in self._REQUIRED_VARIABLES:
+            if variable not in self._obj.data_vars:
+                raise KeyError(f"Dataset missing required variable: {variable}")
+
+        tf = self._obj["transfer_function"]
+        for dim in ("period", "output", "input"):
+            if dim not in tf.dims:
+                raise KeyError(
+                    "Dataset transfer_function must have dims "
+                    "('period', 'output', 'input')"
+                )
+
+        if "period" not in self._obj.coords:
+            raise KeyError("Dataset missing required coord: period")
+
+        return True
+
+    @property
+    def frequency(self) -> np.ndarray:
+        """Frequency array derived from period coordinates."""
+        period = np.asarray(self._obj.coords["period"].values, dtype=float)
+        return 1.0 / period
+
+    @property
+    def impedance_units(self) -> str:
+        """Impedance units for accessor outputs."""
+        units = str(self._obj.attrs.get("impedance_units", "mt")).lower()
+        if units not in IMPEDANCE_UNITS:
+            return "mt"
+        return units
+
+    @staticmethod
+    def _pick_channel_labels(
+        available: list[Any], candidates: list[str], required: int
+    ) -> list[Any] | None:
+        """Pick ordered coordinate labels using preferred candidate names."""
+        channel_map = {str(label).lower(): label for label in available}
+        selected: list[Any] = []
+        for candidate in candidates:
+            key = candidate.lower()
+            if key in channel_map and channel_map[key] not in selected:
+                selected.append(channel_map[key])
+            if len(selected) == required:
+                return selected
+        return None
+
+    def _impedance_dataarray(self, variable: str) -> xr.DataArray:
+        """Return impedance subset from a transfer-function variable."""
+        self.validate()
+
+        da = self._obj[variable]
+        outputs = list(self._obj.coords["output"].values)
+        inputs = list(self._obj.coords["input"].values)
+
+        out_labels = self._pick_channel_labels(outputs, ["ex", "ey", "x", "y"], 2)
+        in_labels = self._pick_channel_labels(inputs, ["hx", "hy", "x", "y"], 2)
+
+        if out_labels is None and da.sizes.get("output", 0) == 2:
+            out_labels = list(self._obj.coords["output"].values[:2])
+        if in_labels is None and da.sizes.get("input", 0) == 2:
+            in_labels = list(self._obj.coords["input"].values[:2])
+
+        if out_labels is None or in_labels is None:
+            raise ValueError(
+                "Could not determine impedance channels from output/input coords."
+            )
+
+        return da.sel(output=out_labels, input=in_labels)
+
+    @staticmethod
+    def _unit_factor(units: str) -> float:
+        """Return conversion factor to convert internal mt units to requested units."""
+        key = units.lower()
+        if key not in IMPEDANCE_UNITS:
+            raise ValueError(
+                f"{units} is not an acceptable unit for impedance. "
+                f"Options are {list(IMPEDANCE_UNITS.keys())}."
+            )
+        return float(IMPEDANCE_UNITS[key])
+
+    def z(self, units: str | None = None) -> np.ndarray:
+        """Return impedance tensor array with requested units."""
+        resolved_units = self.impedance_units if units is None else units.lower()
+        factor = self._unit_factor(resolved_units)
+        return self._impedance_dataarray("transfer_function").values / factor
+
+    def z_error(self, units: str | None = None) -> np.ndarray:
+        """Return impedance standard-deviation errors with requested units."""
+        resolved_units = self.impedance_units if units is None else units.lower()
+        factor = self._unit_factor(resolved_units)
+        return self._impedance_dataarray("transfer_function_error").values / factor
+
+    def z_model_error(self, units: str | None = None) -> np.ndarray:
+        """Return impedance model errors with requested units."""
+        resolved_units = self.impedance_units if units is None else units.lower()
+        factor = self._unit_factor(resolved_units)
+        return (
+            self._impedance_dataarray("transfer_function_model_error").values / factor
+        )
+
+    def to_z(self, units: str | None = None) -> Z:
+        """Build a :class:`Z` object lazily from Dataset-backed transfer functions."""
+        resolved_units = self.impedance_units if units is None else units.lower()
+        z_object = Z(
+            z=self.z(units=resolved_units),
+            z_error=self.z_error(units=resolved_units),
+            z_model_error=self.z_model_error(units=resolved_units),
+            frequency=self.frequency,
+            units=resolved_units,
+        )
+        return z_object
+
+    @property
+    def resistivity(self) -> np.ndarray | None:
+        """Apparent resistivity tensor computed through :class:`Z` logic."""
+        return self.to_z().resistivity
+
+    @property
+    def phase(self) -> np.ndarray | None:
+        """Impedance phase tensor (degrees) computed through :class:`Z` logic."""
+        return self.to_z().phase
+
+    @property
+    def resistivity_error(self) -> np.ndarray | None:
+        """Apparent resistivity error computed through :class:`Z` logic."""
+        return self.to_z().resistivity_error
+
+    @property
+    def phase_error(self) -> np.ndarray | None:
+        """Impedance phase error (degrees) computed through :class:`Z` logic."""
+        return self.to_z().phase_error
+
+    @property
+    def resistivity_model_error(self) -> np.ndarray | None:
+        """Apparent resistivity model error computed through :class:`Z` logic."""
+        return self.to_z().resistivity_model_error
+
+    @property
+    def phase_model_error(self) -> np.ndarray | None:
+        """Impedance phase model error (degrees) computed through :class:`Z` logic."""
+        return self.to_z().phase_model_error
+
+    @property
+    def phase_tensor(self) -> Any:
+        """Phase tensor object derived from the accessor impedance view."""
+        return self.to_z().phase_tensor
+
+    @property
+    def invariants(self) -> Any:
+        """Impedance invariants object derived from the accessor impedance view."""
+        return self.to_z().invariants
+
+    def remove_ss(
+        self,
+        reduce_res_factor_x: float | list | np.ndarray = 1.0,
+        reduce_res_factor_y: float | list | np.ndarray = 1.0,
+        units: str | None = None,
+        as_dataset: bool = False,
+    ) -> xr.Dataset | Z:
+        """Apply static-shift correction using :class:`Z.remove_ss`.
+
+        Parameters
+        ----------
+        reduce_res_factor_x : float or array-like, optional
+            Static-shift correction factor for x-polarized rows.
+        reduce_res_factor_y : float or array-like, optional
+            Static-shift correction factor for y-polarized rows.
+        units : str, optional
+            Impedance unit system passed to :meth:`to_z`.
+        as_dataset : bool, optional
+            If True, return corrected transfer-function Dataset. If False,
+            return a corrected :class:`Z` object.
+        """
+        z_out = self.to_z(units=units).remove_ss(
+            reduce_res_factor_x=reduce_res_factor_x,
+            reduce_res_factor_y=reduce_res_factor_y,
+            inplace=False,
+        )
+        if as_dataset:
+            ds_out = z_out.to_xarray()
+            ds_out.attrs.update(dict(self._obj.attrs))
+            ds_out.attrs["impedance_units"] = z_out.units
+            return ds_out
+        return z_out
+
+    def remove_distortion(
+        self,
+        distortion_tensor: np.ndarray | None = None,
+        distortion_error_tensor: np.ndarray | None = None,
+        n_frequencies: int | None = None,
+        comp: str = "det",
+        only_2d: bool = False,
+        units: str | None = None,
+        as_dataset: bool = False,
+    ) -> xr.Dataset | Z:
+        """Apply galvanic distortion correction using :class:`Z.remove_distortion`."""
+        z_out = self.to_z(units=units).remove_distortion(
+            distortion_tensor=distortion_tensor,
+            distortion_error_tensor=distortion_error_tensor,
+            n_frequencies=n_frequencies,
+            comp=comp,
+            only_2d=only_2d,
+            inplace=False,
+        )
+        if as_dataset:
+            ds_out = z_out.to_xarray()
+            ds_out.attrs.update(dict(self._obj.attrs))
+            ds_out.attrs["impedance_units"] = z_out.units
+            return ds_out
+        return z_out
+
+    def estimate_dimensionality(
+        self, skew_threshold: float = 5, eccentricity_threshold: float = 0.1
+    ) -> np.ndarray:
+        """Estimate 1D/2D/3D dimensionality from impedance-derived PT metrics."""
+        return self.to_z().estimate_dimensionality(
+            skew_threshold=skew_threshold,
+            eccentricity_threshold=eccentricity_threshold,
+        )
+
+    def estimate_distortion(
+        self,
+        n_frequencies: int | None = None,
+        comp: str = "det",
+        only_2d: bool = False,
+        clockwise: bool = True,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Estimate galvanic distortion tensor using :class:`Z.estimate_distortion`."""
+        return self.to_z().estimate_distortion(
+            n_frequencies=n_frequencies,
+            comp=comp,
+            only_2d=only_2d,
+            clockwise=clockwise,
+        )
+
+    def estimate_depth_of_investigation(self) -> Any:
+        """Estimate depth of investigation using :class:`Z` implementation."""
+        return self.to_z().estimate_depth_of_investigation()
