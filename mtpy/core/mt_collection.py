@@ -85,6 +85,7 @@ class MTCollection:
         self.working_dataframe = None
 
         self.mth5_collection = MTH5()
+        self.mt_data: MTData | None = None
 
         self._added = False
 
@@ -363,6 +364,10 @@ class MTCollection:
             self.working_directory = working_directory
 
         self.mth5_collection.open_mth5(self.mth5_filename, mode, **kwargs)
+        try:
+            self.mt_data = self.to_mt_data_tree()
+        except Exception:
+            self.mt_data = MTData()
 
     def close_collection(self) -> None:
         """
@@ -370,6 +375,70 @@ class MTCollection:
 
         """
         self.mth5_collection.close_mth5()
+        self.mt_data = None
+
+    def refresh_mt_data(self) -> MTData:
+        """
+        Reload :attr:`mt_data` from the collection.
+
+        Call this after adding or removing transfer functions to keep
+        :attr:`mt_data` in sync with the underlying MTH5 file.
+
+        Returns
+        -------
+        MTData
+            The refreshed MTData object (also stored as :attr:`mt_data`).
+
+        """
+        self.mt_data = self.to_mt_data_tree()
+        return self.mt_data
+
+    def map_stations(
+        self,
+        transform,
+        write_back: bool = False,
+        new_survey: str | None = None,
+        tf_id_extra: str | None = None,
+    ) -> MTData:
+        """
+        Apply a transform to every station dataset and return the result.
+
+        The result is also stored in :attr:`mt_data`.
+
+        Parameters
+        ----------
+        transform : callable
+            Function that accepts and returns an ``xr.Dataset`` for a single
+            station.  Receives the same arguments as
+            :meth:`MTData.map_stations`.
+        write_back : bool, optional
+            If ``True`` the transformed data are written back to the MTH5
+            collection via :meth:`from_mt_data_tree`.  Defaults to ``False``.
+        new_survey : str, optional
+            Passed to :meth:`from_mt_data_tree` when *write_back* is ``True``.
+        tf_id_extra : str, optional
+            Passed to :meth:`from_mt_data_tree` when *write_back* is ``True``.
+
+        Returns
+        -------
+        MTData
+            MTData object with the transform applied (also stored as
+            :attr:`mt_data`).
+
+        """
+        if self.mt_data is None:
+            self.mt_data = self.to_mt_data_tree()
+
+        self.mt_data.map_stations(transform, inplace=True)
+
+        if write_back:
+            self.from_mt_data_tree(
+                self.mt_data,
+                new_survey=new_survey,
+                tf_id_extra=tf_id_extra,
+            )
+
+        return self.mt_data
 
     def add_tf(
         self,
