@@ -3082,8 +3082,10 @@ class MTData:
         ):
             return station_ds
 
+        # Materialise dask arrays before rotation; the accessor uses .loc[]
+        # assignments which xarray cannot apply to dask-backed arrays.
         try:
-            return station_ds.tf.rotate(
+            return station_ds.load().tf.rotate(
                 rotation_angle,
                 coordinate_reference_frame=coordinate_reference_frame,
                 inplace=False,
