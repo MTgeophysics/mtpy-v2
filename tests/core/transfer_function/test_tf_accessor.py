@@ -200,6 +200,243 @@ class TestTFAccessorZ:
         assert isinstance(ds_out, xr.Dataset)
         assert np.allclose(ds_out.tf.z(), z_out.z)
 
+    def test_with_z_updates_dataset_from_arrays(self):
+        z = Z(
+            z=np.ones((2, 2, 2), dtype=complex),
+            z_error=np.ones((2, 2, 2), dtype=float),
+            z_model_error=np.ones((2, 2, 2), dtype=float),
+            frequency=np.array([1.0, 0.1]),
+            units="mt",
+        )
+        ds = z.to_xarray()
+        ds.attrs["impedance_units"] = "mt"
+
+        z_new = 2.0 * z.z
+        ds_updated = ds.tf.with_z(
+            z=z_new,
+            z_error=0.5 * np.ones((2, 2, 2), dtype=float),
+            z_model_error=0.25 * np.ones((2, 2, 2), dtype=float),
+            frequency=z.frequency,
+            units="mt",
+            inplace=False,
+        )
+
+        assert np.allclose(ds.tf.z(), z.z)
+        assert np.allclose(ds_updated.tf.z(), z_new)
+
+    def test_with_z_updates_dataset_inplace(self):
+        z = Z(
+            z=np.ones((1, 2, 2), dtype=complex),
+            z_error=np.ones((1, 2, 2), dtype=float),
+            z_model_error=np.ones((1, 2, 2), dtype=float),
+            frequency=np.array([1.0]),
+            units="mt",
+        )
+        ds = z.to_xarray()
+        ds.attrs["impedance_units"] = "mt"
+
+        z_new = np.array([[[3 + 1j, 4 + 2j], [5 + 3j, 6 + 4j]]], dtype=complex)
+        ds.tf.with_z(
+            z=z_new,
+            z_error=np.ones((1, 2, 2), dtype=float),
+            z_model_error=np.ones((1, 2, 2), dtype=float),
+            frequency=z.frequency,
+            inplace=True,
+        )
+        assert np.allclose(ds.tf.z(), z_new)
+
+    def test_with_tipper_updates_dataset_from_object(self):
+        tipper = Tipper(
+            tipper=np.ones((1, 1, 2), dtype=complex),
+            tipper_error=np.ones((1, 1, 2), dtype=float) * 0.01,
+            tipper_model_error=np.ones((1, 1, 2), dtype=float) * 0.03,
+            frequency=np.array([1.0]),
+        )
+        ds = tipper.to_xarray()
+
+        new_tipper = Tipper(
+            tipper=(2 + 0.5j) * np.ones((1, 1, 2), dtype=complex),
+            tipper_error=np.ones((1, 1, 2), dtype=float) * 0.02,
+            tipper_model_error=np.ones((1, 1, 2), dtype=float) * 0.04,
+            frequency=np.array([1.0]),
+        )
+
+        ds_updated = ds.tf.with_tipper(tipper_obj=new_tipper)
+        assert np.allclose(ds_updated.tf.tipper(), new_tipper.tipper)
+        assert np.allclose(ds_updated.tf.tipper_error(), new_tipper.tipper_error)
+        assert np.allclose(
+            ds_updated.tf.tipper_model_error(), new_tipper.tipper_model_error
+        )
+
+    def test_with_res_phase_updates_dataset(self):
+        z = Z(
+            z=np.ones((1, 2, 2), dtype=complex),
+            z_error=np.ones((1, 2, 2), dtype=float),
+            z_model_error=np.ones((1, 2, 2), dtype=float),
+            frequency=np.array([1.0]),
+            units="mt",
+        )
+        ds = z.to_xarray()
+        ds.attrs["impedance_units"] = "mt"
+
+        resistivity = np.full((1, 2, 2), 100.0, dtype=float)
+        phase = np.full((1, 2, 2), 45.0, dtype=float)
+        res_error = np.full((1, 2, 2), 2.0, dtype=float)
+        phase_error = np.full((1, 2, 2), 1.0, dtype=float)
+
+        ds_updated = ds.tf.with_res_phase(
+            resistivity=resistivity,
+            phase=phase,
+            frequency=np.array([1.0]),
+            res_error=res_error,
+            phase_error=phase_error,
+            inplace=False,
+        )
+
+        z_expected = Z(units="mt")
+        z_expected.set_resistivity_phase(
+            resistivity=resistivity,
+            phase=phase,
+            frequency=np.array([1.0]),
+            res_error=res_error,
+            phase_error=phase_error,
+        )
+
+        assert np.allclose(ds_updated.tf.z(), z_expected.z)
+        assert np.allclose(ds_updated.tf.z_error(), z_expected.z_error)
+
+    def test_with_z_rejects_mixed_object_and_array_inputs(self):
+        z = Z(
+            z=np.ones((1, 2, 2), dtype=complex),
+            z_error=np.ones((1, 2, 2), dtype=float),
+            z_model_error=np.ones((1, 2, 2), dtype=float),
+            frequency=np.array([1.0]),
+            units="mt",
+        )
+        ds = z.to_xarray()
+
+        try:
+            ds.tf.with_z(z_obj=z, z=z.z, frequency=z.frequency)
+        except ValueError as error:
+            assert "either z_obj or z" in str(error)
+        else:
+            raise AssertionError("Expected ValueError for mixed z inputs")
+
+    def test_rotate_matches_z_for_impedance_dataset(self):
+        z = Z(
+            z=np.array(
+                [[[1 + 1j, 2 + 2j], [3 + 3j, 4 + 4j]]],
+                dtype=complex,
+            ),
+            z_error=np.ones((1, 2, 2), dtype=float) * 0.1,
+            z_model_error=np.ones((1, 2, 2), dtype=float) * 0.2,
+            frequency=np.array([1.0]),
+            units="mt",
+        )
+        ds = z.to_xarray()
+        ds.attrs["impedance_units"] = "mt"
+
+        expected = z.rotate(30, inplace=False)
+        ds_rot = ds.tf.rotate(30, inplace=False)
+
+        assert np.allclose(ds_rot.tf.z(), expected.z)
+        assert np.allclose(ds_rot.tf.z_error(), expected.z_error)
+        assert np.allclose(ds_rot.tf.z_model_error(), expected.z_model_error)
+
+    def test_rotate_matches_tipper_for_tipper_dataset(self):
+        tipper = Tipper(
+            tipper=np.array([[[1 + 0.5j, 2 + 0.25j]]], dtype=complex),
+            tipper_error=np.ones((1, 1, 2), dtype=float) * 0.01,
+            tipper_model_error=np.ones((1, 1, 2), dtype=float) * 0.03,
+            frequency=np.array([1.0]),
+        )
+        ds = tipper.to_xarray()
+
+        expected = tipper.rotate(45, inplace=False)
+        ds_rot = ds.tf.rotate(45, inplace=False)
+
+        assert np.allclose(ds_rot.tf.tipper(), expected.tipper)
+        assert np.allclose(ds_rot.tf.tipper_error(), expected.tipper_error)
+        assert np.allclose(ds_rot.tf.tipper_model_error(), expected.tipper_model_error)
+
+    def test_rotate_inplace_updates_dataset(self):
+        z = Z(
+            z=np.array(
+                [[[1 + 1j, 2 + 2j], [3 + 3j, 4 + 4j]]],
+                dtype=complex,
+            ),
+            z_error=np.ones((1, 2, 2), dtype=float) * 0.1,
+            z_model_error=np.ones((1, 2, 2), dtype=float) * 0.2,
+            frequency=np.array([1.0]),
+            units="mt",
+        )
+        ds = z.to_xarray()
+        ds.attrs["impedance_units"] = "mt"
+
+        z_original = ds.tf.z().copy()
+        ds.tf.rotate(20, inplace=True)
+        assert not np.allclose(ds.tf.z(), z_original)
+
+    def test_interpolate_matches_z_for_impedance_dataset(self):
+        z = Z(
+            z=np.array(
+                [
+                    [[1 + 1j, 2 + 2j], [3 + 3j, 4 + 4j]],
+                    [[2 + 2j, 3 + 3j], [4 + 4j, 5 + 5j]],
+                    [[3 + 3j, 4 + 4j], [5 + 5j, 6 + 6j]],
+                ],
+                dtype=complex,
+            ),
+            z_error=np.ones((3, 2, 2), dtype=float) * 0.1,
+            z_model_error=np.ones((3, 2, 2), dtype=float) * 0.2,
+            frequency=np.array([10.0, 1.0, 0.1]),
+            units="mt",
+        )
+        ds = z.to_xarray()
+        ds.attrs["impedance_units"] = "mt"
+        new_periods = np.array([0.1, 0.5, 1.0, 5.0, 10.0], dtype=float)
+
+        z_expected = z.interpolate(new_periods, inplace=False, method="linear")
+        ds_interp = ds.tf.interpolate(new_periods, inplace=False, method="linear")
+
+        assert np.allclose(ds_interp.tf.z(), z_expected.z, equal_nan=True)
+        assert np.allclose(ds_interp.tf.z_error(), z_expected.z_error, equal_nan=True)
+        assert np.allclose(
+            ds_interp.tf.z_model_error(),
+            z_expected.z_model_error,
+            equal_nan=True,
+        )
+        assert np.allclose(ds_interp.period.values, new_periods)
+
+    def test_interpolate_inplace_updates_periods(self):
+        z = Z(
+            z=np.array(
+                [
+                    [[1 + 1j, 2 + 2j], [3 + 3j, 4 + 4j]],
+                    [[2 + 2j, 3 + 3j], [4 + 4j, 5 + 5j]],
+                    [[3 + 3j, 4 + 4j], [5 + 5j, 6 + 6j]],
+                ],
+                dtype=complex,
+            ),
+            z_error=np.ones((3, 2, 2), dtype=float) * 0.1,
+            z_model_error=np.ones((3, 2, 2), dtype=float) * 0.2,
+            frequency=np.array([10.0, 1.0, 0.1]),
+            units="mt",
+        )
+        ds = z.to_xarray()
+        ds.attrs["impedance_units"] = "mt"
+
+        result = ds.tf.interpolate(
+            np.array([0.1, 0.5, 1.0, 5.0, 10.0], dtype=float),
+            inplace=True,
+            method="linear",
+        )
+
+        assert result is None
+        assert ds.sizes["period"] == 5
+        assert np.allclose(ds.period.values, np.array([0.1, 0.5, 1.0, 5.0, 10.0]))
+        assert ds["transfer_function"].shape[0] == 5
+
     def test_dimensionality_and_distortion_helpers(self):
         z = Z(
             z=np.array(
