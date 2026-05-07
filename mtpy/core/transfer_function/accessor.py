@@ -204,6 +204,11 @@ class TFDatasetAccessor:
             return "mt"
         return units
 
+    @property
+    def units(self) -> str:
+        """Alias for impedance units to match Z API naming."""
+        return self.impedance_units
+
     @staticmethod
     def _pick_channel_labels(
         available: list[Any], candidates: list[str], required: int
@@ -510,6 +515,69 @@ class TFDatasetAccessor:
         )
         return self.with_z(z_obj=z_obj, inplace=inplace)
 
+    def set_resistivity_phase(
+        self,
+        resistivity: np.ndarray,
+        phase: np.ndarray,
+        frequency: np.ndarray,
+        res_error: np.ndarray | None = None,
+        phase_error: np.ndarray | None = None,
+        res_model_error: np.ndarray | None = None,
+        phase_model_error: np.ndarray | None = None,
+        units: str = "mt",
+        inplace: bool = True,
+    ) -> xr.Dataset | None:
+        """Set impedance from resistivity/phase arrays (Z-style convenience API)."""
+        result = self.with_res_phase(
+            resistivity=resistivity,
+            phase=phase,
+            frequency=frequency,
+            res_error=res_error,
+            phase_error=phase_error,
+            res_model_error=res_model_error,
+            phase_model_error=phase_model_error,
+            units=units,
+            inplace=inplace,
+        )
+        if inplace:
+            return None
+        return result
+
+    def set_amp_phase(
+        self,
+        r: np.ndarray,
+        phi: np.ndarray,
+        inplace: bool = True,
+    ) -> xr.Dataset | None:
+        """Set tipper values from amplitude/phase arrays (Tipper-style API)."""
+        tipper_obj = self.to_tipper()
+        tipper_obj.set_amp_phase(r, phi)
+        result = self.with_tipper(tipper_obj=tipper_obj, inplace=inplace)
+        if inplace:
+            return None
+        return result
+
+    def set_mag_direction(
+        self,
+        mag_real: np.ndarray,
+        ang_real: np.ndarray,
+        mag_imag: np.ndarray,
+        ang_imag: np.ndarray,
+        inplace: bool = True,
+    ) -> xr.Dataset | None:
+        """Set tipper from magnitude/direction arrays (Tipper-style API)."""
+        tipper_obj = self.to_tipper()
+        tipper_obj.set_mag_direction(
+            mag_real=mag_real,
+            ang_real=ang_real,
+            mag_imag=mag_imag,
+            ang_imag=ang_imag,
+        )
+        result = self.with_tipper(tipper_obj=tipper_obj, inplace=inplace)
+        if inplace:
+            return None
+        return result
+
     def rotate(
         self,
         alpha: float | int | str | list | tuple | np.ndarray,
@@ -528,8 +596,9 @@ class TFDatasetAccessor:
                 inplace=False,
                 coordinate_reference_frame=coordinate_reference_frame,
             )
-            target_accessor.with_z(z_obj=z_rot, inplace=True)
-            rotated_any = True
+            if z_rot is not None:
+                target_accessor.with_z(z_obj=z_rot, inplace=True)
+                rotated_any = True
         except ValueError as error:
             if "Could not determine impedance channels" not in str(error):
                 raise
@@ -541,8 +610,9 @@ class TFDatasetAccessor:
                 inplace=False,
                 coordinate_reference_frame=coordinate_reference_frame,
             )
-            target_accessor.with_tipper(tipper_obj=tipper_rot, inplace=True)
-            rotated_any = True
+            if tipper_rot is not None:
+                target_accessor.with_tipper(tipper_obj=tipper_rot, inplace=True)
+                rotated_any = True
         except ValueError as error:
             if "Could not determine tipper channels" not in str(error):
                 raise
@@ -822,6 +892,77 @@ class TFDatasetAccessor:
     def phase_model_error(self) -> np.ndarray | None:
         """Impedance phase model error (degrees) computed directly from Dataset values."""
         return compute_phase_error(self._z_mt(), self._z_model_error_mt())
+
+    @property
+    def det(self) -> np.ndarray | None:
+        """Determinant of impedance tensor in mt units."""
+        return np.array([np.linalg.det(ii) ** 0.5 for ii in self._z_mt()])
+
+    @property
+    def det_error(self) -> np.ndarray | None:
+        """Determinant error from transfer_function_error."""
+        z_error = self._z_error_mt()
+        det_error = np.zeros_like(self.det, dtype=float)
+        with np.errstate(invalid="ignore"):
+            det_error[:] = (
+                np.abs(
+                    np.linalg.det(self._z_mt() + z_error)
+                    - np.linalg.det(self._z_mt() - z_error)
+                )
+                / 2.0
+            ) ** 0.5
+        return det_error
+
+    @property
+    def det_model_error(self) -> np.ndarray | None:
+        """Determinant model error from transfer_function_model_error."""
+        z_model_error = self._z_model_error_mt()
+        det_error = np.zeros_like(self.det, dtype=float)
+        with np.errstate(invalid="ignore"):
+            det_error[:] = (
+                np.abs(
+                    np.linalg.det(self._z_mt() + z_model_error)
+                    - np.linalg.det(self._z_mt() - z_model_error)
+                )
+                / 2.0
+            ) ** 0.5
+        return det_error
+
+    @property
+    def phase_det(self) -> np.ndarray | None:
+        """Phase of determinant in degrees."""
+        return np.rad2deg(np.arctan2(self.det.imag, self.det.real))
+
+    @property
+    def phase_error_det(self) -> np.ndarray | None:
+        """Phase error of determinant in degrees."""
+        return np.rad2deg(np.arcsin(self.det_error / abs(self.det)))
+
+    @property
+    def phase_model_error_det(self) -> np.ndarray | None:
+        """Phase model error of determinant in degrees."""
+        return np.rad2deg(np.arcsin(self.det_model_error / abs(self.det)))
+
+    @property
+    def res_det(self) -> np.ndarray | None:
+        """Apparent resistivity from determinant."""
+        return 0.2 * (1.0 / self.frequency) * abs(self.det) ** 2
+
+    @property
+    def res_error_det(self) -> np.ndarray | None:
+        """Apparent resistivity error from determinant."""
+        return (
+            0.2 * (1.0 / self.frequency) * np.abs(self.det + self.det_error) ** 2
+            - self.res_det
+        )
+
+    @property
+    def res_model_error_det(self) -> np.ndarray | None:
+        """Apparent resistivity model error from determinant."""
+        return (
+            0.2 * (1.0 / self.frequency) * np.abs(self.det + self.det_model_error) ** 2
+            - self.res_det
+        )
 
     @property
     def res_error_xx(self) -> np.ndarray | None:
@@ -1337,7 +1478,8 @@ class TFDatasetAccessor:
             inplace=False,
         )
         if as_dataset:
-            ds_out = z_out.to_xarray()
+            ds_out = self._obj.copy(deep=True)
+            TFDatasetAccessor(ds_out).with_z(z_obj=z_out, inplace=True)
             ds_out.attrs.update(dict(self._obj.attrs))
             ds_out.attrs["impedance_units"] = z_out.units
             return ds_out
@@ -1363,7 +1505,8 @@ class TFDatasetAccessor:
             inplace=False,
         )
         if as_dataset:
-            ds_out = z_out.to_xarray()
+            ds_out = self._obj.copy(deep=True)
+            TFDatasetAccessor(ds_out).with_z(z_obj=z_out, inplace=True)
             ds_out.attrs.update(dict(self._obj.attrs))
             ds_out.attrs["impedance_units"] = z_out.units
             return ds_out

@@ -437,6 +437,80 @@ class TestTFAccessorZ:
         assert np.allclose(ds.period.values, np.array([0.1, 0.5, 1.0, 5.0, 10.0]))
         assert ds["transfer_function"].shape[0] == 5
 
+    def test_det_properties_parity_with_z(self):
+        z = Z(
+            z=np.array(
+                [
+                    [[1 + 1j, 2 + 2j], [3 + 3j, 4 + 4j]],
+                    [[2 + 1j, 3 + 2j], [4 + 3j, 5 + 4j]],
+                ],
+                dtype=complex,
+            ),
+            z_error=np.ones((2, 2, 2), dtype=float) * 0.01,
+            z_model_error=np.ones((2, 2, 2), dtype=float) * 0.02,
+            frequency=np.array([1.0, 0.1]),
+            units="mt",
+        )
+        ds = z.to_xarray()
+        ds.attrs["impedance_units"] = "mt"
+
+        assert np.allclose(ds.tf.det, z.det)
+        assert np.allclose(ds.tf.det_error, z.det_error)
+        assert np.allclose(ds.tf.det_model_error, z.det_model_error)
+        assert np.allclose(ds.tf.phase_det, z.phase_det)
+        assert np.allclose(ds.tf.phase_error_det, z.phase_error_det)
+        assert np.allclose(ds.tf.phase_model_error_det, z.phase_model_error_det)
+        assert np.allclose(ds.tf.res_det, z.res_det)
+        assert np.allclose(ds.tf.res_error_det, z.res_error_det)
+        assert np.allclose(ds.tf.res_model_error_det, z.res_model_error_det)
+
+    def test_set_resistivity_phase_alias_matches_with_res_phase(self):
+        z = Z(
+            z=np.ones((1, 2, 2), dtype=complex),
+            z_error=np.ones((1, 2, 2), dtype=float),
+            z_model_error=np.ones((1, 2, 2), dtype=float),
+            frequency=np.array([1.0]),
+            units="mt",
+        )
+        ds = z.to_xarray()
+        ds.attrs["impedance_units"] = "mt"
+
+        resistivity = np.full((1, 2, 2), 100.0, dtype=float)
+        phase = np.full((1, 2, 2), 45.0, dtype=float)
+
+        ds.tf.set_resistivity_phase(
+            resistivity=resistivity,
+            phase=phase,
+            frequency=np.array([1.0]),
+            inplace=True,
+        )
+
+        z_expected = Z(units="mt")
+        z_expected.set_resistivity_phase(
+            resistivity=resistivity,
+            phase=phase,
+            frequency=np.array([1.0]),
+        )
+        assert np.allclose(ds.tf.z(), z_expected.z)
+
+    def test_set_amp_phase_alias_updates_tipper(self):
+        tipper = Tipper(
+            tipper=np.ones((1, 1, 2), dtype=complex),
+            tipper_error=np.ones((1, 1, 2), dtype=float) * 0.01,
+            tipper_model_error=np.ones((1, 1, 2), dtype=float) * 0.03,
+            frequency=np.array([1.0]),
+        )
+        ds = tipper.to_xarray()
+
+        r = np.ones((1, 1, 2), dtype=float) * 2.0
+        phi = np.ones((1, 1, 2), dtype=float) * 30.0
+
+        expected = ds.tf.to_tipper()
+        expected.set_amp_phase(r, phi)
+
+        ds.tf.set_amp_phase(r, phi, inplace=True)
+        assert np.allclose(ds.tf.tipper(), expected.tipper)
+
     def test_dimensionality_and_distortion_helpers(self):
         z = Z(
             z=np.array(

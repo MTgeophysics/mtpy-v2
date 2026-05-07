@@ -358,24 +358,15 @@ class MT(TF, MTLocation):
 
         """
 
-        if self.has_impedance():
-            new_z = self.Z.rotate(
-                theta_r,
-                inplace=False,
-                coordinate_reference_frame=self.coordinate_reference_frame,
-            )
-        if self.has_tipper():
-            new_t = self.Tipper.rotate(
-                theta_r,
-                inplace=False,
-                coordinate_reference_frame=self.coordinate_reference_frame,
-            )
+        if not self.has_impedance() and not self.has_tipper():
+            return None if inplace else self.clone_empty()
 
         if inplace:
-            if self.has_impedance():
-                self.Z = new_z
-            if self.has_tipper():
-                self.Tipper = new_t
+            self._transfer_function.tf.rotate(
+                theta_r,
+                inplace=True,
+                coordinate_reference_frame=self.coordinate_reference_frame,
+            )
 
             self._rotation_angle += theta_r
 
@@ -393,10 +384,11 @@ class MT(TF, MTLocation):
                 )
         else:
             new_m = self.clone_empty()
-            if self.has_impedance():
-                new_m.Z = new_z
-            if self.has_tipper():
-                new_m.Tipper = new_t
+            new_m._transfer_function = self._transfer_function.tf.rotate(
+                theta_r,
+                inplace=False,
+                coordinate_reference_frame=self.coordinate_reference_frame,
+            )
             new_m._rotation_angle += theta_r
             return new_m
 
@@ -740,21 +732,20 @@ class MT(TF, MTLocation):
 
         """
         if inplace:
-            self.Z = self.Z.remove_distortion(
+            self._transfer_function = self._transfer_function.tf.remove_distortion(
                 n_frequencies=n_frequencies,
                 comp=comp,
                 only_2d=only_2d,
-                inplace=False,
+                as_dataset=True,
             )
         else:
             new_mt = self.clone_empty()
-            new_mt.Z = self.Z.remove_distortion(
+            new_mt._transfer_function = self._transfer_function.tf.remove_distortion(
                 n_frequencies=n_frequencies,
                 comp=comp,
                 only_2d=only_2d,
-                inplace=False,
+                as_dataset=True,
             )
-            new_mt.Tipper = self.Tipper
             return new_mt
 
     def remove_static_shift(
@@ -788,20 +779,19 @@ class MT(TF, MTLocation):
         """
 
         if inplace:
-            self.Z = self.Z.remove_ss(
+            self._transfer_function = self._transfer_function.tf.remove_ss(
                 reduce_res_factor_x=ss_x,
                 reduce_res_factor_y=ss_y,
-                inplace=False,
+                as_dataset=True,
             )
 
         else:
             new_mt = self.clone_empty()
-            new_mt.Z = self.Z.remove_ss(
+            new_mt._transfer_function = self._transfer_function.tf.remove_ss(
                 reduce_res_factor_x=ss_x,
                 reduce_res_factor_y=ss_y,
-                inplace=inplace,
+                as_dataset=True,
             )
-            new_mt.Tipper = self.Tipper
             return new_mt
 
     def interpolate(
@@ -883,24 +873,28 @@ class MT(TF, MTLocation):
                     f"Station {self.station}: Using mean rotation angle of {theta_r:.2f} degrees."
                 )
         new_m._rotation_angle = np.repeat(theta_r, len(new_period))
-        if self.has_impedance():
-            new_m.Z = self.Z.interpolate(new_period, method=method, **kwargs)
-            if new_m.has_impedance():
-                if np.all(np.isnan(new_m.Z.z)):
-                    self.logger.warning(
-                        f"Station {self.station}: Interpolated Z values are all NaN, "
-                        "consider an alternative interpolation method. "
-                        "See scipy.interpolate.interp1d for more information."
-                    )
-        if self.has_tipper():
-            new_m.Tipper = self.Tipper.interpolate(new_period, method=method, **kwargs)
-            if new_m.has_tipper():
-                if np.all(np.isnan(new_m.Tipper.tipper)):
-                    self.logger.warning(
-                        f"Station {self.station}: Interpolated T values are all NaN, "
-                        "consider an alternative interpolation method. "
-                        "See scipy.interpolate.interp1d for more information."
-                    )
+
+        if self.has_impedance() or self.has_tipper():
+            new_m._transfer_function = self._transfer_function.tf.interpolate(
+                new_period,
+                inplace=False,
+                method=method,
+                extrapolate=not bounds_error,
+                **kwargs,
+            )
+
+            if new_m.has_impedance() and np.all(np.isnan(new_m.impedance.to_numpy())):
+                self.logger.warning(
+                    f"Station {self.station}: Interpolated Z values are all NaN, "
+                    "consider an alternative interpolation method. "
+                    "See scipy.interpolate.interp1d for more information."
+                )
+            if new_m.has_tipper() and np.all(np.isnan(new_m.tipper.to_numpy())):
+                self.logger.warning(
+                    f"Station {self.station}: Interpolated T values are all NaN, "
+                    "consider an alternative interpolation method. "
+                    "See scipy.interpolate.interp1d for more information."
+                )
 
         return new_m
 
