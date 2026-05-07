@@ -8,6 +8,8 @@ import xarray as xr
 
 from mtpy.core.transfer_function import MT_TO_OHM_FACTOR
 from mtpy.core.transfer_function.accessor import TFDatasetAccessor
+from mtpy.core.transfer_function.pt import PhaseTensor
+from mtpy.core.transfer_function.tipper import Tipper
 from mtpy.core.transfer_function.z import Z
 
 
@@ -126,6 +128,14 @@ class TestTFAccessorZ:
         assert np.allclose(ds.tf.phase_error, z.phase_error)
         assert np.allclose(ds.tf.resistivity_model_error, z.resistivity_model_error)
         assert np.allclose(ds.tf.phase_model_error, z.phase_model_error)
+        assert np.allclose(ds.tf.res_xx, z.res_xx)
+        assert np.allclose(ds.tf.res_xy, z.res_xy)
+        assert np.allclose(ds.tf.res_yx, z.res_yx)
+        assert np.allclose(ds.tf.res_yy, z.res_yy)
+        assert np.allclose(ds.tf.phase_xx, z.phase_xx)
+        assert np.allclose(ds.tf.phase_xy, z.phase_xy)
+        assert np.allclose(ds.tf.phase_yx, z.phase_yx)
+        assert np.allclose(ds.tf.phase_yy, z.phase_yy)
 
     def test_direct_properties_do_not_require_to_z(self, monkeypatch):
         z = Z(
@@ -204,3 +214,51 @@ class TestTFAccessorZ:
         distortion, distortion_error = ds.tf.estimate_distortion()
         assert isinstance(distortion, np.ndarray)
         assert isinstance(distortion_error, np.ndarray)
+
+    def test_tipper_accessor_parity(self):
+        tipper = Tipper(
+            tipper=np.ones((1, 1, 2), dtype=complex)
+            + 0.25j * np.ones((1, 1, 2), dtype=complex),
+            tipper_error=np.ones((1, 1, 2), dtype=float) * 0.01,
+            tipper_model_error=np.ones((1, 1, 2), dtype=float) * 0.03,
+            frequency=np.array([1.0]),
+        )
+        ds = tipper.to_xarray()
+
+        assert np.allclose(ds.tf.tipper(), tipper.tipper)
+        assert np.allclose(ds.tf.tipper_error(), tipper.tipper_error)
+        assert np.allclose(ds.tf.tipper_model_error(), tipper.tipper_model_error)
+        assert np.allclose(ds.tf.tipper_amplitude, tipper.amplitude)
+        assert np.allclose(ds.tf.tipper_phase, tipper.phase)
+        assert np.allclose(ds.tf.tipper_mag_real, tipper.mag_real)
+        assert np.allclose(ds.tf.tipper_mag_imag, tipper.mag_imag)
+        assert np.allclose(ds.tf.tipper_angle_real, tipper.angle_real)
+        assert np.allclose(ds.tf.tipper_angle_imag, tipper.angle_imag)
+
+    def test_pt_accessor_parity(self):
+        z_values = np.array([[[0, 1 + 1j], [-1 - 1j, 0]]])
+        z_errors = np.array([[[0.1, 0.05], [0.05, 0.1]]])
+        pt = PhaseTensor(
+            z=z_values,
+            z_error=z_errors,
+            z_model_error=z_errors,
+            frequency=np.array([1.0]),
+        )
+        ds = Z(
+            z=z_values,
+            z_error=z_errors,
+            z_model_error=z_errors,
+            frequency=np.array([1.0]),
+            units="mt",
+        ).to_xarray()
+        ds.attrs["impedance_units"] = "mt"
+
+        assert np.allclose(ds.tf.pt, pt.pt)
+        assert np.allclose(ds.tf.pt_error, pt.pt_error)
+        assert np.allclose(ds.tf.pt_model_error, pt.pt_model_error)
+        assert np.allclose(ds.tf.pt_phimin, pt.phimin)
+        assert np.allclose(ds.tf.pt_phimax, pt.phimax)
+        assert np.allclose(ds.tf.pt_azimuth, pt.azimuth)
+        assert np.allclose(ds.tf.pt_skew, pt.skew)
+        assert np.allclose(ds.tf.pt_ellipticity, pt.ellipticity)
+        assert np.allclose(ds.tf.pt_eccentricity, pt.eccentricity)
