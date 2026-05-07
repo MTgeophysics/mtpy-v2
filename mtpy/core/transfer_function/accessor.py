@@ -11,8 +11,25 @@ from . import IMPEDANCE_UNITS
 from .impedance_helpers import (
     compute_phase,
     compute_phase_error,
+    compute_phase_tensor,
+    compute_phase_tensor_error,
+    compute_pt_azimuth,
+    compute_pt_eccentricity,
+    compute_pt_ellipticity,
+    compute_pt_phimax,
+    compute_pt_phimin,
+    compute_pt_skew,
     compute_resistivity,
     compute_resistivity_error,
+    compute_tipper_amp_phase_error,
+    compute_tipper_amplitude,
+    compute_tipper_angle_error,
+    compute_tipper_angle_imag,
+    compute_tipper_angle_real,
+    compute_tipper_magnitude_error,
+    compute_tipper_magnitude_imag,
+    compute_tipper_magnitude_real,
+    compute_tipper_phase,
 )
 from .pt import PhaseTensor
 from .tipper import Tipper
@@ -269,6 +286,46 @@ class TFDatasetAccessor:
         return compute_phase_error(self._z_mt(), self._z_model_error_mt())
 
     @property
+    def res_error_xx(self) -> np.ndarray | None:
+        """Apparent resistivity error of the xx impedance component."""
+        return self._get_component("xx", self.resistivity_error)
+
+    @property
+    def res_error_xy(self) -> np.ndarray | None:
+        """Apparent resistivity error of the xy impedance component."""
+        return self._get_component("xy", self.resistivity_error)
+
+    @property
+    def res_error_yx(self) -> np.ndarray | None:
+        """Apparent resistivity error of the yx impedance component."""
+        return self._get_component("yx", self.resistivity_error)
+
+    @property
+    def res_error_yy(self) -> np.ndarray | None:
+        """Apparent resistivity error of the yy impedance component."""
+        return self._get_component("yy", self.resistivity_error)
+
+    @property
+    def res_model_error_xx(self) -> np.ndarray | None:
+        """Apparent resistivity model error of the xx impedance component."""
+        return self._get_component("xx", self.resistivity_model_error)
+
+    @property
+    def res_model_error_xy(self) -> np.ndarray | None:
+        """Apparent resistivity model error of the xy impedance component."""
+        return self._get_component("xy", self.resistivity_model_error)
+
+    @property
+    def res_model_error_yx(self) -> np.ndarray | None:
+        """Apparent resistivity model error of the yx impedance component."""
+        return self._get_component("yx", self.resistivity_model_error)
+
+    @property
+    def res_model_error_yy(self) -> np.ndarray | None:
+        """Apparent resistivity model error of the yy impedance component."""
+        return self._get_component("yy", self.resistivity_model_error)
+
+    @property
     def res_xx(self) -> np.ndarray | None:
         """Apparent resistivity of the xx impedance component."""
         return self._get_component("xx", self.resistivity)
@@ -309,89 +366,163 @@ class TFDatasetAccessor:
         return self._get_component("yy", self.phase)
 
     @property
+    def phase_error_xx(self) -> np.ndarray | None:
+        """Phase error of the xx impedance component in degrees."""
+        return self._get_component("xx", self.phase_error)
+
+    @property
+    def phase_error_xy(self) -> np.ndarray | None:
+        """Phase error of the xy impedance component in degrees."""
+        return self._get_component("xy", self.phase_error)
+
+    @property
+    def phase_error_yx(self) -> np.ndarray | None:
+        """Phase error of the yx impedance component in degrees."""
+        return self._get_component("yx", self.phase_error)
+
+    @property
+    def phase_error_yy(self) -> np.ndarray | None:
+        """Phase error of the yy impedance component in degrees."""
+        return self._get_component("yy", self.phase_error)
+
+    @property
+    def phase_model_error_xx(self) -> np.ndarray | None:
+        """Phase model error of the xx impedance component in degrees."""
+        return self._get_component("xx", self.phase_model_error)
+
+    @property
+    def phase_model_error_xy(self) -> np.ndarray | None:
+        """Phase model error of the xy impedance component in degrees."""
+        return self._get_component("xy", self.phase_model_error)
+
+    @property
+    def phase_model_error_yx(self) -> np.ndarray | None:
+        """Phase model error of the yx impedance component in degrees."""
+        return self._get_component("yx", self.phase_model_error)
+
+    @property
+    def phase_model_error_yy(self) -> np.ndarray | None:
+        """Phase model error of the yy impedance component in degrees."""
+        return self._get_component("yy", self.phase_model_error)
+
+    @property
     def tipper_amplitude(self) -> np.ndarray | None:
         """Tipper amplitude derived from the accessor tipper view."""
-        return self.to_tipper().amplitude
+        return compute_tipper_amplitude(self.tipper())
 
     @property
     def tipper_phase(self) -> np.ndarray | None:
         """Tipper phase in degrees derived from the accessor tipper view."""
-        return self.to_tipper().phase
+        return compute_tipper_phase(self.tipper())
 
     @property
     def tipper_amplitude_error(self) -> np.ndarray | None:
         """Tipper amplitude error derived from the accessor tipper view."""
-        return self.to_tipper().amplitude_error
+        return compute_tipper_amp_phase_error(self.tipper(), self.tipper_error())[0]
 
     @property
     def tipper_phase_error(self) -> np.ndarray | None:
         """Tipper phase error in degrees derived from the accessor tipper view."""
-        return self.to_tipper().phase_error
+        return compute_tipper_amp_phase_error(self.tipper(), self.tipper_error())[1]
+
+    @property
+    def tipper_amplitude_model_error(self) -> np.ndarray | None:
+        """Tipper amplitude model error derived from Dataset values."""
+        return compute_tipper_amp_phase_error(self.tipper(), self.tipper_model_error())[
+            0
+        ]
+
+    @property
+    def tipper_phase_model_error(self) -> np.ndarray | None:
+        """Tipper phase model error in degrees derived from Dataset values."""
+        return compute_tipper_amp_phase_error(self.tipper(), self.tipper_model_error())[
+            1
+        ]
 
     @property
     def tipper_mag_real(self) -> np.ndarray | None:
         """Tipper real-component magnitude."""
-        return self.to_tipper().mag_real
+        return compute_tipper_magnitude_real(self.tipper())
 
     @property
     def tipper_mag_imag(self) -> np.ndarray | None:
         """Tipper imaginary-component magnitude."""
-        return self.to_tipper().mag_imag
+        return compute_tipper_magnitude_imag(self.tipper())
 
     @property
     def tipper_angle_real(self) -> np.ndarray | None:
         """Tipper real-component angle in degrees."""
-        return self.to_tipper().angle_real
+        return compute_tipper_angle_real(self.tipper())
 
     @property
     def tipper_angle_imag(self) -> np.ndarray | None:
         """Tipper imaginary-component angle in degrees."""
-        return self.to_tipper().angle_imag
+        return compute_tipper_angle_imag(self.tipper())
+
+    @property
+    def tipper_mag_error(self) -> np.ndarray | None:
+        """Tipper magnitude error derived from Dataset values."""
+        return compute_tipper_magnitude_error(self.tipper_error())
+
+    @property
+    def tipper_angle_error(self) -> np.ndarray | None:
+        """Tipper angle error in degrees derived from Dataset values."""
+        return compute_tipper_angle_error(self.tipper_error())
+
+    @property
+    def tipper_mag_model_error(self) -> np.ndarray | None:
+        """Tipper magnitude model error derived from Dataset values."""
+        return compute_tipper_magnitude_error(self.tipper_model_error())
+
+    @property
+    def tipper_angle_model_error(self) -> np.ndarray | None:
+        """Tipper angle model error in degrees derived from Dataset values."""
+        return compute_tipper_angle_error(self.tipper_model_error())
 
     @property
     def pt(self) -> np.ndarray | None:
         """Phase tensor array derived from impedance channels."""
-        return self.to_pt().pt
+        return compute_phase_tensor(self._z_mt())
 
     @property
     def pt_error(self) -> np.ndarray | None:
         """Phase tensor error array derived from impedance channels."""
-        return self.to_pt().pt_error
+        return compute_phase_tensor_error(self._z_mt(), self._z_error_mt())
 
     @property
     def pt_model_error(self) -> np.ndarray | None:
         """Phase tensor model error array derived from impedance channels."""
-        return self.to_pt().pt_model_error
+        return compute_phase_tensor_error(self._z_mt(), self._z_model_error_mt())
 
     @property
     def pt_phimin(self) -> np.ndarray | None:
         """Minimum phase angle of the phase tensor in degrees."""
-        return self.to_pt().phimin
+        return compute_pt_phimin(self.pt)
 
     @property
     def pt_phimax(self) -> np.ndarray | None:
         """Maximum phase angle of the phase tensor in degrees."""
-        return self.to_pt().phimax
+        return compute_pt_phimax(self.pt)
 
     @property
     def pt_azimuth(self) -> np.ndarray | None:
         """Phase tensor azimuth in degrees."""
-        return self.to_pt().azimuth
+        return compute_pt_azimuth(self.pt)
 
     @property
     def pt_skew(self) -> np.ndarray | None:
         """Phase tensor skew in degrees."""
-        return self.to_pt().skew
+        return compute_pt_skew(self.pt)
 
     @property
     def pt_ellipticity(self) -> np.ndarray | None:
         """Phase tensor ellipticity."""
-        return self.to_pt().ellipticity
+        return compute_pt_ellipticity(self.pt)
 
     @property
     def pt_eccentricity(self) -> np.ndarray | None:
         """Phase tensor eccentricity."""
-        return self.to_pt().eccentricity
+        return compute_pt_eccentricity(self.pt)
 
     @property
     def phase_tensor(self) -> Any:

@@ -132,10 +132,26 @@ class TestTFAccessorZ:
         assert np.allclose(ds.tf.res_xy, z.res_xy)
         assert np.allclose(ds.tf.res_yx, z.res_yx)
         assert np.allclose(ds.tf.res_yy, z.res_yy)
+        assert np.allclose(ds.tf.res_error_xx, z.res_error_xx)
+        assert np.allclose(ds.tf.res_error_xy, z.res_error_xy)
+        assert np.allclose(ds.tf.res_error_yx, z.res_error_yx)
+        assert np.allclose(ds.tf.res_error_yy, z.res_error_yy)
+        assert np.allclose(ds.tf.res_model_error_xx, z.res_model_error_xx)
+        assert np.allclose(ds.tf.res_model_error_xy, z.res_model_error_xy)
+        assert np.allclose(ds.tf.res_model_error_yx, z.res_model_error_yx)
+        assert np.allclose(ds.tf.res_model_error_yy, z.res_model_error_yy)
         assert np.allclose(ds.tf.phase_xx, z.phase_xx)
         assert np.allclose(ds.tf.phase_xy, z.phase_xy)
         assert np.allclose(ds.tf.phase_yx, z.phase_yx)
         assert np.allclose(ds.tf.phase_yy, z.phase_yy)
+        assert np.allclose(ds.tf.phase_error_xx, z.phase_error_xx)
+        assert np.allclose(ds.tf.phase_error_xy, z.phase_error_xy)
+        assert np.allclose(ds.tf.phase_error_yx, z.phase_error_yx)
+        assert np.allclose(ds.tf.phase_error_yy, z.phase_error_yy)
+        assert np.allclose(ds.tf.phase_model_error_xx, z.phase_model_error_xx)
+        assert np.allclose(ds.tf.phase_model_error_xy, z.phase_model_error_xy)
+        assert np.allclose(ds.tf.phase_model_error_yx, z.phase_model_error_yx)
+        assert np.allclose(ds.tf.phase_model_error_yy, z.phase_model_error_yy)
 
     def test_direct_properties_do_not_require_to_z(self, monkeypatch):
         z = Z(
@@ -230,10 +246,50 @@ class TestTFAccessorZ:
         assert np.allclose(ds.tf.tipper_model_error(), tipper.tipper_model_error)
         assert np.allclose(ds.tf.tipper_amplitude, tipper.amplitude)
         assert np.allclose(ds.tf.tipper_phase, tipper.phase)
+        assert np.allclose(ds.tf.tipper_amplitude_error, tipper.amplitude_error)
+        assert np.allclose(ds.tf.tipper_phase_error, tipper.phase_error)
+        assert np.allclose(
+            ds.tf.tipper_amplitude_model_error, tipper.amplitude_model_error
+        )
+        assert np.allclose(ds.tf.tipper_phase_model_error, tipper.phase_model_error)
         assert np.allclose(ds.tf.tipper_mag_real, tipper.mag_real)
         assert np.allclose(ds.tf.tipper_mag_imag, tipper.mag_imag)
         assert np.allclose(ds.tf.tipper_angle_real, tipper.angle_real)
         assert np.allclose(ds.tf.tipper_angle_imag, tipper.angle_imag)
+        assert np.allclose(ds.tf.tipper_mag_error, tipper.mag_error)
+        assert np.allclose(ds.tf.tipper_angle_error, tipper.angle_error)
+        assert np.allclose(ds.tf.tipper_mag_model_error, tipper.mag_model_error)
+        assert np.allclose(ds.tf.tipper_angle_model_error, tipper.angle_model_error)
+
+    def test_direct_tipper_properties_do_not_require_to_tipper(self, monkeypatch):
+        tipper = Tipper(
+            tipper=np.ones((1, 1, 2), dtype=complex)
+            + 0.25j * np.ones((1, 1, 2), dtype=complex),
+            tipper_error=np.ones((1, 1, 2), dtype=float) * 0.01,
+            tipper_model_error=np.ones((1, 1, 2), dtype=float) * 0.03,
+            frequency=np.array([1.0]),
+        )
+        ds = tipper.to_xarray()
+
+        def fail_to_tipper(self):
+            raise AssertionError("to_tipper should not be called")
+
+        monkeypatch.setattr(TFDatasetAccessor, "to_tipper", fail_to_tipper)
+
+        assert ds.tf.tipper_amplitude is not None
+        assert ds.tf.tipper_phase is not None
+        assert ds.tf.tipper_amplitude_error is not None
+        assert ds.tf.tipper_phase_error is not None
+        assert ds.tf.tipper_amplitude_model_error is not None
+        assert ds.tf.tipper_phase_model_error is not None
+        assert ds.tf.tipper_mag_real is not None
+        assert ds.tf.tipper_mag_imag is not None
+        assert ds.tf.tipper_angle_real is not None
+        assert ds.tf.tipper_angle_imag is not None
+        assert ds.tf.tipper_mag_error is not None
+        assert ds.tf.tipper_angle_error is not None
+        assert ds.tf.tipper_mag_model_error is not None
+        assert ds.tf.tipper_angle_model_error is not None
 
     def test_pt_accessor_parity(self):
         z_values = np.array([[[0, 1 + 1j], [-1 - 1j, 0]]])
@@ -262,3 +318,30 @@ class TestTFAccessorZ:
         assert np.allclose(ds.tf.pt_skew, pt.skew)
         assert np.allclose(ds.tf.pt_ellipticity, pt.ellipticity)
         assert np.allclose(ds.tf.pt_eccentricity, pt.eccentricity)
+
+    def test_direct_pt_properties_do_not_require_to_pt(self, monkeypatch):
+        z_values = np.array([[[0, 1 + 1j], [-1 - 1j, 0]]])
+        z_errors = np.array([[[0.1, 0.05], [0.05, 0.1]]])
+        ds = Z(
+            z=z_values,
+            z_error=z_errors,
+            z_model_error=z_errors,
+            frequency=np.array([1.0]),
+            units="mt",
+        ).to_xarray()
+        ds.attrs["impedance_units"] = "mt"
+
+        def fail_to_pt(self):
+            raise AssertionError("to_pt should not be called")
+
+        monkeypatch.setattr(TFDatasetAccessor, "to_pt", fail_to_pt)
+
+        assert ds.tf.pt is not None
+        assert ds.tf.pt_error is not None
+        assert ds.tf.pt_model_error is not None
+        assert ds.tf.pt_phimin is not None
+        assert ds.tf.pt_phimax is not None
+        assert ds.tf.pt_azimuth is not None
+        assert ds.tf.pt_skew is not None
+        assert ds.tf.pt_ellipticity is not None
+        assert ds.tf.pt_eccentricity is not None
