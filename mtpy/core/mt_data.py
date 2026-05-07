@@ -231,6 +231,69 @@ class MTData:
         )
 
     @property
+    def utm_epsg(self) -> int | None:
+        """Return the root UTM EPSG code when available."""
+        value = self.attrs.get("utm_crs", self.attrs.get("utm_epsg"))
+        epsg = self._coerce_epsg_value(value)
+        if epsg is None:
+            return None
+        if str(epsg).isdigit():
+            return int(epsg)
+        return None
+
+    @utm_epsg.setter
+    def utm_epsg(self, value: Any) -> None:
+        """Set root UTM CRS/EPSG and propagate to all station attrs."""
+        self.utm_crs = value
+
+    @property
+    def utm_crs(self) -> Any | None:
+        """Return the root UTM CRS/EPSG value used for station projections."""
+        return self.attrs.get("utm_crs", self.attrs.get("utm_epsg"))
+
+    @utm_crs.setter
+    def utm_crs(self, value: Any) -> None:
+        """Set root UTM CRS/EPSG and refresh station location attrs."""
+        if value in [None, "", "None", "none", "null"]:
+            self.attrs.pop("utm_crs", None)
+            self.attrs.pop("utm_epsg", None)
+            return
+
+        self.attrs["utm_crs"] = value
+        epsg = self._coerce_epsg_value(value)
+        if epsg is not None:
+            self.attrs["utm_epsg"] = epsg
+
+        self._apply_utm_crs_to_station_attrs(value)
+
+    def _apply_utm_crs_to_station_attrs(self, utm_crs: Any) -> None:
+        """Apply a root UTM CRS/EPSG to all station attrs and recompute EN."""
+        from .mt_location import MTLocation
+
+        for station_path in self._iter_station_paths():
+            station = self.get_station(station_path)
+            attrs = station.attrs
+            attrs["utm_crs"] = utm_crs
+
+            latitude = attrs.get("latitude")
+            longitude = attrs.get("longitude")
+            if latitude in [None, "", "None", "none", "null"]:
+                continue
+            if longitude in [None, "", "None", "none", "null"]:
+                continue
+
+            try:
+                point = MTLocation(
+                    latitude=float(latitude),
+                    longitude=float(longitude),
+                    utm_crs=utm_crs,
+                )
+                attrs["easting"] = float(point.east)
+                attrs["northing"] = float(point.north)
+            except Exception:
+                continue
+
+    @property
     def survey_names(self) -> list[str]:
         """Return sorted survey names inferred from station paths."""
         return sorted(
