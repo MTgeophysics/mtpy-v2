@@ -353,6 +353,18 @@ class MTCollection:
         **kwargs : dict
             Additional parameters
 
+        Notes
+        -----
+        This method also initializes :attr:`mt_data` for convenience.
+        If the collection does not yet contain readable transfer functions,
+        :attr:`mt_data` is initialized as an empty :class:`MTData`.
+
+        Examples
+        --------
+        >>> mc = MTCollection()
+        >>> mc.open_collection("my_collection.h5", mode="a")
+        >>> mt_data = mc.mt_data
+
         """
         if filename is not None:
             self.mth5_filename = filename
@@ -379,15 +391,20 @@ class MTCollection:
 
     def refresh_mt_data(self) -> MTData:
         """
-        Reload :attr:`mt_data` from the collection.
+        Reload ``mt_data`` from the collection.
 
         Call this after adding or removing transfer functions to keep
-        :attr:`mt_data` in sync with the underlying MTH5 file.
+        ``mt_data`` in sync with the underlying MTH5 file.
 
         Returns
         -------
         MTData
-            The refreshed MTData object (also stored as :attr:`mt_data`).
+            The refreshed MTData object (also stored as ``mt_data``).
+
+        Examples
+        --------
+        >>> mc.add_tf(tf_list)
+        >>> mt_data = mc.refresh_mt_data()
 
         """
         self.mt_data = self.to_mt_data_tree()
@@ -403,7 +420,7 @@ class MTCollection:
         """
         Apply a transform to every station dataset and return the result.
 
-        The result is also stored in :attr:`mt_data`.
+        The result is also stored in ``mt_data``.
 
         Parameters
         ----------
@@ -423,7 +440,17 @@ class MTCollection:
         -------
         MTData
             MTData object with the transform applied (also stored as
-            :attr:`mt_data`).
+            ``mt_data``).
+
+        Examples
+        --------
+        >>> mc.map_stations(lambda ds: ds.tf.rotate(20), write_back=False)
+        >>> mc.map_stations(
+        ...     lambda ds: ds.tf.interpolate([1.0, 10.0]),
+        ...     write_back=True,
+        ...     new_survey="processed",
+        ...     tf_id_extra="interp",
+        ... )
 
         """
         if self.mt_data is None:
