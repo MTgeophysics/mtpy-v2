@@ -599,6 +599,168 @@ class TestMTDataNodeOperations:
 
         assert isinstance(tree.mt_stations, MTStations)
 
+    def test_compute_relative_locations_wrapper_round_trip(self):
+        mt_1 = MT()
+        mt_1.survey = "wrap"
+        mt_1.station = "s01"
+        mt_1.latitude = 40.0
+        mt_1.longitude = -120.0
+        mt_1.east = 500000.0
+        mt_1.north = 4400000.0
+        mt_1.utm_epsg = 32611
+
+        mt_2 = MT()
+        mt_2.survey = "wrap"
+        mt_2.station = "s02"
+        mt_2.latitude = 40.1
+        mt_2.longitude = -120.1
+        mt_2.east = 500400.0
+        mt_2.north = 4400600.0
+        mt_2.utm_epsg = 32611
+
+        tree = MTData()
+        tree.add_stations([mt_1, mt_2])
+
+        expected = tree.to_mt_stations()
+        expected.compute_relative_locations()
+        expected_df = expected.station_locations.set_index(["survey", "station"])
+
+        tree.compute_relative_locations()
+        actual_df = tree.station_locations.set_index(["survey", "station"])
+
+        for column in ["model_east", "model_north", "model_elevation"]:
+            assert np.allclose(
+                actual_df[column].to_numpy(dtype=float),
+                expected_df[column].to_numpy(dtype=float),
+            )
+
+    def test_rotate_stations_wrapper_round_trip(self):
+        mt_1 = MT()
+        mt_1.survey = "rotate_wrap"
+        mt_1.station = "s01"
+        mt_1.latitude = 40.0
+        mt_1.longitude = -120.0
+        mt_1.east = 500000.0
+        mt_1.north = 4400000.0
+        mt_1.utm_epsg = 32611
+
+        mt_2 = MT()
+        mt_2.survey = "rotate_wrap"
+        mt_2.station = "s02"
+        mt_2.latitude = 40.05
+        mt_2.longitude = -120.05
+        mt_2.east = 500700.0
+        mt_2.north = 4400400.0
+        mt_2.utm_epsg = 32611
+
+        tree = MTData()
+        tree.add_stations([mt_1, mt_2])
+        tree.compute_relative_locations()
+
+        expected = tree.to_mt_stations()
+        expected.rotate_stations(30.0)
+        expected_df = expected.station_locations.set_index(["survey", "station"])
+
+        tree.rotate_stations(30.0)
+        actual_df = tree.station_locations.set_index(["survey", "station"])
+
+        for column in ["model_east", "model_north"]:
+            assert np.allclose(
+                actual_df[column].to_numpy(dtype=float),
+                expected_df[column].to_numpy(dtype=float),
+            )
+        assert np.isclose(tree.data_rotation_angle, 30.0)
+
+    def test_center_stations_wrapper_round_trip(self):
+        mt_1 = MT()
+        mt_1.survey = "center_wrap"
+        mt_1.station = "s01"
+        mt_1.latitude = 40.0
+        mt_1.longitude = -120.0
+        mt_1.east = 500000.0
+        mt_1.north = 4400000.0
+        mt_1.utm_epsg = 32611
+
+        mt_2 = MT()
+        mt_2.survey = "center_wrap"
+        mt_2.station = "s02"
+        mt_2.latitude = 40.1
+        mt_2.longitude = -120.1
+        mt_2.east = 501000.0
+        mt_2.north = 4401000.0
+        mt_2.utm_epsg = 32611
+
+        class _Model:
+            grid_east = np.array([-2000.0, 0.0, 1000.0, 2000.0])
+            grid_north = np.array([-2000.0, 0.0, 1000.0, 2000.0])
+
+        tree = MTData()
+        tree.add_stations([mt_1, mt_2])
+        tree.compute_relative_locations()
+
+        expected = tree.to_mt_stations()
+        expected.center_stations(_Model())
+        expected_df = expected.station_locations.set_index(["survey", "station"])
+
+        tree.center_stations(_Model())
+        actual_df = tree.station_locations.set_index(["survey", "station"])
+
+        for column in ["model_east", "model_north"]:
+            assert np.allclose(
+                actual_df[column].to_numpy(dtype=float),
+                expected_df[column].to_numpy(dtype=float),
+            )
+
+    def test_project_stations_on_topography_wrapper_round_trip(self):
+        mt_1 = MT()
+        mt_1.survey = "topo_wrap"
+        mt_1.station = "s01"
+        mt_1.latitude = 40.0
+        mt_1.longitude = -120.0
+        mt_1.east = 500000.0
+        mt_1.north = 4400000.0
+        mt_1.model_east = 500.0
+        mt_1.model_north = 500.0
+        mt_1.utm_epsg = 32611
+
+        mt_2 = MT()
+        mt_2.survey = "topo_wrap"
+        mt_2.station = "s02"
+        mt_2.latitude = 40.1
+        mt_2.longitude = -120.1
+        mt_2.east = 500800.0
+        mt_2.north = 4400900.0
+        mt_2.model_east = 1500.0
+        mt_2.model_north = 1500.0
+        mt_2.utm_epsg = 32611
+
+        class _TopoModel:
+            grid_east = np.array([0.0, 1000.0, 2000.0])
+            grid_north = np.array([0.0, 1000.0, 2000.0])
+            grid_z = np.array([100.0, 50.0, 0.0])
+            res_model = np.array(
+                [
+                    [[1e12, 100.0, 100.0], [1e12, 100.0, 100.0]],
+                    [[1e12, 100.0, 100.0], [1e12, 100.0, 100.0]],
+                ]
+            )
+
+        tree = MTData()
+        tree.add_stations([mt_1, mt_2])
+
+        expected = tree.to_mt_stations()
+        expected.project_stations_on_topography(_TopoModel())
+        expected_df = expected.station_locations.set_index(["survey", "station"])
+
+        tree.project_stations_on_topography(_TopoModel())
+        actual_df = tree.station_locations.set_index(["survey", "station"])
+
+        assert np.allclose(
+            actual_df["model_elevation"].to_numpy(dtype=float),
+            expected_df["model_elevation"].to_numpy(dtype=float),
+        )
+        assert np.isclose(tree._center_elev, 100.0)
+
     def test_get_station_as_mt_restores_location_attrs(self, loaded_profile_mt):
         tree = MTData()
         station_path = tree.add_station(loaded_profile_mt)

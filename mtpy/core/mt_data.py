@@ -232,6 +232,40 @@ class MTData:
         )
 
     @property
+    def datum_epsg(self) -> int | None:
+        """Return the root datum EPSG code when available."""
+        value = self.attrs.get("datum_crs", self.attrs.get("datum_epsg"))
+        epsg = self._coerce_epsg_value(value)
+        if epsg is None:
+            return None
+        if str(epsg).isdigit():
+            return int(epsg)
+        return None
+
+    @datum_epsg.setter
+    def datum_epsg(self, value: Any) -> None:
+        """Set root datum CRS/EPSG."""
+        self.datum_crs = value
+
+    @property
+    def datum_crs(self) -> Any | None:
+        """Return the root datum CRS/EPSG value."""
+        return self.attrs.get("datum_crs", self.attrs.get("datum_epsg"))
+
+    @datum_crs.setter
+    def datum_crs(self, value: Any) -> None:
+        """Set root datum CRS/EPSG."""
+        if value in [None, "", "None", "none", "null"]:
+            self.attrs.pop("datum_crs", None)
+            self.attrs.pop("datum_epsg", None)
+            return
+
+        self.attrs["datum_crs"] = value
+        epsg = self._coerce_epsg_value(value)
+        if epsg is not None:
+            self.attrs["datum_epsg"] = epsg
+
+    @property
     def utm_epsg(self) -> int | None:
         """Return the root UTM EPSG code when available."""
         value = self.attrs.get("utm_crs", self.attrs.get("utm_epsg"))
@@ -1731,7 +1765,11 @@ class MTData:
         """
         from .mt_stations import MTStations
 
-        return MTStations(None, station_locations=self.station_locations)
+        return MTStations(
+            self.utm_epsg,
+            datum_epsg=self.datum_epsg,
+            station_locations=self.station_locations,
+        )
 
     @property
     def center_point(self) -> Any:
@@ -2022,6 +2060,176 @@ class MTData:
     def mt_stations(self) -> "MTStations":
         """Convenience accessor for station locations represented by the tree."""
         return self.to_mt_stations()
+
+    def _sync_station_locations_from_mt_stations(
+        self,
+        mt_stations: "MTStations",
+    ) -> None:
+        """Write MTStations location updates back into tree station attrs."""
+        self.compute()
+
+        station_df = mt_stations.station_locations
+        if station_df is None or station_df.empty:
+            return
+
+        key_to_path: dict[tuple[str, str], str] = {}
+        for station_path in self._iter_station_paths():
+            attrs = self.get_station(station_path).attrs
+            key = (
+                self._clean_name(attrs.get("survey"), "default"),
+                self._clean_name(attrs.get("station"), "unknown_station"),
+            )
+            key_to_path[key] = station_path
+
+        for row in station_df.itertuples(index=False):
+            survey = self._clean_name(getattr(row, "survey", None), "default")
+            station = self._clean_name(
+                getattr(row, "station", None),
+                "unknown_station",
+            )
+            station_path = key_to_path.get((survey, station))
+            if station_path is None:
+                continue
+
+            attrs = self.get_station(station_path).attrs
+            attrs["latitude"] = getattr(row, "latitude", attrs.get("latitude"))
+            attrs["longitude"] = getattr(row, "longitude", attrs.get("longitude"))
+            attrs["elevation"] = getattr(row, "elevation", attrs.get("elevation"))
+            attrs["easting"] = getattr(row, "east", attrs.get("easting"))
+            attrs["northing"] = getattr(row, "north", attrs.get("northing"))
+            attrs["model_east"] = getattr(row, "model_east", attrs.get("model_east"))
+            attrs["model_north"] = getattr(
+                row,
+                "model_north",
+                attrs.get("model_north"),
+            )
+            attrs["model_elevation"] = getattr(
+                row,
+                "model_elevation",
+                attrs.get("model_elevation"),
+            )
+            attrs["profile_offset"] = getattr(
+                row,
+                "profile_offset",
+                attrs.get("profile_offset"),
+            )
+
+            datum_epsg = self._coerce_epsg_value(getattr(row, "datum_epsg", None))
+            if datum_epsg is not None:
+                attrs["datum_crs"] = datum_epsg
+
+            utm_epsg = self._coerce_epsg_value(getattr(row, "utm_epsg", None))
+            if utm_epsg is not None:
+                attrs["utm_crs"] = utm_epsg
+                attrs["utm_epsg"] = utm_epsg
+
+        if mt_stations.utm_epsg is not None:
+            self.attrs["utm_epsg"] = mt_stations.utm_epsg
+            self.attrs["utm_crs"] = mt_stations.utm_epsg
+        if mt_stations.datum_epsg is not None:
+            self.attrs["datum_crs"] = mt_stations.datum_epsg
+
+        self.data_rotation_angle = getattr(
+            mt_stations,
+            "rotation_angle",
+            self.data_rotation_angle,
+        )
+        self._center_lat = getattr(mt_stations, "_center_lat", self._center_lat)
+        self._center_lon = getattr(mt_stations, "_center_lon", self._center_lon)
+        self._center_elev = getattr(mt_stations, "_center_elev", self._center_elev)
+
+        if self._index is not None:
+            self.rebuild_index(index_db_path=self._index_db_path)
+
+    def compute_relative_locations(self) -> None:
+        """Compute model-relative station coordinates and sync to the tree."""
+        stations = self.to_mt_stations()
+        stations.compute_relative_locations()
+        self._sync_station_locations_from_mt_stations(stations)
+
+    def rotate_stations(self, rotation_angle: float) -> None:
+        """Rotate station model coordinates and sync to the tree."""
+        stations = self.to_mt_stations()
+        stations.rotate_stations(rotation_angle)
+        self._sync_station_locations_from_mt_stations(stations)
+
+    def center_stations(self, model_obj: Any) -> None:
+        """Center station locations to model cell centers and sync to tree."""
+        stations = self.to_mt_stations()
+        stations.center_stations(model_obj)
+        self._sync_station_locations_from_mt_stations(stations)
+
+    def project_stations_on_topography(
+        self,
+        model_object: Any,
+        air_resistivity: float = 1e12,
+        sea_resistivity: float = 0.3,
+        ocean_bottom: bool = False,
+    ) -> None:
+        """Project station elevations to model topography and sync to tree."""
+        stations = self.to_mt_stations()
+        stations.project_stations_on_topography(
+            model_object,
+            air_resistivity=air_resistivity,
+            sea_resistivity=sea_resistivity,
+            ocean_bottom=ocean_bottom,
+        )
+        self._sync_station_locations_from_mt_stations(stations)
+
+    def to_geopd(self) -> Any:
+        """Return station locations as a GeoDataFrame via MTStations."""
+        return self.to_mt_stations().to_geopd()
+
+    def to_shp(self, shp_fn: str | Path) -> str | Path:
+        """Write a station-location shapefile via MTStations."""
+        return self.to_mt_stations().to_shp(shp_fn)
+
+    def to_csv(self, csv_fn: str | Path, geometry: bool = False) -> None:
+        """Write station locations to CSV via MTStations."""
+        self.to_mt_stations().to_csv(csv_fn, geometry=geometry)
+
+    def to_vtk(
+        self,
+        vtk_fn: str | Path | None = None,
+        vtk_save_path: str | Path | None = None,
+        vtk_fn_basename: str = "ModEM_stations",
+        geographic: bool = False,
+        shift_east: float = 0,
+        shift_north: float = 0,
+        shift_elev: float = 0,
+        units: str = "km",
+        coordinate_system: str = "nez+",
+    ) -> Path:
+        """Write a station-location VTK file via MTStations."""
+        return self.to_mt_stations().to_vtk(
+            vtk_fn=vtk_fn,
+            vtk_save_path=vtk_save_path,
+            vtk_fn_basename=vtk_fn_basename,
+            geographic=geographic,
+            shift_east=shift_east,
+            shift_north=shift_north,
+            shift_elev=shift_elev,
+            units=units,
+            coordinate_system=coordinate_system,
+        )
+
+    def generate_profile(
+        self,
+        units: str = "deg",
+    ) -> tuple[float, float, float, float, dict[str, float]]:
+        """Generate a best-fit profile line via MTStations."""
+        return self.to_mt_stations().generate_profile(units=units)
+
+    def generate_profile_from_strike(
+        self,
+        strike: float,
+        units: str = "deg",
+    ) -> tuple[float, float, float, float, dict[str, float]]:
+        """Generate a profile line from strike via MTStations."""
+        return self.to_mt_stations().generate_profile_from_strike(
+            strike,
+            units=units,
+        )
 
     def get_nearby_stations(
         self,
