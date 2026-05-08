@@ -80,6 +80,41 @@ class TestPlotResPhasePseudoSectionMTData:
             set(df.columns)
         )
 
+    def test_get_profile_line_syncs_profile_offsets_to_tree(self, mt_data_tree):
+        plotter = PlotResPhasePseudoSection(mt_data_tree, show_plot=False)
+
+        plotter._get_profile_line()
+
+        station_offsets = mt_data_tree.station_locations["profile_offset"].to_numpy(
+            dtype=float
+        )
+        assert station_offsets.size == 2
+        assert np.isclose(station_offsets.min(), 0.0)
+        assert np.any(station_offsets > 0)
+
+        mt_offsets = np.array(
+            [
+                float(getattr(tf, "profile_offset", 0.0))
+                for tf in plotter._get_mt_objects()
+            ]
+        )
+        assert np.any(mt_offsets > 0)
+
+    def test_get_offset_prefers_station_locations_profile_offset(self, mt_data_tree):
+        plotter = PlotResPhasePseudoSection(mt_data_tree, show_plot=False)
+
+        station_paths = list(mt_data_tree._iter_station_paths())
+        station_path = station_paths[0]
+        station_ds = mt_data_tree.get_station(station_path)
+        station_ds.attrs["profile_offset"] = 2.5
+
+        tf = mt_data_tree.get_station(station_path, as_mt=True)
+        tf.profile_offset = 999.0
+
+        out = plotter._get_offset(tf)
+
+        assert np.isclose(out, 2.5 * plotter.x_stretch)
+
     def test_plot_runs_with_tree_backed_data(self, mt_data_tree, monkeypatch):
         plotter = PlotResPhasePseudoSection(mt_data_tree, show_plot=False)
 

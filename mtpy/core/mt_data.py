@@ -1602,6 +1602,8 @@ class MTData:
             mt_obj.east = attrs["easting"]
         if attrs.get("northing") is not None:
             mt_obj.north = attrs["northing"]
+        if attrs.get("profile_offset") is not None:
+            mt_obj.profile_offset = attrs["profile_offset"]
 
         survey_md = attrs.get("survey_metadata", {})
         if isinstance(survey_md, dict) and survey_md:

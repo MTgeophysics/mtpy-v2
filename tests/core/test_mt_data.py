@@ -892,6 +892,17 @@ class TestMTDataNodeOperations:
         assert out.longitude == loaded_profile_mt.longitude
         assert out.elevation == loaded_profile_mt.elevation
 
+    def test_get_station_as_mt_restores_profile_offset(self, loaded_profile_mt):
+        mt_obj = loaded_profile_mt.copy()
+        mt_obj.profile_offset = 123.456
+
+        tree = MTData()
+        station_path = tree.add_station(mt_obj)
+
+        out = tree.get_station(station_path, as_mt=True)
+
+        assert np.isclose(out.profile_offset, 123.456)
+
     def test_survey_ids_empty_tree(self):
         tree = MTData()
 
