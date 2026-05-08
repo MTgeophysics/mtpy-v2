@@ -403,6 +403,21 @@ class PlotBaseMaps(PlotBase):
 
         return interp_dict
 
+    def _get_plot_period_index(self, tf, rtol: float = 1e-6) -> int | None:
+        """Return index of the configured plot period if present in TF data."""
+        period = getattr(tf, "period", None)
+        if period is None:
+            return None
+
+        period_array = np.asarray(period, dtype=float)
+        if period_array.size == 0:
+            return None
+
+        idx = np.where(np.isclose(period_array, float(self.plot_period), rtol=rtol))[0]
+        if idx.size == 0:
+            return None
+        return int(idx[0])
+
     def _get_interpolated_z(self, tf) -> np.ndarray:
         """
         Get interpolated impedance tensor at plot period.
@@ -419,6 +434,13 @@ class PlotBaseMaps(PlotBase):
             specified plot period
 
         """
+        idx = self._get_plot_period_index(tf)
+        if idx is not None and tf.Z is not None:
+            try:
+                return np.nan_to_num(np.asarray(tf.Z.z[idx : idx + 1], dtype=complex))
+            except Exception:
+                pass
+
         if not hasattr(tf, "z_interp_dict"):
             tf.z_interp_dict = self.get_interp1d_functions_z(tf)
         return np.nan_to_num(
@@ -460,6 +482,15 @@ class PlotBaseMaps(PlotBase):
             specified plot period. Returns zeros if no error data available.
 
         """
+        idx = self._get_plot_period_index(tf)
+        if idx is not None and tf.Z is not None and tf.Z._has_tf_error():
+            try:
+                return np.nan_to_num(
+                    np.asarray(tf.Z.z_error[idx : idx + 1], dtype=float)
+                )
+            except Exception:
+                pass
+
         if not hasattr(tf, "z_interp_dict"):
             tf.z_interp_dict = self.get_interp1d_functions_z(tf)
         if tf.z_interp_dict["zxy"]["err"] is not None:
@@ -496,6 +527,15 @@ class PlotBaseMaps(PlotBase):
             specified plot period. Returns zeros if no model error data available.
 
         """
+        idx = self._get_plot_period_index(tf)
+        if idx is not None and tf.Z is not None and tf.Z._has_tf_model_error():
+            try:
+                return np.nan_to_num(
+                    np.asarray(tf.Z.z_model_error[idx : idx + 1], dtype=float)
+                )
+            except Exception:
+                pass
+
         if not hasattr(tf, "z_interp_dict"):
             tf.z_interp_dict = self.get_interp1d_functions_z(tf)
         if tf.z_interp_dict["zxy"]["model_err"] is not None:
@@ -540,6 +580,15 @@ class PlotBaseMaps(PlotBase):
             plot period. Returns zeros if no tipper data available.
 
         """
+        idx = self._get_plot_period_index(tf)
+        if idx is not None and tf.has_tipper() and tf.Tipper is not None:
+            try:
+                return np.nan_to_num(
+                    np.asarray(tf.Tipper.tipper[idx : idx + 1], dtype=complex)
+                )
+            except Exception:
+                pass
+
         if not hasattr(tf, "t_interp_dict"):
             tf.t_interp_dict = self.get_interp1d_functions_t(tf)
         if not tf.has_tipper():
@@ -572,6 +621,15 @@ class PlotBaseMaps(PlotBase):
         :return: DESCRIPTION.
         :rtype: TYPE
         """
+        idx = self._get_plot_period_index(tf)
+        if idx is not None and tf.has_tipper() and tf.Tipper._has_tf_error():
+            try:
+                return np.nan_to_num(
+                    np.asarray(tf.Tipper.tipper_error[idx : idx + 1], dtype=float)
+                )
+            except Exception:
+                pass
+
         if not hasattr(tf, "t_interp_dict"):
             tf.t_interp_dict = self.get_interp1d_functions_t(tf)
 
@@ -613,6 +671,18 @@ class PlotBaseMaps(PlotBase):
             plot period. Returns zeros if no tipper model error data available.
 
         """
+        idx = self._get_plot_period_index(tf)
+        if idx is not None and tf.has_tipper() and tf.Tipper._has_tf_model_error():
+            try:
+                return np.nan_to_num(
+                    np.asarray(
+                        tf.Tipper.tipper_model_error[idx : idx + 1],
+                        dtype=float,
+                    )
+                )
+            except Exception:
+                pass
+
         if not hasattr(tf, "t_interp_dict"):
             tf.t_interp_dict = self.get_interp1d_functions_t(tf)
 
