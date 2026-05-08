@@ -761,6 +761,127 @@ class TestMTDataNodeOperations:
         )
         assert np.isclose(tree._center_elev, 100.0)
 
+    def test_to_geopd_wrapper_delegates_to_mt_stations(self, monkeypatch):
+        tree = MTData()
+        expected = object()
+
+        class _FakeStations:
+            def to_geopd(self):
+                return expected
+
+        monkeypatch.setattr(tree, "to_mt_stations", lambda: _FakeStations())
+
+        out = tree.to_geopd()
+
+        assert out is expected
+
+    def test_to_csv_wrapper_delegates_to_mt_stations(self, monkeypatch, tmp_path):
+        tree = MTData()
+        captured = {}
+
+        class _FakeStations:
+            def to_csv(self, csv_fn, geometry=False):
+                captured["csv_fn"] = csv_fn
+                captured["geometry"] = geometry
+
+        monkeypatch.setattr(tree, "to_mt_stations", lambda: _FakeStations())
+
+        out = tree.to_csv(tmp_path / "stations.csv", geometry=True)
+
+        assert out is None
+        assert captured["csv_fn"] == tmp_path / "stations.csv"
+        assert captured["geometry"] is True
+
+    def test_to_shp_wrapper_delegates_to_mt_stations(self, monkeypatch, tmp_path):
+        tree = MTData()
+        expected = tmp_path / "stations.shp"
+        captured = {}
+
+        class _FakeStations:
+            def to_shp(self, shp_fn):
+                captured["shp_fn"] = shp_fn
+                return expected
+
+        monkeypatch.setattr(tree, "to_mt_stations", lambda: _FakeStations())
+
+        out = tree.to_shp(tmp_path / "stations.shp")
+
+        assert out == expected
+        assert captured["shp_fn"] == tmp_path / "stations.shp"
+
+    def test_to_vtk_wrapper_delegates_to_mt_stations(self, monkeypatch, tmp_path):
+        tree = MTData()
+        expected = tmp_path / "stations.vtu"
+        captured = {}
+
+        class _FakeStations:
+            def to_vtk(self, **kwargs):
+                captured.update(kwargs)
+                return expected
+
+        monkeypatch.setattr(tree, "to_mt_stations", lambda: _FakeStations())
+
+        out = tree.to_vtk(
+            vtk_fn=tmp_path / "stations.vtk",
+            vtk_save_path=tmp_path,
+            vtk_fn_basename="wrap_stations",
+            geographic=True,
+            shift_east=1.0,
+            shift_north=2.0,
+            shift_elev=3.0,
+            units="m",
+            coordinate_system="enz-",
+        )
+
+        assert out == expected
+        assert captured["vtk_fn"] == tmp_path / "stations.vtk"
+        assert captured["vtk_save_path"] == tmp_path
+        assert captured["vtk_fn_basename"] == "wrap_stations"
+        assert captured["geographic"] is True
+        assert np.isclose(captured["shift_east"], 1.0)
+        assert np.isclose(captured["shift_north"], 2.0)
+        assert np.isclose(captured["shift_elev"], 3.0)
+        assert captured["units"] == "m"
+        assert captured["coordinate_system"] == "enz-"
+
+    def test_generate_profile_wrapper_delegates_to_mt_stations(self, monkeypatch):
+        tree = MTData()
+        expected = (1.0, 2.0, 3.0, 4.0, {"s01": 0.0})
+        captured = {}
+
+        class _FakeStations:
+            def generate_profile(self, units="deg"):
+                captured["units"] = units
+                return expected
+
+        monkeypatch.setattr(tree, "to_mt_stations", lambda: _FakeStations())
+
+        out = tree.generate_profile(units="m")
+
+        assert out == expected
+        assert captured["units"] == "m"
+
+    def test_generate_profile_from_strike_wrapper_delegates_to_mt_stations(
+        self, monkeypatch
+    ):
+        tree = MTData()
+        expected = (0.0, 1.0, 2.0, 3.0, {"s01": 100.0})
+        captured = {}
+
+        class _FakeStations:
+            def generate_profile_from_strike(self, strike, units="deg"):
+                captured["strike"] = strike
+                captured["units"] = units
+                return expected
+
+        monkeypatch.setattr(tree, "to_mt_stations", lambda: _FakeStations())
+
+        out = tree.generate_profile_from_strike(35.0, units="m")
+
+        assert out == expected
+        assert np.isclose(captured["strike"], 35.0)
+        assert captured["units"] == "m"
+
     def test_get_station_as_mt_restores_location_attrs(self, loaded_profile_mt):
         tree = MTData()
         station_path = tree.add_station(loaded_profile_mt)
