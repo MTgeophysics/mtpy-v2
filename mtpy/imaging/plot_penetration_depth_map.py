@@ -379,7 +379,7 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
 
         self.fig.suptitle(
             f"Depth of investigation for period {self.plot_period:5g} (s)",
-            fontproperties=self.font_dict,
+            fontdict=self.font_dict,
         )
 
         plt.tight_layout()
