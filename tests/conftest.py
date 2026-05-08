@@ -720,7 +720,7 @@ def mt_collection_from_mt_data_tree(tf_file_list, worker_id):
 
     mc = MTCollection()
     mc.open_collection(collection_file)
-    mc.from_mt_data_tree(mt_data_obj)
+    mc.from_mt_data(mt_data_obj)
 
     yield mc, mt_data_obj
 
