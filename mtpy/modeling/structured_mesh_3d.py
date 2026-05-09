@@ -1611,14 +1611,17 @@ class StructuredGrid3D:
 
             elif airlayer_type == "constant":
                 if max_elev is not None:
-                    air_cell_thickness = np.ceil(
-                        (max_elev - topo_core_min) / self.n_air_layers
-                    )
+                    n_air_layers = np.ceil((max_elev - topo_core_min) / self.z1_layer)
                 else:
-                    air_cell_thickness = np.ceil(
-                        (topo_core.max() - topo_core_min) / self.n_air_layers
+                    n_air_layers = np.ceil(
+                        (topo_core.max() - topo_core_min) / self.z1_layer
                     )
-                new_air_nodes = np.array([air_cell_thickness] * self.n_air_layers)
+
+                logger.info(
+                    f"Using constant air layer thickness of {self.z1_layer} m, which results in {n_air_layers} air layers to cover the topography"
+                )
+                self.n_air_layers = int(n_air_layers)
+                new_air_nodes = np.array([self.z1_layer] * self.n_air_layers)
 
             if "down" not in airlayer_type:
                 # sum to get grid cell locations
