@@ -146,10 +146,10 @@ class ResidualPhaseTensor:
                     for idx in range(len(self.pt1.pt)):
                         with np.errstate(divide="ignore", invalid="ignore"):
                             try:
-                                pt1_inv = np.linalg.inv(self.pt1.pt[idx])
-                                pt2 = self.pt2.pt[idx]
+                                inv_pt1 = np.linalg.inv(self.pt1.pt[idx])
                                 self.rpt[idx] = np.eye(2) - 0.5 * (
-                                    np.dot(pt1_inv, pt2) + np.dot(pt2, pt1_inv)
+                                    (inv_pt1 @ self.pt2.pt[idx])
+                                    + (self.pt2.pt[idx] @ inv_pt1)
                                 )
                             except np.linalg.LinAlgError:
                                 self.rpt[idx] = np.zeros((2, 2))
@@ -158,15 +158,9 @@ class ResidualPhaseTensor:
                     self.rpt = np.zeros((1, 2, 2))
                     try:
                         with np.errstate(divide="ignore", invalid="ignore"):
-                            self.rpt[idx] = np.eye(2) - 0.5 * (
-                                np.dot(
-                                    np.matrix(self.pt2.pt[idx]).I,
-                                    np.matrix(self.pt1.pt[idx]),
-                                )
-                                + np.dot(
-                                    np.matrix(self.pt1.pt[idx]),
-                                    np.matrix(self.pt2.pt[idx]).I,
-                                )
+                            inv_pt2 = np.linalg.inv(self.pt2.pt[0])
+                            self.rpt[0] = np.eye(2) - 0.5 * (
+                                (inv_pt2 @ self.pt1.pt[0]) + (self.pt1.pt[0] @ inv_pt2)
                             )
 
                     except np.linalg.LinAlgError:
@@ -242,15 +236,9 @@ class ResidualPhaseTensor:
                         self.rpt_error = np.zeros((1, 2, 2))
                         try:
                             with np.errstate(divide="ignore", invalid="ignore"):
-                                self.rpt_error[0] = np.eye(2) - 0.5 * np.array(
-                                    np.dot(
-                                        np.matrix(self.pt2.pt).I,
-                                        np.matrix(self.pt1.pt),
-                                    )
-                                    + np.dot(
-                                        np.matrix(self.pt1.pt),
-                                        np.matrix(self.pt2.pt).I,
-                                    )
+                                inv_pt2 = np.linalg.inv(self.pt2.pt)
+                                self.rpt_error[0] = np.eye(2) - 0.5 * (
+                                    (inv_pt2 @ self.pt1.pt) + (self.pt1.pt @ inv_pt2)
                                 )
                                 matrix1 = self.pt1.pt
                                 matrix1error = self.pt1.pt_error

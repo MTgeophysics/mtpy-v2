@@ -118,6 +118,8 @@ def single_station_config(mth5_test_file, decimation_kwargs):
     cc_kwargs = {"num_samples_window": decimation_kwargs["stft.window.num_samples"]}
     cc = ConfigCreator()
     config = cc.create_from_kernel_dataset(kernel_dataset, **cc_kwargs)
+
+    close_open_files()  # Ensure no file locks remain after config creation
     return {
         "config": config,
         "kernel_dataset": kernel_dataset,
@@ -138,6 +140,7 @@ def remote_reference_config(mth5_test_file, decimation_kwargs):
     cc = ConfigCreator()
     config = cc.create_from_kernel_dataset(kernel_dataset, **cc_kwargs)
 
+    close_open_files()  # Ensure no file locks remain after config creation
     return {
         "config": config,
         "kernel_dataset": kernel_dataset,

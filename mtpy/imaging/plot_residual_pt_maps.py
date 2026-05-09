@@ -10,6 +10,7 @@ Created on Wed Oct 16 14:56:04 2013
 
 @author: jpeacock-pr
 """
+
 import matplotlib.colorbar as mcb
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
@@ -214,9 +215,51 @@ class PlotResidualPTMaps(PlotBase):
     @rotation_angle.setter
     def rotation_angle(self, rot_z):
         """Need to rotate data when setting z."""
+        for mt_data in [self.mt_data_01, self.mt_data_02]:
+            if hasattr(mt_data, "rotate") and hasattr(mt_data, "get_station"):
+                mt_data.rotate(rot_z, inplace=True)
+            else:
+                for _key, tf_obj in self._container_items(mt_data):
+                    tf_obj.rotation_angle = rot_z
 
-        for tf_obj in self.mt_data_01 + self.mt_data_02:
-            tf_obj.rotation_angle = rot_z
+        self._rotation_angle = rot_z
+
+    @staticmethod
+    def _station_id_from_key_or_mt(key, mt_obj):
+        """Derive station identifier from container key or MT object attrs."""
+        if isinstance(key, str):
+            if "." in key:
+                return key.split(".", 1)[1]
+            if "/" in key:
+                return key.rsplit("/", 1)[-1]
+            if key:
+                return key
+
+        station = getattr(mt_obj, "station", None)
+        if station not in [None, ""]:
+            return str(station)
+
+        tf_id = getattr(mt_obj, "tf_id", None)
+        if tf_id not in [None, ""]:
+            return str(tf_id)
+        return ""
+
+    def _container_items(self, container):
+        """Return ``(key, MT)`` pairs from MTData-like or MTData containers."""
+        if hasattr(container, "items"):
+            return list(container.items())
+
+        if hasattr(container, "_iter_station_paths") and hasattr(
+            container, "get_station"
+        ):
+            if hasattr(container, "compute"):
+                container.compute()
+            return [
+                (station_path, container.get_station(station_path, as_mt=True))
+                for station_path in container._iter_station_paths()
+            ]
+
+        raise TypeError("Container must provide items() or MTData-style station access")
 
     def _match_lists(self, one, two):
         """Match the input lists by transfer function id.
@@ -225,19 +268,27 @@ class PlotResidualPTMaps(PlotBase):
         """
 
         matches = []
-        two_found = []
-        for key, mt1 in one.items():
-            station_find = False
-            station_id = key.split(".")[1]
-            try:
-                mt2 = two.get_station(station_id=station_id)
-                matches.append([mt1, mt2])
-                station_find = True
-                two_found.append(mt2.tf_id)
+        two_used_indices = set()
+        one_items = self._container_items(one)
+        two_items = self._container_items(two)
 
-            except KeyError:
-                for mt2 in two.values():
-                    if mt2.tf_id in two_found:
+        for key, mt1 in one_items:
+            station_find = False
+            station_id = self._station_id_from_key_or_mt(key, mt1)
+
+            for idx, (key2, mt2) in enumerate(two_items):
+                if idx in two_used_indices:
+                    continue
+                station_id_2 = self._station_id_from_key_or_mt(key2, mt2)
+                if station_id and station_id_2 == station_id:
+                    matches.append([mt1, mt2])
+                    station_find = True
+                    two_used_indices.add(idx)
+                    break
+
+            if not station_find:
+                for idx, (_key2, mt2) in enumerate(two_items):
+                    if idx in two_used_indices:
                         continue
                     if mt1.tf_id == mt2.tf_id:
                         if (
@@ -246,7 +297,7 @@ class PlotResidualPTMaps(PlotBase):
                         ):
                             matches.append([mt1, mt2])
                             station_find = True
-                            two_found.append(mt2.tf_id)
+                            two_used_indices.add(idx)
                         break
             if not station_find:
                 self.logger.warning(f"Could not find tf {mt1.tf_id} in second list")

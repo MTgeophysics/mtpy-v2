@@ -181,11 +181,31 @@ class PlotStrike(PlotBase):
     @rotation_angle.setter
     def rotation_angle(self, value):
         """Only a single value is allowed."""
-        for mt in self.mt_data.values():
-            mt.rotation_angle = value
+        if hasattr(self.mt_data, "rotate") and hasattr(self.mt_data, "get_station"):
+            self.mt_data.rotate(value, inplace=True)
+        else:
+            for mt in self._iter_mt_objects():
+                mt.rotation_angle = value
         self._rotation_angle = value
 
         self.make_strike_df()
+
+    def _iter_mt_objects(self):
+        """Yield MT objects from supported container types."""
+        if hasattr(self.mt_data, "values"):
+            yield from self.mt_data.values()
+            return
+
+        if hasattr(self.mt_data, "_iter_station_paths") and hasattr(
+            self.mt_data, "get_station"
+        ):
+            if hasattr(self.mt_data, "compute"):
+                self.mt_data.compute()
+            for station_path in self.mt_data._iter_station_paths():
+                yield self.mt_data.get_station(station_path, as_mt=True)
+            return
+
+        raise TypeError("mt_data must provide values() or MTData-style station access")
 
     def make_strike_df(self):
         """Make strike array
@@ -198,7 +218,7 @@ class PlotStrike(PlotBase):
 
         entries = []
 
-        for mt in self.mt_data.values():
+        for mt in self._iter_mt_objects():
             # -----------get strike angle from invariants----------------------
             if mt.has_impedance():
                 zinv = mt.Z.invariants
