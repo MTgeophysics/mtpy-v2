@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   bump-version:
-    if: |
+    if: >-
       github.event.pull_request.state == 'open' && (
         github.event.label.name == 'release:major' ||
         github.event.label.name == 'release:minor' ||
@@ -71,13 +71,7 @@ jobs:
       - name: Extract version
         id: version
         run: |
-          VERSION=$(python - <<'PY'
-import tomllib
-from pathlib import Path
-pyproject = tomllib.loads(Path('pyproject.toml').read_text(encoding='utf-8'))
-print(pyproject['project']['version'])
-PY
-)
+          VERSION=$(python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version'])")
           echo "Extracted version: $VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 

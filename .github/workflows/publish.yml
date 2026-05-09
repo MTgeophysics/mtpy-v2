@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   publish:
-    if: |
+    if: >-
       github.event.pull_request.merged == true && (
         contains(github.event.pull_request.labels.*.name, 'release:major') ||
         contains(github.event.pull_request.labels.*.name, 'release:minor') ||
@@ -39,13 +39,7 @@ jobs:
       - name: Extract version
         id: version
         run: |
-          VERSION=$(python - <<'PY'
-import tomllib
-from pathlib import Path
-pyproject = tomllib.loads(Path('pyproject.toml').read_text(encoding='utf-8'))
-print(pyproject['project']['version'])
-PY
-)
+          VERSION=$(python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version'])")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
