@@ -4,6 +4,7 @@ Created on Tue Mar  7 19:01:14 2023
 
 @author: jpeacock
 """
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -54,7 +55,6 @@ class Occam2DData:
     """
 
     def __init__(self, dataframe=None, center_point=None, **kwargs):
-
         self.logger = logger
         self.dataframe = dataframe
         self.data_filename = None
@@ -541,37 +541,40 @@ class Occam2DData:
             idx = self.dataframe.index[filt]
 
             if key in ["res_xy", "res_yx", "phase_xy", "phase_yx"]:
-                self.dataframe[key][idx] = value
+                self.dataframe.loc[idx, key] = value
             else:
                 if key.endswith("real"):
-                    self.dataframe["t_zy"][idx] += value
+                    self.dataframe.loc[idx, "t_zy"] = (
+                        self.dataframe.loc[idx, "t_zy"] + value
+                    )
                 elif key.endswith("imag"):
-                    self.dataframe["t_zy"][idx] += 1j * value
+                    self.dataframe.loc[idx, "t_zy"] = (
+                        self.dataframe.loc[idx, "t_zy"] + 1j * value
+                    )
 
         # set errors to zero
         for key in ["res_xy", "res_yx", "phase_xy", "phase_yx", "t_zy"]:
             self.dataframe[key + "_model_error"] = 0.0
 
     def _group_df(self):
-        for station in np.unique(self.dataframe["station"]):
-            for period in np.unique(self.dataframe["period"]):
+        df = self.dataframe
+        for station in np.unique(df["station"]):
+            for period in np.unique(df["period"]):
                 filt = np.all(
                     [
-                        self.dataframe["station"] == station,
-                        self.dataframe["period"] == period,
+                        df["station"] == station,
+                        df["period"] == period,
                     ],
                     axis=0,
                 )
                 if np.any(filt):
                     for key in ["res_xy", "res_yx", "phase_xy", "phase_yx"]:
-                        self.dataframe[key][filt] = np.unique(
-                            self.dataframe[key][filt]
+                        df.loc[filt, key] = np.unique(df.loc[filt, key])[0]
+                        df.loc[filt, key + "_model_error"] = np.unique(
+                            df.loc[filt, key + "_model_error"]
                         )[0]
-                        self.dataframe[key + "_model_error"][filt] = np.unique(
-                            self.dataframe[key + "_model_error"][filt]
-                        )[0]
-                    tx_real_vals = np.unique(np.real(self.dataframe["t_zy"][filt]))
-                    tx_imag_vals = np.unique(np.imag(self.dataframe["t_zy"][filt]))
+                    tx_real_vals = np.unique(np.real(df.loc[filt, "t_zy"]))
+                    tx_imag_vals = np.unique(np.imag(df.loc[filt, "t_zy"]))
 
                     if np.any(tx_real_vals != 0) or np.any(tx_imag_vals != 0):
                         tx_real_val, tx_imag_val = 0.0, 0.0
@@ -580,9 +583,9 @@ class Occam2DData:
                         if len(tx_imag_vals[tx_imag_vals != 0]) > 0:
                             tx_imag_val = tx_imag_vals[tx_imag_vals != 0][0]
 
-                        self.dataframe["t_zy"][filt] = tx_real_val + 1j * tx_imag_val
+                        df.loc[filt, "t_zy"] = tx_real_val + 1j * tx_imag_val
 
-                    self.dataframe.drop(self.dataframe[filt].index[1:], inplace=True)
+                    df.drop(df.index[filt][1:], inplace=True)
 
     def _get_model_mode_from_data(self, res_log):
         """Get inversion mode from the data.
@@ -689,7 +692,6 @@ class Occam2DData:
                 "im_tip",
                 "re_tip",
             ]:
-
                 for i in range(len(self.freq)):
                     if self.data[i_ocdm][dmode][0][i] == 0:
                         self.data[i_ocd][dmode][0][i] = 0.0
