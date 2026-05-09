@@ -14,6 +14,8 @@ Created on December 22, 2025
 @author: jpeacock (original unittest)
 """
 
+import geopandas as gpd
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -291,13 +293,13 @@ class TestMTStationGrid:
         assert grid_stations.utm_epsg == utm_epsg
 
     def test_getitem_via_mt_list(self, grid_stations):
-        """Test accessing stations via mt_list."""
-        station = grid_stations.mt_list[0]
+        """Test accessing stations by row index."""
+        station = grid_stations.station_locations.iloc[0]
         assert station.station == "mt01"
 
     def test_iteration(self, grid_stations, expected_grid_station_names):
-        """Test iterating over stations via mt_list."""
-        station_names = [mt.station for mt in grid_stations.mt_list]
+        """Test iterating over station names in dataframe order."""
+        station_names = grid_stations.station_locations.station.tolist()
         assert station_names == expected_grid_station_names
 
     def test_to_dataframe(self, grid_stations):
@@ -376,7 +378,7 @@ class TestMTStationProfile:
         extracted = profile_stations._extract_profile(
             243900.352, 4675969.408898517, 247900.352, 4679969.408898517, 1000
         )
-        extracted_names = [mt.station for mt in extracted]
+        extracted_names = extracted.station.tolist()
         assert extracted_names == expected_profile_station_names
 
     def test_extract_profile_tolerance(self, profile_stations):
@@ -393,6 +395,14 @@ class TestMTStationProfile:
         )
         # Should still find some stations
         assert len(extracted_tight) >= 0
+
+    def test_extract_profile_returns_geodataframe(self, profile_stations):
+        """Profile extraction should return a GeoDataFrame with geometry."""
+        extracted = profile_stations._extract_profile(
+            243900.352, 4675969.408898517, 247900.352, 4679969.408898517, 1000
+        )
+        assert isinstance(extracted, gpd.GeoDataFrame)
+        assert "geometry" in extracted.columns
 
 
 # =============================================================================
@@ -447,13 +457,23 @@ class TestMTStationsAdditional:
         mt = MT(east=100, north=200, utm_epsg=utm_epsg, station="test01")
         stations = MTStations(utm_epsg, mt_list=[mt])
         assert len(stations) == 1
-        assert stations.mt_list[0].station == "test01"
+        assert stations.station_locations.iloc[0].station == "test01"
 
     def test_station_locations_shape(self, grid_stations):
         """Test station_locations DataFrame shape."""
         df = grid_stations.station_locations
         assert df.shape[0] == 25  # 25 stations
         assert df.shape[1] >= 13  # At least 13 columns
+
+    def test_from_station_locations_dataframe(self, grid_stations):
+        """Test dataframe-backed MTStations initialization without mt_list."""
+        station_df = grid_stations.station_locations
+
+        stations = MTStations(None, station_locations=station_df)
+
+        assert len(stations) == len(station_df)
+        pd.testing.assert_frame_equal(stations.station_locations, station_df)
+        assert isinstance(stations.center_point, MTLocation)
 
     @pytest.mark.parametrize(
         "attr",
@@ -510,22 +530,21 @@ class TestMTStationsAdditional:
 
     @pytest.mark.parametrize("index", [0, 10, 24])
     def test_indexing_various_positions(self, grid_stations, index):
-        """Test indexing stations at various positions via mt_list."""
-        station = grid_stations.mt_list[index]
-        assert isinstance(station, MT)
+        """Test indexing stations at various positions."""
+        station = grid_stations.station_locations.iloc[index]
         assert station.station == f"mt{index + 1:02}"
 
     def test_negative_indexing(self, grid_stations):
-        """Test negative indexing via mt_list."""
-        last_station = grid_stations.mt_list[-1]
+        """Test negative indexing."""
+        last_station = grid_stations.station_locations.iloc[-1]
         assert last_station.station == "mt25"
 
     def test_slice_indexing(self, grid_stations):
         """Test slice indexing."""
-        first_five = grid_stations.mt_list[:5]
+        first_five = grid_stations.station_locations.iloc[:5]
         assert len(first_five) == 5
-        assert first_five[0].station == "mt01"
-        assert first_five[4].station == "mt05"
+        assert first_five.iloc[0].station == "mt01"
+        assert first_five.iloc[4].station == "mt05"
 
     def test_profile_offset_calculation(self, profile_stations):
         """Test that profile_offset is calculated (even if zero by default)."""
@@ -589,9 +608,9 @@ class TestMTStationsEdgeCases:
         )
 
     def test_invalid_index(self, grid_stations):
-        """Test indexing with invalid index via mt_list."""
+        """Test indexing with invalid index."""
         with pytest.raises(IndexError):
-            _ = grid_stations.mt_list[100]
+            _ = grid_stations.station_locations.iloc[100]
 
 
 # =============================================================================
