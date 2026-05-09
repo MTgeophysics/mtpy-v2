@@ -1609,6 +1609,8 @@ class StructuredGrid3D:
                 else:
                     self.grid_z -= topo_core.max()
 
+            # change to use the z1 layer thickness to get the air layers, otherwise the mesh is weird and
+            # conductive bits seem to pool when there is a vertical change in the mesh.
             elif airlayer_type == "constant":
                 if max_elev is not None:
                     n_air_layers = np.ceil((max_elev - topo_core_min) / self.z1_layer)

@@ -1070,6 +1070,7 @@ class MTCollection:
                     mt_avg.station_metadata.comments = (
                         "avgeraged_stations = " + ",".join([m.station for m in m_list])
                     )
+
                     mt_avg.survey_metadata.id = "averaged"
                     self.add_tf(mt_avg)
 
