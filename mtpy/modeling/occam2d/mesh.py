@@ -4,6 +4,7 @@ Created on Tue Mar  7 18:02:57 2023
 
 @author: jpeacock
 """
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -262,7 +263,7 @@ class Mesh:
         x_pad_cell = np.max([x_left, x_right])
 
         # add x pad small cells
-        for ii in range(self.num_x_pad_small_cells):
+        for ii in range(self.num_x_pad_small_cells - 1):
             left_cell = self.x_grid[0]
             right_cell = self.x_grid[-1]
             pad_cell = x_pad_cell
@@ -285,46 +286,79 @@ class Mesh:
 
         # 2) make vertical nodes so that they increase with depth
         # --> make depth grid
-        log_z = np.logspace(
-            np.log10(self.z1_layer),
-            np.log10(
-                self.z_target_depth
-                - np.logspace(
-                    np.log10(self.z1_layer),
-                    np.log10(self.z_target_depth),
-                    num=self.n_layers,
-                )[-2]
-            ),
-            num=self.n_layers - self.num_z_pad_cells,
-        )
+        bottom_cell_size = self.z1_layer
+        increment = 10 ** np.floor(np.log10(self.z1_layer))
+        for _ in range(100000):  # maximum iterations
+            log_z = np.logspace(
+                np.log10(self.z1_layer),
+                np.log10(bottom_cell_size),
+                self.n_layers - self.num_z_pad_cells,
+            )
+            ztarget = np.array([zz - zz % 10 ** np.floor(np.log10(zz)) for zz in log_z])
+            if ztarget.sum() > self.z_target_depth:
+                break
+            bottom_cell_size += increment
+        # log_z = np.logspace(
+        #     np.log10(self.z1_layer),
+        #     np.log10(
+        #         self.z_target_depth
+        #         - np.logspace(
+        #             np.log10(self.z1_layer),
+        #             np.log10(self.z_target_depth),
+        #             num=self.n_layers,
+        #         )[-2]
+        #     ),
+        #     num=self.n_layers - self.num_z_pad_cells,
+        # )
 
         # round the layers to be whole numbers
-        ztarget = np.array([zz - zz % 10 ** np.floor(np.log10(zz)) for zz in log_z])
+        # ztarget = np.around(log_z)
+        # ztarget = np.array([zz - zz % 10 ** np.floor(np.log10(zz)) for zz in log_z])
 
         # --> create padding cells past target depth
-        log_zpad = np.logspace(
-            np.log10(self.z_target_depth),
-            np.log10(
-                self.z_bottom
-                - np.logspace(
-                    np.log10(self.z_target_depth),
-                    np.log10(self.z_bottom),
-                    num=self.num_z_pad_cells,
-                )[-2]
-            ),
-            num=self.num_z_pad_cells,
-        )
+
+        bottom_pad_cell_size = ztarget[-1]
+        increment = 10 ** np.floor(np.log10(ztarget[-1]))
+        for _ in range(100000):  # maximum iterations
+            log_zpad = np.logspace(
+                np.log10(ztarget[-1]),
+                np.log10(bottom_pad_cell_size),
+                self.num_z_pad_cells + 1,
+            )
+            zpadding = np.array(
+                [zz - zz % 10 ** np.floor(np.log10(zz)) for zz in log_zpad]
+            )[1:]
+            if zpadding.sum() > self.z_bottom - ztarget.sum():
+                break
+            bottom_pad_cell_size += increment
+
+        # log_zpad = np.logspace(
+        #     np.log10(self.z_target_depth),
+        #     np.log10(
+        #         self.z_bottom
+        #         - np.logspace(
+        #             np.log10(self.z_target_depth),
+        #             np.log10(self.z_bottom),
+        #             num=self.num_z_pad_cells,
+        #         )[-2]
+        #     ),
+        #     num=self.num_z_pad_cells,
+        # )
         # round the layers to be whole numbers
-        zpadding = np.array([zz - zz % 10 ** np.floor(np.log10(zz)) for zz in log_zpad])
-        zpadding.sort()
+        # zpadding = np.around(log_zpad)
+        # zpadding = np.array(
+        #     [zz - zz % 10 ** np.floor(np.log10(zz)) for zz in log_zpad]
+        # )[1:]
+        # zpadding.sort()
 
         # create the vertical nodes
         self.z_nodes = np.append(ztarget, zpadding)
 
         # calculate actual distances of depth layers
-        self.z_grid = np.array(
-            [self.z_nodes[: ii + 1].sum() for ii in range(self.z_nodes.shape[0])]
-        )
+        # self.z_grid = np.array(
+        #     [self.z_nodes[: ii + 1].sum() for ii in range(self.z_nodes.shape[0])]
+        # )
+        self.z_grid = np.hstack([[0.0], np.cumsum(self.z_nodes)])
 
         self.mesh_values = np.zeros(
             (self.x_nodes.shape[0], self.z_nodes.shape[0], 4), dtype=str
@@ -391,9 +425,10 @@ class Mesh:
 
         # add vertical nodes and values to mesh_values
         self.z_nodes = np.append([self.z1_layer] * num_elev_layers, self.z_nodes)
-        self.z_grid = np.array(
-            [self.z_nodes[: ii + 1].sum() for ii in range(self.z_nodes.shape[0])]
-        )
+        self.z_grid = np.hstack([[0.0], np.cumsum(self.z_nodes)])
+        # self.z_grid = np.array(
+        #     [self.z_nodes[: ii + 1].sum() for ii in range(self.z_nodes.shape[0])]
+        # )
         # this assumes that mesh_values have not been changed yet and are all ?
         self.mesh_values = np.zeros(
             (self.x_grid.shape[0], self.z_grid.shape[0], 4), dtype=str

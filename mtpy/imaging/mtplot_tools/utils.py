@@ -19,7 +19,6 @@ import matplotlib.colors as colors
 # =============================================================================
 import numpy as np
 
-
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure

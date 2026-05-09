@@ -4,6 +4,7 @@ Created on Thu Nov  9 10:43:06 2023
 
 @author: jpeacock
 """
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -19,7 +20,6 @@ from discretize import TensorMesh, TreeMesh
 # from dask.distributed import Client, LocalCluster
 from geoana.em.fdem import skin_depth
 from numpy.typing import NDArray
-
 
 warnings.filterwarnings("ignore")
 # =============================================================================
@@ -222,7 +222,7 @@ class StructuredMesh:
                 self.station_locations[:, 1],
                 marker=kwargs.get("marker", "v"),
                 s=kwargs.get("s", 35),
-                c=kwargs.get("c", (0, 0, 0)),
+                color=kwargs.get("color", kwargs.get("c", (0, 0, 0))),
                 zorder=1000,
             )
             ax.set_xlim(

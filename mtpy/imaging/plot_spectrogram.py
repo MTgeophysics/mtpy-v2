@@ -24,7 +24,6 @@ from scipy import signal
 import mtpy.processing.tf as mttf
 import mtpy.utils.exceptions as mtex
 
-
 # =================================================================
 
 

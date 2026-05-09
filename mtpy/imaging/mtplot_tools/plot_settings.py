@@ -22,7 +22,6 @@ import mtpy.imaging.mtcolors as mtcl
 
 from . import MTArrows, MTEllipse
 
-
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 

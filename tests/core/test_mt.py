@@ -24,7 +24,6 @@ from mtpy import MT
 from mtpy.core.mt_dataframe import MTDataFrame
 from mtpy.core.transfer_function import MT_TO_OHM_FACTOR
 
-
 # =============================================================================
 # Basic MT Object Tests
 # =============================================================================
@@ -653,6 +652,150 @@ class TestMTIntegration:
 
         assert mt.period.size == 100
         assert mt.has_impedance()
+
+
+# =============================================================================
+# Accessor Integration Tests
+# =============================================================================
+
+
+class TestMTAccessorIntegration:
+    """Tests that assert MT methods use the dataset accessor correctly."""
+
+    @pytest.fixture
+    def mt_with_both(
+        self,
+        sample_impedance_array,
+        sample_impedance_error_array,
+        sample_tipper_array,
+        sample_tipper_error_array,
+    ):
+        """MT object carrying both impedance and tipper data."""
+        mt = MT()
+        mt.impedance = sample_impedance_array
+        mt.impedance_error = sample_impedance_error_array
+        mt.tipper = sample_tipper_array
+        mt.tipper_error = sample_tipper_error_array
+        return mt
+
+    # ------------------------------------------------------------------
+    # Accessor attribute parity
+    # ------------------------------------------------------------------
+
+    def test_accessor_z_matches_mt_Z(self, mt_with_impedance):
+        """ds.tf.z() must return the same values as MT.Z.z."""
+        expected = mt_with_impedance.Z.z
+        actual = mt_with_impedance._transfer_function.tf.z()
+        assert np.allclose(actual, expected, equal_nan=True)
+
+    def test_accessor_z_error_matches_mt_Z_error(self, mt_with_impedance):
+        """ds.tf.z_error() must match MT.Z.z_error."""
+        expected = mt_with_impedance.Z.z_error
+        actual = mt_with_impedance._transfer_function.tf.z_error()
+        assert np.allclose(actual, expected, equal_nan=True)
+
+    def test_accessor_tipper_matches_mt_tipper(self, mt_with_both):
+        """ds.tf.tipper() must return the same values as MT.Tipper.tipper."""
+        expected = mt_with_both.Tipper.tipper
+        actual = mt_with_both._transfer_function.tf.tipper()
+        assert np.allclose(actual, expected, equal_nan=True)
+
+    def test_accessor_resistivity_matches_mt_Z(self, mt_with_impedance):
+        """ds.tf.resistivity must match MT.Z.resistivity."""
+        expected = mt_with_impedance.Z.resistivity
+        actual = mt_with_impedance._transfer_function.tf.resistivity
+        assert np.allclose(actual, expected, equal_nan=True)
+
+    def test_accessor_phase_matches_mt_Z(self, mt_with_impedance):
+        """ds.tf.phase must match MT.Z.phase."""
+        expected = mt_with_impedance.Z.phase
+        actual = mt_with_impedance._transfer_function.tf.phase
+        assert np.allclose(actual, expected, equal_nan=True)
+
+    # ------------------------------------------------------------------
+    # rotate
+    # ------------------------------------------------------------------
+
+    def test_rotate_updates_z_via_accessor(self, mt_with_impedance):
+        """MT.rotate() result is reflected in ds.tf.z()."""
+        mt_with_impedance.rotate(45)
+        z_from_obj = mt_with_impedance.Z.z
+        z_from_accessor = mt_with_impedance._transfer_function.tf.z()
+        assert np.allclose(z_from_accessor, z_from_obj, equal_nan=True)
+
+    def test_rotate_preserves_tipper_channels(self, mt_with_both):
+        """MT.rotate() must not drop tipper data from the underlying dataset."""
+        mt_with_both.rotate(30)
+        # Tipper should still be accessible from the dataset
+        assert mt_with_both.has_tipper()
+        t_from_accessor = mt_with_both._transfer_function.tf.tipper()
+        assert not np.all(np.isnan(t_from_accessor))
+
+    def test_rotate_tipper_matches_accessor(self, mt_with_both):
+        """After rotation, MT.Tipper.tipper must equal ds.tf.tipper()."""
+        mt_with_both.rotate(15)
+        expected = mt_with_both.Tipper.tipper
+        actual = mt_with_both._transfer_function.tf.tipper()
+        assert np.allclose(actual, expected, equal_nan=True)
+
+    # ------------------------------------------------------------------
+    # remove_static_shift
+    # ------------------------------------------------------------------
+
+    def test_remove_static_shift_preserves_tipper(self, mt_with_both):
+        """remove_static_shift() must not drop tipper from the underlying dataset."""
+        new_mt = mt_with_both.remove_static_shift(ss_x=0.5, ss_y=1.5, inplace=False)
+        assert new_mt.has_tipper()
+        t_from_accessor = new_mt._transfer_function.tf.tipper()
+        assert not np.all(np.isnan(t_from_accessor))
+
+    def test_remove_static_shift_z_via_accessor(self, mt_with_impedance):
+        """ds.tf.z() must reflect the static-shift-corrected impedance."""
+        new_mt = mt_with_impedance.remove_static_shift(
+            ss_x=0.5, ss_y=1.5, inplace=False
+        )
+        z_from_obj = new_mt.Z.z
+        z_from_accessor = new_mt._transfer_function.tf.z()
+        assert np.allclose(z_from_accessor, z_from_obj, equal_nan=True)
+
+    # ------------------------------------------------------------------
+    # remove_distortion
+    # ------------------------------------------------------------------
+
+    def test_remove_distortion_preserves_tipper(self, mt_with_both):
+        """remove_distortion() must not drop tipper from the underlying dataset."""
+        new_mt = mt_with_both.remove_distortion()
+        assert new_mt.has_tipper()
+        t_from_accessor = new_mt._transfer_function.tf.tipper()
+        assert not np.all(np.isnan(t_from_accessor))
+
+    def test_remove_distortion_z_via_accessor(self, mt_with_impedance):
+        """ds.tf.z() must reflect distortion-corrected impedance."""
+        new_mt = mt_with_impedance.remove_distortion()
+        z_from_obj = new_mt.Z.z
+        z_from_accessor = new_mt._transfer_function.tf.z()
+        assert np.allclose(z_from_accessor, z_from_obj, equal_nan=True)
+
+    # ------------------------------------------------------------------
+    # interpolate
+    # ------------------------------------------------------------------
+
+    def test_interpolate_period_grid_matches_accessor(self, mt_with_impedance):
+        """MT.interpolate() period grid must match what ds.tf.interpolate() would produce."""
+        original_period = mt_with_impedance.period
+        # Build a period array within the existing period range
+        new_period = np.linspace(original_period.min(), original_period.max(), 3)
+        new_mt = mt_with_impedance.interpolate(new_period)
+        assert np.allclose(new_mt.period, new_period)
+
+    def test_interpolate_accessor_z_matches_Z(self, mt_with_impedance):
+        """After interpolation ds.tf.z() must match MT.Z.z on the new MT."""
+        original_period = mt_with_impedance.period
+        new_period = np.linspace(original_period.min(), original_period.max(), 3)
+        new_mt = mt_with_impedance.interpolate(new_period)
+        z_from_obj = new_mt.Z.z
+        z_from_accessor = new_mt._transfer_function.tf.z()
+        assert np.allclose(z_from_accessor, z_from_obj, equal_nan=True)
 
 
 # =============================================================================

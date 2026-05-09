@@ -4,6 +4,7 @@ Created on Tue Mar  7 19:01:14 2023
 
 @author: jpeacock
 """
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -14,7 +15,6 @@ import pandas as pd
 from loguru import logger
 
 from mtpy.core.mt_dataframe import MTDataFrame
-
 
 # =============================================================================
 
@@ -102,8 +102,8 @@ class Occam2DData:
         self.occam_dict = {
             "1": "res_xy",
             "2": "phase_xy",
-            "3": "t_zx_real",
-            "4": "t_zx_imag",
+            "3": "t_zy_real",
+            "4": "t_zy_imag",
             "5": "res_yx",
             "6": "phase_yx",
             "9": "res_xy",
@@ -113,7 +113,7 @@ class Occam2DData:
         self.df_dict = {
             "1": "res_xy",
             "2": "phase_xy",
-            "3": "t_zx",
+            "3": "t_zy",
             "4": "t_zy",
             "5": "res_yx",
             "6": "phase_yx",
@@ -440,16 +440,17 @@ class Occam2DData:
         df["period"] = 1.0 / df.frequency
         # df = df.drop(
         #     columns=[
-        #         "tzx_real",
-        #         "tzx_imag",
-        #         "tzx_real_model_error",
-        #         "tzx_imag_model_error",
+        #         "t_zy_real",
+        #         "t_zy_imag",
+        #         "t_zy_real_model_error",
+        #         "t_zy_imag_model_error",
         #         "frequency",
         #     ],
         #     axis=1,
         # )
 
         # df = df.groupby(["station", "period"]).agg("first")
+
         df = df.sort_values("profile_offset").reset_index()
         self.dataframe = df
 
@@ -458,31 +459,132 @@ class Occam2DData:
 
         self.model_mode = self._get_model_mode_from_data(res_log)
 
+    def read_response_file(self, response_fn=None, data_fn=None):
+        """Read in an existing response file and populate the dataframe with
+            responses instead of data. Note, the data file also needs to be defined
+
+        Arguments::
+                **response_fn** : string
+                              full path to data file
+                              *default* is None and set to save_path/fn_basename
+
+            :Example: ::
+
+                >>> import mtpy.modeling.occam2d as occam2d
+                >>> ocr = occam2d.Data()
+                >>> ocr.read_response_file(r"/home/Occam2D/Line1/Inv1/Data.dat")
+        """
+
+        if response_fn is not None:
+            self.response_filename = Path(response_fn)
+
+        if not self.response_filename.is_file():
+            raise ValueError(f"Could not find {self.data_filename}")
+        if self.response_filename is None:
+            raise ValueError("data_filename is None, input filename")
+
+        self.save_path = self.response_filename.parent
+
+        with open(self.response_filename, "r") as dfid:
+            dlines = dfid.readlines()
+
+        if self.frequencies is None:
+            self.read_data_file(data_fn)
+
+        # get number of sites
+        nsites = len(self.stations)
+
+        # get number of frequencies
+        nfreq = len(self.frequencies)
+        # -----------get data-------------------
+        # set zero array size the first row will be the data and second the
+        # error
+
+        data_list = dlines
+
+        entries = []
+
+        for line in data_list:
+            res_log = False
+            # try:
+            s_index, f_index, comp, _, odata, oresp, oresid = line.split()
+            # station index -1 cause python starts at 0
+            s_index = int(float(s_index)) - 1
+
+            # frequency index -1 cause python starts at 0
+            f_index = int(float(f_index)) - 1
+
+            # convert into an integer string to match the dict
+            comp = str(int(float(comp)))
+
+            # data key
+            key = self.occam_dict[comp]
+
+            # put into array
+            if int(comp) in [1, 5]:
+                res_log = True
+                value = 10 ** float(oresp)
+            elif int(comp) in [6]:
+                value = float(oresp) - 180
+            else:
+                value = float(oresp)
+
+            # 1. Define the boolean mask (the filter)
+            filt = (
+                abs(1.0 / self.dataframe["period"] - self.frequencies[f_index])
+                / self.frequencies[f_index]
+                < 1e-9
+            ) & (self.dataframe["station"] == self.stations[s_index])
+
+            # 2. Get the indices
+            idx = self.dataframe.index[filt]
+
+            if key in ["res_xy", "res_yx", "phase_xy", "phase_yx"]:
+                self.dataframe.loc[idx, key] = value
+            else:
+                if key.endswith("real"):
+                    self.dataframe.loc[idx, "t_zy"] = (
+                        self.dataframe.loc[idx, "t_zy"] + value
+                    )
+                elif key.endswith("imag"):
+                    self.dataframe.loc[idx, "t_zy"] = (
+                        self.dataframe.loc[idx, "t_zy"] + 1j * value
+                    )
+
+        # set errors to zero
+        for key in ["res_xy", "res_yx", "phase_xy", "phase_yx", "t_zy"]:
+            self.dataframe[key + "_model_error"] = 0.0
+
     def _group_df(self):
-        for station in np.unique(self.dataframe["station"]):
-            for period in np.unique(self.dataframe["period"]):
+        df = self.dataframe
+        for station in np.unique(df["station"]):
+            for period in np.unique(df["period"]):
                 filt = np.all(
                     [
-                        self.dataframe["station"] == station,
-                        self.dataframe["period"] == period,
+                        df["station"] == station,
+                        df["period"] == period,
                     ],
                     axis=0,
                 )
                 if np.any(filt):
                     for key in ["res_xy", "res_yx", "phase_xy", "phase_yx"]:
-                        self.dataframe[key][filt] = np.unique(
-                            self.dataframe[key][filt]
+                        df.loc[filt, key] = np.unique(df.loc[filt, key])[0]
+                        df.loc[filt, key + "_model_error"] = np.unique(
+                            df.loc[filt, key + "_model_error"]
                         )[0]
+                    tx_real_vals = np.unique(np.real(df.loc[filt, "t_zy"]))
+                    tx_imag_vals = np.unique(np.imag(df.loc[filt, "t_zy"]))
 
-                    tx_real_vals = np.unique(np.real(self.dataframe["t_zy"][filt]))
-                    tx_imag_vals = np.unique(np.imag(self.dataframe["t_zy"][filt]))
-                    if np.any(tx_real_vals != 0):
-                        self.dataframe["t_zy"][filt] = (
-                            tx_real_vals[tx_real_vals != 0][0]
-                            + 1j * tx_imag_vals[tx_imag_vals != 0][0]
-                        )
+                    if np.any(tx_real_vals != 0) or np.any(tx_imag_vals != 0):
+                        tx_real_val, tx_imag_val = 0.0, 0.0
+                        if len(tx_real_vals[tx_real_vals != 0]) > 0:
+                            tx_real_val = tx_real_vals[tx_real_vals != 0][0]
+                        if len(tx_imag_vals[tx_imag_vals != 0]) > 0:
+                            tx_imag_val = tx_imag_vals[tx_imag_vals != 0][0]
 
-                    self.dataframe.drop(self.dataframe[filt].index[1:], inplace=True)
+                        df.loc[filt, "t_zy"] = tx_real_val + 1j * tx_imag_val
+
+                    df.drop(df.index[filt][1:], inplace=True)
 
     def _get_model_mode_from_data(self, res_log):
         """Get inversion mode from the data.
@@ -504,7 +606,7 @@ class Occam2DData:
                         inv_list.append(5)
                     else:
                         inv_list.append(10)
-                # elif comp == "tzx":
+                # elif comp == "t_zy":
                 #     inv_list.append(3)
                 #     inv_list.append(4)
                 else:
@@ -538,31 +640,32 @@ class Occam2DData:
                 ]
                 for comp_number in self.mode_dict[self.model_mode]:
                     comp = self.df_dict[str(comp_number)]
-                    value = fdf[comp].values[0]
-                    if value != 0:
-                        if comp_number in [1, 5]:
-                            error_value = fdf[f"{comp}_model_error"].values[0] / np.log(
-                                10
-                            )
-                            value = np.log10(value)
+                    if len(fdf[comp].values) > 0:
+                        value = fdf[comp].values[0]
+                        if value != 0:
+                            if comp_number in [1, 5]:
+                                error_value = fdf[f"{comp}_model_error"].values[
+                                    0
+                                ] / np.log(10)
+                                value = np.log10(value)
 
-                        elif comp_number in [3]:
-                            value = value.real
-                            error_value = fdf[f"{comp}_model_error"].values[0]
-                        elif comp_number in [4]:
-                            value = value.imag
-                            error_value = fdf[f"{comp}_model_error"].values[0]
-                        elif comp_number in [6]:
-                            if -180 <= value <= -90:
-                                value = value + 180
-                            error_value = fdf[f"{comp}_model_error"].values[0]
-                        else:
-                            value = value
-                            error_value = fdf[f"{comp}_model_error"].values[0]
-                        data_list.append(
-                            f"{s_index + 1:^6}{f_index + 1:^6}{comp_number:^6} "
-                            f"{value:>8.4f} {error_value:>8.4f}"
-                        )
+                            elif comp_number in [3]:
+                                value = value.real
+                                error_value = fdf[f"{comp}_model_error"].values[0]
+                            elif comp_number in [4]:
+                                value = value.imag
+                                error_value = fdf[f"{comp}_model_error"].values[0]
+                            elif comp_number in [6]:
+                                if -180 <= value <= -90:
+                                    value = value + 180
+                                error_value = fdf[f"{comp}_model_error"].values[0]
+                            else:
+                                value = value
+                                error_value = fdf[f"{comp}_model_error"].values[0]
+                            data_list.append(
+                                f"{s_index + 1:^6}{f_index + 1:^6}{comp_number:^6} "
+                                f"{value:>8.4f} {error_value:>8.4f}"
+                            )
         return data_list
 
     def mask_from_datafile(self, mask_datafn):

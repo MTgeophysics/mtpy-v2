@@ -17,6 +17,7 @@ Revision History:
         - using interp function for faster plotting.
 
 """
+
 import matplotlib.colorbar as mcb
 import matplotlib.colors as colors
 import matplotlib.patches as patches
@@ -28,7 +29,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FormatStrFormatter
 
-
 try:
     import contextily as cx
 
@@ -39,7 +39,6 @@ from mtpy.core import Tipper
 from mtpy.core.transfer_function import PhaseTensor
 from mtpy.imaging import mtcolors
 from mtpy.imaging.mtplot_tools import add_raster, PlotBaseMaps
-
 
 # ==============================================================================
 
@@ -56,6 +55,9 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
 
         self._rotation_angle = 0
         self.mt_data = mt_data
+        self.use_mt_data_preinterpolation = True
+        self._interpolated_mt_data_cache = None
+        self._interpolated_mt_data_cache_period = None
 
         # set the frequency to plot
         self.plot_station = False
@@ -173,9 +175,87 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
     @rotation_angle.setter
     def rotation_angle(self, value):
         """Only a single value is allowed."""
-        for tf in self.mt_data:
-            tf.rotation_angle = value
+        # Prefer container-level rotation for MTData-like objects.
+        if hasattr(self.mt_data, "rotate") and hasattr(self.mt_data, "get_station"):
+            self.mt_data.rotate(value, inplace=True)
+        else:
+            for tf in self._iter_mt_objects():
+                tf.rotation_angle = value
         self._rotation_angle = value
+
+    def _iter_mt_objects(self):
+        """Yield MT objects from supported container types."""
+        if hasattr(self.mt_data, "values"):
+            yield from self.mt_data.values()
+            return
+
+        if hasattr(self.mt_data, "_iter_station_paths") and hasattr(
+            self.mt_data, "get_station"
+        ):
+            if hasattr(self.mt_data, "compute"):
+                self.mt_data.compute()
+            for station_path in self.mt_data._iter_station_paths():
+                yield self.mt_data.get_station(station_path, as_mt=True)
+            return
+
+        raise TypeError("mt_data must provide values() or MTData-style station access")
+
+    def _get_mt_data_for_plot_period(self):
+        """Return MTData interpolated to the active plot period when supported."""
+        if not self.use_mt_data_preinterpolation:
+            return self.mt_data
+
+        if not (
+            hasattr(self.mt_data, "interpolate")
+            and hasattr(self.mt_data, "_iter_station_paths")
+            and hasattr(self.mt_data, "get_station")
+        ):
+            return self.mt_data
+
+        target_period = float(self.plot_period)
+        if (
+            self._interpolated_mt_data_cache is not None
+            and self._interpolated_mt_data_cache_period is not None
+            and np.isclose(self._interpolated_mt_data_cache_period, target_period)
+        ):
+            return self._interpolated_mt_data_cache
+
+        try:
+            interpolated = self.mt_data.interpolate(
+                np.array([target_period], dtype=float),
+                inplace=False,
+                bounds_error=False,
+            )
+            if interpolated is not None:
+                self._interpolated_mt_data_cache = interpolated
+                self._interpolated_mt_data_cache_period = target_period
+                return interpolated
+        except Exception as error:
+            self.logger.debug(
+                "Falling back to per-station interpolation for plot period "
+                f"{target_period}: {error}"
+            )
+
+        return self.mt_data
+
+    def _get_mt_objects(self):
+        """Return MT objects as a list for repeated plotting passes."""
+        data_source = self._get_mt_data_for_plot_period()
+
+        if hasattr(data_source, "values"):
+            return list(data_source.values())
+
+        if hasattr(data_source, "_iter_station_paths") and hasattr(
+            data_source, "get_station"
+        ):
+            if hasattr(data_source, "compute"):
+                data_source.compute()
+            return [
+                data_source.get_station(station_path, as_mt=True)
+                for station_path in data_source._iter_station_paths()
+            ]
+
+        return list(self._iter_mt_objects())
 
     def _get_pt(self, tf):
         """Get phase tensor object from TF object.
@@ -723,10 +803,12 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
 
         self._get_tick_format()
 
+        mt_objects = self._get_mt_objects()
+
         # make some empty arrays
-        self.plot_xarr = np.zeros(len(self.mt_data))
-        self.plot_yarr = np.zeros(len(self.mt_data))
-        for index, tf in enumerate(self.mt_data.values()):
+        self.plot_xarr = np.zeros(len(mt_objects))
+        self.plot_yarr = np.zeros(len(mt_objects))
+        for index, tf in enumerate(mt_objects):
             if self.pt_type == "ellipses":
                 plot_x, plot_y = self._get_patch_ellipse(tf)
             elif self.pt_type == "wedges":

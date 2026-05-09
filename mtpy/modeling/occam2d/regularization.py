@@ -4,6 +4,7 @@ Created on Tue Mar  7 18:13:52 2023
 
 @author: jpeacock
 """
+
 import os
 
 # =============================================================================
@@ -273,10 +274,58 @@ class Regularization(Mesh):
         # model block to the furthest left station which is half the distance
         # from the center of the mesh grid.
         self.binding_offset = (
-            self.x_grid[self.num_x_pad_cells + 1] + self.station_locations.mean()
+            self.x_grid[self.num_x_pad_cells] + self.station_locations.mean()
         )
 
         self.get_num_free_params()
+
+        self.get_block_cell_centres()
+
+    def get_block_cell_centres(self):
+        """
+        Get cell centres of blocks, and indices in model_values array for each mesh block.
+
+        Returns
+        -------
+        None.
+
+        """
+        cell_centres = []
+        i = 0
+        i0 = 0
+        z_pos = self.z_grid[0]
+        block_indices = np.zeros((len(self.z_nodes), len(self.x_nodes)), dtype=int)
+        current_idx = 0
+
+        for i, (ivals, _) in enumerate(self.model_rows):
+            j = 0
+            j0 = 0
+            x_pos = self.x_grid[0]
+
+            # get block centre in z
+            block_thickness = self.z_nodes[i0 : i0 + ivals].sum()
+            block_centre_z = z_pos + block_thickness / 2
+            z_pos += self.z_nodes[i0 : i0 + ivals].sum()
+            z_values = self.z_grid[i0 : i0 + ivals]
+            for j, jvals in enumerate(self.model_columns[i]):
+
+                # get block centre in x
+                block_width = self.x_nodes[j0 : j0 + jvals].sum()
+                block_centre_x = x_pos + block_width / 2
+                x_pos += block_width
+                x_values = self.x_grid[j0 : j0 + jvals]
+
+                # assign to cell centres array
+                cell_centres.append([block_centre_x, block_centre_z])
+                block_indices[i0 : i0 + ivals, j0 : j0 + jvals] = current_idx
+
+                current_idx += 1
+                j0 += jvals
+
+            i0 += ivals
+
+        self.cell_centres = np.array(cell_centres)
+        self.model_block_indices = block_indices
 
     def get_num_free_params(self):
         """Estimate the number of free parameters in model mesh.

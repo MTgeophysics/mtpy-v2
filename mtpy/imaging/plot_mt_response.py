@@ -10,6 +10,7 @@ Created 2017
 
 @author: jpeacock
 """
+
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 
@@ -25,7 +26,6 @@ from mtpy.imaging.mtplot_tools import (
     plot_tipper_lateral,
     PlotBase,
 )
-
 
 # ==============================================================================
 #  Plot apparent resistivity and phase
@@ -539,8 +539,16 @@ class PlotMTResponse(PlotBase):
     def _initiate_figure(self):
         """Make figure instance."""
         self._set_subplot_params()
-        self.fig = plt.figure(self.fig_num, self.fig_size, dpi=self.fig_dpi)
-        self.fig.clf()
+        if self.fig_num is None:
+            self.fig = plt.figure(figsize=self.fig_size, dpi=self.fig_dpi)
+        else:
+            if plt.fignum_exists(self.fig_num):
+                plt.close(self.fig_num)
+            self.fig = plt.figure(
+                num=self.fig_num,
+                figsize=self.fig_size,
+                dpi=self.fig_dpi,
+            )
 
     def plot(self):
         """PlotResPhase(filename,fig_num) will plot the apparent resistivity and

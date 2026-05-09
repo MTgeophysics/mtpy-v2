@@ -713,7 +713,7 @@ class TFBase:
                         clockwise=clockwise,
                     )
                 if not self._has_tf_error() and not self._has_tf_model_error():
-                    (rot_tf[index, :, :], _) = rotate_func(
+                    rot_tf[index, :, :], _ = rotate_func(
                         ds.transfer_function[index].values,
                         angle,
                         clockwise=clockwise,
@@ -800,6 +800,10 @@ class TFBase:
         da_dict = {}
         # Loop through each variable in the dataset
         for var_name, da in self._dataset.data_vars.items():
+            da_values = np.asarray(da.values)
+            output_labels = da.output.values
+            input_labels = da.input.values
+
             # Create output array with same shape but for new periods
             output_shape = (len(new_periods),) + da.shape[1:]
             if np.issubdtype(da.dtype, np.complexfloating):
@@ -809,11 +813,10 @@ class TFBase:
                 output_array = np.zeros(output_shape, dtype=da.dtype)
                 is_complex = False
 
-            # Loop through inputs and outputs
-            for i_index, inp in enumerate(da.input.values):
-                for j_index, outp in enumerate(da.output.values):
-                    # Extract data for this component
-                    comp_data = da.sel(input=inp, output=outp).values
+            # Loop through input/output components using direct numpy slices.
+            for i_index, inp in enumerate(input_labels):
+                for j_index, outp in enumerate(output_labels):
+                    comp_data = da_values[:, j_index, i_index]
 
                     # Find finite (non-NaN) values
                     finite_mask = np.isfinite(comp_data)
@@ -841,9 +844,6 @@ class TFBase:
                     try:
                         if is_complex:
                             # Handle complex data - interpolate real and imaginary parts separately
-                            real_part = np.zeros(len(new_periods))
-                            imag_part = np.zeros(len(new_periods))
-
                             # create interpolation functions
                             real_interp = self._get_interpolator(
                                 valid_periods,
@@ -913,8 +913,8 @@ class TFBase:
                 dims=["period", "output", "input"],
                 coords={
                     "period": new_periods,
-                    "output": da.output.values,
-                    "input": da.input.values,
+                    "output": output_labels,
+                    "input": input_labels,
                 },
                 name=var_name,
             )

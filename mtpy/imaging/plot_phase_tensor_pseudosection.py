@@ -16,7 +16,6 @@ import numpy as np
 from mtpy.imaging.mtcolors import get_plot_color
 from mtpy.imaging.mtplot_tools import period_label_dict, PlotBaseProfile
 
-
 # ==============================================================================
 
 
@@ -73,6 +72,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
 
         self._rotation_angle = 0
         self.plot_pt = True
+        self.aspect = kwargs.pop("aspect", getattr(self, "aspect", "equal"))
 
         self.x_stretch = 1
         self.y_stretch = 10000
@@ -365,18 +365,20 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
         # create a plot instance
         self.fig = plt.figure(self.fig_num, self.fig_size, dpi=self.fig_dpi)
         self.fig.clf()
-        self.ax = self.fig.add_subplot(1, 1, 1, aspect="equal")
+        self.ax = self.fig.add_subplot(1, 1, 1, aspect=self.aspect)
 
         self._get_profile_line()
+
+        mt_objects = self._get_mt_objects()
 
         y_min = 1
         y_max = 1
         station_list = np.zeros(
-            self.mt_data.n_stations,
+            len(mt_objects),
             dtype=[("offset", float), ("station", "U10")],
         )
 
-        for ii, tf in enumerate(self.mt_data.values()):
+        for ii, tf in enumerate(mt_objects):
             offset, station = self._get_patch(tf)
             station_list[ii]["station"] = station
             station_list[ii]["offset"] = offset

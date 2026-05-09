@@ -139,7 +139,7 @@ class TestMTDataFrameStationInfo:
             ("elevation", 175.27),
             ("east", 330815.90793634474),
             ("north", 6576780.151722098),
-            ("utm_epsg", 32752),
+            ("utm_epsg", "32752"),
         ],
     )
     def test_coordinates(self, mt_dataframe_ro, property_name, expected_value):

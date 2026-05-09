@@ -4,10 +4,10 @@ Created on Thu Apr 18 12:39:47 2024
 
 @author: jpeacock
 """
+
 import unittest
 
 from mtpy.modeling.modem import Data
-
 
 # =============================================================================
 # Imports

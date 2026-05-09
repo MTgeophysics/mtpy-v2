@@ -4,6 +4,7 @@ Created on Thu Sep 22 10:58:58 2022
 
 @author: jpeacock
 """
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -11,8 +12,8 @@ Created on Thu Sep 22 10:58:58 2022
 import matplotlib.pyplot as plt
 import numpy as np
 
+from mtpy.core import Z
 from mtpy.imaging.mtplot_tools import PlotBaseMaps
-
 
 # =============================================================================
 
@@ -22,6 +23,10 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
 
     def __init__(self, mt_data, **kwargs):
         self.mt_data = mt_data
+        self._depth_array_cache = None
+        self.use_mt_data_preinterpolation = True
+        self._interpolated_mt_data_cache = None
+        self._interpolated_mt_data_cache_period = None
 
         super().__init__(**kwargs)
 
@@ -72,6 +77,80 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
 
         return z_object.estimate_depth_of_investigation()
 
+    def _iter_mt_objects(self):
+        """Yield MT objects from supported container types."""
+        if hasattr(self.mt_data, "values"):
+            yield from self.mt_data.values()
+            return
+
+        if hasattr(self.mt_data, "_iter_station_paths") and hasattr(
+            self.mt_data, "get_station"
+        ):
+            if hasattr(self.mt_data, "compute"):
+                self.mt_data.compute()
+            for station_path in self.mt_data._iter_station_paths():
+                yield self.mt_data.get_station(station_path, as_mt=True)
+            return
+
+        raise TypeError("mt_data must provide values() or MTData-style station access")
+
+    def _get_mt_objects(self):
+        """Return MT objects as a list for repeated calculations."""
+        data_source = self._get_mt_data_for_plot_period()
+
+        if hasattr(data_source, "values"):
+            return list(data_source.values())
+
+        if hasattr(data_source, "_iter_station_paths") and hasattr(
+            data_source, "get_station"
+        ):
+            if hasattr(data_source, "compute"):
+                data_source.compute()
+            return [
+                data_source.get_station(station_path, as_mt=True)
+                for station_path in data_source._iter_station_paths()
+            ]
+
+        return list(self._iter_mt_objects())
+
+    def _get_mt_data_for_plot_period(self):
+        """Return MTData interpolated to the active plot period when supported."""
+        if not self.use_mt_data_preinterpolation:
+            return self.mt_data
+
+        if not (
+            hasattr(self.mt_data, "interpolate")
+            and hasattr(self.mt_data, "_iter_station_paths")
+            and hasattr(self.mt_data, "get_station")
+        ):
+            return self.mt_data
+
+        target_period = float(self.plot_period)
+        if (
+            self._interpolated_mt_data_cache is not None
+            and self._interpolated_mt_data_cache_period is not None
+            and np.isclose(self._interpolated_mt_data_cache_period, target_period)
+        ):
+            return self._interpolated_mt_data_cache
+
+        try:
+            interpolated = self.mt_data.interpolate(
+                np.array([target_period], dtype=float),
+                inplace=False,
+                bounds_error=False,
+            )
+            if interpolated is not None:
+                self._interpolated_mt_data_cache = interpolated
+                self._interpolated_mt_data_cache_period = target_period
+                return interpolated
+        except Exception as error:
+            self.logger.debug(
+                "Falling back to per-station interpolation for plot period "
+                f"{target_period}: {error}"
+            )
+
+        return self.mt_data
+
     def _filter_depth_array(self, depth_array, comp):
         """Filter out some bad data points.
         :param comp:
@@ -97,8 +176,10 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
         :rtype: TYPE
         """
 
+        mt_objects = self._get_mt_objects()
+
         depth_array = np.zeros(
-            len(self.mt_data),
+            len(mt_objects),
             dtype=[
                 ("station", "U20"),
                 ("latitude", float),
@@ -110,8 +191,13 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
             ],
         )
 
-        for ii, tf in enumerate(self.mt_data.values()):
-            z_object = tf.Z.interpolate([self.plot_period])
+        for ii, tf in enumerate(mt_objects):
+            z = self._get_interpolated_z(tf)
+            z_object = Z(
+                z=z,
+                frequency=[1.0 / self.plot_period],
+                units=tf.impedance_units,
+            )
             if (np.nan_to_num(z_object.z) == 0).all():
                 continue
             d = self._get_nb_estimation(z_object)
@@ -201,12 +287,17 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
         # get data array and make sure there is depth information, if not
         # break
         if self._old_plot_period != self.plot_period:
-            depth_array = self._get_depth_array()
-            if depth_array.size == 0:
-                self.logger.warning(
-                    f"No stations have data for period {self.plot_period} "
-                )
-                return
+            self._depth_array_cache = self._get_depth_array()
+            self._old_plot_period = self.plot_period
+
+        depth_array = self._depth_array_cache
+        if depth_array is None or depth_array.size == 0:
+            self.logger.warning(f"No stations have data for period {self.plot_period} ")
+            return
+
+        if np.count_nonzero(depth_array["det"]) == 0:
+            self.logger.warning(f"No stations have data for period {self.plot_period} ")
+            return
 
         self.fig = plt.figure(self.fig_num, self.fig_size, dpi=self.fig_dpi)
         plt.clf()
@@ -215,6 +306,11 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
 
         for comp, ax in plot_components.items():
             plot_depth_array = self._filter_depth_array(depth_array, comp)
+            if plot_depth_array.size == 0:
+                self.logger.warning(
+                    f"No stations have data for period {self.plot_period} "
+                )
+                continue
             if self.interpolation_method in ["nearest", "linear", "cubic"]:
                 plot_x, plot_y, image = self.interpolate_to_map(plot_depth_array, comp)
 
@@ -282,7 +378,7 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
 
         self.fig.suptitle(
             f"Depth of investigation for period {self.plot_period:5g} (s)",
-            fontproperties=self.font_dict,
+            fontdict=self.font_dict,
         )
 
         plt.tight_layout()

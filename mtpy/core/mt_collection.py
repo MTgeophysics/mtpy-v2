@@ -10,6 +10,7 @@ Created on Mon Jan 11 15:36:38 2021
 :license: MIT
 
 """
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -39,7 +40,6 @@ from mtpy.imaging import (
     PlotStations,
     PlotStrike,
 )
-
 
 # =============================================================================
 #
@@ -81,13 +81,73 @@ class MTCollection:
         self._cwd = Path().cwd()
         self.mth5_basename = "mt_collection"
         self.working_directory = working_directory
-        self.working_dataframe = None
 
         self.mth5_collection = MTH5()
+        self.mt_data: MTData | None = None
+        self._working_dataframe: pd.DataFrame | None = None
 
         self._added = False
 
         self.logger = logger
+
+    @property
+    def working_dataframe(self) -> pd.DataFrame | None:
+        """
+        Subset of the master dataframe for the current working selection.
+
+        Assigning a DataFrame filters :attr:`mt_data` to only the stations
+        present in that subset.  Setting to ``None`` resets the selection so
+        that :attr:`mt_data` reflects the full :attr:`master_dataframe`.
+
+        Returns
+        -------
+        pd.DataFrame or None
+            Current working selection, or ``None`` if unset.
+
+        Examples
+        --------
+        >>> mc.working_dataframe = mc.master_dataframe.iloc[0:5]
+        >>> mc.working_dataframe = None  # reset to full collection
+
+        """
+        return self._working_dataframe
+
+    @working_dataframe.setter
+    def working_dataframe(self, value: pd.DataFrame | None) -> None:
+        """
+        Set the working dataframe and synchronise :attr:`mt_data`.
+
+        Parameters
+        ----------
+        value : pd.DataFrame or None
+            A subset of :attr:`master_dataframe`.  Pass ``None`` to reset
+            to the full collection.
+
+        """
+        self._working_dataframe = value
+        self._sync_mt_data()
+
+    def _sync_mt_data(self) -> None:
+        """
+        Rebuild :attr:`mt_data` from the current active dataframe.
+
+        Called automatically whenever :attr:`working_dataframe` is assigned.
+        Does nothing if the MTH5 file is not open yet.
+
+        """
+        if not self.mth5_collection.h5_is_read():
+            return
+
+        active_df = self.dataframe
+        if active_df is None or active_df.empty:
+            self.mt_data = MTData()
+            return
+
+        mt_data = MTData()
+        for row in active_df.itertuples():
+            tf = self.get_tf(row.tf_id, survey=row.survey)
+            mt_data.add_station(tf)
+        self.mt_data = mt_data
 
     def __str__(self) -> str:
         """
@@ -351,6 +411,18 @@ class MTCollection:
         **kwargs : dict
             Additional parameters
 
+        Notes
+        -----
+        This method also initializes :attr:`mt_data` for convenience.
+        If the collection does not yet contain readable transfer functions,
+        :attr:`mt_data` is initialized as an empty :class:`MTData`.
+
+        Examples
+        --------
+        >>> mc = MTCollection()
+        >>> mc.open_collection("my_collection.h5", mode="a")
+        >>> mt_data = mc.mt_data
+
         """
         if filename is not None:
             self.mth5_filename = filename
@@ -362,6 +434,11 @@ class MTCollection:
             self.working_directory = working_directory
 
         self.mth5_collection.open_mth5(self.mth5_filename, mode, **kwargs)
+        try:
+            self.mt_data = self.to_mt_data()
+        except Exception as error:
+            self.logger.warning(f"Failed to initialize mt_data: {error}")
+            self.mt_data = MTData()
 
     def close_collection(self) -> None:
         """
@@ -369,6 +446,86 @@ class MTCollection:
 
         """
         self.mth5_collection.close_mth5()
+        self._working_dataframe = None
+        self.mt_data = None
+
+    def refresh_mt_data(self) -> MTData:
+        """
+        Reload ``mt_data`` from the collection.
+
+        Call this after adding or removing transfer functions to keep
+        ``mt_data`` in sync with the underlying MTH5 file.
+
+        Returns
+        -------
+        MTData
+            The refreshed MTData object (also stored as ``mt_data``).
+
+        Examples
+        --------
+        >>> mc.add_tf(tf_list)
+        >>> mt_data = mc.refresh_mt_data()
+
+        """
+        self._sync_mt_data()
+        return self.mt_data
+
+    def map_stations(
+        self,
+        transform,
+        write_back: bool = False,
+        new_survey: str | None = None,
+        tf_id_extra: str | None = None,
+    ) -> MTData:
+        """
+        Apply a transform to every station dataset and return the result.
+
+        The result is also stored in ``mt_data``.
+
+        Parameters
+        ----------
+        transform : callable
+            Function that accepts and returns an ``xr.Dataset`` for a single
+            station.  Receives the same arguments as
+            :meth:`MTData.map_stations`.
+        write_back : bool, optional
+            If ``True`` the transformed data are written back to the MTH5
+            collection via :meth:`from_mt_data`.  Defaults to ``False``.
+        new_survey : str, optional
+            Passed to :meth:`from_mt_data` when *write_back* is ``True``.
+        tf_id_extra : str, optional
+            Passed to :meth:`from_mt_data` when *write_back* is ``True``.
+
+        Returns
+        -------
+        MTData
+            MTData object with the transform applied (also stored as
+            ``mt_data``).
+
+        Examples
+        --------
+        >>> mc.map_stations(lambda ds: ds.tf.rotate(20), write_back=False)
+        >>> mc.map_stations(
+        ...     lambda ds: ds.tf.interpolate([1.0, 10.0]),
+        ...     write_back=True,
+        ...     new_survey="processed",
+        ...     tf_id_extra="interp",
+        ... )
+
+        """
+        if self.mt_data is None:
+            self.mt_data = self.to_mt_data()
+
+        self.mt_data.map_stations(transform, inplace=True)
+
+        if write_back:
+            self.from_mt_data(
+                self.mt_data,
+                new_survey=new_survey,
+                tf_id_extra=tf_id_extra,
+            )
+
+        return self.mt_data
 
     def add_tf(
         self,
@@ -621,10 +778,7 @@ class MTCollection:
         for row in self.dataframe.itertuples():
             tf = self.get_tf(row.tf_id, survey=row.survey)
 
-            mt_data.add_station(tf, compute_relative_location=False)
-
-        # compute locations at the end
-        mt_data.compute_relative_locations()
+            mt_data.add_station(tf)
 
         return mt_data
 
@@ -658,8 +812,12 @@ class MTCollection:
 
         """
         if self.mth5_collection.h5_is_write():
+            mt_data.compute()
             self.add_tf(
-                list(mt_data.values()),
+                [
+                    mt_data.get_station(station_path, as_mt=True)
+                    for station_path in mt_data._iter_station_paths()
+                ],
                 new_survey=new_survey,
                 tf_id_extra=tf_id_extra,
             )
@@ -911,6 +1069,7 @@ class MTCollection:
                     mt_avg.station_metadata.comments = (
                         "avgeraged_stations = " + ",".join([m.station for m in m_list])
                     )
+
                     mt_avg.survey_metadata.id = "averaged"
                     self.add_tf(mt_avg)
 
@@ -947,7 +1106,7 @@ class MTCollection:
         Returns
         -------
         Any
-            Plot object from MT.plot_mt_response or MTData.plot
+            Plot object from MT.plot_mt_response or PlotMultipleResponses
 
         """
         mt_data = MTData()

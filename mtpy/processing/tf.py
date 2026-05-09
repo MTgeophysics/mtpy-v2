@@ -15,7 +15,6 @@ JP, 2013
 import numpy as np
 import scipy.signal as sps
 
-
 # =================================================================
 
 
@@ -1354,9 +1353,7 @@ def robust_stft_L(fx, alpha=0.325, nh=2**8, tstep=2**5, df=1.0, nfbins=2**10):
     return tfarray, tlst, flstp
 
 
-def smethod(
-    fx, L=11, nh=2**8, tstep=2**7, ng=1, df=1.0, nfbins=2**10, sigmaL=None
-):
+def smethod(fx, L=11, nh=2**8, tstep=2**7, ng=1, df=1.0, nfbins=2**10, sigmaL=None):
     """
     Calculates the smethod by estimating the STFT first and computing the WV
     of window length L in the frequency domain.

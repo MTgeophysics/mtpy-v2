@@ -19,7 +19,6 @@ import numpy as np
 
 from mtpy import MTLocation
 
-
 ogr.UseExceptions()
 # =============================================================================
 

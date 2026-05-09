@@ -13,7 +13,6 @@ from __future__ import annotations
 from mth5.processing.kernel_dataset import KernelDataset
 from mth5.processing.run_summary import RunSummary
 
-
 # =============================================================================
 
 

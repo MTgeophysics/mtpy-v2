@@ -7,6 +7,7 @@ Converted to pytest format on Dec 31, 2025
 
 @author: jpeacock
 """
+
 import numpy as np
 
 # =============================================================================
@@ -37,7 +38,6 @@ from mt_metadata import (
 )
 
 from mtpy import MT
-
 
 # =============================================================================
 # Fixtures

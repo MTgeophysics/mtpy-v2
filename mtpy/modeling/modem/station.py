@@ -9,6 +9,7 @@ ModEM
 # revised by AK 2017 to bring across functionality from ak branch
 
 """
+
 from pathlib import Path
 
 import geopandas as gpd
@@ -21,7 +22,6 @@ from mtpy.utils import gis_tools as gis_tools
 
 # in module imports
 from .exception import ModEMError
-
 
 __all__ = ["Stations"]
 

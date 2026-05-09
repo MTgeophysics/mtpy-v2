@@ -17,6 +17,7 @@ Revision History:
 
 update to v2 jpeacock 2024-04-15
 """
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -31,7 +32,6 @@ from pyproj import CRS
 from shapely.geometry import LinearRing, LineString, Polygon
 
 from mtpy.core import MTDataFrame
-
 
 # =============================================================================
 
@@ -479,11 +479,11 @@ class ShapefileCreator:
                         float(x[self.x_key])
                         + self.arrow_size
                         * x["t_mag_real"]
-                        * np.cos(-np.deg2rad(x["t_angle_real"])),
+                        * np.sin(np.deg2rad(x["t_angle_real"]) + np.pi),
                         float(x[self.y_key])
                         + self.arrow_size
                         * x["t_mag_real"]
-                        * np.sin(-np.deg2rad(x["t_angle_real"])),
+                        * np.cos(np.deg2rad(x["t_angle_real"]) + np.pi),
                     ),
                 ]
             ),
@@ -542,11 +542,11 @@ class ShapefileCreator:
                         float(x[self.x_key])
                         + self.arrow_size
                         * x["t_mag_imag"]
-                        * np.cos(-np.deg2rad(x["t_angle_imag"])),
+                        * np.sin(np.deg2rad(x["t_angle_imag"]) + np.pi),
                         float(x[self.y_key])
                         + self.arrow_size
                         * x["t_mag_imag"]
-                        * np.sin(-np.deg2rad(x["t_angle_imag"])),
+                        * np.cos(np.deg2rad(x["t_angle_imag"]) + np.pi),
                     ),
                 ]
             ),

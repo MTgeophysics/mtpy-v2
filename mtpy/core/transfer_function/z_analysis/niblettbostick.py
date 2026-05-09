@@ -20,6 +20,7 @@ Niblett-Bostick transformations are possible in 1D and 2D.
 Updated 2022-09 JP
 
 """
+
 import warnings
 
 # =============================================================================
@@ -27,12 +28,10 @@ import warnings
 # =============================================================================
 import numpy as np
 
-
 np.warnings = warnings
 import scipy.interpolate as spi
 
 from mtpy.utils import MU0
-
 
 # =============================================================================
 
@@ -115,8 +114,7 @@ def calculate_niblett_bostick_resistivity_derivatives(
     m = np.gradient(log_resistivity, log_period, edge_order=2)
 
     # bostick resistivity only valid for -1 < m < 1
-    m[m > 1] = np.nan
-    m[m < -1] = np.nan
+    m[np.abs(m) >= 1] = np.nan
 
     return resistivity * (1.0 + m) / (1.0 - m)
 
@@ -254,14 +252,14 @@ def calculate_depth_of_investigation(z_object) -> np.ndarray:
         )
 
         if z_object.z.shape[0] > 1:
-            depth_array[f"resistivity_{comp}"][
-                :
-            ] = calculate_niblett_bostick_resistivity_derivatives(res, z_object.period)
+            depth_array[f"resistivity_{comp}"][:] = (
+                calculate_niblett_bostick_resistivity_derivatives(res, z_object.period)
+            )
         else:
             phase = getattr(z_object, f"phase_{comp}")
-            depth_array[f"resistivity_{comp}"][
-                :
-            ] = calculate_niblett_bostick_resistivity_weidelt(res, phase)
+            depth_array[f"resistivity_{comp}"][:] = (
+                calculate_niblett_bostick_resistivity_weidelt(res, phase)
+            )
 
     for x in ["depth", "resistivity"]:
         d = np.array(

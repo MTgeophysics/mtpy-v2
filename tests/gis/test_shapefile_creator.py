@@ -20,7 +20,6 @@ from shapely.geometry import Point
 from mtpy.core import MTDataFrame
 from mtpy.gis.shapefile_creator import ShapefileCreator
 
-
 # =============================================================================
 # Session-scoped fixtures
 # =============================================================================

@@ -11,7 +11,9 @@ Created on Tue Aug 20 13:09:02 2024
 import unittest
 
 import numpy as np
-from mtpy_data import PROFILE_LIST
+import pytest
+
+PROFILE_LIST = pytest.importorskip("mtpy_data").PROFILE_LIST
 from simpeg import (
     data_misfit,
     directives,
@@ -23,7 +25,6 @@ from simpeg.electromagnetics import natural_source as nsem
 
 from mtpy import MTData
 from mtpy.modeling.simpeg.recipes.inversion_2d import Simpeg2D
-
 
 # =============================================================================
 

@@ -21,7 +21,6 @@ from mtpy.imaging.mtplot_tools import (
     triangulate_interpolation,
 )
 
-
 # ==============================================================================
 
 
@@ -40,7 +39,8 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
         self.aspect = kwargs.pop("aspect", "auto")
 
         self.xtickspace = kwargs.pop("xtickspace", 1)
-        self.stationid = kwargs.pop("stationid", [0, 4])
+        self.station_id = kwargs.pop("station_id", kwargs.pop("stationid", [0, 4]))
+        self.stationid = self.station_id
         self.linedir = kwargs.pop("linedir", "ew")
 
         # --> set plots to plot and how to plot them
@@ -62,7 +62,6 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
         self.x_stretch = 1
         self.y_stretch = 1
 
-        self.station_id = [0, None]
         self.station_step = 1
 
         # --> set plot limits
@@ -178,14 +177,14 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
                 comp = f"res_{cc}"
                 if getattr(self, f"plot_{cc}"):
                     ax_dict[comp] = self.fig.add_subplot(
-                        *subplot_dict[comp], aspect="equal"
+                        *subplot_dict[comp], aspect=self.aspect
                     )
 
             if self.plot_phase:
                 comp = f"phase_{cc}"
                 if getattr(self, f"plot_{cc}"):
                     ax_dict[comp] = self.fig.add_subplot(
-                        *subplot_dict[comp], aspect="equal"
+                        *subplot_dict[comp], aspect=self.aspect
                     )
 
         share = [ax for comp, ax in ax_dict.items() if ax is not None]
@@ -205,10 +204,17 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
         self._get_profile_line()
 
         entries = []
+        mt_objects = self._get_mt_objects()
 
-        for ii, tf in enumerate(self.mt_data.values()):
+        for tf in mt_objects:
             offset = self._get_offset(tf)
             rp = tf.Z
+
+            def _safe_log10(value):
+                value = float(value)
+                if value <= 0:
+                    return 0.0
+                return np.log10(value)
 
             for ii, period in enumerate(tf.period):
                 if rp.phase_yx[ii] != 0:
@@ -218,11 +224,11 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
                     "station": tf.station,
                     "offset": offset,
                     "period": np.log10(period),
-                    "res_xx": np.log10(rp.res_xx[ii]),
-                    "res_xy": np.log10(rp.res_xy[ii]),
-                    "res_yx": np.log10(rp.res_yx[ii]),
-                    "res_yy": np.log10(rp.res_yy[ii]),
-                    "res_det": np.log10(rp.res_det[ii]),
+                    "res_xx": _safe_log10(rp.res_xx[ii]),
+                    "res_xy": _safe_log10(rp.res_xy[ii]),
+                    "res_yx": _safe_log10(rp.res_yx[ii]),
+                    "res_yy": _safe_log10(rp.res_yy[ii]),
+                    "res_det": _safe_log10(rp.res_det[ii]),
                     "phase_xx": rp.phase_xx[ii],
                     "phase_xy": rp.phase_xy[ii],
                     "phase_yx": rp.phase_yx[ii] + 180,
