@@ -6,6 +6,7 @@ Created on Fri Oct 21 13:46:49 2022
 
 @author: jpeacock
 """
+
 import numpy as np
 
 # =============================================================================
@@ -16,7 +17,6 @@ import scipy.interpolate as spi
 
 from mtpy.core.transfer_function.base import TFBase
 from mtpy.utils.calculator import rotate_matrix_with_errors
-
 
 # =============================================================================
 # Session Fixtures

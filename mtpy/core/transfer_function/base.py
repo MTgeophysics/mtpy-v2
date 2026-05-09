@@ -713,7 +713,7 @@ class TFBase:
                         clockwise=clockwise,
                     )
                 if not self._has_tf_error() and not self._has_tf_model_error():
-                    (rot_tf[index, :, :], _) = rotate_func(
+                    rot_tf[index, :, :], _ = rotate_func(
                         ds.transfer_function[index].values,
                         angle,
                         clockwise=clockwise,

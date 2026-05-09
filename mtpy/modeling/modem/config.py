@@ -9,6 +9,7 @@ ModEM
 # revised by AK 2017 to bring across functionality from ak branch
 
 """
+
 # =============================================================================
 # imports
 # =============================================================================
@@ -20,7 +21,6 @@ from .convariance import Covariance
 from .data import Data
 from .exception import ModEMError
 from .model import Model
-
 
 # =============================================================================
 

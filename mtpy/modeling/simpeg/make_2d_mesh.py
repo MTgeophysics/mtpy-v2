@@ -4,6 +4,7 @@ Created on Thu Nov  9 10:43:06 2023
 
 @author: jpeacock
 """
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -19,7 +20,6 @@ from discretize import TensorMesh, TreeMesh
 # from dask.distributed import Client, LocalCluster
 from geoana.em.fdem import skin_depth
 from numpy.typing import NDArray
-
 
 warnings.filterwarnings("ignore")
 # =============================================================================

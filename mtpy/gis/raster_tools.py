@@ -16,7 +16,6 @@ from rasterio.transform import Affine
 
 from mtpy.core.mt_location import MTLocation
 
-
 # =============================================================================
 
 

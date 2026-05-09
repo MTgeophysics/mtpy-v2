@@ -14,7 +14,6 @@ from mtpy.core.transfer_function.z import Z
 from mtpy.core.transfer_function.z_analysis import niblettbostick as nb
 from mtpy.utils import MU0
 
-
 # =============================================================================
 # Session-scoped fixtures for reuse across test classes
 # =============================================================================

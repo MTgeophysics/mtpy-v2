@@ -13,13 +13,11 @@ import unittest
 import numpy as np
 import pytest
 
-
 PROFILE_LIST = pytest.importorskip("mtpy_data").PROFILE_LIST
 
 from mtpy import MTData
 from mtpy.modeling.simpeg.data_2d import Simpeg2DData
 from mtpy.modeling.simpeg.recipes.inversion_2d import Simpeg2D
-
 
 # =============================================================================
 

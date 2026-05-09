@@ -24,7 +24,6 @@ from mtpy import MT
 from mtpy.core.mt_dataframe import MTDataFrame
 from mtpy.core.transfer_function import MT_TO_OHM_FACTOR
 
-
 # =============================================================================
 # Basic MT Object Tests
 # =============================================================================

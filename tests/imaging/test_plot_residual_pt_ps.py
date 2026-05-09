@@ -8,7 +8,6 @@ from mtpy import MT
 from mtpy.core import MTData
 from mtpy.imaging.plot_residual_pt_ps import PlotResidualPTPseudoSection
 
-
 pytestmark = pytest.mark.plotting
 
 

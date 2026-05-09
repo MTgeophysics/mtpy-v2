@@ -21,7 +21,6 @@ from .map_interpolation_tools import interpolate_to_map
 from .plot_settings import PlotSettings
 from .plotters import add_raster
 
-
 # =============================================================================
 # Base
 # =============================================================================

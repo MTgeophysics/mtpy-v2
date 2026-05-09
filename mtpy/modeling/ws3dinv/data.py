@@ -2,6 +2,7 @@
 """
 Merge transfer functions together
 """
+
 # ==============================================================================
 from pathlib import Path
 
@@ -10,7 +11,6 @@ import pandas as pd
 from loguru import logger
 
 from mtpy.core import MTDataFrame
-
 
 # ==============================================================================
 

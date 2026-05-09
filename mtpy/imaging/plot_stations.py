@@ -16,7 +16,6 @@ Created on Fri Jun 07 18:20:00 2013
 import matplotlib.pyplot as plt
 import numpy as np
 
-
 try:
     import contextily as cx
 
@@ -25,7 +24,6 @@ except ModuleNotFoundError:
     has_cx = False
 import mtpy.utils.exceptions as mtex
 from mtpy.imaging.mtplot_tools import PlotBase
-
 
 # ==============================================================================
 

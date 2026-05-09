@@ -7,6 +7,7 @@ Created on Wed Oct 25 09:35:31 2017
 functions to assist with mesh generation
 
 """
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -17,7 +18,6 @@ import scipy.interpolate as spi
 
 import mtpy.utils.filehandling as mtfh
 from mtpy.utils.gis_tools import project_point
-
 
 # import rasterio
 # from rasterio.warp import calculate_default_transform, reproject, Resampling

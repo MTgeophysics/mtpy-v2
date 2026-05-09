@@ -22,7 +22,6 @@ from pyevtk.hl import gridToVTK
 from .exception import CovarianceError
 from .model import Model
 
-
 # =============================================================================
 
 

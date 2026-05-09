@@ -16,7 +16,6 @@ import numpy as np
 from matplotlib.colors import Normalize
 from matplotlib.ticker import MultipleLocator
 
-
 # ------------------------------------------------------------------------------
 
 

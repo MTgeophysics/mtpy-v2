@@ -21,7 +21,6 @@ import numpy as np
 
 import mtpy.utils.exceptions as MTex
 
-
 # =================================================================
 
 # define uncertainty for differences between time steps

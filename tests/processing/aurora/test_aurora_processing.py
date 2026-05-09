@@ -34,7 +34,6 @@ from mth5.utils.helpers import close_open_files
 from mtpy import MT
 from mtpy.processing.aurora.process_aurora import AuroraProcessing
 
-
 # Mark all tests in this module as integration tests
 pytestmark = pytest.mark.integration
 

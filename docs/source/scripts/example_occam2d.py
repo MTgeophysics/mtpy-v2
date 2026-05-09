@@ -13,7 +13,6 @@ from pathlib import Path
 from mtpy import MT
 from mtpy.core.mt_data import MTData
 
-
 # =============================================================================
 
 ## load in data

@@ -4,6 +4,7 @@ Created on Wed Nov  1 11:58:59 2023
 
 @author: jpeacock
 """
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -13,7 +14,6 @@ from loguru import logger
 
 from mtpy.core import MTDataFrame
 from mtpy.imaging.mtplot_tools.plotters import plot_errorbar
-
 
 try:
     from discretize import TensorMesh
@@ -34,7 +34,6 @@ except ImportError:
 import matplotlib.gridspec as gridspec
 from matplotlib import pyplot as plt
 from matplotlib.ticker import LogLocator
-
 
 # =============================================================================
 

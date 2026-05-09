@@ -17,7 +17,6 @@ import pytest
 from mtpy.core.transfer_function.z import Z
 from mtpy.core.transfer_function.z_analysis import distortion
 
-
 # =============================================================================
 # Session Fixtures
 # =============================================================================

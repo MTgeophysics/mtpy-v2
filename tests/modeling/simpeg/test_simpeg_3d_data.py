@@ -13,13 +13,11 @@ import unittest
 import numpy as np
 import pytest
 
-
 PROFILE_LIST = pytest.importorskip("mtpy_data").PROFILE_LIST
 from simpeg.electromagnetics.natural_source.survey import Data
 
 from mtpy import MTData
 from mtpy.modeling.simpeg.data_3d import Simpeg3DData
-
 
 # =============================================================================
 

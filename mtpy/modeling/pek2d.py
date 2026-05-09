@@ -4,6 +4,7 @@ Created on Tue Oct 28 14:06:45 2014
 
 @author: a1655681
 """
+
 import os
 import os.path as op
 
@@ -46,9 +47,9 @@ class Model:
         self.parameters_data["errorfloor"] = dict(
             z=np.array([[0.05, 0.05], [0.05, 0.05]]), tipper=np.array([0.02, 0.02])
         )
-        self.parameters_data[
-            "errorfloor_type"
-        ] = "offdiagonals"  # offdiagonals or relative
+        self.parameters_data["errorfloor_type"] = (
+            "offdiagonals"  # offdiagonals or relative
+        )
         self.parameters_data["max_no_frequencies"] = 50
         self.parameters_data["mode"] = [1, 1, 1, 1, 1, 1]
         self.n_airlayers = 5
@@ -222,9 +223,9 @@ class Model:
                     mfi = (nx - 1) * i + j + 1
                     if self.modelfile_reslines[mfi, k + 8] == "1":
                         if k < 3:
-                            self.resistivity[
-                                i + nair - 1, j, k
-                            ] = self.outfile_reslines[n, 2]
+                            self.resistivity[i + nair - 1, j, k] = (
+                                self.outfile_reslines[n, 2]
+                            )
                         else:
                             self.sds[i + nair - 1, j, k - 3] = self.outfile_reslines[
                                 n, 2

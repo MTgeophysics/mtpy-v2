@@ -10,6 +10,7 @@ Created 2017
 
 @author: jpeacock
 """
+
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 
@@ -25,7 +26,6 @@ from mtpy.imaging.mtplot_tools import (
     plot_tipper_lateral,
     PlotBase,
 )
-
 
 # ==============================================================================
 #  Plot apparent resistivity and phase

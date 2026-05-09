@@ -17,6 +17,7 @@ Revision History:
 
 update to v2 jpeacock 2024-04-15
 """
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -31,7 +32,6 @@ from pyproj import CRS
 from shapely.geometry import LinearRing, LineString, Polygon
 
 from mtpy.core import MTDataFrame
-
 
 # =============================================================================
 
