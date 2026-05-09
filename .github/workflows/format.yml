@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "**.py"
+      - "**/*.py"
 
 permissions:
   contents: write
