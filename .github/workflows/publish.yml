@@ -1,8 +1,7 @@
 name: Publish to PyPI
 
 on:
-  pull_request_target:
-    types: [closed]
+  push:
     branches:
       - main
 
@@ -12,12 +11,6 @@ permissions:
 
 jobs:
   publish:
-    if: >-
-      github.event.pull_request.merged == true && (
-        contains(github.event.pull_request.labels.*.name, 'release:major') ||
-        contains(github.event.pull_request.labels.*.name, 'release:minor') ||
-        contains(github.event.pull_request.labels.*.name, 'release:patch')
-      )
     runs-on: ubuntu-latest
 
     steps:
