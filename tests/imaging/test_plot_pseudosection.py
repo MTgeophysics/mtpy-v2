@@ -11,7 +11,6 @@ from mtpy import MT
 from mtpy.core import MTData
 from mtpy.imaging.plot_pseudosection import PlotResPhasePseudoSection
 
-
 pytestmark = pytest.mark.plotting
 
 

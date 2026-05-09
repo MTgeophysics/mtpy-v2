@@ -8,6 +8,7 @@ Created on Wed Feb 17 10:57:29 2021
 :license: MIT
 
 """
+
 import matplotlib.pyplot as plt
 
 # =============================================================================
@@ -20,7 +21,6 @@ from matplotlib import colorbar as mcb
 from matplotlib import colors as colors
 from matplotlib import gridspec
 
-
 try:
     import contextily as cx
 
@@ -30,7 +30,6 @@ except ModuleNotFoundError:
 
 from mtpy.core.mt_dataframe import MTDataFrame
 from mtpy.imaging.mtplot_tools import PlotBaseMaps
-
 
 # =============================================================================
 

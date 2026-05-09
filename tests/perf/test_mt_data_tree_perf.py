@@ -30,7 +30,6 @@ import pytest
 from mtpy.core.mt import MT
 from mtpy.core.mt_data import MTData
 
-
 # ---------------------------------------------------------------------------
 # pytest option hook
 # ---------------------------------------------------------------------------

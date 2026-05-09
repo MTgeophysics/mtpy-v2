@@ -5,7 +5,6 @@ Created on Mon Aug 22 15:19:30 2011
 @author: a1185872
 """
 
-
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np

@@ -4,6 +4,7 @@ Created on Tue May 14 18:05:59 2013
 
 @author: jpeacock-pr
 """
+
 import numpy as np
 
 # =============================================================================
@@ -11,7 +12,6 @@ import numpy as np
 # =============================================================================
 from matplotlib import cm, colormaps, colors
 from matplotlib import pyplot as plt
-
 
 # ==============================================================================
 # Make some color maps for plotting

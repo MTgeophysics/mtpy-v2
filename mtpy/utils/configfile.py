@@ -23,7 +23,6 @@ import sys
 import mtpy.utils.exceptions as MTex
 import mtpy.utils.gis_tools as gis_tools
 
-
 # =================================================================
 
 list_of_required_keywords = [
@@ -682,12 +681,8 @@ def read_survey_txt_file(survey_file, delimiter=None):
         # print sstr,len(sstr)
 
         if len(sstr) != len(skeys):
-            print(
-                "cannot read line {0} - wrong number of entries - need {2}\
-                                                    ".format(
-                    ss + 2, len(skeys)
-                )
-            )
+            print("cannot read line {0} - wrong number of entries - need {2}\
+                                                    ".format(ss + 2, len(skeys)))
             continue
 
         sdict = {}

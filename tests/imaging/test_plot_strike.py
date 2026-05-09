@@ -9,7 +9,6 @@ from mtpy import MT
 from mtpy.core import MTData
 from mtpy.imaging.plot_strike import PlotStrike
 
-
 pytestmark = pytest.mark.plotting
 
 

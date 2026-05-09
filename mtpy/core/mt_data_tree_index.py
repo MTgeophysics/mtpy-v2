@@ -49,7 +49,6 @@ import sqlite3
 from dataclasses import asdict, dataclass, field
 from typing import Any, TYPE_CHECKING
 
-
 if TYPE_CHECKING:
     import xarray as xr
 
@@ -514,14 +513,12 @@ class MTDataTreeIndexStore:
         This is more efficient than calling :meth:`station_record` per path
         because it avoids N round-trips to the database.
         """
-        rows = self._conn.execute(
-            """
+        rows = self._conn.execute("""
             SELECT st.*, sv.name AS survey_name
             FROM stations st
             JOIN surveys sv ON sv.id = st.survey_id
             ORDER BY st.id
-            """
-        ).fetchall()
+            """).fetchall()
         return [
             StationRow(
                 id=r["id"],

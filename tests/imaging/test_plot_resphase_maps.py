@@ -10,7 +10,6 @@ from mtpy import MT
 from mtpy.core import MTData
 from mtpy.imaging.plot_resphase_maps import PlotResPhaseMaps
 
-
 pytestmark = pytest.mark.plotting
 
 

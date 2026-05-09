@@ -11,7 +11,6 @@ from mtpy import MT
 from mtpy.core import MTData
 from mtpy.imaging.plot_penetration_depth_map import PlotPenetrationDepthMap
 
-
 pytestmark = pytest.mark.plotting
 
 

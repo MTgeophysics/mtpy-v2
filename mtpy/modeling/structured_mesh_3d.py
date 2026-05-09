@@ -32,7 +32,6 @@ from mtpy.gis.raster_tools import array2raster
 from mtpy.modeling.plots.plot_mesh import PlotMesh
 from mtpy.utils.gis_tools import project_point
 
-
 # =============================================================================
 
 
@@ -1160,9 +1159,9 @@ class StructuredGrid3D:
 
         ds.attrs["Conventions"] = "CF-1.0"
         ds.attrs["Metadata_Conventions"] = "Unidata Dataset Discovery v1.0"
-        ds.attrs[
-            "NCO"
-        ] = "netCDF Operators version 4.7.5 (Homepage = http://nco.sf.net, Code=http://github/nco/nco"
+        ds.attrs["NCO"] = (
+            "netCDF Operators version 4.7.5 (Homepage = http://nco.sf.net, Code=http://github/nco/nco"
+        )
 
         for key, value in metadata.items():
             ds.attrs[key] = value

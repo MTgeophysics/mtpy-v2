@@ -9,7 +9,6 @@ from mtpy import MT
 from mtpy.core import MTData
 from mtpy.imaging.plot_phase_tensor_pseudosection import PlotPhaseTensorPseudoSection
 
-
 pytestmark = pytest.mark.plotting
 
 

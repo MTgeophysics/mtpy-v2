@@ -30,7 +30,6 @@ import mt_metadata
 from mtpy.core.mt import MT
 from mtpy.core.mt_data import MTData
 
-
 # ---------------------------------------------------------------------------
 # Object construction helpers
 # ---------------------------------------------------------------------------

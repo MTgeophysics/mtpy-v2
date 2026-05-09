@@ -26,7 +26,6 @@ from matplotlib import ticker
 from mtpy.core import Z
 from mtpy.imaging.mtplot_tools import PlotBaseMaps
 
-
 # =============================================================================
 
 
