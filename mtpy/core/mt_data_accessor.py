@@ -6,6 +6,13 @@ from typing import Callable
 
 import xarray as xr
 
+if not hasattr(xr, "register_datatree_accessor"):
+    raise ImportError(
+        "mtpy requires xarray >= 2024.10.0 for DataTree support "
+        f"(installed: {xr.__version__}). "
+        "Please upgrade: pip install 'xarray>=2024.10.0'"
+    )
+
 
 @xr.register_datatree_accessor("mt")
 class MTDataTreeAccessor:
