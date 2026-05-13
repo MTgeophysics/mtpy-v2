@@ -61,6 +61,7 @@ Occam1D
 
 @author: J. Peacock (Oct. 2013)
 """
+
 import string
 import subprocess
 
@@ -68,7 +69,6 @@ import numpy as np
 
 import mtpy.analysis.geometry as mtg
 import mtpy.core.mt as mt
-
 
 # =============================================================================
 # Imports

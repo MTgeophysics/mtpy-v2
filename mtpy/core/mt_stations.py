@@ -28,7 +28,6 @@ from scipy import stats
 
 from mtpy.core.mt_location import MTLocation
 
-
 # =============================================================================
 
 

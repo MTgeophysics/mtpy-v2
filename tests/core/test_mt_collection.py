@@ -40,7 +40,6 @@ from mth5.helpers import close_open_files, validate_name
 from mtpy import MT, MTCollection
 from mtpy.core import MTData
 
-
 # =============================================================================
 # Test MTCollection basic functionality
 # =============================================================================
@@ -148,7 +147,7 @@ class TestMTCollection:
         """Test conversion to MTData object."""
         mc = fresh_mt_collection
 
-        mt_data_01 = mc.to_mt_data_tree(utm_crs=32610)
+        mt_data_01 = mc.to_mt_data(utm_crs=32610)
 
         mt_data_02 = MTData(utm_crs=32610)
         for tf_fn in tf_file_list:
@@ -226,7 +225,7 @@ class TestMTCollectionFromMTData02:
 
         mc = MTCollection()
         mc.open_collection(collection_file)
-        mc.from_mt_data_tree(mt_data_obj, new_survey="test", tf_id_extra="new")
+        mc.from_mt_data(mt_data_obj, new_survey="test", tf_id_extra="new")
 
         yield mc
 

@@ -26,7 +26,6 @@ from matplotlib import ticker
 from mtpy.core import Z
 from mtpy.imaging.mtplot_tools import PlotBaseMaps
 
-
 # =============================================================================
 
 
@@ -77,6 +76,9 @@ class PlotResPhaseMaps(PlotBaseMaps):
         super().__init__(**kwargs)
 
         self.mt_data = mt_data
+        self.use_mt_data_preinterpolation = True
+        self._interpolated_mt_data_cache = None
+        self._interpolated_mt_data_cache_period = None
 
         # read in map scale
         self.map_units = "deg"
@@ -167,7 +169,60 @@ class PlotResPhaseMaps(PlotBaseMaps):
 
     def _get_mt_objects(self):
         """Return MT objects as a list for repeated map calculations."""
+        data_source = self._get_mt_data_for_plot_period()
+
+        if hasattr(data_source, "values"):
+            return list(data_source.values())
+
+        if hasattr(data_source, "_iter_station_paths") and hasattr(
+            data_source, "get_station"
+        ):
+            if hasattr(data_source, "compute"):
+                data_source.compute()
+            return [
+                data_source.get_station(station_path, as_mt=True)
+                for station_path in data_source._iter_station_paths()
+            ]
+
         return list(self._iter_mt_objects())
+
+    def _get_mt_data_for_plot_period(self):
+        """Return MTData interpolated to the active plot period when supported."""
+        if not self.use_mt_data_preinterpolation:
+            return self.mt_data
+
+        if not (
+            hasattr(self.mt_data, "interpolate")
+            and hasattr(self.mt_data, "_iter_station_paths")
+            and hasattr(self.mt_data, "get_station")
+        ):
+            return self.mt_data
+
+        target_period = float(self.plot_period)
+        if (
+            self._interpolated_mt_data_cache is not None
+            and self._interpolated_mt_data_cache_period is not None
+            and np.isclose(self._interpolated_mt_data_cache_period, target_period)
+        ):
+            return self._interpolated_mt_data_cache
+
+        try:
+            interpolated = self.mt_data.interpolate(
+                np.array([target_period], dtype=float),
+                inplace=False,
+                bounds_error=False,
+            )
+            if interpolated is not None:
+                self._interpolated_mt_data_cache = interpolated
+                self._interpolated_mt_data_cache_period = target_period
+                return interpolated
+        except Exception as error:
+            self.logger.debug(
+                "Falling back to per-station interpolation for plot period "
+                f"{target_period}: {error}"
+            )
+
+        return self.mt_data
 
     def _get_n_rows(self):
         """Get the number of rows in the subplot.

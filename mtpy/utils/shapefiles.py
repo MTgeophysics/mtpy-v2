@@ -7,9 +7,9 @@ Created on Sun Apr 13 12:32:16 2014
 
 @author: jrpeacock
 """
+
 import mtpy.modeling.modem
 from mtpy.utils.gis_tools import get_utm_zone, project_point_ll2utm
-
 
 try:
     from osgeo import gdal, ogr, osr
@@ -25,7 +25,6 @@ import numpy as np
 
 import mtpy.analysis.pt as mtpt
 import mtpy.core.mt as mt
-
 
 ogr.UseExceptions()
 

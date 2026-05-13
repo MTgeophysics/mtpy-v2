@@ -9,7 +9,6 @@ from mtpy import MT
 from mtpy.core import MTData
 from mtpy.imaging.plot_phase_tensor_pseudosection import PlotPhaseTensorPseudoSection
 
-
 pytestmark = pytest.mark.plotting
 
 
@@ -85,6 +84,30 @@ class TestPlotPhaseTensorPseudoSectionMTData:
 
         assert call_count["n"] == 2
         assert plotter.station_list.shape[0] == 2
+
+        if plotter.fig is not None:
+            plt.close(plotter.fig)
+
+    def test_plot_honors_aspect_kwarg(self, mt_data_tree, monkeypatch):
+        plotter = PlotPhaseTensorPseudoSection(
+            mt_data_tree,
+            show_plot=False,
+            aspect="auto",
+        )
+        plotter.plot_tipper = "n"
+        plotter.plot_pt = False
+
+        def _fake_get_patch(tf):
+            return float(len(tf.station)), tf.station[:5]
+
+        monkeypatch.setattr(plotter, "_get_profile_line", lambda *args, **kwargs: None)
+        monkeypatch.setattr(plotter, "_get_patch", _fake_get_patch)
+        monkeypatch.setattr(plotter, "_add_colorbar", lambda: None)
+        monkeypatch.setattr(plotter, "_add_tipper_legend", lambda: None)
+
+        plotter.plot()
+
+        assert plotter.ax.get_aspect() == "auto"
 
         if plotter.fig is not None:
             plt.close(plotter.fig)

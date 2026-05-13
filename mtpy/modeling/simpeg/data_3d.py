@@ -6,7 +6,6 @@ import warnings
 import numpy as np
 from simpeg.electromagnetics import natural_source as nsem
 
-
 warnings.filterwarnings("ignore")
 
 

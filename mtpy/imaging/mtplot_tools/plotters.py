@@ -31,7 +31,6 @@ from .utils import (
     period_label_dict,
 )
 
-
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.container import ErrorbarContainer

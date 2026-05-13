@@ -10,7 +10,6 @@ from mtpy import MT
 from mtpy.core import MTData
 from mtpy.imaging.plot_resphase_maps import PlotResPhaseMaps
 
-
 pytestmark = pytest.mark.plotting
 
 
@@ -106,3 +105,33 @@ class TestPlotResPhaseMapsMTData:
 
         assert plotter.fig is not None
         plt.close(plotter.fig)
+
+    def test_get_mt_objects_preinterpolates_once_per_period(
+        self, mt_data_tree, monkeypatch
+    ):
+        plotter = PlotResPhaseMaps(mt_data_tree, show_plot=False)
+
+        call_count = {"n": 0}
+
+        def _fake_interpolate(new_periods, inplace=True, bounds_error=True, **kwargs):
+            call_count["n"] += 1
+            assert inplace is False
+            assert bounds_error is False
+            assert new_periods.shape == (1,)
+            return mt_data_tree
+
+        monkeypatch.setattr(mt_data_tree, "interpolate", _fake_interpolate)
+
+        plotter.plot_period = 1.0
+        out_1 = plotter._get_mt_objects()
+        out_2 = plotter._get_mt_objects()
+
+        assert len(out_1) == 2
+        assert len(out_2) == 2
+        assert call_count["n"] == 1
+
+        plotter.plot_period = 10.0
+        out_3 = plotter._get_mt_objects()
+
+        assert len(out_3) == 2
+        assert call_count["n"] == 2

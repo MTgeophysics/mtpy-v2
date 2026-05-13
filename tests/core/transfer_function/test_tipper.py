@@ -6,6 +6,7 @@ Created on Tue Nov  8 13:04:38 2022
 
 @author: jpeacock
 """
+
 import numpy as np
 
 # =============================================================================
@@ -14,7 +15,6 @@ import numpy as np
 import pytest
 
 from mtpy.core.transfer_function.tipper import Tipper
-
 
 # =============================================================================
 # Session Fixtures

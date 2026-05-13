@@ -20,7 +20,6 @@ from pathlib import Path
 
 import matplotlib
 
-
 matplotlib.use("Agg")  # Non-interactive backend for testing
 import matplotlib.pyplot as plt
 import mt_metadata
@@ -34,7 +33,6 @@ from mth5.helpers import close_open_files
 from mtpy import MT, MTCollection
 from mtpy.core import MTData
 from mtpy.core.transfer_function import MT_TO_OHM_FACTOR, Z
-
 
 # =============================================================================
 # Global cache management for MTCollection tests
@@ -720,7 +718,7 @@ def mt_collection_from_mt_data_tree(tf_file_list, worker_id):
 
     mc = MTCollection()
     mc.open_collection(collection_file)
-    mc.from_mt_data_tree(mt_data_obj)
+    mc.from_mt_data(mt_data_obj)
 
     yield mc, mt_data_obj
 

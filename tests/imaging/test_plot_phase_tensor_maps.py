@@ -9,7 +9,6 @@ from mtpy import MT
 from mtpy.core import MTData
 from mtpy.imaging.plot_phase_tensor_maps import PlotPhaseTensorMaps
 
-
 pytestmark = pytest.mark.plotting
 
 
@@ -89,3 +88,50 @@ class TestPlotPhaseTensorMapsMTData:
 
         if plotter.fig is not None:
             plt.close(plotter.fig)
+
+    def test_get_mt_objects_preinterpolates_once_per_period(
+        self, mt_data_tree, monkeypatch
+    ):
+        plotter = PlotPhaseTensorMaps(mt_data_tree, show_plot=False)
+
+        call_count = {"n": 0}
+
+        def _fake_interpolate(new_periods, inplace=True, bounds_error=True, **kwargs):
+            call_count["n"] += 1
+            assert inplace is False
+            assert bounds_error is False
+            assert new_periods.shape == (1,)
+            return mt_data_tree
+
+        monkeypatch.setattr(mt_data_tree, "interpolate", _fake_interpolate)
+
+        plotter.plot_period = 1.0
+        out_1 = plotter._get_mt_objects()
+        out_2 = plotter._get_mt_objects()
+
+        assert len(out_1) == 2
+        assert len(out_2) == 2
+        assert call_count["n"] == 1
+
+        plotter.plot_period = 10.0
+        out_3 = plotter._get_mt_objects()
+
+        assert len(out_3) == 2
+        assert call_count["n"] == 2
+
+    def test_get_interpolated_z_uses_direct_period_sample(
+        self, mt_data_tree, monkeypatch
+    ):
+        plotter = PlotPhaseTensorMaps(mt_data_tree, show_plot=False)
+        tf = plotter._get_mt_objects()[0]
+
+        plotter.plot_period = float(tf.period[0])
+
+        def _raise_interp(*args, **kwargs):
+            raise AssertionError("interp1d path should not be used for exact periods")
+
+        monkeypatch.setattr(plotter, "get_interp1d_functions_z", _raise_interp)
+
+        z = plotter._get_interpolated_z(tf)
+
+        assert z.shape == (1, 2, 2)

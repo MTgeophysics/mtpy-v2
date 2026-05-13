@@ -21,7 +21,6 @@ from mtpy.imaging.mtplot_tools import (
     triangulate_interpolation,
 )
 
-
 # ==============================================================================
 
 
@@ -40,7 +39,8 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
         self.aspect = kwargs.pop("aspect", "auto")
 
         self.xtickspace = kwargs.pop("xtickspace", 1)
-        self.stationid = kwargs.pop("stationid", [0, 4])
+        self.station_id = kwargs.pop("station_id", kwargs.pop("stationid", [0, 4]))
+        self.stationid = self.station_id
         self.linedir = kwargs.pop("linedir", "ew")
 
         # --> set plots to plot and how to plot them
@@ -62,7 +62,6 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
         self.x_stretch = 1
         self.y_stretch = 1
 
-        self.station_id = [0, None]
         self.station_step = 1
 
         # --> set plot limits
@@ -178,14 +177,14 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
                 comp = f"res_{cc}"
                 if getattr(self, f"plot_{cc}"):
                     ax_dict[comp] = self.fig.add_subplot(
-                        *subplot_dict[comp], aspect="equal"
+                        *subplot_dict[comp], aspect=self.aspect
                     )
 
             if self.plot_phase:
                 comp = f"phase_{cc}"
                 if getattr(self, f"plot_{cc}"):
                     ax_dict[comp] = self.fig.add_subplot(
-                        *subplot_dict[comp], aspect="equal"
+                        *subplot_dict[comp], aspect=self.aspect
                     )
 
         share = [ax for comp, ax in ax_dict.items() if ax is not None]

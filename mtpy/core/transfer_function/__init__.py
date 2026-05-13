@@ -6,5 +6,6 @@ IMPEDANCE_UNITS = {"mt": 1, "ohm": MT_TO_OHM_FACTOR}
 from .z import Z
 from .tipper import Tipper
 from .pt import PhaseTensor
+from .accessor import TFDatasetAccessor
 
-__all__ = ["Z", "Tipper", "PhaseTensor"]
+__all__ = ["Z", "Tipper", "PhaseTensor", "TFDatasetAccessor"]

@@ -229,9 +229,9 @@ class Data:
             zer = ze / np.abs(z)
             for i in range(2):
                 for j in range(2):
-                    zer[:, i, j][
-                        (zer[:, i, j] < self.errorfloor[i, j])
-                    ] = self.errorfloor[i, j]
+                    zer[:, i, j][(zer[:, i, j] < self.errorfloor[i, j])] = (
+                        self.errorfloor[i, j]
+                    )
             ze = np.abs(z) * zer
 
             if self.errorfloor_type == "offdiagonals":
@@ -243,9 +243,9 @@ class Data:
         elif self.errorfloor_type == "absolute":
             for i in range(2):
                 for j in range(2):
-                    ze[:, i, j][
-                        (ze[:, i, j] < self.errorfloor[i, j])
-                    ] = self.errorfloor[i, j]
+                    ze[:, i, j][(ze[:, i, j] < self.errorfloor[i, j])] = (
+                        self.errorfloor[i, j]
+                    )
 
         # define header info for data file
         header = "{:>5}\n{:>5}".format(self.mode, len(self.edi_object.Z.resistivity))

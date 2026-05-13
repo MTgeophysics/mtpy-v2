@@ -14,6 +14,7 @@ translated to Python by Lars Krieger
 Revised by J. Peacock 2022 to fit with version 2.
 
 """
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -22,7 +23,34 @@ import copy
 import numpy as np
 
 from .base import TFBase
-
+from .tf_helpers import (
+    compute_phase_tensor,
+    compute_phase_tensor_error,
+    compute_pt_alpha,
+    compute_pt_alpha_error,
+    compute_pt_azimuth,
+    compute_pt_azimuth_error,
+    compute_pt_beta,
+    compute_pt_beta_error,
+    compute_pt_det,
+    compute_pt_det_error,
+    compute_pt_eccentricity,
+    compute_pt_eccentricity_error,
+    compute_pt_ellipticity,
+    compute_pt_ellipticity_error,
+    compute_pt_phimax,
+    compute_pt_phimax_error,
+    compute_pt_phimin,
+    compute_pt_phimin_error,
+    compute_pt_pi1,
+    compute_pt_pi1_error,
+    compute_pt_pi2,
+    compute_pt_pi2_error,
+    compute_pt_skew,
+    compute_pt_skew_error,
+    compute_pt_trace,
+    compute_pt_trace_error,
+)
 
 # =============================================================================
 
@@ -121,39 +149,7 @@ class PhaseTensor(TFBase):
         if self._has_tf():
             old_shape = self._dataset.transfer_function.shape
         z = self._validate_array_input(z, "complex", old_shape)
-        if z is None:
-            return
-
-        pt_array = np.zeros_like(z, dtype=float)
-
-        z_real = np.real(z)
-        z_imag = np.imag(z)
-
-        with np.errstate(divide="ignore", invalid="ignore"):
-            det_real = np.linalg.det(z_real)
-            det_zero = np.where(det_real == 0)[0]
-            if det_zero.shape[0] > 0:
-                self.logger.debug(
-                    f"z at index {det_zero} contains a singular matrix,"
-                    " thus it cannot be converted into a phase tensor, setting to 0."
-                )
-
-            pt_array[:, 0, 0] = (
-                z_real[:, 1, 1] * z_imag[:, 0, 0] - z_real[:, 0, 1] * z_imag[:, 1, 0]
-            )
-            pt_array[:, 0, 1] = (
-                z_real[:, 1, 1] * z_imag[:, 0, 1] - z_real[:, 0, 1] * z_imag[:, 1, 1]
-            )
-            pt_array[:, 1, 0] = (
-                z_real[:, 0, 0] * z_imag[:, 1, 0] - z_real[:, 1, 0] * z_imag[:, 0, 0]
-            )
-            pt_array[:, 1, 1] = (
-                z_real[:, 0, 0] * z_imag[:, 1, 1] - z_real[:, 1, 0] * z_imag[:, 0, 1]
-            )
-
-            pt_array = np.apply_along_axis(lambda x: x / det_real, 0, pt_array)
-
-        return pt_array
+        return compute_phase_tensor(z)
 
     def _pt_error_from_z(self, z: np.ndarray, z_error: np.ndarray) -> np.ndarray | None:
         """
@@ -173,8 +169,6 @@ class PhaseTensor(TFBase):
 
         """
 
-        pt_array = self._pt_from_z(z)
-
         old_shape = None
         if self._has_tf():
             old_shape = self._dataset.transfer_function.shape
@@ -185,77 +179,7 @@ class PhaseTensor(TFBase):
             old_shape = self._dataset.transfer_function_error.shape
 
         z_error = self._validate_array_input(z_error, "float", old_shape)
-        if z_error is None:
-            return
-
-        pt_error = np.zeros_like(pt_array)
-
-        z_real = np.real(z)
-        z_imag = np.imag(z)
-
-        with np.errstate(divide="ignore", invalid="ignore"):
-            det_real = np.abs(np.linalg.det(z_real))
-            pt_error[:, 0, 0] = (
-                np.abs(-pt_array[:, 0, 0] * z_real[:, 1, 1] * z_error[:, 0, 0])
-                + np.abs(pt_array[:, 0, 0] * z_real[:, 0, 1] * z_error[:, 1, 0])
-                + np.abs(
-                    (z_imag[:, 0, 0] - pt_array[:, 0, 0] * z_real[:, 0, 0])
-                    * z_error[:, 1, 1]
-                )
-                + np.abs(
-                    (-z_imag[:, 1, 0] + pt_array[:, 0, 0] * z_real[:, 1, 0])
-                    * z_error[:, 0, 1]
-                )
-                + np.abs(z_real[:, 1, 1] * z_error[:, 0, 0])
-                + np.abs(z_real[:, 0, 1] * z_error[:, 1, 0])
-            ) / det_real
-
-            pt_error[:, 0, 1] = (
-                np.abs(-pt_array[:, 0, 1] * z_real[:, 1, 1] * z_error[:, 0, 0])
-                + np.abs(pt_array[:, 0, 1] * z_real[:, 0, 1] * z_error[:, 1, 0])
-                + np.abs(
-                    (z_imag[:, 0, 1] - pt_array[:, 0, 1] * z_real[:, 0, 0])
-                    * z_error[:, 1, 1]
-                )
-                + np.abs(
-                    (-z_imag[:, 1, 1] + pt_array[:, 0, 1] * z_real[:, 1, 0])
-                    * z_error[:, 0, 1]
-                )
-                + np.abs(z_real[:, 1, 1] * z_error[:, 0, 1])
-                + np.abs(z_real[:, 0, 1] * z_error[:, 1, 1])
-            ) / det_real
-
-            pt_error[:, 1, 0] = (
-                np.abs(
-                    (z_imag[:, 1, 0] - pt_array[:, 1, 0] * z_real[:, 1, 1])
-                    * z_error[:, 0, 0]
-                )
-                + np.abs(pt_array[:, 1, 0] * z_real[:, 1, 0] * z_error[:, 0, 1])
-                + np.abs(
-                    (-z_imag[:, 0, 0] + pt_array[:, 1, 0] * z_real[:, 0, 1])
-                    * z_error[:, 1, 0]
-                )
-                + np.abs(-pt_array[:, 1, 0] * z_real[:, 0, 0] * z_error[:, 1, 1])
-                + np.abs(z_real[:, 0, 0] * z_error[:, 1, 0])
-                + np.abs(-z_real[:, 1, 0] * z_error[:, 0, 0])
-            ) / det_real
-
-            pt_error[:, 1, 1] = (
-                np.abs(
-                    (z_imag[:, 1, 1] - pt_array[:, 1, 1] * z_real[:, 1, 1])
-                    * z_error[:, 0, 0]
-                )
-                + np.abs(pt_array[:, 1, 1] * z_real[:, 1, 0] * z_error[:, 0, 1])
-                + np.abs(
-                    (-z_imag[:, 0, 1] + pt_array[:, 1, 1] * z_real[:, 0, 1])
-                    * z_error[:, 1, 0]
-                )
-                + np.abs(-pt_array[:, 1, 1] * z_real[:, 0, 0] * z_error[:, 1, 1])
-                + np.abs(z_real[:, 0, 0] * z_error[:, 1, 1])
-                + np.abs(-z_real[:, 1, 0] * z_error[:, 0, 1])
-            ) / det_real
-
-        return pt_error
+        return compute_phase_tensor_error(z, z_error)
 
     @property
     def pt(self) -> np.ndarray | None:
@@ -369,246 +293,113 @@ class PhaseTensor(TFBase):
     @property
     def trace(self) -> np.ndarray | None:
         """Trace of phase tensor."""
-        if self.pt is None:
-            return None
-        return np.array([np.trace(i) for i in self.pt])
+        return compute_pt_trace(self.pt)
 
     @property
     def trace_error(self) -> np.ndarray | None:
         """Trace error of phase tensor."""
-
-        if self._has_tf_error():
-            tr_error = self.pt_error[:, 0, 0] + self.pt_error[:, 1, 1]
-            return tr_error
+        return compute_pt_trace_error(self.pt_error)
 
     @property
     def trace_model_error(self) -> np.ndarray | None:
         """Trace model error of phase tensor."""
-
-        if self._has_tf_model_error():
-            tr_model_error = self.pt_error[:, 0, 0] + self.pt_error[:, 1, 1]
-            return tr_model_error
+        return compute_pt_trace_error(self.pt_model_error)
 
     # ---alpha-------------------------------------------------------------
     @property
     def alpha(self) -> np.ndarray | None:
         """Principal axis angle (strike) of phase tensor in degrees."""
-
-        if self.pt is None:
-            return None
-        return np.degrees(
-            0.5
-            * np.arctan2(
-                self.pt[:, 0, 1] + self.pt[:, 1, 0],
-                self.pt[:, 0, 0] - self.pt[:, 1, 1],
-            )
-        )
+        return compute_pt_alpha(self.pt)
 
     @property
     def alpha_error(self) -> np.ndarray | None:
         """Principal axis angle error of phase tensor in degrees."""
-
-        if self._has_tf_error():
-            with np.errstate(divide="ignore", invalid="ignore"):
-                y = self.pt[:, 0, 1] + self.pt[:, 1, 0]
-                yerr = np.sqrt(
-                    self.pt_error[:, 0, 1] ** 2 + self.pt_error[:, 1, 0] ** 2
-                )
-                x = self.pt[:, 0, 0] - self.pt[:, 1, 1]
-                xerr = np.sqrt(
-                    self.pt_error[:, 0, 0] ** 2 + self.pt_error[:, 1, 1] ** 2
-                )
-
-                alpha_error = np.degrees(
-                    0.5
-                    / (x**2 + y**2)
-                    * np.sqrt(y**2 * xerr**2 + x**2 * yerr**2)
-                )
-                return alpha_error
+        return compute_pt_alpha_error(self.pt, self.pt_error)
 
     @property
     def alpha_model_error(self) -> np.ndarray | None:
         """Principal axis angle model error of phase tensor in degrees."""
-
-        if self._has_tf_model_error():
-            with np.errstate(divide="ignore", invalid="ignore"):
-                y = self.pt[:, 0, 1] + self.pt[:, 1, 0]
-                yerr = np.sqrt(
-                    self.pt_model_error[:, 0, 1] ** 2
-                    + self.pt_model_error[:, 1, 0] ** 2
-                )
-                x = self.pt[:, 0, 0] - self.pt[:, 1, 1]
-                xerr = np.sqrt(
-                    self.pt_model_error[:, 0, 0] ** 2
-                    + self.pt_model_error[:, 1, 1] ** 2
-                )
-
-                alpha_model_error = np.degrees(
-                    0.5
-                    / (x**2 + y**2)
-                    * np.sqrt(y**2 * xerr**2 + x**2 * yerr**2)
-                )
-                return alpha_model_error
+        return compute_pt_alpha_error(self.pt, self.pt_model_error)
 
     # ---beta-------------------------------------------------------------
     @property
     def beta(self) -> np.ndarray | None:
         """3D-dimensionality angle Beta (invariant) of phase tensor in degrees."""
-
-        if self.pt is None:
-            return None
-        return np.degrees(
-            0.5
-            * np.arctan2(
-                self.pt[:, 0, 1] - self.pt[:, 1, 0],
-                self.pt[:, 0, 0] + self.pt[:, 1, 1],
-            )
-        )
+        return compute_pt_beta(self.pt)
 
     @property
     def beta_error(self) -> np.ndarray | None:
         """3D-dimensionality angle error Beta of phase tensor in degrees."""
-
-        if self._has_tf_error():
-            y = self.pt[:, 0, 1] - self.pt[:, 1, 0]
-            yerr = np.sqrt(self.pt_error[:, 0, 1] ** 2 + self.pt_error[:, 1, 0] ** 2)
-            x = self.pt[:, 0, 0] + self.pt[:, 1, 1]
-            xerr = np.sqrt(self.pt_error[:, 0, 0] ** 2 + self.pt_error[:, 1, 1] ** 2)
-
-            beta_error = np.degrees(
-                0.5
-                / (x**2 + y**2)
-                * np.sqrt(y**2 * xerr**2 + x**2 * yerr**2)
-            )
-            return beta_error
+        return compute_pt_beta_error(self.pt, self.pt_error)
 
     @property
     def beta_model_error(self) -> np.ndarray | None:
         """3D-dimensionality angle model error Beta of phase tensor in degrees."""
-
-        if self._has_tf_error():
-            y = self.pt[:, 0, 1] - self.pt[:, 1, 0]
-            yerr = np.sqrt(
-                self.pt_model_error[:, 0, 1] ** 2 + self.pt_model_error[:, 1, 0] ** 2
-            )
-            x = self.pt[:, 0, 0] + self.pt[:, 1, 1]
-            xerr = np.sqrt(
-                self.pt_model_error[:, 0, 0] ** 2 + self.pt_model_error[:, 1, 1] ** 2
-            )
-
-            beta_model_error = np.degrees(
-                0.5
-                / (x**2 + y**2)
-                * np.sqrt(y**2 * xerr**2 + x**2 * yerr**2)
-            )
-            return beta_model_error
+        return compute_pt_beta_error(self.pt, self.pt_model_error)
 
     # ---skew-------------------------------------------------------------
     @property
     def skew(self) -> np.ndarray | None:
         """3D-dimensionality skew angle of phase tensor in degrees."""
-        return self.beta
+        return compute_pt_skew(self.pt)
 
     @property
     def skew_error(self) -> np.ndarray | None:
         """3D-dimensionality skew angle error of phase tensor in degrees."""
-        return self.beta_error
+        return compute_pt_skew_error(self.pt, self.pt_error)
 
     @property
     def skew_model_error(self) -> np.ndarray | None:
         """3D-dimensionality skew angle model error of phase tensor in degrees."""
-        return self.beta_model_error
+        return compute_pt_skew_error(self.pt, self.pt_model_error)
 
     # ---azimuth (strike angle)-------------------------------------------------
     @property
     def azimuth(self) -> np.ndarray | None:
         """Azimuth angle related to geoelectric strike in degrees."""
-
-        if self.pt is None:
-            return None
-        return (self.alpha - self.beta) % 360
+        return compute_pt_azimuth(self.pt)
 
     @property
     def azimuth_error(self) -> np.ndarray | None:
         """Azimuth angle error related to geoelectric strike in degrees."""
-        if self._has_tf_error():
-            return np.sqrt(abs(self.alpha_error + self.beta_error))
+        return compute_pt_azimuth_error(self.pt, self.pt_error)
 
     @property
     def azimuth_model_error(self) -> np.ndarray | None:
         """Azimuth angle model error related to geoelectric strike in degrees."""
-        if self._has_tf_model_error():
-            return np.sqrt(abs(self.alpha_model_error + self.beta_model_error))
+        return compute_pt_azimuth_error(self.pt, self.pt_model_error)
 
     # ---ellipticity----------------------------------------------------
     @property
     def ellipticity(self) -> np.ndarray | None:
         """Ellipticity of the phase tensor, related to dimensionality."""
-
-        if self.pt is None:
-            return None
-        result = None
-        with np.errstate(divide="ignore", invalid="ignore"):
-            result = (self.phimax - self.phimin) / (self.phimax + self.phimin)
-        return result
+        return compute_pt_ellipticity(self.pt)
 
     @property
     def ellipticity_error(self) -> np.ndarray | None:
         """Ellipticity error of the phase tensor, related to dimensionality."""
-        if self._has_tf_error():
-            with np.errstate(divide="ignore", invalid="ignore"):
-                return (
-                    self.ellipticity
-                    * np.sqrt(self.phimax_error + self.phimin_error)
-                    * np.sqrt(
-                        (1 / (self.phimax - self.phimin)) ** 2
-                        + (1 / (self.phimax + self.phimin)) ** 2
-                    )
-                )
+        return compute_pt_ellipticity_error(self.pt, self.pt_error)
 
     @property
     def ellipticity_model_error(self) -> np.ndarray | None:
         """Ellipticity model error of the phase tensor, related to dimensionality."""
-        if self._has_tf_model_error():
-            return (
-                self.ellipticity
-                * np.sqrt(self.phimax_model_error + self.phimin_model_error)
-                * np.sqrt(
-                    (1 / (self.phimax - self.phimin)) ** 2
-                    + (1 / (self.phimax + self.phimin)) ** 2
-                )
-            )
+        return compute_pt_ellipticity_error(self.pt, self.pt_model_error)
 
     # ---det-------------------------------------------------------------
     @property
     def det(self) -> np.ndarray | None:
         """Determinant of phase tensor."""
-        if self.pt is None:
-            return None
-        with np.errstate(divide="ignore", invalid="ignore"):
-            return np.array([np.linalg.det(pt_arr) for pt_arr in self.pt])
+        return compute_pt_det(self.pt)
 
     @property
     def det_error(self) -> np.ndarray | None:
         """Determinant error of phase tensor."""
-        if self._has_tf_error():
-            return (
-                np.abs(self.pt[:, 1, 1] * self.pt_error[:, 0, 0])
-                + np.abs(self.pt[:, 0, 0] * self.pt_error[:, 1, 1])
-                + np.abs(self.pt[:, 0, 1] * self.pt_error[:, 1, 0])
-                + np.abs(self.pt[:, 1, 0] * self.pt_error[:, 0, 1])
-            )
+        return compute_pt_det_error(self.pt, self.pt_error)
 
     @property
     def det_model_error(self) -> np.ndarray | None:
         """Determinant model error of phase tensor."""
-        if self._has_tf_model_error():
-            return (
-                np.abs(self.pt[:, 1, 1] * self.pt_model_error[:, 0, 0])
-                + np.abs(self.pt[:, 0, 0] * self.pt_model_error[:, 1, 1])
-                + np.abs(self.pt[:, 0, 1] * self.pt_model_error[:, 1, 0])
-                + np.abs(self.pt[:, 1, 0] * self.pt_model_error[:, 0, 1])
-            )
+        return compute_pt_det_error(self.pt, self.pt_model_error)
 
     # ---principle component 1----------------------------------------------
     @property
@@ -621,45 +412,17 @@ class PhaseTensor(TFBase):
         """
         # after bibby et al. 2005
 
-        return 0.5 * np.sqrt(
-            (self.pt[:, 0, 0] - self.pt[:, 1, 1]) ** 2
-            + (self.pt[:, 0, 1] + self.pt[:, 1, 0]) ** 2
-        )
+        return compute_pt_pi1(self.pt)
 
     @property
     def _pi1_error(self) -> np.ndarray | None:
         """Pi1 error."""
-        if self._has_tf_error():
-            with np.errstate(divide="ignore", invalid="ignore"):
-                return (
-                    1.0
-                    / (4 * self._pi1)
-                    * np.sqrt(
-                        (self.pt[:, 0, 0] - self.pt[:, 1, 1]) ** 2
-                        * (self.pt_error[:, 0, 0] ** 2 + self.pt_error[:, 1, 1] ** 2)
-                        + (self.pt[:, 0, 1] + self.pt[:, 1, 0]) ** 2
-                        * (self.pt_error[:, 0, 1] ** 2 + self.pt_error[:, 1, 0] ** 2)
-                    )
-                )
+        return compute_pt_pi1_error(self.pt, self.pt_error)
 
     @property
     def _pi1_model_error(self) -> np.ndarray | None:
         """Pi1 model error."""
-        if self._has_tf_model_error():
-            with np.errstate(divide="ignore", invalid="ignore"):
-                return (
-                    1.0
-                    / (4 * self._pi1)
-                    * np.sqrt(
-                        (self.pt[:, 0, 0] - self.pt[:, 1, 1]) ** 2
-                        * (self.pt_error[:, 0, 0] ** 2 + self.pt_error[:, 1, 1] ** 2)
-                        + (self.pt[:, 0, 1] + self.pt[:, 1, 0]) ** 2
-                        * (
-                            self.pt_model_error[:, 0, 1] ** 2
-                            + self.pt_model_error[:, 1, 0] ** 2
-                        )
-                    )
-                )
+        return compute_pt_pi1_error(self.pt, self.pt_model_error)
 
     # ---principle component 2----------------------------------------------
     @property
@@ -672,50 +435,17 @@ class PhaseTensor(TFBase):
         """
         # after bibby et al. 2005
 
-        return 0.5 * np.sqrt(
-            (self.pt[:, 0, 0] + self.pt[:, 1, 1]) ** 2
-            + (self.pt[:, 0, 1] - self.pt[:, 1, 0]) ** 2
-        )
+        return compute_pt_pi2(self.pt)
 
     @property
     def _pi2_error(self) -> np.ndarray | None:
         """Pi2 error."""
-
-        if self._has_tf_error():
-            with np.errstate(divide="ignore", invalid="ignore"):
-                return (
-                    1.0
-                    / (4 * self._pi2)
-                    * np.sqrt(
-                        (self.pt[:, 0, 0] + self.pt[:, 1, 1]) ** 2
-                        * (self.pt_error[:, 0, 0] ** 2 + self.pt_error[:, 1, 1] ** 2)
-                        + (self.pt[:, 0, 1] - self.pt[:, 1, 0]) ** 2
-                        * (self.pt_error[:, 0, 1] ** 2 + self.pt_error[:, 1, 0] ** 2)
-                    )
-                )
+        return compute_pt_pi2_error(self.pt, self.pt_error)
 
     @property
     def _pi2_model_error(self) -> np.ndarray | None:
         """Pi2 model error."""
-
-        if self._has_tf_model_error():
-            with np.errstate(divide="ignore", invalid="ignore"):
-                return (
-                    1.0
-                    / (4 * self._pi2)
-                    * np.sqrt(
-                        (self.pt[:, 0, 0] + self.pt[:, 1, 1]) ** 2
-                        * (
-                            self.pt_model_error[:, 0, 0] ** 2
-                            + self.pt_model_error[:, 1, 1] ** 2
-                        )
-                        + (self.pt[:, 0, 1] - self.pt[:, 1, 0]) ** 2
-                        * (
-                            self.pt_model_error[:, 0, 1] ** 2
-                            + self.pt_model_error[:, 1, 0] ** 2
-                        )
-                    )
-                )
+        return compute_pt_pi2_error(self.pt, self.pt_model_error)
 
     # ---phimin----------------------------------------------
     @property
@@ -726,27 +456,17 @@ class PhaseTensor(TFBase):
         Phi_min = Pi2 - Pi1.
 
         """
-
-        if self._has_tf():
-            return np.degrees(np.arctan(self._pi2 - self._pi1))
+        return compute_pt_phimin(self.pt)
 
     @property
     def phimin_error(self) -> np.ndarray | None:
         """Minimum phase error."""
-        if self._has_tf_error():
-            return np.degrees(
-                np.arctan(np.sqrt(self._pi2_error**2 + self._pi1_error**2))
-            )
+        return compute_pt_phimin_error(self.pt, self.pt_error)
 
     @property
     def phimin_model_error(self) -> np.ndarray | None:
         """Minimum phase model error."""
-        if self._has_tf_model_error():
-            return np.degrees(
-                np.arctan(
-                    np.sqrt(self._pi2_model_error**2 + self._pi1_model_error**2)
-                )
-            )
+        return compute_pt_phimin_error(self.pt, self.pt_model_error)
 
     # ---phimax----------------------------------------------
     @property
@@ -757,27 +477,17 @@ class PhaseTensor(TFBase):
         Phi_max = Pi2 + Pi1.
 
         """
-
-        if self._has_tf():
-            return np.degrees(np.arctan(self._pi2 + self._pi1))
+        return compute_pt_phimax(self.pt)
 
     @property
     def phimax_error(self) -> np.ndarray | None:
         """Maximum phase error."""
-        if self._has_tf_error():
-            return np.degrees(
-                np.arctan(np.sqrt(self._pi2_error**2 + self._pi1_error**2))
-            )
+        return compute_pt_phimax_error(self.pt, self.pt_error)
 
     @property
     def phimax_model_error(self) -> np.ndarray | None:
         """Maximum phase model error."""
-        if self._has_tf_model_error():
-            return np.degrees(
-                np.arctan(
-                    np.sqrt(self._pi2_model_error**2 + self._pi1_model_error**2)
-                )
-            )
+        return compute_pt_phimax_error(self.pt, self.pt_model_error)
 
     # ---only 1d----------------------------------------------
     @property
@@ -823,30 +533,14 @@ class PhaseTensor(TFBase):
     @property
     def eccentricity(self) -> np.ndarray | None:
         """Eccentricity estimation of dimensionality."""
-
-        if self._has_tf():
-            return self._pi1 / self._pi2
+        return compute_pt_eccentricity(self.pt)
 
     @property
     def eccentricity_error(self) -> np.ndarray | None:
         """Error in eccentricity estimation."""
-        if self._has_tf_error():
-            return (
-                np.sqrt(
-                    (self._pi1_error / self._pi1) ** 2
-                    + (self._pi2_error / self._pi2) ** 2
-                )
-                * self.eccentricity
-            )
+        return compute_pt_eccentricity_error(self.pt, self.pt_error)
 
     @property
     def eccentricity_model_error(self) -> np.ndarray | None:
         """Model error in eccentricity estimation."""
-        if self._has_tf_model_error():
-            return (
-                np.sqrt(
-                    (self._pi1_model_error / self._pi1) ** 2
-                    + (self._pi2_model_error / self._pi2) ** 2
-                )
-                * self.eccentricity
-            )
+        return compute_pt_eccentricity_error(self.pt, self.pt_model_error)

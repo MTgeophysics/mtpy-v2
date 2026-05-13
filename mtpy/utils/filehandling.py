@@ -32,7 +32,6 @@ import mtpy.utils.calculator as MTcc
 import mtpy.utils.configfile as MTcf
 import mtpy.utils.exceptions as MTex
 
-
 # =================================================================
 
 # define uncertainty for differences between time steps

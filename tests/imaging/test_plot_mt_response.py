@@ -9,6 +9,7 @@ Created on December 31, 2025
 
 @author: AI Assistant
 """
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -21,7 +22,6 @@ from mt_metadata import TF_EDI_CGG
 
 from mtpy import MT
 from mtpy.imaging.plot_mt_response import PlotMTResponse
-
 
 # Mark all tests in this module as plotting tests
 pytestmark = pytest.mark.plotting

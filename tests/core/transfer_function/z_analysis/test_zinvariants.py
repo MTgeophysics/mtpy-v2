@@ -16,7 +16,6 @@ import pytest
 
 from mtpy.core.transfer_function.z_analysis.zinvariants import ZInvariants
 
-
 # =============================================================================
 # Session Fixtures
 # =============================================================================

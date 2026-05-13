@@ -599,6 +599,289 @@ class TestMTDataNodeOperations:
 
         assert isinstance(tree.mt_stations, MTStations)
 
+    def test_compute_relative_locations_wrapper_round_trip(self):
+        mt_1 = MT()
+        mt_1.survey = "wrap"
+        mt_1.station = "s01"
+        mt_1.latitude = 40.0
+        mt_1.longitude = -120.0
+        mt_1.east = 500000.0
+        mt_1.north = 4400000.0
+        mt_1.utm_epsg = 32611
+
+        mt_2 = MT()
+        mt_2.survey = "wrap"
+        mt_2.station = "s02"
+        mt_2.latitude = 40.1
+        mt_2.longitude = -120.1
+        mt_2.east = 500400.0
+        mt_2.north = 4400600.0
+        mt_2.utm_epsg = 32611
+
+        tree = MTData()
+        tree.add_stations([mt_1, mt_2])
+
+        expected = tree.to_mt_stations()
+        expected.compute_relative_locations()
+        expected_df = expected.station_locations.set_index(["survey", "station"])
+
+        tree.compute_relative_locations()
+        actual_df = tree.station_locations.set_index(["survey", "station"])
+
+        for column in ["model_east", "model_north", "model_elevation"]:
+            assert np.allclose(
+                actual_df[column].to_numpy(dtype=float),
+                expected_df[column].to_numpy(dtype=float),
+            )
+
+    def test_rotate_stations_wrapper_round_trip(self):
+        mt_1 = MT()
+        mt_1.survey = "rotate_wrap"
+        mt_1.station = "s01"
+        mt_1.latitude = 40.0
+        mt_1.longitude = -120.0
+        mt_1.east = 500000.0
+        mt_1.north = 4400000.0
+        mt_1.utm_epsg = 32611
+
+        mt_2 = MT()
+        mt_2.survey = "rotate_wrap"
+        mt_2.station = "s02"
+        mt_2.latitude = 40.05
+        mt_2.longitude = -120.05
+        mt_2.east = 500700.0
+        mt_2.north = 4400400.0
+        mt_2.utm_epsg = 32611
+
+        tree = MTData()
+        tree.add_stations([mt_1, mt_2])
+        tree.compute_relative_locations()
+
+        expected = tree.to_mt_stations()
+        expected.rotate_stations(30.0)
+        expected_df = expected.station_locations.set_index(["survey", "station"])
+
+        tree.rotate_stations(30.0)
+        actual_df = tree.station_locations.set_index(["survey", "station"])
+
+        for column in ["model_east", "model_north"]:
+            assert np.allclose(
+                actual_df[column].to_numpy(dtype=float),
+                expected_df[column].to_numpy(dtype=float),
+            )
+        assert np.isclose(tree.data_rotation_angle, 30.0)
+
+    def test_center_stations_wrapper_round_trip(self):
+        mt_1 = MT()
+        mt_1.survey = "center_wrap"
+        mt_1.station = "s01"
+        mt_1.latitude = 40.0
+        mt_1.longitude = -120.0
+        mt_1.east = 500000.0
+        mt_1.north = 4400000.0
+        mt_1.utm_epsg = 32611
+
+        mt_2 = MT()
+        mt_2.survey = "center_wrap"
+        mt_2.station = "s02"
+        mt_2.latitude = 40.1
+        mt_2.longitude = -120.1
+        mt_2.east = 501000.0
+        mt_2.north = 4401000.0
+        mt_2.utm_epsg = 32611
+
+        class _Model:
+            grid_east = np.array([-2000.0, 0.0, 1000.0, 2000.0])
+            grid_north = np.array([-2000.0, 0.0, 1000.0, 2000.0])
+
+        tree = MTData()
+        tree.add_stations([mt_1, mt_2])
+        tree.compute_relative_locations()
+
+        expected = tree.to_mt_stations()
+        expected.center_stations(_Model())
+        expected_df = expected.station_locations.set_index(["survey", "station"])
+
+        tree.center_stations(_Model())
+        actual_df = tree.station_locations.set_index(["survey", "station"])
+
+        for column in ["model_east", "model_north"]:
+            assert np.allclose(
+                actual_df[column].to_numpy(dtype=float),
+                expected_df[column].to_numpy(dtype=float),
+            )
+
+    def test_project_stations_on_topography_wrapper_round_trip(self):
+        mt_1 = MT()
+        mt_1.survey = "topo_wrap"
+        mt_1.station = "s01"
+        mt_1.latitude = 40.0
+        mt_1.longitude = -120.0
+        mt_1.east = 500000.0
+        mt_1.north = 4400000.0
+        mt_1.model_east = 500.0
+        mt_1.model_north = 500.0
+        mt_1.utm_epsg = 32611
+
+        mt_2 = MT()
+        mt_2.survey = "topo_wrap"
+        mt_2.station = "s02"
+        mt_2.latitude = 40.1
+        mt_2.longitude = -120.1
+        mt_2.east = 500800.0
+        mt_2.north = 4400900.0
+        mt_2.model_east = 1500.0
+        mt_2.model_north = 1500.0
+        mt_2.utm_epsg = 32611
+
+        class _TopoModel:
+            grid_east = np.array([0.0, 1000.0, 2000.0])
+            grid_north = np.array([0.0, 1000.0, 2000.0])
+            grid_z = np.array([100.0, 50.0, 0.0])
+            res_model = np.array(
+                [
+                    [[1e12, 100.0, 100.0], [1e12, 100.0, 100.0]],
+                    [[1e12, 100.0, 100.0], [1e12, 100.0, 100.0]],
+                ]
+            )
+
+        tree = MTData()
+        tree.add_stations([mt_1, mt_2])
+
+        expected = tree.to_mt_stations()
+        expected.project_stations_on_topography(_TopoModel())
+        expected_df = expected.station_locations.set_index(["survey", "station"])
+
+        tree.project_stations_on_topography(_TopoModel())
+        actual_df = tree.station_locations.set_index(["survey", "station"])
+
+        assert np.allclose(
+            actual_df["model_elevation"].to_numpy(dtype=float),
+            expected_df["model_elevation"].to_numpy(dtype=float),
+        )
+        assert np.isclose(tree._center_elev, 100.0)
+
+    def test_to_geopd_wrapper_delegates_to_mt_stations(self, monkeypatch):
+        tree = MTData()
+        expected = object()
+
+        class _FakeStations:
+            def to_geopd(self):
+                return expected
+
+        monkeypatch.setattr(tree, "to_mt_stations", lambda: _FakeStations())
+
+        out = tree.to_geopd()
+
+        assert out is expected
+
+    def test_to_csv_wrapper_delegates_to_mt_stations(self, monkeypatch, tmp_path):
+        tree = MTData()
+        captured = {}
+
+        class _FakeStations:
+            def to_csv(self, csv_fn, geometry=False):
+                captured["csv_fn"] = csv_fn
+                captured["geometry"] = geometry
+
+        monkeypatch.setattr(tree, "to_mt_stations", lambda: _FakeStations())
+
+        out = tree.to_csv(tmp_path / "stations.csv", geometry=True)
+
+        assert out is None
+        assert captured["csv_fn"] == tmp_path / "stations.csv"
+        assert captured["geometry"] is True
+
+    def test_to_shp_wrapper_delegates_to_mt_stations(self, monkeypatch, tmp_path):
+        tree = MTData()
+        expected = tmp_path / "stations.shp"
+        captured = {}
+
+        class _FakeStations:
+            def to_shp(self, shp_fn):
+                captured["shp_fn"] = shp_fn
+                return expected
+
+        monkeypatch.setattr(tree, "to_mt_stations", lambda: _FakeStations())
+
+        out = tree.to_shp(tmp_path / "stations.shp")
+
+        assert out == expected
+        assert captured["shp_fn"] == tmp_path / "stations.shp"
+
+    def test_to_vtk_wrapper_delegates_to_mt_stations(self, monkeypatch, tmp_path):
+        tree = MTData()
+        expected = tmp_path / "stations.vtu"
+        captured = {}
+
+        class _FakeStations:
+            def to_vtk(self, **kwargs):
+                captured.update(kwargs)
+                return expected
+
+        monkeypatch.setattr(tree, "to_mt_stations", lambda: _FakeStations())
+
+        out = tree.to_vtk(
+            vtk_fn=tmp_path / "stations.vtk",
+            vtk_save_path=tmp_path,
+            vtk_fn_basename="wrap_stations",
+            geographic=True,
+            shift_east=1.0,
+            shift_north=2.0,
+            shift_elev=3.0,
+            units="m",
+            coordinate_system="enz-",
+        )
+
+        assert out == expected
+        assert captured["vtk_fn"] == tmp_path / "stations.vtk"
+        assert captured["vtk_save_path"] == tmp_path
+        assert captured["vtk_fn_basename"] == "wrap_stations"
+        assert captured["geographic"] is True
+        assert np.isclose(captured["shift_east"], 1.0)
+        assert np.isclose(captured["shift_north"], 2.0)
+        assert np.isclose(captured["shift_elev"], 3.0)
+        assert captured["units"] == "m"
+        assert captured["coordinate_system"] == "enz-"
+
+    def test_generate_profile_wrapper_delegates_to_mt_stations(self, monkeypatch):
+        tree = MTData()
+        expected = (1.0, 2.0, 3.0, 4.0, {"s01": 0.0})
+        captured = {}
+
+        class _FakeStations:
+            def generate_profile(self, units="deg"):
+                captured["units"] = units
+                return expected
+
+        monkeypatch.setattr(tree, "to_mt_stations", lambda: _FakeStations())
+
+        out = tree.generate_profile(units="m")
+
+        assert out == expected
+        assert captured["units"] == "m"
+
+    def test_generate_profile_from_strike_wrapper_delegates_to_mt_stations(
+        self, monkeypatch
+    ):
+        tree = MTData()
+        expected = (0.0, 1.0, 2.0, 3.0, {"s01": 100.0})
+        captured = {}
+
+        class _FakeStations:
+            def generate_profile_from_strike(self, strike, units="deg"):
+                captured["strike"] = strike
+                captured["units"] = units
+                return expected
+
+        monkeypatch.setattr(tree, "to_mt_stations", lambda: _FakeStations())
+
+        out = tree.generate_profile_from_strike(35.0, units="m")
+
+        assert out == expected
+        assert np.isclose(captured["strike"], 35.0)
+        assert captured["units"] == "m"
+
     def test_get_station_as_mt_restores_location_attrs(self, loaded_profile_mt):
         tree = MTData()
         station_path = tree.add_station(loaded_profile_mt)
@@ -608,6 +891,17 @@ class TestMTDataNodeOperations:
         assert out.latitude == loaded_profile_mt.latitude
         assert out.longitude == loaded_profile_mt.longitude
         assert out.elevation == loaded_profile_mt.elevation
+
+    def test_get_station_as_mt_restores_profile_offset(self, loaded_profile_mt):
+        mt_obj = loaded_profile_mt.copy()
+        mt_obj.profile_offset = 123.456
+
+        tree = MTData()
+        station_path = tree.add_station(mt_obj)
+
+        out = tree.get_station(station_path, as_mt=True)
+
+        assert np.isclose(out.profile_offset, 123.456)
 
     def test_survey_ids_empty_tree(self):
         tree = MTData()
@@ -1622,6 +1916,41 @@ class TestMTDataDaskMethods:
         assert not lazy_tree.is_lazy
         assert lazy_tree.get_station(station_path).sizes["period"] == 5
 
+    def test_map_stations_eager_delegates_to_tree_accessor(
+        self, loaded_profile_mt, monkeypatch
+    ):
+        import mtpy.core.mt_data_accessor as mt_data_accessor
+
+        tree = MTData()
+        station_path = tree.add_station(loaded_profile_mt)
+        called = {"value": False}
+
+        original_map = mt_data_accessor.MTDataTreeAccessor.map_stations
+
+        def _wrapped(self, transform, station_paths=None, inplace=False):
+            called["value"] = True
+            return original_map(
+                self,
+                transform,
+                station_paths=station_paths,
+                inplace=inplace,
+            )
+
+        monkeypatch.setattr(
+            mt_data_accessor.MTDataTreeAccessor,
+            "map_stations",
+            _wrapped,
+        )
+
+        out = tree.map_stations(
+            lambda ds: ds.isel(period=slice(0, 4)),
+            lazy=False,
+            inplace=False,
+        )
+
+        assert called["value"] is True
+        assert out.get_station(station_path).sizes["period"] == 4
+
 
 class TestMTDataSpatialFiltering:
     def test_station_locations_returns_dataframe_without_mt_conversion(
@@ -2173,3 +2502,63 @@ class TestMTDataPlottingCompatibility:
 
         with pytest.raises(KeyError, match="Survey not found"):
             tree.plot_residual_phase_tensor_maps("survey_a", "missing")
+
+
+class TestMTDataTreeAccessor:
+    def test_station_paths_and_short_paths(self, loaded_profile_mt_objects):
+        tree = MTData()
+        station_paths = tree.add_stations(loaded_profile_mt_objects)
+
+        assert sorted(tree.tree.mt.station_paths) == sorted(station_paths)
+        assert len(tree.tree.mt.short_station_paths) == len(station_paths)
+        assert sorted(tree.tree.mt.survey_names) == sorted(tree.survey_ids)
+
+    def test_get_station_dataset_from_short_key(self, loaded_profile_mt):
+        tree = MTData()
+        station_path = tree.add_station(loaded_profile_mt)
+        survey = station_path.split("/")[1]
+        station = station_path.split("/")[3]
+
+        ds_short = tree.tree.mt.get_station_dataset(f"{survey}/{station}")
+        ds_full = tree.get_station(station_path)
+        assert ds_short.identical(ds_full)
+
+    def test_set_station_dataset_non_inplace_returns_new_tree(self, loaded_profile_mt):
+        tree = MTData()
+        station_path = tree.add_station(loaded_profile_mt)
+
+        source_ds = tree.tree.mt.get_station_dataset(station_path, copy=True, deep=True)
+        source_ds.attrs["custom_accessor_flag"] = "new"
+
+        out_tree = tree.tree.mt.set_station_dataset(
+            station_path,
+            source_ds,
+            inplace=False,
+        )
+
+        assert out_tree is not None
+        assert "custom_accessor_flag" not in tree.get_station(station_path).attrs
+        assert out_tree[station_path].ds.attrs["custom_accessor_flag"] == "new"
+
+    def test_map_stations_applies_transform(self, loaded_profile_mt_objects):
+        tree = MTData()
+        tree.add_stations(loaded_profile_mt_objects)
+
+        def _trim(ds):
+            return ds.isel(period=slice(0, 3))
+
+        mapped_tree = tree.tree.mt.map_stations(_trim, inplace=False)
+        assert mapped_tree is not None
+        for station_path in tree.tree.mt.station_paths:
+            assert mapped_tree[station_path].ds.sizes["period"] == 3
+            assert tree.get_station(station_path).sizes["period"] > 3
+
+    def test_select_stations_returns_subset(self, loaded_profile_mt_objects):
+        tree = MTData()
+        station_paths = tree.add_stations(loaded_profile_mt_objects)
+        selected = station_paths[:1]
+
+        subset_tree = tree.tree.mt.select_stations(selected)
+
+        assert sorted(subset_tree.mt.station_paths) == sorted(selected)
+        assert subset_tree.attrs["schema_name"] == tree.tree.attrs["schema_name"]

@@ -17,6 +17,7 @@ Revision History:
     LastUpdate:     14/02/2020  BM: cleanup, add rotation and indexing
                                     by depth
 """
+
 import argparse
 import math
 import os
@@ -29,7 +30,6 @@ from scipy.interpolate import RegularGridInterpolator
 from mtpy.modeling.modem import Data, Model
 from mtpy.utils import gis_tools
 from mtpy.utils.mtpylog import MtPyLog
-
 
 _logger = MtPyLog.get_mtpy_logger(__name__)
 

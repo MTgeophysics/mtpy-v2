@@ -31,7 +31,6 @@ from mth5.processing.kernel_dataset import KernelDataset
 from mtpy import MT
 from mtpy.processing.base import BaseProcessing
 
-
 warnings.filterwarnings("ignore")
 # =============================================================================
 
@@ -128,7 +127,11 @@ class AuroraProcessing(BaseProcessing):
             }
         )
 
-    def add_simple_coherence_weights(self, **kwargs) -> list[ChannelWeightSpec]:
+    def add_simple_coherence_weights(
+        self,
+        channel_list=[("ex", ["ex", "hy"]), ("ey", ["ey", "hx"]), ("hz", ["hx", "hx"])],
+        **kwargs,
+    ) -> list[ChannelWeightSpec]:
         """
         Add coherence weights using the channel weight spec.
 
@@ -144,14 +147,10 @@ class AuroraProcessing(BaseProcessing):
 
         """
         channel_weight_specs = []
-        for channel in [
-            ("ex", ["ex", "hy"]),
-            ("ey", ["ey", "hx"]),
-            ("hz", ["hx", "hx"]),
-        ]:
+        for channel in channel_list:
             station_1 = self.local_station_id
             station_2 = self.local_station_id
-            if channel[0] in ["hz"]:
+            if channel[0] in ["hz", "h3"]:
                 station_2 = self.remote_station_id
             cws = ChannelWeightSpec(
                 combination_style="multiplication",

@@ -13,7 +13,6 @@ from matplotlib.ticker import MultipleLocator
 
 from mtpy.imaging.mtplot_tools import get_log_tick_labels, plot_pt_lateral, PlotBase
 
-
 # ==============================================================================
 
 

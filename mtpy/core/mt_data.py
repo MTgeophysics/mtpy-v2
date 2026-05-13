@@ -32,9 +32,9 @@ from mtpy.imaging import (
 )
 from mtpy.modeling.errors import ModelErrors
 
+from . import mt_data_accessor as _mt_data_accessor  # noqa: F401
 from .mt_data_tree_index import MTDataTreeIndexStore
 from .mt_dataframe import MTDataFrame
-
 
 COORDINATE_REFERENCE_FRAME_OPTIONS = {
     "+": "ned",
@@ -229,6 +229,103 @@ class MTData:
                 if len(parts) >= 4
             ]
         )
+
+    @property
+    def datum_epsg(self) -> int | None:
+        """Return the root datum EPSG code when available."""
+        value = self.attrs.get("datum_crs", self.attrs.get("datum_epsg"))
+        epsg = self._coerce_epsg_value(value)
+        if epsg is None:
+            return None
+        if str(epsg).isdigit():
+            return int(epsg)
+        return None
+
+    @datum_epsg.setter
+    def datum_epsg(self, value: Any) -> None:
+        """Set root datum CRS/EPSG."""
+        self.datum_crs = value
+
+    @property
+    def datum_crs(self) -> Any | None:
+        """Return the root datum CRS/EPSG value."""
+        return self.attrs.get("datum_crs", self.attrs.get("datum_epsg"))
+
+    @datum_crs.setter
+    def datum_crs(self, value: Any) -> None:
+        """Set root datum CRS/EPSG."""
+        if value in [None, "", "None", "none", "null"]:
+            self.attrs.pop("datum_crs", None)
+            self.attrs.pop("datum_epsg", None)
+            return
+
+        self.attrs["datum_crs"] = value
+        epsg = self._coerce_epsg_value(value)
+        if epsg is not None:
+            self.attrs["datum_epsg"] = epsg
+
+    @property
+    def utm_epsg(self) -> int | None:
+        """Return the root UTM EPSG code when available."""
+        value = self.attrs.get("utm_crs", self.attrs.get("utm_epsg"))
+        epsg = self._coerce_epsg_value(value)
+        if epsg is None:
+            return None
+        if str(epsg).isdigit():
+            return int(epsg)
+        return None
+
+    @utm_epsg.setter
+    def utm_epsg(self, value: Any) -> None:
+        """Set root UTM CRS/EPSG and propagate to all station attrs."""
+        self.utm_crs = value
+
+    @property
+    def utm_crs(self) -> Any | None:
+        """Return the root UTM CRS/EPSG value used for station projections."""
+        return self.attrs.get("utm_crs", self.attrs.get("utm_epsg"))
+
+    @utm_crs.setter
+    def utm_crs(self, value: Any) -> None:
+        """Set root UTM CRS/EPSG and refresh station location attrs."""
+        if value in [None, "", "None", "none", "null"]:
+            self.attrs.pop("utm_crs", None)
+            self.attrs.pop("utm_epsg", None)
+            return
+
+        self.attrs["utm_crs"] = value
+        epsg = self._coerce_epsg_value(value)
+        if epsg is not None:
+            self.attrs["utm_epsg"] = epsg
+
+        self._apply_utm_crs_to_station_attrs(value)
+
+    def _apply_utm_crs_to_station_attrs(self, utm_crs: Any) -> None:
+        """Apply a root UTM CRS/EPSG to all station attrs and recompute EN."""
+        from .mt_location import MTLocation
+
+        for station_path in self._iter_station_paths():
+            station = self.get_station(station_path)
+            attrs = station.attrs
+            attrs["utm_crs"] = utm_crs
+
+            latitude = attrs.get("latitude")
+            longitude = attrs.get("longitude")
+            if latitude in [None, "", "None", "none", "null"]:
+                continue
+            if longitude in [None, "", "None", "none", "null"]:
+                continue
+
+            try:
+                point = MTLocation(
+                    latitude=float(latitude),
+                    longitude=float(longitude),
+                    utm_crs=utm_crs,
+                )
+                attrs["easting"] = float(point.east)
+                attrs["northing"] = float(point.north)
+            except Exception:
+                continue
 
     @property
     def survey_names(self) -> list[str]:
@@ -655,9 +752,9 @@ class MTData:
 
         for station_path in self._iter_station_paths():
             station_ds = self.get_station(station_path)
-            station_ds.attrs[
-                "coordinate_reference_frame"
-            ] = self.coordinate_reference_frame
+            station_ds.attrs["coordinate_reference_frame"] = (
+                self.coordinate_reference_frame
+            )
 
     @property
     def impedance_units(self) -> str:
@@ -1058,17 +1155,25 @@ class MTData:
         for station_path in target_paths:
             station_ds = tree_obj.get_station(station_path).copy(deep=False)
             if lazy:
-                tree_obj._lazy_station_transforms[
-                    station_path
-                ] = lambda ds=station_ds, op=transform: op(ds)
-            else:
-                out_ds = transform(station_ds)
+                tree_obj._lazy_station_transforms[station_path] = (
+                    lambda ds=station_ds, op=transform: op(ds)
+                )
+        if not lazy:
+
+            def _validated_transform(ds: xr.Dataset) -> xr.Dataset:
+                out_ds = transform(ds)
                 if not isinstance(out_ds, xr.Dataset):
                     raise TypeError(
                         "map_stations transform must return xr.Dataset, "
                         f"got {type(out_ds)!r}"
                     )
-                tree_obj._set_station_dataset(station_path, out_ds)
+                return out_ds
+
+            tree_obj.tree.mt.map_stations(
+                _validated_transform,
+                station_paths=target_paths,
+                inplace=True,
+            )
         return tree_obj
 
     def interpolate_dask(
@@ -1127,9 +1232,9 @@ class MTData:
         )
 
         for station_path, transform in list(lazy_tree._lazy_station_transforms.items()):
-            lazy_tree._lazy_station_transforms[
-                station_path
-            ] = lambda fn=transform: delayed(fn)()
+            lazy_tree._lazy_station_transforms[station_path] = (
+                lambda fn=transform: delayed(fn)()
+            )
 
         if compute:
             lazy_tree.compute(scheduler=scheduler)
@@ -1193,9 +1298,9 @@ class MTData:
         )
 
         for station_path, transform in list(lazy_tree._lazy_station_transforms.items()):
-            lazy_tree._lazy_station_transforms[
-                station_path
-            ] = lambda fn=transform: delayed(fn)()
+            lazy_tree._lazy_station_transforms[station_path] = (
+                lambda fn=transform: delayed(fn)()
+            )
 
         if compute:
             lazy_tree.compute(scheduler=scheduler)
@@ -1496,6 +1601,8 @@ class MTData:
             mt_obj.east = attrs["easting"]
         if attrs.get("northing") is not None:
             mt_obj.north = attrs["northing"]
+        if attrs.get("profile_offset") is not None:
+            mt_obj.profile_offset = attrs["profile_offset"]
 
         survey_md = attrs.get("survey_metadata", {})
         if isinstance(survey_md, dict) and survey_md:
@@ -1659,7 +1766,11 @@ class MTData:
         """
         from .mt_stations import MTStations
 
-        return MTStations(None, station_locations=self.station_locations)
+        return MTStations(
+            self.utm_epsg,
+            datum_epsg=self.datum_epsg,
+            station_locations=self.station_locations,
+        )
 
     @property
     def center_point(self) -> Any:
@@ -1950,6 +2061,176 @@ class MTData:
     def mt_stations(self) -> "MTStations":
         """Convenience accessor for station locations represented by the tree."""
         return self.to_mt_stations()
+
+    def _sync_station_locations_from_mt_stations(
+        self,
+        mt_stations: "MTStations",
+    ) -> None:
+        """Write MTStations location updates back into tree station attrs."""
+        self.compute()
+
+        station_df = mt_stations.station_locations
+        if station_df is None or station_df.empty:
+            return
+
+        key_to_path: dict[tuple[str, str], str] = {}
+        for station_path in self._iter_station_paths():
+            attrs = self.get_station(station_path).attrs
+            key = (
+                self._clean_name(attrs.get("survey"), "default"),
+                self._clean_name(attrs.get("station"), "unknown_station"),
+            )
+            key_to_path[key] = station_path
+
+        for row in station_df.itertuples(index=False):
+            survey = self._clean_name(getattr(row, "survey", None), "default")
+            station = self._clean_name(
+                getattr(row, "station", None),
+                "unknown_station",
+            )
+            station_path = key_to_path.get((survey, station))
+            if station_path is None:
+                continue
+
+            attrs = self.get_station(station_path).attrs
+            attrs["latitude"] = getattr(row, "latitude", attrs.get("latitude"))
+            attrs["longitude"] = getattr(row, "longitude", attrs.get("longitude"))
+            attrs["elevation"] = getattr(row, "elevation", attrs.get("elevation"))
+            attrs["easting"] = getattr(row, "east", attrs.get("easting"))
+            attrs["northing"] = getattr(row, "north", attrs.get("northing"))
+            attrs["model_east"] = getattr(row, "model_east", attrs.get("model_east"))
+            attrs["model_north"] = getattr(
+                row,
+                "model_north",
+                attrs.get("model_north"),
+            )
+            attrs["model_elevation"] = getattr(
+                row,
+                "model_elevation",
+                attrs.get("model_elevation"),
+            )
+            attrs["profile_offset"] = getattr(
+                row,
+                "profile_offset",
+                attrs.get("profile_offset"),
+            )
+
+            datum_epsg = self._coerce_epsg_value(getattr(row, "datum_epsg", None))
+            if datum_epsg is not None:
+                attrs["datum_crs"] = datum_epsg
+
+            utm_epsg = self._coerce_epsg_value(getattr(row, "utm_epsg", None))
+            if utm_epsg is not None:
+                attrs["utm_crs"] = utm_epsg
+                attrs["utm_epsg"] = utm_epsg
+
+        if mt_stations.utm_epsg is not None:
+            self.attrs["utm_epsg"] = mt_stations.utm_epsg
+            self.attrs["utm_crs"] = mt_stations.utm_epsg
+        if mt_stations.datum_epsg is not None:
+            self.attrs["datum_crs"] = mt_stations.datum_epsg
+
+        self.data_rotation_angle = getattr(
+            mt_stations,
+            "rotation_angle",
+            self.data_rotation_angle,
+        )
+        self._center_lat = getattr(mt_stations, "_center_lat", self._center_lat)
+        self._center_lon = getattr(mt_stations, "_center_lon", self._center_lon)
+        self._center_elev = getattr(mt_stations, "_center_elev", self._center_elev)
+
+        if self._index is not None:
+            self.rebuild_index(index_db_path=self._index_db_path)
+
+    def compute_relative_locations(self) -> None:
+        """Compute model-relative station coordinates and sync to the tree."""
+        stations = self.to_mt_stations()
+        stations.compute_relative_locations()
+        self._sync_station_locations_from_mt_stations(stations)
+
+    def rotate_stations(self, rotation_angle: float) -> None:
+        """Rotate station model coordinates and sync to the tree."""
+        stations = self.to_mt_stations()
+        stations.rotate_stations(rotation_angle)
+        self._sync_station_locations_from_mt_stations(stations)
+
+    def center_stations(self, model_obj: Any) -> None:
+        """Center station locations to model cell centers and sync to tree."""
+        stations = self.to_mt_stations()
+        stations.center_stations(model_obj)
+        self._sync_station_locations_from_mt_stations(stations)
+
+    def project_stations_on_topography(
+        self,
+        model_object: Any,
+        air_resistivity: float = 1e12,
+        sea_resistivity: float = 0.3,
+        ocean_bottom: bool = False,
+    ) -> None:
+        """Project station elevations to model topography and sync to tree."""
+        stations = self.to_mt_stations()
+        stations.project_stations_on_topography(
+            model_object,
+            air_resistivity=air_resistivity,
+            sea_resistivity=sea_resistivity,
+            ocean_bottom=ocean_bottom,
+        )
+        self._sync_station_locations_from_mt_stations(stations)
+
+    def to_geopd(self) -> Any:
+        """Return station locations as a GeoDataFrame via MTStations."""
+        return self.to_mt_stations().to_geopd()
+
+    def to_shp(self, shp_fn: str | Path) -> str | Path:
+        """Write a station-location shapefile via MTStations."""
+        return self.to_mt_stations().to_shp(shp_fn)
+
+    def to_csv(self, csv_fn: str | Path, geometry: bool = False) -> None:
+        """Write station locations to CSV via MTStations."""
+        self.to_mt_stations().to_csv(csv_fn, geometry=geometry)
+
+    def to_vtk(
+        self,
+        vtk_fn: str | Path | None = None,
+        vtk_save_path: str | Path | None = None,
+        vtk_fn_basename: str = "ModEM_stations",
+        geographic: bool = False,
+        shift_east: float = 0,
+        shift_north: float = 0,
+        shift_elev: float = 0,
+        units: str = "km",
+        coordinate_system: str = "nez+",
+    ) -> Path:
+        """Write a station-location VTK file via MTStations."""
+        return self.to_mt_stations().to_vtk(
+            vtk_fn=vtk_fn,
+            vtk_save_path=vtk_save_path,
+            vtk_fn_basename=vtk_fn_basename,
+            geographic=geographic,
+            shift_east=shift_east,
+            shift_north=shift_north,
+            shift_elev=shift_elev,
+            units=units,
+            coordinate_system=coordinate_system,
+        )
+
+    def generate_profile(
+        self,
+        units: str = "deg",
+    ) -> tuple[float, float, float, float, dict[str, float]]:
+        """Generate a best-fit profile line via MTStations."""
+        return self.to_mt_stations().generate_profile(units=units)
+
+    def generate_profile_from_strike(
+        self,
+        strike: float,
+        units: str = "deg",
+    ) -> tuple[float, float, float, float, dict[str, float]]:
+        """Generate a profile line from strike via MTStations."""
+        return self.to_mt_stations().generate_profile_from_strike(
+            strike,
+            units=units,
+        )
 
     def get_nearby_stations(
         self,
@@ -2983,9 +3264,7 @@ class MTData:
         new_periods: np.ndarray,
         **kwargs: Any,
     ) -> xr.Dataset:
-        """Interpolate a stored station dataset with TFBase semantics."""
-        from .transfer_function.base import TFBase
-
+        """Interpolate a stored station dataset via the dataset tf accessor."""
         target_periods = np.asarray(new_periods, dtype=float)
         attrs = dict(station_ds.attrs)
 
@@ -2997,22 +3276,15 @@ class MTData:
             }
             coords["period"] = target_periods
             interpolated_ds = xr.Dataset(coords=coords)
-        elif target_periods.size == 0:
-            interpolated_ds = station_ds.isel(period=slice(0, 0)).copy(deep=True)
-        else:
-            tf_obj = TFBase()
-            # TFBase.interpolate reads source arrays and writes a new dataset,
-            # so we can avoid deep-copying the input and the return-object copy.
-            tf_obj.from_xarray(station_ds)
-            tf_obj.interpolate(
-                target_periods,
-                inplace=True,
-                **kwargs,
-            )
-            interpolated_ds = tf_obj.to_xarray()
+            interpolated_ds.attrs.update(attrs)
+            return interpolated_ds
 
-        interpolated_ds.attrs.update(attrs)
-        return interpolated_ds
+        if target_periods.size == 0:
+            interpolated_ds = station_ds.isel(period=slice(0, 0)).copy(deep=True)
+            interpolated_ds.attrs.update(attrs)
+            return interpolated_ds
+
+        return station_ds.tf.interpolate(target_periods, inplace=False, **kwargs)
 
     @staticmethod
     def _rotate_station_dataset(
@@ -3020,177 +3292,24 @@ class MTData:
         rotation_angle: float | np.ndarray,
         coordinate_reference_frame: str = "ned",
     ) -> xr.Dataset:
-        """Rotate impedance/tipper channel blocks with MT.rotate semantics."""
-        from mtpy.utils.calculator import (
-            rotate_matrix_with_errors,
-            rotate_vector_with_errors,
-        )
-
-        attrs = dict(station_ds.attrs)
-        rotated_ds = station_ds.copy(deep=True).load()
-
+        """Rotate impedance/tipper channel blocks via the dataset tf accessor."""
         if (
-            "transfer_function" not in rotated_ds
-            or "period" not in rotated_ds.coords
-            or "output" not in rotated_ds.coords
-            or "input" not in rotated_ds.coords
+            "transfer_function" not in station_ds
+            or "period" not in station_ds.coords
+            or station_ds.sizes.get("period", 0) == 0
         ):
-            rotated_ds.attrs.update(attrs)
-            return rotated_ds
+            return station_ds
 
-        n_periods = int(rotated_ds.sizes.get("period", 0))
-        if n_periods == 0:
-            rotated_ds.attrs.update(attrs)
-            return rotated_ds
-
-        if isinstance(rotation_angle, (float, int, str, np.floating, np.integer)):
-            degree_angle = np.repeat(float(rotation_angle) % 360.0, n_periods)
-        elif isinstance(rotation_angle, (list, tuple, np.ndarray)):
-            angles = np.asarray(rotation_angle, dtype=float) % 360.0
-            if angles.size == 1:
-                degree_angle = np.repeat(float(angles[0]), n_periods)
-            elif angles.size == n_periods:
-                degree_angle = angles
-            else:
-                raise ValueError(
-                    "angles must be the same size as periods "
-                    f"{n_periods} not {angles.size}"
-                )
-        else:
-            raise ValueError(
-                f"Angle must be a valid number (in degrees) not {rotation_angle}"
+        # Materialise dask arrays before rotation; the accessor uses .loc[]
+        # assignments which xarray cannot apply to dask-backed arrays.
+        try:
+            return station_ds.load().tf.rotate(
+                rotation_angle,
+                coordinate_reference_frame=coordinate_reference_frame,
+                inplace=False,
             )
-
-        crf = str(coordinate_reference_frame).lower()
-        if crf in ["ned", "+"]:
-            clockwise = True
-        elif crf in ["enu", "-"]:
-            clockwise = False
-        else:
-            raise ValueError(
-                f"coordinate_reference_frame {coordinate_reference_frame} not understood."
-            )
-
-        output_labels = list(rotated_ds.coords["output"].values)
-        input_labels = list(rotated_ds.coords["input"].values)
-
-        z_outputs = MTData._pick_channel_labels(
-            output_labels, ["ex", "ey", "x", "y"], 2
-        )
-        z_inputs = MTData._pick_channel_labels(input_labels, ["hx", "hy", "x", "y"], 2)
-        if z_outputs is not None and z_inputs is not None:
-            tf_block = (
-                rotated_ds["transfer_function"]
-                .sel(output=z_outputs, input=z_inputs)
-                .values.copy()
-            )
-            rot_tf = np.zeros_like(tf_block, dtype=complex)
-            for index, angle in enumerate(degree_angle):
-                rot_tf[index], _ = rotate_matrix_with_errors(
-                    tf_block[index],
-                    angle,
-                    clockwise=clockwise,
-                )
-            rotated_ds["transfer_function"].loc[
-                dict(output=z_outputs, input=z_inputs)
-            ] = rot_tf
-
-            if "transfer_function_error" in rotated_ds:
-                tf_error_block = (
-                    rotated_ds["transfer_function_error"]
-                    .sel(output=z_outputs, input=z_inputs)
-                    .values.copy()
-                )
-                rot_tf_error = np.zeros_like(tf_error_block, dtype=float)
-                for index, angle in enumerate(degree_angle):
-                    _, rot_tf_error[index] = rotate_matrix_with_errors(
-                        tf_block[index],
-                        angle,
-                        tf_error_block[index],
-                        clockwise=clockwise,
-                    )
-                rotated_ds["transfer_function_error"].loc[
-                    dict(output=z_outputs, input=z_inputs)
-                ] = rot_tf_error
-
-            if "transfer_function_model_error" in rotated_ds:
-                tf_model_error_block = (
-                    rotated_ds["transfer_function_model_error"]
-                    .sel(output=z_outputs, input=z_inputs)
-                    .values.copy()
-                )
-                rot_tf_model_error = np.zeros_like(tf_model_error_block, dtype=float)
-                for index, angle in enumerate(degree_angle):
-                    _, rot_tf_model_error[index] = rotate_matrix_with_errors(
-                        tf_block[index],
-                        angle,
-                        tf_model_error_block[index],
-                        clockwise=clockwise,
-                    )
-                rotated_ds["transfer_function_model_error"].loc[
-                    dict(output=z_outputs, input=z_inputs)
-                ] = rot_tf_model_error
-
-        t_output = MTData._pick_channel_labels(output_labels, ["hz", "z"], 1)
-        t_inputs = MTData._pick_channel_labels(input_labels, ["hx", "hy", "x", "y"], 2)
-        if t_output is not None and t_inputs is not None:
-            tf_tipper = (
-                rotated_ds["transfer_function"]
-                .sel(output=t_output, input=t_inputs)
-                .values.copy()
-            )
-            rot_tipper = np.zeros_like(tf_tipper, dtype=complex)
-            for index, angle in enumerate(degree_angle):
-                rot_tipper[index], _ = rotate_vector_with_errors(
-                    tf_tipper[index],
-                    angle,
-                    clockwise=clockwise,
-                )
-            rotated_ds["transfer_function"].loc[
-                dict(output=t_output, input=t_inputs)
-            ] = rot_tipper
-
-            if "transfer_function_error" in rotated_ds:
-                tipper_error = (
-                    rotated_ds["transfer_function_error"]
-                    .sel(output=t_output, input=t_inputs)
-                    .values.copy()
-                )
-                rot_tipper_error = np.zeros_like(tipper_error, dtype=float)
-                for index, angle in enumerate(degree_angle):
-                    _, rot_tipper_error[index] = rotate_vector_with_errors(
-                        tf_tipper[index],
-                        angle,
-                        tipper_error[index],
-                        clockwise=clockwise,
-                    )
-                rotated_ds["transfer_function_error"].loc[
-                    dict(output=t_output, input=t_inputs)
-                ] = rot_tipper_error
-
-            if "transfer_function_model_error" in rotated_ds:
-                tipper_model_error = (
-                    rotated_ds["transfer_function_model_error"]
-                    .sel(output=t_output, input=t_inputs)
-                    .values.copy()
-                )
-                rot_tipper_model_error = np.zeros_like(
-                    tipper_model_error,
-                    dtype=float,
-                )
-                for index, angle in enumerate(degree_angle):
-                    _, rot_tipper_model_error[index] = rotate_vector_with_errors(
-                        tf_tipper[index],
-                        angle,
-                        tipper_model_error[index],
-                        clockwise=clockwise,
-                    )
-                rotated_ds["transfer_function_model_error"].loc[
-                    dict(output=t_output, input=t_inputs)
-                ] = rot_tipper_model_error
-
-        rotated_ds.attrs.update(attrs)
-        return rotated_ds
+        except ValueError:
+            return station_ds
 
     def rotate(
         self,

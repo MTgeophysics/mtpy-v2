@@ -21,7 +21,6 @@ from .map_interpolation_tools import interpolate_to_map
 from .plot_settings import PlotSettings
 from .plotters import add_raster
 
-
 # =============================================================================
 # Base
 # =============================================================================
@@ -403,6 +402,21 @@ class PlotBaseMaps(PlotBase):
 
         return interp_dict
 
+    def _get_plot_period_index(self, tf, rtol: float = 1e-6) -> int | None:
+        """Return index of the configured plot period if present in TF data."""
+        period = getattr(tf, "period", None)
+        if period is None:
+            return None
+
+        period_array = np.asarray(period, dtype=float)
+        if period_array.size == 0:
+            return None
+
+        idx = np.where(np.isclose(period_array, float(self.plot_period), rtol=rtol))[0]
+        if idx.size == 0:
+            return None
+        return int(idx[0])
+
     def _get_interpolated_z(self, tf) -> np.ndarray:
         """
         Get interpolated impedance tensor at plot period.
@@ -419,6 +433,13 @@ class PlotBaseMaps(PlotBase):
             specified plot period
 
         """
+        idx = self._get_plot_period_index(tf)
+        if idx is not None and tf.Z is not None:
+            try:
+                return np.nan_to_num(np.asarray(tf.Z.z[idx : idx + 1], dtype=complex))
+            except Exception:
+                pass
+
         if not hasattr(tf, "z_interp_dict"):
             tf.z_interp_dict = self.get_interp1d_functions_z(tf)
         return np.nan_to_num(
@@ -460,6 +481,15 @@ class PlotBaseMaps(PlotBase):
             specified plot period. Returns zeros if no error data available.
 
         """
+        idx = self._get_plot_period_index(tf)
+        if idx is not None and tf.Z is not None and tf.Z._has_tf_error():
+            try:
+                return np.nan_to_num(
+                    np.asarray(tf.Z.z_error[idx : idx + 1], dtype=float)
+                )
+            except Exception:
+                pass
+
         if not hasattr(tf, "z_interp_dict"):
             tf.z_interp_dict = self.get_interp1d_functions_z(tf)
         if tf.z_interp_dict["zxy"]["err"] is not None:
@@ -496,6 +526,15 @@ class PlotBaseMaps(PlotBase):
             specified plot period. Returns zeros if no model error data available.
 
         """
+        idx = self._get_plot_period_index(tf)
+        if idx is not None and tf.Z is not None and tf.Z._has_tf_model_error():
+            try:
+                return np.nan_to_num(
+                    np.asarray(tf.Z.z_model_error[idx : idx + 1], dtype=float)
+                )
+            except Exception:
+                pass
+
         if not hasattr(tf, "z_interp_dict"):
             tf.z_interp_dict = self.get_interp1d_functions_z(tf)
         if tf.z_interp_dict["zxy"]["model_err"] is not None:
@@ -540,6 +579,15 @@ class PlotBaseMaps(PlotBase):
             plot period. Returns zeros if no tipper data available.
 
         """
+        idx = self._get_plot_period_index(tf)
+        if idx is not None and tf.has_tipper() and tf.Tipper is not None:
+            try:
+                return np.nan_to_num(
+                    np.asarray(tf.Tipper.tipper[idx : idx + 1], dtype=complex)
+                )
+            except Exception:
+                pass
+
         if not hasattr(tf, "t_interp_dict"):
             tf.t_interp_dict = self.get_interp1d_functions_t(tf)
         if not tf.has_tipper():
@@ -572,6 +620,15 @@ class PlotBaseMaps(PlotBase):
         :return: DESCRIPTION.
         :rtype: TYPE
         """
+        idx = self._get_plot_period_index(tf)
+        if idx is not None and tf.has_tipper() and tf.Tipper._has_tf_error():
+            try:
+                return np.nan_to_num(
+                    np.asarray(tf.Tipper.tipper_error[idx : idx + 1], dtype=float)
+                )
+            except Exception:
+                pass
+
         if not hasattr(tf, "t_interp_dict"):
             tf.t_interp_dict = self.get_interp1d_functions_t(tf)
 
@@ -613,6 +670,18 @@ class PlotBaseMaps(PlotBase):
             plot period. Returns zeros if no tipper model error data available.
 
         """
+        idx = self._get_plot_period_index(tf)
+        if idx is not None and tf.has_tipper() and tf.Tipper._has_tf_model_error():
+            try:
+                return np.nan_to_num(
+                    np.asarray(
+                        tf.Tipper.tipper_model_error[idx : idx + 1],
+                        dtype=float,
+                    )
+                )
+            except Exception:
+                pass
+
         if not hasattr(tf, "t_interp_dict"):
             tf.t_interp_dict = self.get_interp1d_functions_t(tf)
 
@@ -772,6 +841,68 @@ class PlotBaseProfile(PlotBase):
         """Return MT objects as a list for repeated profile operations."""
         return list(self._iter_mt_objects())
 
+    def _sync_mt_data_profile_offsets(
+        self,
+        x_column: str,
+        y_column: str,
+    ) -> dict[tuple[str, str], float]:
+        """Compute and persist profile offsets for MTData-backed station attrs."""
+        if not (
+            hasattr(self.mt_data, "station_locations")
+            and hasattr(self.mt_data, "_iter_station_paths")
+            and hasattr(self.mt_data, "get_station")
+        ):
+            return {}
+
+        station_df = self.mt_data.station_locations
+        if station_df is None or station_df.empty:
+            return {}
+        if (
+            x_column not in station_df.columns
+            or y_column not in station_df.columns
+            or "survey" not in station_df.columns
+            or "station" not in station_df.columns
+        ):
+            return {}
+
+        x_values = station_df[x_column].to_numpy(dtype=float)
+        y_values = station_df[y_column].to_numpy(dtype=float)
+        finite = np.isfinite(x_values) & np.isfinite(y_values)
+        if not np.any(finite):
+            return {}
+
+        profile_vector = np.array([1.0, self.profile_line[0]], dtype=float)
+        profile_vector /= np.linalg.norm(profile_vector)
+        station_vectors = np.column_stack(
+            [x_values[finite], y_values[finite] - self.profile_line[1]]
+        )
+        offsets = np.abs(station_vectors @ profile_vector)
+        offsets -= offsets.min()
+
+        key_to_path: dict[tuple[str, str], str] = {}
+        for station_path in self.mt_data._iter_station_paths():
+            attrs = self.mt_data.get_station(station_path).attrs
+            key = (str(attrs.get("survey", "")), str(attrs.get("station", "")))
+            key_to_path[key] = station_path
+
+        offset_lookup: dict[tuple[str, str], float] = {}
+        profile_df = station_df.loc[finite, ["survey", "station"]].copy()
+        profile_df.loc[:, "profile_offset"] = offsets
+
+        for row in profile_df.itertuples(index=False):
+            key = (str(getattr(row, "survey", "")), str(getattr(row, "station", "")))
+            offset_value = float(getattr(row, "profile_offset", 0.0))
+            offset_lookup[key] = offset_value
+
+            station_path = key_to_path.get(key)
+            if station_path is None:
+                continue
+            self.mt_data.get_station(station_path).attrs[
+                "profile_offset"
+            ] = offset_value
+
+        return offset_lookup
+
     def _get_profile_line(
         self, x: np.ndarray | None = None, y: np.ndarray | None = None
     ) -> None:
@@ -797,21 +928,57 @@ class PlotBaseProfile(PlotBase):
 
         """
 
-        if np.any(self.mt_data.station_locations.profile_offset != 0):
-            return
+        station_locations = getattr(self.mt_data, "station_locations", None)
+        if (
+            station_locations is not None
+            and hasattr(station_locations, "columns")
+            and "profile_offset" in station_locations.columns
+        ):
+            offsets = np.nan_to_num(
+                station_locations["profile_offset"].to_numpy(dtype=float),
+                nan=0.0,
+            )
+            if offsets.size > 0 and np.any(offsets != 0):
+                return
 
-        mt_objects = self._get_mt_objects()
+        mt_objects = None
+        coordinate_columns: tuple[str, str] | None = None
 
         if x is None and y is None:
-            x = np.zeros(len(mt_objects))
-            y = np.zeros(len(mt_objects))
+            if (
+                station_locations is not None
+                and getattr(station_locations, "empty", True) is False
+            ):
+                for x_col, y_col in [("longitude", "latitude"), ("east", "north")]:
+                    if (
+                        x_col not in station_locations.columns
+                        or y_col not in station_locations.columns
+                    ):
+                        continue
+                    x_values = station_locations[x_col].to_numpy(dtype=float)
+                    y_values = station_locations[y_col].to_numpy(dtype=float)
+                    finite = np.isfinite(x_values) & np.isfinite(y_values)
+                    if np.count_nonzero(finite) < 2:
+                        continue
+                    x = x_values[finite]
+                    y = y_values[finite]
+                    coordinate_columns = (x_col, y_col)
+                    break
 
-            for ii, tf in enumerate(mt_objects):
-                x[ii] = tf.longitude
-                y[ii] = tf.latitude
+            if x is None or y is None:
+                mt_objects = self._get_mt_objects()
+                x = np.zeros(len(mt_objects))
+                y = np.zeros(len(mt_objects))
+
+                for ii, tf in enumerate(mt_objects):
+                    x[ii] = tf.longitude
+                    y[ii] = tf.latitude
 
         elif x is None or y is None:
             raise ValueError("get_profile")
+
+        if x.size < 2 or y.size < 2:
+            return
 
         # check regression for 2 profile orientations:
         # horizontal (N=N(E)) or vertical(E=E(N))
@@ -827,6 +994,28 @@ class PlotBaseProfile(PlotBase):
             )
         else:
             self.profile_line = profile1[:2]
+
+        offset_lookup: dict[tuple[str, str], float] = {}
+        if coordinate_columns is not None:
+            offset_lookup = self._sync_mt_data_profile_offsets(*coordinate_columns)
+
+        if mt_objects is None:
+            mt_objects = self._get_mt_objects()
+
+        if offset_lookup:
+            for mt_obj in mt_objects:
+                key = (
+                    str(getattr(mt_obj, "survey", "")),
+                    str(getattr(mt_obj, "station", "")),
+                )
+                if key in offset_lookup:
+                    mt_obj.profile_offset = offset_lookup[key]
+                else:
+                    mt_obj.project_onto_profile_line(
+                        self.profile_line[0],
+                        self.profile_line[1],
+                    )
+            return
 
         for mt_obj in mt_objects:
             mt_obj.project_onto_profile_line(self.profile_line[0], self.profile_line[1])
@@ -852,7 +1041,38 @@ class PlotBaseProfile(PlotBase):
         if self.profile_reverse:
             direction = -1
 
-        return direction * tf.profile_offset * self.x_stretch
+        offset_value = None
+        station_locations = getattr(self.mt_data, "station_locations", None)
+        if (
+            station_locations is not None
+            and hasattr(station_locations, "itertuples")
+            and hasattr(station_locations, "columns")
+            and "profile_offset" in station_locations.columns
+            and "station" in station_locations.columns
+        ):
+            tf_station = str(getattr(tf, "station", ""))
+            tf_survey = str(getattr(tf, "survey", ""))
+
+            for row in station_locations.itertuples(index=False):
+                row_station = str(getattr(row, "station", ""))
+                if row_station != tf_station:
+                    continue
+
+                row_survey = str(getattr(row, "survey", ""))
+                if tf_survey and row_survey != tf_survey:
+                    continue
+
+                row_offset = getattr(row, "profile_offset", None)
+                if row_offset is None or not np.isfinite(row_offset):
+                    continue
+
+                offset_value = float(row_offset)
+                break
+
+        if offset_value is None:
+            offset_value = float(getattr(tf, "profile_offset", 0.0) or 0.0)
+
+        return direction * offset_value * self.x_stretch
 
     def _get_interpolated_z(self, tf) -> np.ndarray:
         """

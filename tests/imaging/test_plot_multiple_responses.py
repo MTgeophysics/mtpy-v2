@@ -11,7 +11,6 @@ from mtpy import MT
 from mtpy.core import MTData
 from mtpy.imaging.plot_mt_responses import PlotMultipleResponses
 
-
 pytestmark = pytest.mark.plotting
 
 

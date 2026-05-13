@@ -6,6 +6,7 @@ Created on Sun Dec 22 2024
 
 @author: GitHub Copilot
 """
+
 import numpy as np
 
 # =============================================================================
@@ -15,7 +16,6 @@ import pytest
 
 from mtpy.analysis.residual_phase_tensor import ResidualPhaseTensor
 from mtpy.core.transfer_function.pt import PhaseTensor
-
 
 # =============================================================================
 # Session Fixtures

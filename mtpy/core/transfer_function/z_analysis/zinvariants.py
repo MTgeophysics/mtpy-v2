@@ -14,7 +14,6 @@ Revised by J. Peacock 2023 to fit with version 2.
 
 import numpy as np
 
-
 # =============================================================================
 
 
