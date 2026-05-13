@@ -15,7 +15,7 @@ from mtpy.imaging.mtplot_tools import PlotBase
 
 try:
     from bokeh.io import show
-    from bokeh.layouts import gridplot
+    from bokeh.layouts import Column, gridplot, Row
     from bokeh.models import (
         Arrow,
         BasicTicker,
@@ -33,6 +33,8 @@ try:
     from bokeh.transform import linear_cmap
 except ImportError:  # pragma: no cover - optional dependency
     show = None
+    Column = None
+    Row = None
     gridplot = None
     Arrow = None
     BasicTicker = None
@@ -291,7 +293,9 @@ class PlotMTResponse(PlotBase):
                 line_width=max(self.lw, 1),
             )
             whisker.upper_head.size = 4
+            whisker.upper_head.line_color = glyph_color
             whisker.lower_head.size = 4
+            whisker.lower_head.line_color = glyph_color
             fig.add_layout(whisker)
             self.renderers.setdefault(comp_key, []).append(whisker)
 
@@ -321,22 +325,22 @@ class PlotMTResponse(PlotBase):
             active_scroll="wheel_zoom",
         )
 
-    def _make_tipper_figure(self):
+    def _make_tipper_figure(self, width=800):
         return figure(
             title="Tipper",
             x_axis_type="linear",
             height=220,
-            width=800,
+            width=width,
             tools="pan,wheel_zoom,box_zoom,reset,save",
             active_scroll="wheel_zoom",
         )
 
-    def _make_pt_figure(self):
+    def _make_pt_figure(self, width=800):
         return figure(
             title="Phase Tensor",
             x_axis_type="linear",
             height=240,
-            width=800,
+            width=width,
             tools="pan,wheel_zoom,box_zoom,reset,save",
             active_scroll="wheel_zoom",
         )
@@ -348,7 +352,16 @@ class PlotMTResponse(PlotBase):
         ticks = list(range(int(np.floor(pmin_log)), int(np.ceil(pmax_log)) + 1))
         fig.xaxis.ticker = FixedTicker(ticks=ticks)
         fig.xaxis.formatter = CustomJSTickFormatter(
-            code="return '10\u207f'.replace('\u207f', String(Math.round(tick)));"
+            code="""
+            var superscripts = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
+            var exp = String(Math.round(tick));
+            var result = '10';
+            for (var i = 0; i < exp.length; i++) {
+                if (exp[i] === '-') result += '⁻';
+                else result += superscripts[parseInt(exp[i])];
+            }
+            return result;
+            """
         )
         fig.xaxis.axis_label = "Period (s)"
 
@@ -559,12 +572,18 @@ class PlotMTResponse(PlotBase):
         color_array = np.asarray(self.get_pt_color_array(self.pt), dtype=float)
 
         valid = (
-            np.isfinite(x) & np.isfinite(phimin) & np.isfinite(phimax) & (phimax != 0)
+            np.isfinite(x) & np.isfinite(phimin) & np.isfinite(phimax) & (phimax > 0)
         )
         valid &= np.isfinite(azimuth) & np.isfinite(color_array)
 
-        height = (phimin[valid] / phimax[valid]) * self.ellipse_size
-        width = np.ones_like(height) * self.ellipse_size
+        phimax_station = np.nanmax(phimax[valid]) if np.any(valid) else np.nan
+        if np.isfinite(phimax_station) and phimax_station > 0:
+            scaling = self.ellipse_size / phimax_station
+        else:
+            scaling = 0.0
+
+        height = phimin[valid] * scaling
+        width = phimax[valid] * scaling
         angle = np.deg2rad(90.0 - azimuth[valid])
 
         n_valid = int(np.count_nonzero(valid))
@@ -621,10 +640,21 @@ class PlotMTResponse(PlotBase):
             )
         )
 
+        # Compute y-limit from rotated ellipse geometry to avoid clipping.
+        pt_ylim = (
+            max(
+                [
+                    self.ellipse_size * 2,
+                    phimax_station * scaling * 2,
+                    np.nanmax(height) * scaling * 2,
+                ]
+            )
+            * 1.5
+        )
         pt_fig.x_range.start = np.log10(self.x_limits[0])
         pt_fig.x_range.end = np.log10(self.x_limits[1])
-        pt_fig.y_range.start = -1.5 * self.ellipse_size
-        pt_fig.y_range.end = 1.5 * self.ellipse_size
+        pt_fig.y_range.start = -pt_ylim
+        pt_fig.y_range.end = pt_ylim
         pt_fig.yaxis.visible = False
         pt_fig.grid.grid_line_alpha = 0.25
         self._apply_log_period_ticks(pt_fig)
@@ -818,17 +848,25 @@ class PlotMTResponse(PlotBase):
 
         tip_fig = None
         pt_fig = None
+        base_column_width = 800
+        n_columns = 2 if self.plot_num == 2 else 1
+        panel_width = base_column_width * n_columns
+        # For plot_num == 2, tipper and PT figures need to span both columns
+        aux_width = panel_width
 
         if self.plot_tipper.find("y") >= 0:
-            tip_fig = self._make_tipper_figure()
+            tip_fig = self._make_tipper_figure(width=aux_width)
             self._plot_tipper(tip_fig)
             self._set_legends(tip_fig)
             self.figures["tip"] = tip_fig
             self._linear_x_figure_keys.add("tip")
 
         if self.plot_pt:
-            pt_fig = self._make_pt_figure()
+            pt_fig = self._make_pt_figure(width=aux_width)
             self._plot_phase_tensor(pt_fig)
+            if tip_fig is not None:
+                # Share x-range so zoom/pan stays synchronized.
+                pt_fig.x_range = tip_fig.x_range
             self.figures["pt"] = pt_fig
             self._linear_x_figure_keys.add("pt")
 
@@ -838,6 +876,10 @@ class PlotMTResponse(PlotBase):
             self._plot_diag_components(res_fig_diag, phase_fig_diag)
             self._format_res_axis(res_fig_diag)
             self._format_phase_axis(phase_fig_diag)
+
+            # Remove y-axis labels from diagonal components
+            res_fig_diag.yaxis.axis_label = ""
+            phase_fig_diag.yaxis.axis_label = ""
 
             phase_limits_diag = self.set_phase_limits(self.Z.phase, mode="d")
             self._set_axis_limits(res_fig_diag, self.res_limits)
@@ -851,19 +893,30 @@ class PlotMTResponse(PlotBase):
             self.figures["phase_diag"] = phase_fig_diag
             self._log_x_figure_keys.update(["res_diag", "phase_diag"])
 
-            rows = [[res_fig, res_fig_diag], [phase_fig, phase_fig_diag]]
+            # Create 2-column grid for OD and diagonal components
+            layout_rows = []
+            layout_rows.append(
+                Row(res_fig, res_fig_diag, width=panel_width, sizing_mode="fixed")
+            )
+            layout_rows.append(
+                Row(phase_fig, phase_fig_diag, width=panel_width, sizing_mode="fixed")
+            )
+
+            # Add full-width tipper and PT rows
             if tip_fig is not None:
-                rows.append([tip_fig, None])
+                layout_rows.append(tip_fig)
             if pt_fig is not None:
-                rows.append([pt_fig, None])
-            self.layout = gridplot(rows, merge_tools=True)
+                layout_rows.append(pt_fig)
+
+            self.layout = Column(*layout_rows, width=panel_width, sizing_mode="fixed")
         else:
-            rows = [[res_fig], [phase_fig]]
+            # Single column layout for plot_num == 1 or 3
+            layout_rows = [res_fig, phase_fig]
             if tip_fig is not None:
-                rows.append([tip_fig])
+                layout_rows.append(tip_fig)
             if pt_fig is not None:
-                rows.append([pt_fig])
-            self.layout = gridplot(rows, merge_tools=True)
+                layout_rows.append(pt_fig)
+            self.layout = Column(*layout_rows, width=panel_width, sizing_mode="fixed")
 
         if self.show_plot:
             show(self.layout)
