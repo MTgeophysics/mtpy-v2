@@ -26,6 +26,7 @@ try:
         HoverTool,
         LinearColorMapper,
         NormalHead,
+        Range1d,
         Whisker,
     )
     from bokeh.palettes import Turbo256
@@ -45,6 +46,7 @@ except ImportError:  # pragma: no cover - optional dependency
     HoverTool = None
     LinearColorMapper = None
     NormalHead = None
+    Range1d = None
     Turbo256 = None
     Whisker = None
     figure = None
@@ -88,6 +90,7 @@ class PlotMTResponse(PlotBase):
         self.renderers = {}
         self._log_x_figure_keys = set()
         self._linear_x_figure_keys = set()
+        self._pt_x_spacing = 1.0
 
         super().__init__(**kwargs)
 
@@ -345,11 +348,22 @@ class PlotMTResponse(PlotBase):
             active_scroll="wheel_zoom",
         )
 
-    def _apply_log_period_ticks(self, fig):
-        """Replace a linear-x axis with 10^n period labels."""
+    def _apply_log_period_ticks(self, fig, x_spacing=1.0):
+        """Replace a linear-x axis with 10^n period labels.
+
+        Parameters
+        ----------
+        x_spacing : float
+            Multiplier applied to log10(period) positions. Use the same value
+            that was used to compute ellipse x-coordinates so tick positions
+            align with plotted data.
+        """
         pmin_log = np.log10(float(self.x_limits[0]))
         pmax_log = np.log10(float(self.x_limits[1]))
-        ticks = list(range(int(np.floor(pmin_log)), int(np.ceil(pmax_log)) + 1))
+        ticks = [
+            t * x_spacing
+            for t in range(int(np.floor(pmin_log)), int(np.ceil(pmax_log)) + 1)
+        ]
         fig.xaxis.ticker = FixedTicker(ticks=ticks)
         fig.xaxis.formatter = CustomJSTickFormatter(
             code="""
@@ -565,7 +579,20 @@ class PlotMTResponse(PlotBase):
 
     def _plot_phase_tensor(self, pt_fig):
         period = np.asarray(1.0 / self.pt.frequency, dtype=float)
-        x = np.log10(period) * self.ellipse_spacing
+
+        # Compute adjusted x-spacing so ellipses have equal visual aspect ratio.
+        # With tight y-limits at ±pt_ylim = ±1.5*ellipse_size, equal aspect means:
+        #   x_data_range / fig_width = y_data_range / fig_height
+        #   (x_log_range * spacing) / fig_width = (3 * ellipse_size) / fig_height
+        #   spacing = (3 * ellipse_size * fig_width) / (x_log_range * fig_height)
+        fig_width = pt_fig.width if pt_fig.width else 800
+        fig_height = pt_fig.height if pt_fig.height else 240
+        x_log_range = np.log10(self.x_limits[1]) - np.log10(self.x_limits[0])
+        pt_ylim = 1.5 * self.ellipse_size
+        adjusted_spacing = (2 * pt_ylim * fig_width) / (x_log_range * fig_height)
+        self._pt_x_spacing = adjusted_spacing
+
+        x = np.log10(period) * adjusted_spacing
         phimin = np.asarray(self.pt.phimin, dtype=float)
         phimax = np.asarray(self.pt.phimax, dtype=float)
         azimuth = np.asarray(self.pt.azimuth, dtype=float)
@@ -640,24 +667,15 @@ class PlotMTResponse(PlotBase):
             )
         )
 
-        # Compute y-limit from rotated ellipse geometry to avoid clipping.
-        pt_ylim = (
-            max(
-                [
-                    self.ellipse_size * 2,
-                    phimax_station * scaling * 2,
-                    np.nanmax(height) * scaling * 2,
-                ]
-            )
-            * 1.5
-        )
-        pt_fig.x_range.start = np.log10(self.x_limits[0])
-        pt_fig.x_range.end = np.log10(self.x_limits[1])
-        pt_fig.y_range.start = -pt_ylim
-        pt_fig.y_range.end = pt_ylim
+        # Expand x by half an ellipse width on each side so edge ellipses
+        # are not clipped.
+        x_pad = 0.5 * self.ellipse_size
+        pt_fig.x_range.start = np.log10(self.x_limits[0]) * adjusted_spacing - x_pad
+        pt_fig.x_range.end = np.log10(self.x_limits[1]) * adjusted_spacing + x_pad
+        pt_fig.y_range = Range1d(-pt_ylim, pt_ylim)
         pt_fig.yaxis.visible = False
         pt_fig.grid.grid_line_alpha = 0.25
-        self._apply_log_period_ticks(pt_fig)
+        self._apply_log_period_ticks(pt_fig, x_spacing=adjusted_spacing)
 
     def _plot_od_components(self, res_fig, phase_fig):
         xy_source_res = self._component_source(self.period, self.Z, "xy", kind="res")
@@ -792,8 +810,14 @@ class PlotMTResponse(PlotBase):
 
         for key in self._linear_x_figure_keys:
             fig = self.figures[key]
-            fig.x_range.start = pmin_log
-            fig.x_range.end = pmax_log
+            if key == "pt":
+                # PT uses adjusted x-spacing for equal aspect ratio
+                spacing = self._pt_x_spacing
+                fig.x_range.start = pmin_log * spacing
+                fig.x_range.end = pmax_log * spacing
+            else:
+                fig.x_range.start = pmin_log
+                fig.x_range.end = pmax_log
 
     def plot(self):
         """Create and optionally show a Bokeh MT response layout."""
@@ -864,9 +888,8 @@ class PlotMTResponse(PlotBase):
         if self.plot_pt:
             pt_fig = self._make_pt_figure(width=aux_width)
             self._plot_phase_tensor(pt_fig)
-            if tip_fig is not None:
-                # Share x-range so zoom/pan stays synchronized.
-                pt_fig.x_range = tip_fig.x_range
+            # PT uses an adjusted x-spacing for equal visual aspect ratio so
+            # it cannot share the tipper's raw log10(period) x-range.
             self.figures["pt"] = pt_fig
             self._linear_x_figure_keys.add("pt")
 
