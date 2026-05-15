@@ -25,13 +25,11 @@ Example
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import panel as pn
 import param
 
 from mtpy import MT
-from mtpy.imaging.bokeh_plots import PlotMTResponse
+from mtpy.imaging.bokeh_plots import PlotMTResponse, PlotMultipleResponses
 
 
 # Load bokeh extension if available (optional dependency)
@@ -75,6 +73,25 @@ class MTResponseApp(param.Parameterized):
             name="Select MT Data File",
         )
 
+        # Plot options
+        self._plot_style_widget = pn.widgets.RadioButtonGroup(
+            name="Multi-file Plot Style",
+            options=["compare", "single"],
+            value="compare",
+            button_type="primary",
+        )
+        self._tipper_widget = pn.widgets.Select(
+            name="Tipper",
+            options={
+                "Off": "n",
+                "Real": "yr",
+                "Imag": "yi",
+                "Real + Imag": "yri",
+            },
+            value="yri",
+        )
+        self._pt_widget = pn.widgets.Checkbox(name="Phase Tensor", value=True)
+
         # Info and error display
         self._info = pn.pane.Markdown("")
 
@@ -85,11 +102,29 @@ class MTResponseApp(param.Parameterized):
         self._status = pn.pane.Markdown("")
 
         # Watch for file selection changes
-        self._file_selector.param.watch(self._on_file_selected, "value")
+        self._file_selector.param.watch(self._on_controls_changed, "value")
+        self._plot_style_widget.param.watch(self._on_controls_changed, "value")
+        self._tipper_widget.param.watch(self._on_controls_changed, "value")
+        self._pt_widget.param.watch(self._on_controls_changed, "value")
 
-    def _on_file_selected(self, event):
-        """Handle file selection and load MT data."""
-        selected_files = event.new
+    @staticmethod
+    def _format_station_label(mt_obj):
+        """Format station display as survey.station when survey is available."""
+        station = getattr(mt_obj, "station", "Unknown")
+        survey_id = getattr(getattr(mt_obj, "survey_metadata", None), "id", None)
+        if survey_id:
+            return f"{survey_id}.{station}"
+        return station
+
+    def _load_mt(self, file_path):
+        """Load a file path into an MT object."""
+        mt_obj = MT()
+        mt_obj.read(file_path)
+        return mt_obj
+
+    def _on_controls_changed(self, event):
+        """Handle file or option changes and refresh plot."""
+        selected_files = self._file_selector.value
 
         # FileSelector returns a list; get the first file if available
         if not selected_files or len(selected_files) == 0:
@@ -97,44 +132,68 @@ class MTResponseApp(param.Parameterized):
             self._status.object = ""
             return
 
-        selected_file = (
-            selected_files[0] if isinstance(selected_files, list) else selected_files
-        )
-
         try:
-            self._status.object = f"📋 Loading {Path(selected_file).name}..."
+            self._status.object = "Loading selected MT data files..."
             self._plot_container.clear()
 
-            # Load MT data
-            m = MT()
-            m.read(selected_file)
+            selected_files = list(selected_files)
 
-            # Create plotter
-            plotter = PlotMTResponse(
-                z_object=m.Z,
-                t_object=m.Tipper,
-                pt_obj=m.pt,
-                station=m.station,
-                show_plot=False,
-                plot_num=2,
-            )
+            if len(selected_files) == 1:
+                selected_file = selected_files[0]
 
-            # Generate interactive panel
-            panel_plot = plotter.make_panel(
-                sizing_mode=self.sizing_mode,
-                interactive=True,
-            )
+                # Single-file mode uses PlotMTResponse.
+                mt_obj = self._load_mt(selected_file)
+                station_label = self._format_station_label(mt_obj)
+                plotter = PlotMTResponse(
+                    z_object=mt_obj.Z,
+                    t_object=mt_obj.Tipper,
+                    pt_obj=mt_obj.pt,
+                    station=station_label,
+                    show_plot=False,
+                    plot_num=2,
+                    plot_tipper=self._tipper_widget.value,
+                    plot_pt=self._pt_widget.value,
+                )
+                panel_plot = plotter.make_panel(
+                    sizing_mode=self.sizing_mode,
+                    interactive=True,
+                )
+                status_label = station_label
+            else:
+                # Multi-file mode uses PlotMultipleResponses.
+                mt_objects = {}
+                for index, file_path in enumerate(selected_files):
+                    mt_objects[f"mt_{index:03d}"] = self._load_mt(file_path)
+
+                multi_plotter = PlotMultipleResponses(
+                    mt_objects,
+                    show_plot=False,
+                    plot_style=self._plot_style_widget.value,
+                    plot_tipper=self._tipper_widget.value,
+                    plot_pt=self._pt_widget.value,
+                    plot_num=1,
+                )
+                multi_plotter.compare_mode = "overlay"
+                multi_plotter.compare_legend_mode = "station"
+                panel_plot = multi_plotter.make_panel(
+                    sizing_mode=self.sizing_mode,
+                    interactive=False,
+                )
+                status_label = f"{len(selected_files)} files"
 
             # Display the plot
             self._plot_container.clear()
             self._plot_container.append(panel_plot)
 
             self._status.object = (
-                f"✅ Successfully loaded **{m.station}** from {Path(selected_file).name}"
+                f"Successfully loaded {status_label} "
+                f"(style={self._plot_style_widget.value}, "
+                f"tipper={self._tipper_widget.value}, "
+                f"pt={self._pt_widget.value})."
             )
 
         except Exception as e:
-            self._status.object = f"❌ Error: {type(e).__name__}: {str(e)}"
+            self._status.object = f"Error: {type(e).__name__}: {str(e)}"
             self._plot_container.clear()
 
     @property
@@ -143,11 +202,17 @@ class MTResponseApp(param.Parameterized):
         return pn.Column(
             pn.pane.Markdown("# MT Response Viewer"),
             pn.pane.Markdown(
-                "Select an MT data file (EDI, XML, J format) to visualize its "
-                "impedance, phase, tipper, and phase tensor response."
+                "Select one file for a single-station response plot, or select "
+                "multiple files to use multi-response compare/single layouts."
             ),
             pn.pane.Markdown("---"),
             self._file_selector,
+            pn.Row(
+                self._plot_style_widget,
+                self._tipper_widget,
+                self._pt_widget,
+                sizing_mode="stretch_width",
+            ),
             self._status,
             pn.pane.Markdown("---"),
             self._plot_container,
