@@ -25,6 +25,8 @@ Example
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import panel as pn
 import param
 
@@ -32,11 +34,17 @@ from mtpy import MT
 from mtpy.imaging.bokeh_plots import PlotMTResponse, PlotMultipleResponses
 
 
-# Load bokeh extension if available (optional dependency)
-try:
-    pn.extension("bokeh")
-except Exception:
-    pass  # Bokeh will be auto-loaded when needed
+pn.extension()
+
+
+SUPPORTED_FILE_PATTERNS = {
+    "EDI (*.edi)": "*.edi",
+    "XML (*.xml)": "*.xml",
+    "J (*.j)": "*.j",
+    "AVG (*.avg)": "*.avg",
+    "Z files (*.zmm, *.zrr, *.zss)": "*.z*",
+}
+SUPPORTED_FILE_SUFFIXES = {".edi", ".xml", ".j", ".avg", ".zmm", ".zrr", ".zss"}
 
 
 class MTResponseApp(param.Parameterized):
@@ -60,7 +68,7 @@ class MTResponseApp(param.Parameterized):
     )
 
     data_directory = param.String(
-        default=".",
+        default=str(Path.cwd()),
         doc="Directory for file browsing",
     )
 
@@ -68,9 +76,17 @@ class MTResponseApp(param.Parameterized):
         super().__init__(**params)
 
         # File selector widget
+        self._file_pattern_widget = pn.widgets.Select(
+            name="File Type",
+            options=SUPPORTED_FILE_PATTERNS,
+            value="*.edi",
+        )
+
         self._file_selector = pn.widgets.FileSelector(
-            directory=self.data_directory,
+            directory=str(Path(self.data_directory).expanduser().resolve()),
             name="Select MT Data File",
+            file_pattern=self._file_pattern_widget.value,
+            only_files=True,
         )
 
         # Plot options
@@ -103,9 +119,26 @@ class MTResponseApp(param.Parameterized):
 
         # Watch for file selection changes
         self._file_selector.param.watch(self._on_controls_changed, "value")
+        self._file_pattern_widget.param.watch(self._on_file_pattern_changed, "value")
         self._plot_style_widget.param.watch(self._on_controls_changed, "value")
         self._tipper_widget.param.watch(self._on_controls_changed, "value")
         self._pt_widget.param.watch(self._on_controls_changed, "value")
+
+    @staticmethod
+    def _unsupported_selected_files(selected_files):
+        """Return selected files with suffixes unsupported by MT.read."""
+        return [
+            file_path
+            for file_path in selected_files
+            if Path(file_path).suffix.lower() not in SUPPORTED_FILE_SUFFIXES
+        ]
+
+    def _on_file_pattern_changed(self, event):
+        """Update the file selector filter and clear stale selections."""
+        self._file_selector.file_pattern = event.new
+        self._file_selector.value = []
+        self._plot_container.clear()
+        self._status.object = ""
 
     @staticmethod
     def _format_station_label(mt_obj):
@@ -130,6 +163,19 @@ class MTResponseApp(param.Parameterized):
         if not selected_files or len(selected_files) == 0:
             self._plot_container.clear()
             self._status.object = ""
+            return
+
+        unsupported_files = self._unsupported_selected_files(selected_files)
+        if unsupported_files:
+            supported_suffixes = ", ".join(sorted(SUPPORTED_FILE_SUFFIXES))
+            file_names = ", ".join(
+                Path(file_name).name for file_name in unsupported_files
+            )
+            self._plot_container.clear()
+            self._status.object = (
+                f"Unsupported file type for: {file_names}. "
+                f"Supported formats: {supported_suffixes}."
+            )
             return
 
         try:
@@ -205,9 +251,14 @@ class MTResponseApp(param.Parameterized):
                 "Select one file for a single-station response plot, or select "
                 "multiple files to use multi-response compare/single layouts."
             ),
+            pn.pane.Markdown(
+                "Use the file-type filter before browsing. Supported formats are "
+                ".edi, .xml, .j, .avg, .zmm, .zrr, and .zss."
+            ),
             pn.pane.Markdown("---"),
             self._file_selector,
             pn.Row(
+                self._file_pattern_widget,
                 self._plot_style_widget,
                 self._tipper_widget,
                 self._pt_widget,
