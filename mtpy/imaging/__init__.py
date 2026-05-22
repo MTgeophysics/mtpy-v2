@@ -13,6 +13,8 @@ from .plot_penetration_depth_1d import PlotPenetrationDepth1D
 from .plot_penetration_depth_map import PlotPenetrationDepthMap
 from .plot_resphase_maps import PlotResPhaseMaps
 from .bokeh_plots import PlotMTResponse as PlotMTResponseBokeh
+from .bokeh_plots import PlotPenetrationDepth1D as PlotPenetrationDepth1DBokeh
+from .bokeh_plots import PlotPenetrationDepthMap as PlotPenetrationDepthMapBokeh
 
 __all__ = [
     "PlotMTResponse",
@@ -29,4 +31,6 @@ __all__ = [
     "PlotPenetrationDepthMap",
     "PlotResPhaseMaps",
     "PlotMTResponseBokeh",
+    "PlotPenetrationDepth1DBokeh",
+    "PlotPenetrationDepthMapBokeh",
 ]
