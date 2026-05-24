@@ -10,6 +10,7 @@ from .plot_phase_tensor_maps import PlotPhaseTensorMaps
 from .plot_phase_tensor_pseudosection import PlotPhaseTensorPseudoSection
 from .plot_pseudosection import PlotResPhasePseudoSection
 from .plot_resphase_maps import PlotResPhaseMaps
+from .plot_strike import PlotStrike
 
 __all__ = [
     "PlotMTResponse",
@@ -22,4 +23,5 @@ __all__ = [
     "PlotPhaseTensorPseudoSection",
     "PlotResPhasePseudoSection",
     "PlotResPhaseMaps",
+    "PlotStrike",
 ]
