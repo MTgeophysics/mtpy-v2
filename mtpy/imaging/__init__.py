@@ -22,6 +22,7 @@ from .bokeh_plots import (
     PlotPhaseTensorPseudoSection as PlotPhaseTensorPseudoSectionBokeh,
 )
 from .bokeh_plots import PlotResPhasePseudoSection as PlotResPhasePseudoSectionBokeh
+from .bokeh_plots import PlotStrike as PlotStrikeBokeh
 from .bokeh_plots import PlotResPhaseMaps as PlotResPhaseMapsBokeh
 
 __all__ = [
@@ -47,4 +48,5 @@ __all__ = [
     "PlotPhaseTensorPseudoSectionBokeh",
     "PlotResPhasePseudoSectionBokeh",
     "PlotResPhaseMapsBokeh",
+    "PlotStrikeBokeh",
 ]
