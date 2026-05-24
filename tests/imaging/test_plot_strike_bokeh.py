@@ -210,7 +210,7 @@ class TestPlotStrikeBokehData:
         plotter.plot_orthogonal = True
         arr_ortho = plotter.get_plot_array("invariant")
 
-        # Orthogonal includes extra directions → longer array
+        # Orthogonal includes extra directions -> longer array
         assert len(arr_ortho) > len(arr_normal)
 
 
