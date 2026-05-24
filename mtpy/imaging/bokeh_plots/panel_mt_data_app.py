@@ -11,6 +11,8 @@ Supported transfer function file types
 - XML (``.xml``)
 - AVG (``.avg``)
 - ZMM / ZSS / ZRR (``.zmm``, ``.zss``, ``.zrr``)
+- ModEM data file (``.dat``, ``.data``) — select "ModEM" as the format
+- Occam2D data file (``.dat``, ``.data``) — select "Occam2D" as the format
 
 MTH5 files (``.h5``) are supported alongside or instead of TF files.
 If an MTH5 file is selected, it is opened first via
@@ -64,14 +66,19 @@ SUPPORTED_TF_SUFFIXES: frozenset[str] = frozenset(
     {".edi", ".xml", ".avg", ".zmm", ".zss", ".zrr"}
 )
 SUPPORTED_MTH5_SUFFIX: str = ".h5"
+SUPPORTED_DAT_SUFFIXES: frozenset[str] = frozenset({".dat", ".data"})
+
+DAT_FORMAT_MODEM: str = "ModEM"
+DAT_FORMAT_OCCAM2D: str = "Occam2D"
 
 SUPPORTED_FILE_PATTERNS: dict[str, str] = {
-    "All MT Files (*.edi *.xml *.avg *.z* *.h5)": "*.*",
+    "All MT Files (*.edi *.xml *.avg *.z* *.h5 *.dat *.data)": "*.*",
     "EDI (*.edi)": "*.edi",
     "XML (*.xml)": "*.xml",
     "AVG (*.avg)": "*.avg",
     "Z files (*.zmm, *.zss, *.zrr)": "*.z*",
     "MTH5 (*.h5)": "*.h5",
+    "ModEM / Occam2D data (*.dat, *.data)": "*.dat",
 }
 
 _STATION_TABLE_COLUMNS: list[str] = [
@@ -193,23 +200,23 @@ class MTDataApp(param.Parameterized):
         self._mt_data = None  # MTData | None
         self._mt_collection = None  # MTCollection | None
 
-        # ── Directory path input (lets users type/paste any path) ────────
-        self._directory_input = pn.widgets.TextInput(
-            name="Browse directory",
-            value=str(Path(self.data_directory).expanduser().resolve()),
-            placeholder="Paste or type an absolute directory path…",
-            sizing_mode="stretch_width",
-        )
-        self._directory_go_button = pn.widgets.Button(
-            name="Go",
-            button_type="default",
-            width=60,
-        )
-        self._directory_go_button.on_click(self._on_directory_go_clicked)
-        # Navigate when the user presses Enter in the text box
-        self._directory_input.param.watch(
-            self._on_directory_input_enter, "enter_pressed"
-        )
+        # # ── Directory path input (lets users type/paste any path) ────────
+        # self._directory_input = pn.widgets.TextInput(
+        #     name="Browse directory",
+        #     value=str(Path(self.data_directory).expanduser().resolve()),
+        #     placeholder="Paste or type an absolute directory path…",
+        #     sizing_mode="stretch_width",
+        # )
+        # self._directory_go_button = pn.widgets.Button(
+        #     name="Go",
+        #     button_type="default",
+        #     width=60,
+        # )
+        # self._directory_go_button.on_click(self._on_directory_go_clicked)
+        # # Navigate when the user presses Enter in the text box
+        # self._directory_input.param.watch(
+        #     self._on_directory_input_enter, "enter_pressed"
+        # )
 
         # ── File type filter ──────────────────────────────────────────────
         self._file_pattern_widget = pn.widgets.Select(
@@ -229,12 +236,35 @@ class MTDataApp(param.Parameterized):
         )
 
         # ── Load button ───────────────────────────────────────────────────
+        self._append_toggle = pn.widgets.Checkbox(
+            name="Append to existing data (uncheck to replace)",
+            value=False,
+        )
         self._load_button = pn.widgets.Button(
             name="Load Selected Files",
             button_type="primary",
             width=200,
         )
         self._load_button.on_click(self._on_load_clicked)
+
+        # ── Reset button ──────────────────────────────────────────────────
+        self._reset_button = pn.widgets.Button(
+            name="Reset",
+            button_type="warning",
+            width=100,
+            disabled=True,
+        )
+        self._reset_button.on_click(self._on_reset_clicked)
+
+        # ── .dat/.data format selector (visible only when such files selected)
+        self._dat_format_widget = pn.widgets.RadioButtonGroup(
+            name="Format for .dat / .data files",
+            options=[DAT_FORMAT_MODEM, DAT_FORMAT_OCCAM2D],
+            value=DAT_FORMAT_MODEM,
+            button_type="default",
+            visible=False,
+        )
+        self._file_selector.param.watch(self._on_file_selection_changed, "value")
 
         # ── Status display ────────────────────────────────────────────────
         self._status = pn.pane.Markdown(
@@ -251,6 +281,11 @@ class MTDataApp(param.Parameterized):
             page_size=20,
             sizing_mode="stretch_width",
             show_index=False,
+            formatters={
+                "latitude": {"type": "number", "precision": 6},
+                "longitude": {"type": "number", "precision": 6},
+                "elevation": {"type": "number", "precision": 2},
+            },
             configuration={"columnDefaults": {"headerFilter": True}},
         )
         self._station_table.param.watch(self._on_table_selection_changed, "selection")
@@ -315,6 +350,13 @@ class MTDataApp(param.Parameterized):
         """Update the file selector filter pattern."""
         self._file_selector.file_pattern = event.new
 
+    def _on_file_selection_changed(self, event: param.parameterized.Event) -> None:
+        """Show the .dat format picker only when .dat/.data files are selected."""
+        has_dat = any(
+            Path(f).suffix.lower() in SUPPORTED_DAT_SUFFIXES for f in (event.new or [])
+        )
+        self._dat_format_widget.visible = has_dat
+
     def _on_load_clicked(self, event: param.parameterized.Event) -> None:
         """Load selected files into MTData."""
         selected: list[str] = list(self._file_selector.value or [])
@@ -327,10 +369,16 @@ class MTDataApp(param.Parameterized):
         self._load_button.disabled = True
 
         try:
-            mt_data = self._load_files(selected)
-            self._mt_data = mt_data
+            new_data = self._load_files(selected)
+            if self._append_toggle.value and self._mt_data is not None:
+                self._mt_data += new_data
+                mt_data = self._mt_data
+            else:
+                self._mt_data = new_data
+                mt_data = new_data
             self.mt_data_loaded = True
             self._save_button.disabled = False
+            self._reset_button.disabled = False
             self._update_station_table(mt_data)
             n = len(mt_data.station_paths)
             self._set_status(f"✅ Loaded **{n}** station(s).")
@@ -342,6 +390,17 @@ class MTDataApp(param.Parameterized):
             self._update_station_table(None)
         finally:
             self._load_button.disabled = False
+
+    def _on_reset_clicked(self, event: param.parameterized.Event) -> None:
+        """Clear all loaded data and reset the app to its initial state."""
+        self._mt_data = None
+        self.mt_data_loaded = False
+        self._save_button.disabled = True
+        self._reset_button.disabled = True
+        self._append_toggle.value = False
+        self._file_selector.value = []
+        self._update_station_table(None)
+        self._set_status("_No files loaded yet._")
 
     def _on_table_selection_changed(self, event: param.parameterized.Event) -> None:
         """Subset the active MTData to the table-selected rows."""
@@ -425,6 +484,7 @@ class MTDataApp(param.Parameterized):
         """
         mth5_files: list[Path] = []
         tf_files: list[Path] = []
+        dat_files: list[Path] = []
         unsupported: list[str] = []
 
         for fp in selected:
@@ -434,14 +494,19 @@ class MTDataApp(param.Parameterized):
                 mth5_files.append(path)
             elif suffix in SUPPORTED_TF_SUFFIXES:
                 tf_files.append(path)
+            elif suffix in SUPPORTED_DAT_SUFFIXES:
+                dat_files.append(path)
             else:
                 unsupported.append(fp)
 
         if unsupported:
             names = ", ".join(Path(u).name for u in unsupported)
+            all_supported = sorted(SUPPORTED_TF_SUFFIXES | SUPPORTED_DAT_SUFFIXES) + [
+                ".h5"
+            ]
             raise ValueError(
                 f"Unsupported file type(s): {names}. "
-                f"Supported: {', '.join(sorted(SUPPORTED_TF_SUFFIXES))} and .h5"
+                f"Supported: {', '.join(all_supported)}"
             )
 
         mt_data = MTData()
@@ -456,6 +521,18 @@ class MTDataApp(param.Parameterized):
 
         if tf_files:
             mt_data.add_stations([str(p) for p in tf_files])
+
+        if dat_files:
+            dat_format = self._dat_format_widget.value
+            for dat_fn in dat_files:
+                if not dat_fn.is_file():
+                    raise ValueError(f"Data file not found: `{dat_fn}`")
+                chunk = MTData()
+                if dat_format == DAT_FORMAT_MODEM:
+                    chunk.from_modem(dat_fn)
+                else:
+                    chunk.from_occam2d(dat_fn)
+                mt_data += chunk
 
         return mt_data
 
@@ -503,20 +580,34 @@ class MTDataApp(param.Parameterized):
         """
         file_controls = pn.Column(
             pn.pane.Markdown("### Select MT Data Files"),
-            pn.pane.Markdown(
-                "_Paste or type an absolute path and click **Go** to jump to any directory. "
-                "Then browse and select files below._",
-                styles={"color": "#555", "font-size": "0.85em"},
-            ),
-            pn.Row(
-                self._directory_input,
-                self._directory_go_button,
-                align="end",
-                sizing_mode="stretch_width",
-            ),
+            # pn.pane.Markdown(
+            #     "_Paste or type an absolute path and click **Go** to jump to any directory. "
+            #     "Then browse and select files below._",
+            #     styles={"color": "#555", "font-size": "0.85em"},
+            # ),
+            # pn.Row(
+            #     self._directory_input,
+            #     self._directory_go_button,
+            #     align="end",
+            #     sizing_mode="stretch_width",
+            # ),
             self._file_pattern_widget,
             self._file_selector,
-            self._load_button,
+            pn.Column(
+                pn.pane.Markdown(
+                    "**Format for .dat / .data files:**",
+                    styles={"font-size": "0.9em"},
+                    visible=self._dat_format_widget.param.visible,
+                ),
+                self._dat_format_widget,
+            ),
+            self._append_toggle,
+            pn.Row(
+                self._load_button,
+                pn.Spacer(width=10),
+                self._reset_button,
+                align="center",
+            ),
             sizing_mode=self.sizing_mode,
         )
 

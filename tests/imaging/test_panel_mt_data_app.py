@@ -14,6 +14,8 @@ from mtpy.core.mt_data import MTData
 from mtpy.imaging.bokeh_plots.panel_mt_data_app import (
     _build_station_summary,
     _STATION_TABLE_COLUMNS,
+    DAT_FORMAT_MODEM,
+    DAT_FORMAT_OCCAM2D,
     MTDataApp,
     SUPPORTED_TF_SUFFIXES,
 )
@@ -266,7 +268,151 @@ def test_multiple_mth5_files_warns_and_uses_first():
     assert mock_collection.open_collection.call_count == 2
 
 
-# ── Station summary table ─────────────────────────────────────────────────────
+# ── .dat / .data format loading ───────────────────────────────────────────────
+
+
+@pytest.mark.plotting
+def test_modem_dat_file_calls_from_modem():
+    """A .dat file with format=ModEM should call MTData.from_modem."""
+    app = _make_app()
+    app._dat_format_widget.value = DAT_FORMAT_MODEM
+
+    mock_mt_data = MagicMock()
+    with (
+        patch(
+            "mtpy.imaging.bokeh_plots.panel_mt_data_app.MTData",
+            return_value=mock_mt_data,
+        ),
+        patch(
+            "mtpy.imaging.bokeh_plots.panel_mt_data_app.Path.is_file", return_value=True
+        ),
+    ):
+        app._load_files(["survey.dat"])
+
+    mock_mt_data.from_modem.assert_called_once()
+    call_args = mock_mt_data.from_modem.call_args[0]
+    assert str(call_args[0]).endswith("survey.dat")
+
+
+@pytest.mark.plotting
+def test_occam2d_dat_file_calls_from_occam2d():
+    """A .dat file with format=Occam2D should call MTData.from_occam2d."""
+    app = _make_app()
+    app._dat_format_widget.value = DAT_FORMAT_OCCAM2D
+
+    mock_mt_data = MagicMock()
+    with (
+        patch(
+            "mtpy.imaging.bokeh_plots.panel_mt_data_app.MTData",
+            return_value=mock_mt_data,
+        ),
+        patch(
+            "mtpy.imaging.bokeh_plots.panel_mt_data_app.Path.is_file", return_value=True
+        ),
+    ):
+        app._load_files(["profile.data"])
+
+    mock_mt_data.from_occam2d.assert_called_once()
+    call_args = mock_mt_data.from_occam2d.call_args[0]
+    assert str(call_args[0]).endswith("profile.data")
+
+
+@pytest.mark.plotting
+def test_dat_format_widget_hidden_by_default():
+    """The .dat format widget should be hidden until .dat files are selected."""
+    app = _make_app()
+    assert app._dat_format_widget.visible is False
+
+
+@pytest.mark.plotting
+def test_dat_format_widget_shown_on_dat_selection():
+    """The .dat format widget should become visible when a .dat file is selected."""
+    app = _make_app()
+    app._file_selector.value = ["some_dir/data.dat"]
+    assert app._dat_format_widget.visible is True
+
+
+@pytest.mark.plotting
+def test_dat_format_widget_hidden_when_only_edi_selected():
+    """The .dat format widget should be hidden when only TF files are selected."""
+    app = _make_app()
+    app._file_selector.value = ["some_dir/data.dat"]
+    app._file_selector.value = ["station1.edi"]
+    assert app._dat_format_widget.visible is False
+
+
+# ── Append mode and reset ─────────────────────────────────────────────────────
+
+
+@pytest.mark.plotting
+def test_append_toggle_off_by_default():
+    """Append checkbox should be unchecked by default."""
+    app = _make_app()
+    assert app._append_toggle.value is False
+
+
+@pytest.mark.plotting
+def test_reset_button_disabled_before_load():
+    """Reset button should be disabled until data is loaded."""
+    app = _make_app()
+    assert app._reset_button.disabled is True
+
+
+@pytest.mark.plotting
+def test_reset_clears_data_and_table():
+    """Clicking Reset should clear mt_data and reset UI state."""
+    app = _make_app()
+    app._mt_data = MagicMock()
+    app.mt_data_loaded = True
+    app._save_button.disabled = False
+    app._reset_button.disabled = False
+    app._append_toggle.value = True
+
+    app._on_reset_clicked(None)
+
+    assert app._mt_data is None
+    assert app.mt_data_loaded is False
+    assert app._save_button.disabled is True
+    assert app._reset_button.disabled is True
+    assert app._append_toggle.value is False
+    assert app._station_table.value.empty
+
+
+@pytest.mark.plotting
+def test_append_mode_merges_into_existing_data():
+    """When append is checked and data exists, new data should be merged via +=."""
+    app = _make_app()
+
+    existing = MagicMock()
+    app._mt_data = existing
+    app._append_toggle.value = True
+
+    new_data = MagicMock()
+    new_data.station_paths = ["/surveys/s/stations/b"]
+
+    with patch.object(app, "_load_files", return_value=new_data):
+        app._file_selector.value = ["station.edi"]
+        app._on_load_clicked(None)
+
+    existing.__iadd__.assert_called_once_with(new_data)
+
+
+@pytest.mark.plotting
+def test_replace_mode_overwrites_existing_data():
+    """When append is unchecked, new data should replace existing data."""
+    app = _make_app()
+
+    app._mt_data = MagicMock()
+    app._append_toggle.value = False
+
+    new_data = MagicMock()
+    new_data.station_paths = ["/surveys/s/stations/b"]
+
+    with patch.object(app, "_load_files", return_value=new_data):
+        app._file_selector.value = ["station.edi"]
+        app._on_load_clicked(None)
+
+    assert app._mt_data is new_data
 
 
 @pytest.mark.plotting
