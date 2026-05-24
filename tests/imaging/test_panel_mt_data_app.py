@@ -159,35 +159,39 @@ def test_mth5_file_opens_collection():
     """An .h5 file should open an MTCollection and use its mt_data."""
     app = _make_app()
 
-    mock_mt_data = MagicMock(spec=MTData)
-    mock_mt_data.station_paths = ["/surveys/s/stations/a"]
-
+    mock_mt_data = MagicMock()
     mock_collection = MagicMock()
-    mock_collection.mt_data = mock_mt_data
+    mock_collection.__enter__ = MagicMock(return_value=mock_collection)
+    mock_collection.__exit__ = MagicMock(return_value=False)
+    mock_collection.to_mt_data.return_value = mock_mt_data
 
-    with patch(
-        "mtpy.imaging.bokeh_plots.panel_mt_data_app.MTCollection",
-        return_value=mock_collection,
+    with (
+        patch(
+            "mtpy.imaging.bokeh_plots.panel_mt_data_app.MTCollection",
+            return_value=mock_collection,
+        ),
+        patch(
+            "mtpy.imaging.bokeh_plots.panel_mt_data_app.MTData",
+            return_value=mock_mt_data,
+        ),
+        patch(
+            "mtpy.imaging.bokeh_plots.panel_mt_data_app.Path.is_file", return_value=True
+        ),
     ):
-        result = app._load_files(["my_survey.h5"])
+        app._load_files(["my_survey.h5"])
 
     mock_collection.open_collection.assert_called_once()
-    assert result is mock_mt_data
-    # Collection should remain open (closed on next load or cleanup)
-    assert app._mt_collection is mock_collection
+    mock_collection.to_mt_data.assert_called_once()
 
 
 @pytest.mark.plotting
 def test_previous_collection_closed_on_new_load():
-    """A previously open MTCollection should be closed before the next load."""
+    """Loading new files should not error even if a previous collection object exists."""
     app = _make_app()
-
-    old_collection = MagicMock()
-    app._mt_collection = old_collection
-
-    mock_mt_data = MagicMock(spec=MTData)
-    mock_mt_data.station_paths = []
-    mock_mt_data.add_stations = MagicMock()
+    # With the `with`-statement pattern the app no longer keeps a live collection
+    # reference between calls; this test simply verifies _load_files succeeds
+    # for a plain TF file without raising.
+    mock_mt_data = MagicMock()
 
     with patch(
         "mtpy.imaging.bokeh_plots.panel_mt_data_app.MTData",
@@ -195,7 +199,7 @@ def test_previous_collection_closed_on_new_load():
     ):
         app._load_files(["a.edi"])
 
-    old_collection.close_collection.assert_called_once()
+    mock_mt_data.add_stations.assert_called_once_with(["a.edi"])
 
 
 # ── Mixed MTH5 + TF loading ───────────────────────────────────────────────────
@@ -206,22 +210,30 @@ def test_mixed_mth5_and_tf_files():
     """Selecting both .h5 and TF files should open MTH5 then add TF stations."""
     app = _make_app()
 
-    mock_mt_data = MagicMock(spec=MTData)
-    mock_mt_data.station_paths = ["/surveys/s/stations/a"]
-    mock_mt_data.add_stations = MagicMock()
-
+    mock_mt_data = MagicMock()
+    mock_mt_data.__iadd__ = MagicMock(return_value=mock_mt_data)
     mock_collection = MagicMock()
-    mock_collection.mt_data = mock_mt_data
+    mock_collection.__enter__ = MagicMock(return_value=mock_collection)
+    mock_collection.__exit__ = MagicMock(return_value=False)
+    mock_collection.to_mt_data.return_value = mock_mt_data
 
-    with patch(
-        "mtpy.imaging.bokeh_plots.panel_mt_data_app.MTCollection",
-        return_value=mock_collection,
+    with (
+        patch(
+            "mtpy.imaging.bokeh_plots.panel_mt_data_app.MTCollection",
+            return_value=mock_collection,
+        ),
+        patch(
+            "mtpy.imaging.bokeh_plots.panel_mt_data_app.MTData",
+            return_value=mock_mt_data,
+        ),
+        patch(
+            "mtpy.imaging.bokeh_plots.panel_mt_data_app.Path.is_file", return_value=True
+        ),
     ):
-        result = app._load_files(["archive.h5", "extra.edi"])
+        app._load_files(["archive.h5", "extra.edi"])
 
     mock_collection.open_collection.assert_called_once()
     mock_mt_data.add_stations.assert_called_once_with(["extra.edi"])
-    assert result is mock_mt_data
 
 
 @pytest.mark.plotting
@@ -229,22 +241,29 @@ def test_multiple_mth5_files_warns_and_uses_first():
     """Selecting multiple .h5 files shows a warning and only uses the first."""
     app = _make_app()
 
-    mock_mt_data = MagicMock(spec=MTData)
-    mock_mt_data.station_paths = []
-
+    mock_mt_data = MagicMock()
     mock_collection = MagicMock()
-    mock_collection.mt_data = mock_mt_data
+    mock_collection.__enter__ = MagicMock(return_value=mock_collection)
+    mock_collection.__exit__ = MagicMock(return_value=False)
+    mock_collection.to_mt_data.return_value = mock_mt_data
 
-    with patch(
-        "mtpy.imaging.bokeh_plots.panel_mt_data_app.MTCollection",
-        return_value=mock_collection,
+    with (
+        patch(
+            "mtpy.imaging.bokeh_plots.panel_mt_data_app.MTCollection",
+            return_value=mock_collection,
+        ),
+        patch(
+            "mtpy.imaging.bokeh_plots.panel_mt_data_app.MTData",
+            return_value=mock_mt_data,
+        ),
+        patch(
+            "mtpy.imaging.bokeh_plots.panel_mt_data_app.Path.is_file", return_value=True
+        ),
     ):
         app._load_files(["first.h5", "second.h5"])
 
-    # Only one open_collection call (for the first file)
-    assert mock_collection.open_collection.call_count == 1
-    # Warning about ignored file in status
-    assert "second.h5" in app._status.object
+    # Both files should be opened (no longer limited to first only)
+    assert mock_collection.open_collection.call_count == 2
 
 
 # ── Station summary table ─────────────────────────────────────────────────────

@@ -258,7 +258,7 @@ class MTDataApp(param.Parameterized):
         # ── Save-to-MTH5 controls ─────────────────────────────────────────
         self._save_filename_widget = pn.widgets.TextInput(
             name="Output MTH5 filename",
-            value="mt_collection.h5",
+            value=str(Path(self._file_selector.directory) / "mt_collection.h5"),
             placeholder="e.g. my_survey.h5",
             width=320,
         )
@@ -444,24 +444,15 @@ class MTDataApp(param.Parameterized):
                 f"Supported: {', '.join(sorted(SUPPORTED_TF_SUFFIXES))} and .h5"
             )
 
-        # Close any previously open collection
-        self._close_collection()
-
         mt_data = MTData()
 
         if mth5_files:
-            if len(mth5_files) > 1:
-                extra = ", ".join(p.name for p in mth5_files[1:])
-                self._set_status(
-                    f"⚠️ Multiple MTH5 files selected — only **{mth5_files[0].name}** "
-                    f"will be opened. Ignored: {extra}",
-                    warning=True,
-                )
-            mc = MTCollection()
-            mc.open_collection(filename=mth5_files[0], mode="r")
-            self._mt_collection = mc
-            if mc.mt_data is not None:
-                mt_data = mc.mt_data
+            for mth5_fn in mth5_files:
+                if not mth5_fn.is_file():
+                    raise ValueError(f"MTH5 file not found: `{mth5_fn}`")
+                with MTCollection() as mc:
+                    mc.open_collection(mth5_fn)
+                    mt_data += mc.to_mt_data()
 
         if tf_files:
             mt_data.add_stations([str(p) for p in tf_files])
