@@ -81,6 +81,8 @@ _STATION_TABLE_COLUMNS: list[str] = [
     "longitude",
     "elevation",
     "n_periods",
+    "has_impedandance",
+    "has_tipper",
 ]
 
 
@@ -115,31 +117,22 @@ def _build_station_summary(mt_data: "MTData") -> pd.DataFrame:
     if mt_data is None:
         return pd.DataFrame(columns=_STATION_TABLE_COLUMNS)
 
-    locs = mt_data.station_locations
-    if locs.empty:
+    if len(mt_data.station_paths) == 0:
         return pd.DataFrame(columns=_STATION_TABLE_COLUMNS)
 
     rows = []
-    for _, row in locs.iterrows():
-        survey = row.get("survey", "")
-        station = row.get("station", "")
-        # Build the tree path to retrieve period count
-        station_path = (
-            f"/{MTData.SURVEYS_NODE}/{survey}/{MTData.STATIONS_NODE}/{station}"
-        )
-        try:
-            mt_obj = mt_data.get_station(station_path, as_mt=True)
-            n_periods = len(mt_obj.period) if mt_obj.period is not None else 0
-        except Exception:
-            n_periods = 0
+    for station_path in mt_data.station_paths:
+        mt_obj = mt_data.get_station(station_path, as_mt=True)
         rows.append(
             {
-                "survey": survey,
-                "station": station,
-                "latitude": row.get("latitude", float("nan")),
-                "longitude": row.get("longitude", float("nan")),
-                "elevation": row.get("elevation", float("nan")),
-                "n_periods": n_periods,
+                "survey": mt_obj.survey,
+                "station": mt_obj.station,
+                "latitude": mt_obj.latitude,
+                "longitude": mt_obj.longitude,
+                "elevation": mt_obj.elevation,
+                "n_periods": len(mt_obj.period) if mt_obj.period is not None else 0,
+                "has_impedandance": mt_obj.has_impedance(),
+                "has_tipper": mt_obj.has_tipper(),
             }
         )
 
