@@ -86,6 +86,12 @@ _STATION_TABLE_COLUMNS: list[str] = [
 ]
 
 
+def _filesystem_root(path: str | None = None) -> str:
+    """Return the root of the filesystem for the given path (drive root on Windows)."""
+    p = Path(path).resolve() if path else Path.cwd().resolve()
+    return str(p.anchor)  # e.g. "C:\\" on Windows, "/" on Unix
+
+
 def _default_data_directory() -> str:
     """Return a sensible default browse directory."""
     workspace_root = Path(__file__).resolve().parents[4]
@@ -187,6 +193,24 @@ class MTDataApp(param.Parameterized):
         self._mt_data = None  # MTData | None
         self._mt_collection = None  # MTCollection | None
 
+        # ── Directory path input (lets users type/paste any path) ────────
+        self._directory_input = pn.widgets.TextInput(
+            name="Browse directory",
+            value=str(Path(self.data_directory).expanduser().resolve()),
+            placeholder="Paste or type an absolute directory path…",
+            sizing_mode="stretch_width",
+        )
+        self._directory_go_button = pn.widgets.Button(
+            name="Go",
+            button_type="default",
+            width=60,
+        )
+        self._directory_go_button.on_click(self._on_directory_go_clicked)
+        # Navigate when the user presses Enter in the text box
+        self._directory_input.param.watch(
+            self._on_directory_input_enter, "enter_pressed"
+        )
+
         # ── File type filter ──────────────────────────────────────────────
         self._file_pattern_widget = pn.widgets.Select(
             name="File Type Filter",
@@ -198,6 +222,7 @@ class MTDataApp(param.Parameterized):
         # ── File selector ─────────────────────────────────────────────────
         self._file_selector = pn.widgets.FileSelector(
             directory=str(Path(self.data_directory).expanduser().resolve()),
+            root_directory=_filesystem_root(self.data_directory),
             name="Select MT Data Files",
             file_pattern=self._file_pattern_widget.value,
             only_files=True,
@@ -245,8 +270,9 @@ class MTDataApp(param.Parameterized):
         )
         self._save_button.on_click(self._on_save_clicked)
 
-        # ── Wire file-pattern changes ─────────────────────────────────────
+        # ── Wire file-pattern and directory changes ───────────────────────
         self._file_pattern_widget.param.watch(self._on_file_pattern_changed, "value")
+        self.param.watch(self._on_data_directory_changed, "data_directory")
 
     # ── Public API ────────────────────────────────────────────────────────
 
@@ -256,6 +282,34 @@ class MTDataApp(param.Parameterized):
         return self._mt_data
 
     # ── Widget callbacks ──────────────────────────────────────────────────
+
+    def _on_data_directory_changed(self, event: param.parameterized.Event) -> None:
+        """Update the file selector when data_directory param changes."""
+        resolved = str(Path(event.new).expanduser().resolve())
+        if Path(resolved).is_dir():
+            self._file_selector.directory = resolved
+            self._directory_input.value = resolved
+
+    def _on_directory_go_clicked(self, event: param.parameterized.Event) -> None:
+        """Navigate the file selector to the typed directory path."""
+        self._navigate_to_directory(self._directory_input.value)
+
+    def _on_directory_input_enter(self, event: param.parameterized.Event) -> None:
+        """Navigate when the user presses Enter in the directory text box."""
+        self._navigate_to_directory(self._directory_input.value)
+
+    def _navigate_to_directory(self, raw_path: str) -> None:
+        """Resolve *raw_path* and update the file selector directory."""
+        path = Path(raw_path.strip()).expanduser().resolve()
+        if path.is_dir():
+            self._file_selector.directory = str(path)
+            self._file_selector._update_files()
+            self._directory_input.value = str(path)
+            self._set_status(f"📂 Browsing `{path}`")
+        else:
+            self._set_status(
+                f"⚠️ Directory not found: `{raw_path.strip()}`", warning=True
+            )
 
     def _on_file_pattern_changed(self, event: param.parameterized.Event) -> None:
         """Update the file selector filter pattern."""
@@ -458,6 +512,17 @@ class MTDataApp(param.Parameterized):
         """
         file_controls = pn.Column(
             pn.pane.Markdown("### Select MT Data Files"),
+            pn.pane.Markdown(
+                "_Paste or type an absolute path and click **Go** to jump to any directory. "
+                "Then browse and select files below._",
+                styles={"color": "#555", "font-size": "0.85em"},
+            ),
+            pn.Row(
+                self._directory_input,
+                self._directory_go_button,
+                align="end",
+                sizing_mode="stretch_width",
+            ),
             self._file_pattern_widget,
             self._file_selector,
             self._load_button,

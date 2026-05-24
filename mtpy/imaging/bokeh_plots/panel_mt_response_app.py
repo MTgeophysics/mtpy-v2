@@ -48,6 +48,12 @@ SUPPORTED_FILE_PATTERNS = {
 SUPPORTED_FILE_SUFFIXES = {".edi", ".xml", ".j", ".avg", ".zmm", ".zrr", ".zss"}
 
 
+def _filesystem_root(path: str | None = None) -> str:
+    """Return the root of the filesystem for the given path (drive root on Windows)."""
+    p = Path(path).resolve() if path else Path.cwd().resolve()
+    return str(p.anchor)  # e.g. "C:\\" on Windows, "/" on Unix
+
+
 def _default_data_directory() -> str:
     """Return a useful default browse directory for MT sample data."""
     workspace_root = Path(__file__).resolve().parents[4]
@@ -101,9 +107,27 @@ class MTResponseApp(param.Parameterized):
 
         self._file_selector = pn.widgets.FileSelector(
             directory=str(Path(self.data_directory).expanduser().resolve()),
+            root_directory=_filesystem_root(self.data_directory),
             name="Select MT Data File",
             file_pattern=self._file_pattern_widget.value,
             only_files=True,
+        )
+
+        # Directory path text input (workaround: FileSelector path bar is read-only)
+        self._directory_input = pn.widgets.TextInput(
+            name="Browse directory",
+            value=str(Path(self.data_directory).expanduser().resolve()),
+            placeholder="Paste or type an absolute directory path…",
+            sizing_mode="stretch_width",
+        )
+        self._directory_go_button = pn.widgets.Button(
+            name="Go",
+            button_type="default",
+            width=60,
+        )
+        self._directory_go_button.on_click(self._on_directory_go_clicked)
+        self._directory_input.param.watch(
+            self._on_directory_input_enter, "enter_pressed"
         )
 
         # Plot options
@@ -145,6 +169,13 @@ class MTResponseApp(param.Parameterized):
         # Status indicator
         self._status = pn.pane.Markdown("")
 
+        # Interactive control for period-level removal / interpolation
+        self._interpolate_button = pn.widgets.Button(
+            name="Remove / Interpolate Periods",
+            button_type="warning",
+        )
+        self._interpolate_button.on_click(self._on_interpolate_clicked)
+
         # State tracking for point editing
         self._current_mt_object = None
         self._current_plotter = None
@@ -154,12 +185,19 @@ class MTResponseApp(param.Parameterized):
         self._component_indices = {}  # Maps period index to period value
         self._z_components = ["xy", "yx", "xx", "yy"]  # Z impedance components
 
+        # State tracking for period-level removal
+        self._periods_removed: set = set()
+        self._all_periods = None  # np.ndarray of all periods when file is loaded
+
         # Watch for file selection changes
         self._file_selector.param.watch(self._on_controls_changed, "value")
         self._file_pattern_widget.param.watch(self._on_file_pattern_changed, "value")
         self._plot_style_widget.param.watch(self._on_controls_changed, "value")
         self._tipper_widget.param.watch(self._on_controls_changed, "value")
         self._pt_widget.param.watch(self._on_controls_changed, "value")
+
+        # Keep file selector in sync when data_directory param is changed externally
+        self.param.watch(self._on_data_directory_changed, "data_directory")
 
     @staticmethod
     def _unsupported_selected_files(selected_files):
@@ -169,6 +207,32 @@ class MTResponseApp(param.Parameterized):
             for file_path in selected_files
             if Path(file_path).suffix.lower() not in SUPPORTED_FILE_SUFFIXES
         ]
+
+    def _on_data_directory_changed(self, event) -> None:
+        """Update the file selector when data_directory param changes."""
+        resolved = str(Path(event.new).expanduser().resolve())
+        if Path(resolved).is_dir():
+            self._file_selector.directory = resolved
+            self._directory_input.value = resolved
+
+    def _on_directory_go_clicked(self, event) -> None:
+        """Navigate the file selector to the typed directory path."""
+        self._navigate_to_directory(self._directory_input.value)
+
+    def _on_directory_input_enter(self, event) -> None:
+        """Navigate when the user presses Enter in the directory text box."""
+        self._navigate_to_directory(self._directory_input.value)
+
+    def _navigate_to_directory(self, raw_path: str) -> None:
+        """Resolve *raw_path* and update the file selector directory."""
+        path = Path(raw_path.strip()).expanduser().resolve()
+        if path.is_dir():
+            self._file_selector.directory = str(path)
+            self._file_selector._update_files()
+            self._directory_input.value = str(path)
+            self._status.object = f"📂 Browsing `{path}`"
+        else:
+            self._status.object = f"⚠️ Directory not found: `{raw_path.strip()}`"
 
     def _on_file_pattern_changed(self, event):
         """Update the file selector filter and clear stale selections."""
@@ -241,8 +305,12 @@ class MTResponseApp(param.Parameterized):
                     mt_obj.Tipper.tipper.copy() if mt_obj.Tipper is not None else None
                 )
 
-                # Initialize marked points tracking
+                # Initialize marked points and period tracking
                 self._marked_points = {}
+                self._periods_removed = set()
+                self._all_periods = (
+                    mt_obj.Z.period.copy() if mt_obj.Z is not None else None
+                )
                 self._component_indices = {
                     f"{i}_{j}": i for i, j in enumerate(mt_obj.Z.period)
                 }
@@ -556,6 +624,81 @@ class MTResponseApp(param.Parameterized):
 
             self._status.object = f"Error applying edits: {type(e).__name__}: {str(e)}"
 
+    def _on_interpolate_clicked(self, event) -> None:
+        """Remove selected periods from MT data and refresh the plot.
+
+        Periods stored in ``_periods_removed`` are dropped from the Z / Tipper
+        arrays.  The original data is not modified on disk; this only affects
+        the in-memory MT object for the current session.
+        """
+        if self._current_mt_object is None:
+            self._status.object = "No MT data loaded. Select a file first."
+            return
+
+        if not self._periods_removed:
+            self._status.object = "No periods selected for removal/interpolation."
+            return
+
+        try:
+            self._status.object = "Removing selected periods…"
+            mt_obj = self._current_mt_object
+
+            if mt_obj.Z is not None and self._all_periods is not None:
+                keep_mask = np.array(
+                    [p not in self._periods_removed for p in mt_obj.Z.period]
+                )
+                z_new = mt_obj.Z.z[keep_mask]
+                z_err_new = (
+                    mt_obj.Z.z_error[keep_mask]
+                    if mt_obj.Z.z_error is not None
+                    else None
+                )
+                period_new = mt_obj.Z.period[keep_mask]
+                mt_obj.Z.z = z_new
+                if z_err_new is not None:
+                    mt_obj.Z.z_error = z_err_new
+                mt_obj.Z.period = period_new
+
+            if mt_obj.Tipper is not None and mt_obj.Tipper.tipper is not None:
+                keep_mask_t = np.array(
+                    [p not in self._periods_removed for p in mt_obj.Tipper.period]
+                )
+                mt_obj.Tipper.tipper = mt_obj.Tipper.tipper[keep_mask_t]
+                if mt_obj.Tipper.tipper_error is not None:
+                    mt_obj.Tipper.tipper_error = mt_obj.Tipper.tipper_error[keep_mask_t]
+                mt_obj.Tipper.period = mt_obj.Tipper.period[keep_mask_t]
+
+            n_removed = len(self._periods_removed)
+            self._periods_removed.clear()
+
+            # Rebuild the plot with updated data
+            station_label = self._format_station_label(mt_obj)
+            plotter = PlotMTResponse(
+                z_object=mt_obj.Z,
+                t_object=mt_obj.Tipper,
+                pt_obj=mt_obj.pt,
+                station=station_label,
+                show_plot=False,
+                plot_num=2,
+                plot_tipper=self._tipper_widget.value,
+                plot_pt=self._pt_widget.value,
+            )
+            self._current_plotter = plotter
+            panel_plot = plotter.make_panel(
+                sizing_mode=self.sizing_mode,
+                interactive=True,
+            )
+            self._add_click_handlers_to_plotter(plotter)
+            self._plot_container.clear()
+            self._plot_container.append(panel_plot)
+
+            self._status.object = (
+                f"Removed {n_removed} period{'s' if n_removed != 1 else ''}."
+            )
+
+        except Exception as exc:
+            self._status.object = f"Error removing periods: {type(exc).__name__}: {exc}"
+
     @property
     def view(self) -> pn.Column:
         """Return the complete Panel application layout."""
@@ -570,6 +713,17 @@ class MTResponseApp(param.Parameterized):
                 ".edi, .xml, .j, .avg, .zmm, .zrr, and .zss."
             ),
             pn.pane.Markdown("---"),
+            pn.pane.Markdown(
+                "_Paste or type an absolute path and click **Go** to jump to any "
+                "directory. Then browse and select files below._",
+                styles={"color": "#555", "font-size": "0.85em"},
+            ),
+            pn.Row(
+                self._directory_input,
+                self._directory_go_button,
+                align="end",
+                sizing_mode="stretch_width",
+            ),
             self._file_selector,
             pn.Row(
                 self._file_pattern_widget,
@@ -586,6 +740,7 @@ class MTResponseApp(param.Parameterized):
             pn.Row(
                 self._marked_points_display,
                 self._apply_edits_button,
+                self._interpolate_button,
                 sizing_mode="stretch_width",
             ),
             self._status,
