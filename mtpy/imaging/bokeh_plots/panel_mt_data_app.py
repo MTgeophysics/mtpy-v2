@@ -140,9 +140,9 @@ def _build_station_summary(mt_data: "MTData") -> pd.DataFrame:
             {
                 "survey": mt_obj.survey,
                 "station": mt_obj.station,
-                "latitude": mt_obj.latitude,
-                "longitude": mt_obj.longitude,
-                "elevation": mt_obj.elevation,
+                "latitude": round(float(mt_obj.latitude), 6),
+                "longitude": round(float(mt_obj.longitude), 6),
+                "elevation": round(float(mt_obj.elevation), 2),
                 "n_periods": len(mt_obj.period) if mt_obj.period is not None else 0,
                 "has_impedandance": mt_obj.has_impedance(),
                 "has_tipper": mt_obj.has_tipper(),
@@ -281,11 +281,6 @@ class MTDataApp(param.Parameterized):
             page_size=20,
             sizing_mode="stretch_width",
             show_index=False,
-            formatters={
-                "latitude": {"type": "number", "precision": 6},
-                "longitude": {"type": "number", "precision": 6},
-                "elevation": {"type": "number", "precision": 2},
-            },
             configuration={"columnDefaults": {"headerFilter": True}},
         )
         self._station_table.param.watch(self._on_table_selection_changed, "selection")
