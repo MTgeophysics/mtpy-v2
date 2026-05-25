@@ -1000,7 +1000,7 @@ class PlotMultipleResponses(BokehPlotBase):
         station_widget = pn.widgets.CheckBoxGroup(
             name="Stations",
             options=station_labels,
-            value=station_labels,
+            value=[],
             inline=False,
             width=240,
         )
@@ -1019,9 +1019,7 @@ class PlotMultipleResponses(BokehPlotBase):
             width=300,
         )
 
-        generate_btn = pn.widgets.Button(
-            name="Generate", button_type="success", width=120
-        )
+        generate_btn = pn.widgets.Button(name="Plot", button_type="success", width=120)
         status = pn.pane.Markdown(
             "_Select stations and click **Generate**._",
             styles={"color": "#555"},
@@ -1088,6 +1086,7 @@ class PlotMultipleResponses(BokehPlotBase):
             pn_map = {"Off-diagonal": 1, "Full tensor": 2, "All": 3}
             new_plot_num = pn_map[plot_num_widget.value]
             style = style_widget.value
+            plot_all = new_plot_num == 3
 
             status.object = f"⏳ Generating **{style}** for {len(selected)} station(s)…"
             status.styles = {"color": "#555"}
@@ -1100,6 +1099,9 @@ class PlotMultipleResponses(BokehPlotBase):
                         mt_obj = label_to_mt[label]
                         plotter = self._make_station_plotter(mt_obj, x_limits=x_limits)
                         plotter.plot_num = new_plot_num
+                        if plot_all:
+                            plotter.plot_tipper = True
+                            plotter.plot_pt = True
                         plotter.show_plot = False
                         # Use the full station label as the panel title.
                         plotter.station = label
@@ -1158,6 +1160,9 @@ class PlotMultipleResponses(BokehPlotBase):
                                 pass
 
                     cmp.plot_num = new_plot_num
+                    if plot_all:
+                        cmp.plot_tipper = True
+                        cmp.plot_pt = True
 
                     # Collect styling from per-station widgets.
                     cmp.custom_station_styles = {
@@ -1187,9 +1192,6 @@ class PlotMultipleResponses(BokehPlotBase):
         clear_btn.on_click(lambda e: setattr(station_widget, "value", []))
         generate_btn.on_click(_render)
 
-        # Render on first load.
-        _render()
-
         controls = pn.Column(
             pn.pane.Markdown("### MT Responses — Multi-Station"),
             pn.Row(
@@ -1198,7 +1200,7 @@ class PlotMultipleResponses(BokehPlotBase):
                     style_widget,
                     pn.pane.Markdown("**Tensor Components**"),
                     plot_num_widget,
-                    pn.Row(generate_btn, align="center"),
+                    pn.Row(generate_btn),
                     status,
                     width=380,
                 ),
