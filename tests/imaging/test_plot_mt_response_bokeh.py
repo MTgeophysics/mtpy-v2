@@ -355,10 +355,10 @@ class TestPlotMTResponsePanel:
         assert isinstance(plotter.layout, Column)
         assert isinstance(plotter.layout.children[0], GridPlot)
 
-    def test_plot_num2_figure_width_is_half_base(
+    def test_plot_num2_figure_width_is_600(
         self, bokeh_plot_mt_response_class, mt_object_bokeh
     ):
-        """In plot_num=2, OD figures must be half of base_column_width (400px)."""
+        """In plot_num=2, each OD impedance figure must be 600px (readable width)."""
         plotter = bokeh_plot_mt_response_class(
             z_object=mt_object_bokeh.Z.copy(),
             station=mt_object_bokeh.station,
@@ -367,7 +367,7 @@ class TestPlotMTResponsePanel:
         )
         plotter.plot()
         res_fig = plotter.figures["res"]
-        assert res_fig.width == 400
+        assert res_fig.width == 600
 
     def test_preset_full_tensor_adds_diagonal_renderers(
         self, bokeh_plot_mt_response_class, mt_object_bokeh

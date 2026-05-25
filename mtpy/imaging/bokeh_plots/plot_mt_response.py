@@ -849,10 +849,18 @@ class PlotMTResponse(BokehPlotBase):
         self.figures = {}
 
         # base_column_width is the total width of a single-column layout.
-        # For plot_num=2 (two impedance columns side-by-side) each figure gets
-        # half that width so the combined row matches tipper/PT rows exactly.
+        # For plot_num=2, each impedance figure is set to half of the two-column
+        # total width (2 * fig_w_2col). Tipper/PT are set to 2 * fig_w_2col so
+        # they align exactly with the gridplot below them.
+        # 600px per column gives 1200px total — readable with axis labels/legends
+        # and fits comfortably on a 1366px-wide screen.
         base_column_width = 800
-        fig_w = base_column_width // 2 if self.plot_num == 2 else base_column_width
+        if self.plot_num == 2:
+            fig_w = 600  # per impedance column; gridplot total = 2 * 600 = 1200px
+            aux_width = fig_w * 2  # tipper/PT span both columns
+        else:
+            fig_w = base_column_width
+            aux_width = base_column_width
 
         res_fig = self._make_resistivity_figure(width=fig_w)
         phase_fig = self._make_phase_figure(res_fig.x_range, width=fig_w)
@@ -883,14 +891,14 @@ class PlotMTResponse(BokehPlotBase):
         # correctly below both single-column and two-column impedance grids.
 
         if self.plot_tipper.find("y") >= 0:
-            tip_fig = self._make_tipper_figure(width=base_column_width)
+            tip_fig = self._make_tipper_figure(width=aux_width)
             self._plot_tipper(tip_fig)
             self._set_legends(tip_fig)
             self.figures["tip"] = tip_fig
             self._linear_x_figure_keys.add("tip")
 
         if self.plot_pt:
-            pt_fig = self._make_pt_figure(width=base_column_width)
+            pt_fig = self._make_pt_figure(width=aux_width)
             self._plot_phase_tensor(pt_fig)
             # PT uses an adjusted x-spacing for equal visual aspect ratio so
             # it cannot share the tipper's raw log10(period) x-range.
