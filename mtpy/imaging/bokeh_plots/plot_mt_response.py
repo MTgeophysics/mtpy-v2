@@ -263,6 +263,7 @@ class PlotMTResponse(BokehPlotBase):
             source=source,
             color=glyph_color,
             line_width=max(self.lw, 1),
+            line_dash="dashed",
         )
         scatter_method = getattr(fig, self._marker_name(marker), fig.circle)
         scatter_renderer = scatter_method(
@@ -288,9 +289,9 @@ class PlotMTResponse(BokehPlotBase):
                 line_color=glyph_color,
                 line_width=max(self.lw, 2),
             )
-            whisker.upper_head.size = 6
+            whisker.upper_head.size = self.marker_size
             whisker.upper_head.line_color = glyph_color
-            whisker.lower_head.size = 6
+            whisker.lower_head.size = self.marker_size
             whisker.lower_head.line_color = glyph_color
             fig.add_layout(whisker)
             self.renderers.setdefault(comp_key, []).append(whisker)
@@ -1072,7 +1073,7 @@ class PlotMTResponse(BokehPlotBase):
             name="Line width",
             start=0.5,
             end=5.0,
-            step=0.5,
+            step=0.25,
             value=float(self.lw),
             width=160,
         )
