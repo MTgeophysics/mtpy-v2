@@ -348,6 +348,13 @@ class MTDataApp(param.Parameterized):
             value="Station Map",
             width=320,
         )
+        self._plot_backend_widget = pn.widgets.RadioButtonGroup(
+            name="Backend",
+            options=["bokeh", "matplotlib"],
+            value="bokeh",
+            button_type="default",
+            width=200,
+        )
         self._plot_station_widget = pn.widgets.Select(
             name="Station",
             options=[],
@@ -733,7 +740,8 @@ class MTDataApp(param.Parameterized):
 
         try:
             method = getattr(self._mt_data, method_name)
-            kwargs: dict = {"show_plot": False}
+            backend = self._plot_backend_widget.value
+            kwargs: dict = {"show_plot": False, "backend": backend}
             if needs_station:
                 station_key = self._plot_station_widget.value
                 if not station_key:
@@ -965,6 +973,14 @@ class MTDataApp(param.Parameterized):
                 align="end",
             ),
             pn.Row(
+                pn.Column(
+                    pn.pane.Markdown(
+                        "**Backend:**",
+                        styles={"font-size": "0.9em", "margin-bottom": "2px"},
+                    ),
+                    self._plot_backend_widget,
+                ),
+                pn.Spacer(width=20),
                 self._plot_generate_button,
                 pn.Spacer(width=10),
                 self._plot_status,

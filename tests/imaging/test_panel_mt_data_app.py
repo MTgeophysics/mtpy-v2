@@ -833,3 +833,40 @@ def test_plot_types_registry_completeness():
     }
     registered_methods = {method for method, _ in _PLOT_TYPES.values()}
     assert registered_methods == expected_methods
+
+
+@pytest.mark.plotting
+def test_backend_widget_default_is_bokeh():
+    """Backend radio button should default to 'bokeh'."""
+    app = _make_app()
+    assert app._plot_backend_widget.value == "bokeh"
+
+
+@pytest.mark.plotting
+def test_backend_widget_options():
+    """Backend selector must offer both backends."""
+    app = _make_app()
+    assert set(app._plot_backend_widget.options) == {"bokeh", "matplotlib"}
+
+
+@pytest.mark.plotting
+def test_generate_plot_passes_backend_to_method():
+    """Generate Plot should forward the selected backend to the MTData method."""
+    app = _make_app()
+
+    mock_fig = MagicMock()
+    mock_fig.plot = MagicMock(return_value=mock_fig)
+
+    label = "Station Map"
+    method_name, _ = _PLOT_TYPES[label]
+    mock_mt = MagicMock(spec=MTData)
+    getattr(mock_mt, method_name).return_value = mock_fig
+    app._mt_data = mock_mt
+    app.mt_data_loaded = True
+    app._plot_type_widget.value = label
+    app._plot_backend_widget.value = "matplotlib"
+
+    app._on_generate_plot_clicked(None)
+
+    _, call_kwargs = getattr(mock_mt, method_name).call_args
+    assert call_kwargs.get("backend") == "matplotlib"
