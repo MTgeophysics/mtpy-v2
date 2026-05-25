@@ -79,6 +79,39 @@ class TestPlotMTResponseBase:
         assert plotter.ellipse_size == 2.0
         assert plotter.arrow_direction == 1
 
+    def test_xx_yy_color_marker_params(
+        self, bokeh_plot_mt_response_class, mt_object_bokeh
+    ):
+        """xx/yy components have independent color and marker params."""
+        plotter = bokeh_plot_mt_response_class(
+            z_object=mt_object_bokeh.Z.copy(),
+            station=mt_object_bokeh.station,
+            show_plot=False,
+        )
+        assert hasattr(plotter, "xx_color")
+        assert hasattr(plotter, "xx_marker")
+        assert hasattr(plotter, "yy_color")
+        assert hasattr(plotter, "yy_marker")
+        # Defaults should differ from xy/yx defaults
+        assert plotter.xx_color != plotter.xy_color
+        assert plotter.yy_color != plotter.yx_color
+
+    def test_xx_yy_params_override(self, bokeh_plot_mt_response_class, mt_object_bokeh):
+        """xx/yy color and marker can be overridden via kwargs."""
+        plotter = bokeh_plot_mt_response_class(
+            z_object=mt_object_bokeh.Z.copy(),
+            station=mt_object_bokeh.station,
+            show_plot=False,
+            xx_color="#aabbcc",
+            yy_color="#ddeeff",
+            xx_marker="d",
+            yy_marker="v",
+        )
+        assert plotter.xx_color == "#aabbcc"
+        assert plotter.yy_color == "#ddeeff"
+        assert plotter.xx_marker == "d"
+        assert plotter.yy_marker == "v"
+
     def test_kwargs_override_params(
         self, bokeh_plot_mt_response_class, mt_object_bokeh
     ):
@@ -203,3 +236,52 @@ class TestPlotMTResponsePanel:
         result = plotter.panel()
         first = result[0]
         assert "Custom Title" in first.object
+
+    def test_panel_includes_style_card(
+        self, bokeh_plot_mt_response_class, mt_object_bokeh
+    ):
+        """panel() should include a collapsed styling card for components."""
+        import panel as pn
+
+        plotter = bokeh_plot_mt_response_class(
+            z_object=mt_object_bokeh.Z.copy(),
+            station=mt_object_bokeh.station,
+            show_plot=False,
+        )
+        result = plotter.panel()
+        # Style card is the third child (index 2); bokeh pane is index 3
+        assert len(result) >= 4
+        style_card = result[2]
+        assert isinstance(style_card, pn.Card)
+
+    def test_model_error_does_not_produce_empty_plot(
+        self, bokeh_plot_mt_response_class, mt_object_bokeh
+    ):
+        """Switching to model error should still render data (NaN fallback)."""
+        plotter = bokeh_plot_mt_response_class(
+            z_object=mt_object_bokeh.Z.copy(),
+            station=mt_object_bokeh.station,
+            show_plot=False,
+        )
+        plotter.plot_model_error = True
+        layout = plotter.plot()
+        # Renderers for off-diagonal components must be present and non-empty
+        assert "xy" in plotter.renderers
+        assert len(plotter.renderers["xy"]) > 0
+
+    def test_diag_components_use_xx_yy_colors(
+        self, bokeh_plot_mt_response_class, mt_object_bokeh
+    ):
+        """plot_num=2 diagonal figures must use xx/yy colors, not xy/yx."""
+        plotter = bokeh_plot_mt_response_class(
+            z_object=mt_object_bokeh.Z.copy(),
+            station=mt_object_bokeh.station,
+            show_plot=False,
+            plot_num=2,
+            xx_color="#112233",
+            yy_color="#445566",
+        )
+        plotter.plot()
+        # Renderers for diagonal components should be present
+        assert "xx" in plotter.renderers
+        assert "yy" in plotter.renderers

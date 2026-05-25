@@ -81,12 +81,20 @@ class BokehPlotBase(param.Parameterized):
         Color for Zxy component, by default ``"#4059bf"``.
     yx_color : str
         Color for Zyx component, by default ``"#bf4040"``.
+    xx_color : str
+        Color for Zxx component, by default ``"#5599cc"``.
+    yy_color : str
+        Color for Zyy component, by default ``"#cc5555"``.
     det_color : str
         Color for det(Z) component, by default ``"#40bf40"``.
     xy_marker : str
         Marker for Zxy component, by default ``"s"``.
     yx_marker : str
         Marker for Zyx component, by default ``"o"``.
+    xx_marker : str
+        Marker for Zxx component, by default ``"d"``.
+    yy_marker : str
+        Marker for Zyy component, by default ``"^"``.
     det_marker : str
         Marker for det(Z) component, by default ``"v"``.
     res_limits : tuple | None
@@ -146,12 +154,20 @@ class BokehPlotBase(param.Parameterized):
     lw = param.Number(default=1.0, bounds=(0, 10), doc="Line width")
     xy_color = param.Color(default="#4059bf", doc="Zxy component color")
     yx_color = param.Color(default="#bf4040", doc="Zyx component color")
+    xx_color = param.Color(default="#5599cc", doc="Zxx component color")
+    yy_color = param.Color(default="#cc5555", doc="Zyy component color")
     det_color = param.Color(default="#40bf40", doc="det(Z) component color")
     xy_marker = param.ObjectSelector(
         default="s", objects=_MARKER_OPTIONS, doc="Zxy marker"
     )
     yx_marker = param.ObjectSelector(
         default="o", objects=_MARKER_OPTIONS, doc="Zyx marker"
+    )
+    xx_marker = param.ObjectSelector(
+        default="d", objects=_MARKER_OPTIONS, doc="Zxx marker"
+    )
+    yy_marker = param.ObjectSelector(
+        default="^", objects=_MARKER_OPTIONS, doc="Zyy marker"
     )
     det_marker = param.ObjectSelector(
         default="v", objects=_MARKER_OPTIONS, doc="det(Z) marker"

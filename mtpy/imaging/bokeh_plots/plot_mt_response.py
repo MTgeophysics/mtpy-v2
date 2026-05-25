@@ -211,6 +211,12 @@ class PlotMTResponse(BokehPlotBase):
 
         y = self._get_values(z_obj, y_attr, comp)
         err = self._get_values(z_obj, e_attr, comp)
+
+        # When model error is unavailable (all NaN), fall back to zero errors
+        # so data points still render without error bars rather than vanishing.
+        if not np.any(np.isfinite(err)):
+            err = np.zeros_like(y)
+
         if yx_shift:
             y = y + 180
 
@@ -715,37 +721,50 @@ class PlotMTResponse(BokehPlotBase):
         )
 
         self._add_component(
-            res_fig, xx_source_res, "Zxx", self.xy_color, self.xy_marker, "xx"
+            res_fig, xx_source_res, "Zxx", self.xx_color, self.xx_marker, "xx"
         )
         self._add_component(
-            res_fig, yy_source_res, "Zyy", self.yx_color, self.yx_marker, "yy"
+            res_fig, yy_source_res, "Zyy", self.yy_color, self.yy_marker, "yy"
         )
         self._add_component(
-            phase_fig, xx_source_phase, "Zxx", self.xy_color, self.xy_marker, "xx"
+            phase_fig, xx_source_phase, "Zxx", self.xx_color, self.xx_marker, "xx"
         )
         self._add_component(
-            phase_fig, yy_source_phase, "Zyy", self.yx_color, self.yx_marker, "yy"
+            phase_fig, yy_source_phase, "Zyy", self.yy_color, self.yy_marker, "yy"
         )
 
     def _plot_determinant(self, res_fig, phase_fig):
+        res_err_attr = f"res_{self._error_str}_det"
+        phase_err_attr = f"phase_{self._error_str}_det"
+
+        try:
+            res_err = np.asarray(getattr(self.Z, res_err_attr), dtype=float)
+        except AttributeError:
+            res_err = np.asarray(self.Z.res_error_det, dtype=float)
+        if not np.any(np.isfinite(res_err)):
+            res_err = np.zeros(len(self.period), dtype=float)
+
+        try:
+            phase_err = np.asarray(getattr(self.Z, phase_err_attr), dtype=float)
+        except AttributeError:
+            phase_err = np.asarray(self.Z.phase_error_det, dtype=float)
+        if not np.any(np.isfinite(phase_err)):
+            phase_err = np.zeros(len(self.period), dtype=float)
+
         source_res = ColumnDataSource(
             data={
                 "period": np.asarray(self.period, dtype=float),
                 "value": np.asarray(self.Z.res_det, dtype=float),
-                "low": np.asarray(self.Z.res_det - self.Z.res_error_det, dtype=float),
-                "high": np.asarray(self.Z.res_det + self.Z.res_error_det, dtype=float),
+                "low": np.asarray(self.Z.res_det - res_err, dtype=float),
+                "high": np.asarray(self.Z.res_det + res_err, dtype=float),
             }
         )
         source_phase = ColumnDataSource(
             data={
                 "period": np.asarray(self.period, dtype=float),
                 "value": np.asarray(self.Z.phase_det, dtype=float),
-                "low": np.asarray(
-                    self.Z.phase_det - self.Z.phase_error_det, dtype=float
-                ),
-                "high": np.asarray(
-                    self.Z.phase_det + self.Z.phase_error_det, dtype=float
-                ),
+                "low": np.asarray(self.Z.phase_det - phase_err, dtype=float),
+                "high": np.asarray(self.Z.phase_det + phase_err, dtype=float),
             }
         )
 
@@ -1026,7 +1045,11 @@ class PlotMTResponse(BokehPlotBase):
             self._set_period_window(event.new)
 
         def _apply_preset(event):
-            component_widget.value = _preset_map[event.new]
+            new_val = _preset_map[event.new]
+            component_widget.value = new_val
+            # Directly apply visibility in case the watch chain doesn't fire
+            # reliably when value is set programmatically.
+            self._set_component_visibility(new_val)
 
         error_widget.param.watch(_refresh_from_error_mode, "value")
         component_widget.param.watch(_update_visibility, "value")
@@ -1038,6 +1061,63 @@ class PlotMTResponse(BokehPlotBase):
         self._set_component_visibility(component_widget.value)
         self._set_period_window(period_widget.value)
 
+        # ── per-component color / marker styling ──────────────────────────────
+        _style_defs = [
+            ("xy", "Zxy", "xy_color", "xy_marker"),
+            ("yx", "Zyx", "yx_color", "yx_marker"),
+            ("xx", "Zxx", "xx_color", "xx_marker"),
+            ("yy", "Zyy", "yy_color", "yy_marker"),
+            ("det", "det(Z)", "det_color", "det_marker"),
+        ]
+        _marker_options = ["o", "s", "v", "d", "^"]
+        _style_widgets = {}  # key -> (color_widget, marker_widget)
+
+        for key, label, color_attr, marker_attr in _style_defs:
+            if key not in available:
+                continue
+            cw = pn.widgets.ColorPicker(
+                name=f"{label} color",
+                value=getattr(self, color_attr),
+                width=60,
+            )
+            mw = pn.widgets.Select(
+                name=f"{label} marker",
+                options=_marker_options,
+                value=getattr(self, marker_attr),
+                width=80,
+            )
+            _style_widgets[key] = (cw, mw, color_attr, marker_attr)
+
+        def _refresh_after_style_change(event):
+            for _key, (_cw, _mw, _ca, _ma) in _style_widgets.items():
+                setattr(self, _ca, _cw.value)
+                setattr(self, _ma, _mw.value)
+            self.plot()
+            bokeh_pane.object = self.layout
+            self._set_component_visibility(component_widget.value)
+            self._set_period_window(period_widget.value)
+
+        for _key, (_cw, _mw, _ca, _ma) in _style_widgets.items():
+            _cw.param.watch(_refresh_after_style_change, "value")
+            _mw.param.watch(_refresh_after_style_change, "value")
+
+        style_cols = [
+            pn.Column(
+                pn.pane.Markdown(f"**{label}**", width=90),
+                _cw,
+                _mw,
+                width=100,
+            )
+            for key, label, *_ in _style_defs
+            if key in _style_widgets
+            for _cw, _mw, _, __ in [_style_widgets[key]]
+        ]
+        style_card = pn.Card(
+            pn.Row(*style_cols),
+            title="Component Styling",
+            collapsed=True,
+        )
+
         controls = pn.Row(
             pn.Column(pn.pane.Markdown("**Preset**"), preset_widget),
             pn.Column(pn.pane.Markdown("**Components**"), component_widget),
@@ -1048,6 +1128,7 @@ class PlotMTResponse(BokehPlotBase):
         return pn.Column(
             pn.pane.Markdown(f"## {title}"),
             controls,
+            style_card,
             bokeh_pane,
             sizing_mode=sizing_mode,
         )
