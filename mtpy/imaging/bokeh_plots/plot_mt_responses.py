@@ -293,8 +293,10 @@ class PlotMultipleResponses(BokehPlotBase):
             legend.label_text_font_size = f"{self.compare_legend_font_size}px"
 
             # Deduplicate: keep one entry per station (strip _component suffix).
-            # Bokeh 3.x stores item.label as a Value spec object, so extract
-            # the string via .value first, falling back to dict/str access.
+            # Bokeh 3.x StringSpec: bare string → Field ref ("Invalid field").
+            # Use {"value": ...} dict to force a literal Value spec.
+            # Reading: item.label is a Value spec object; extract via .value,
+            # falling back to dict or str for older Bokeh builds.
             seen: set = set()
             unique_items = []
             for item in legend.items:
@@ -302,14 +304,15 @@ class PlotMultipleResponses(BokehPlotBase):
                 if hasattr(lbl, "value"):
                     raw = lbl.value
                 elif isinstance(lbl, dict):
-                    raw = lbl.get("value", "")
+                    raw = lbl.get("value", "") or lbl.get("field", "")
                 else:
                     raw = str(lbl)
                 station_key = raw.split("_")[0] if "_" in raw else raw
                 if station_key not in seen:
                     seen.add(station_key)
-                    # Assign a plain string; Bokeh wraps it in a Value spec.
-                    item.label = station_key
+                    # {"value": ...} is the StringSpec literal form; a bare
+                    # string would be treated as a field reference by Bokeh.
+                    item.label = {"value": station_key}
                     unique_items.append(item)
 
             if self.compare_compact_legend:
