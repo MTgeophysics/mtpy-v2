@@ -100,6 +100,7 @@ _PLOT_TYPES: dict[str, tuple[str, bool]] = {
     "Station Map": ("plot_stations", False),
     "Strike": ("plot_strike", False),
     "MT Response (single station)": ("plot_mt_response", True),
+    "MT Responses (multiple stations)": ("plot_mt_responses", False),
     "Phase Tensor (single station)": ("plot_phase_tensor", True),
     "Phase Tensor Map": ("plot_phase_tensor_map", False),
     "Tipper Map": ("plot_tipper_map", False),

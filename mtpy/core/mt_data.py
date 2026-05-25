@@ -4028,6 +4028,41 @@ class MTData:
                 )
             return mt_object.plot_mt_response(**kwargs)
 
+    def plot_mt_responses(
+        self,
+        backend: Literal["bokeh", "matplotlib"] = "bokeh",
+        **kwargs: Any,
+    ) -> PlotMultipleResponses | Any:
+        """
+        Plot MT responses for all stations in the collection.
+
+        Unlike :meth:`plot_mt_response`, which targets a single station (or a
+        caller-specified subset), this method constructs a multi-station
+        response plot object for the *entire* collection.  When ``backend``
+        is ``"bokeh"`` the returned object exposes a :meth:`panel` method
+        that provides an interactive Panel app with station selection,
+        plot-style (single / compare) controls and per-station styling.
+
+        Parameters
+        ----------
+        backend : {"bokeh", "matplotlib"}, optional
+            Plotting backend.  Defaults to ``"bokeh"``.
+        **kwargs : dict
+            Additional keyword arguments forwarded to the plot class.
+
+        Returns
+        -------
+        PlotMultipleResponsesBokeh or PlotMultipleResponses
+        """
+        if backend not in ("bokeh", "matplotlib"):
+            raise ValueError(
+                f"backend must be 'bokeh' or 'matplotlib', got '{backend}'"
+            )
+        cls = (
+            PlotMultipleResponsesBokeh if backend == "bokeh" else PlotMultipleResponses
+        )
+        return cls(mt_data=self, **kwargs)
+
     def plot_stations(
         self,
         map_epsg: int = 4326,
