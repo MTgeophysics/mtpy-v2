@@ -382,6 +382,12 @@ class PlotMultipleResponses(BokehPlotBase):
             )
             phase_fig_xy = base._make_phase_figure(res_fig_xy.x_range, width=fig_w)
             phase_fig_yx = base._make_phase_figure(res_fig_xy.x_range, width=fig_w)
+
+            for fig, lbl in [
+                (res_fig_xy, "Zxy"),
+                (res_fig_yx, "Zyx"),
+            ]:
+                fig.title = lbl
         elif self.plot_num == 2:
             res_fig_xx = base._make_resistivity_figure(width=fig_w)
             res_fig_xy = base._make_resistivity_figure(
@@ -409,10 +415,16 @@ class PlotMultipleResponses(BokehPlotBase):
             res_fig_xy = base._make_resistivity_figure(width=fig_w)
             phase_fig_xy = base._make_phase_figure(res_fig_xy.x_range, width=fig_w)
 
+        # Normalise "y" → "yri" so that both real ("r") and imag ("i") checks
+        # below will pass.  "y" alone means "yes, plot both components".
+        _tipper_mode = self.plot_tipper
+        if _tipper_mode == "y":
+            _tipper_mode = "yri"
+
         tip_fig = None
         tip_min = np.inf
         tip_max = -np.inf
-        if self.plot_tipper.find("y") >= 0:
+        if _tipper_mode.find("y") >= 0:
             tip_fig = base._make_tipper_figure(width=aux_width)
 
         pt_fig = None
@@ -689,7 +701,7 @@ class PlotMultipleResponses(BokehPlotBase):
                     real_color = base._tuple_to_hex(base.arrow_color_real)
                     imag_color = base._tuple_to_hex(base.arrow_color_imag)
 
-                    if "r" in self.plot_tipper:
+                    if "r" in _tipper_mode:
                         tip_fig.add_layout(
                             Arrow(
                                 end=NormalHead(
@@ -716,7 +728,7 @@ class PlotMultipleResponses(BokehPlotBase):
                             ),
                         )
 
-                    if "i" in self.plot_tipper:
+                    if "i" in _tipper_mode:
                         tip_fig.add_layout(
                             Arrow(
                                 end=NormalHead(
@@ -1120,6 +1132,26 @@ class PlotMultipleResponses(BokehPlotBase):
         plot_display = pn.Column(sizing_mode=sizing_mode)
         style_card_area = pn.Column()
 
+        # ── Tipper & PT widgets ───────────────────────────────────────────────
+        tipper_widget = pn.widgets.CheckBoxGroup(
+            name="Tipper",
+            options=["Real", "Imaginary"],
+            value=["Real", "Imaginary"] if self.plot_tipper.find("y") >= 0 else [],
+            inline=True,
+            width=200,
+        )
+        plot_pt_widget = pn.widgets.Checkbox(
+            name="Phase Tensor",
+            value=self.plot_pt,
+            width=160,
+        )
+        colorby_widget = pn.widgets.Select(
+            name="PT Color by",
+            options=list(type(self).param["ellipse_colorby"].objects),
+            value=self.ellipse_colorby,
+            width=160,
+        )
+
         # ── Per-station compare styling ────────────────────────────────────────
         _DEFAULT_COLORS = [
             "#1f77b4",
@@ -1180,6 +1212,26 @@ class PlotMultipleResponses(BokehPlotBase):
             style = style_widget.value
             plot_all = new_plot_num == 3
 
+            # Derive plot_tipper string from checkboxes: "n", "yr", "yi", "yri".
+            tip_sel = tipper_widget.value
+            if "Real" in tip_sel and "Imaginary" in tip_sel:
+                _tip_val = "yri"
+            elif "Real" in tip_sel:
+                _tip_val = "yr"
+            elif "Imaginary" in tip_sel:
+                _tip_val = "yi"
+            else:
+                _tip_val = "n"
+
+            _pt_val = plot_pt_widget.value
+            _colorby_val = colorby_widget.value
+
+            # "All" always enables full tensor + tipper + PT regardless of
+            # individual widget state.
+            if plot_all:
+                _tip_val = "yri"
+                _pt_val = True
+
             status.object = f"⏳ Generating **{style}** for {len(selected)} station(s)…"
             status.styles = {"color": "#555"}
 
@@ -1190,11 +1242,10 @@ class PlotMultipleResponses(BokehPlotBase):
                     for label in selected:
                         mt_obj = label_to_mt[label]
                         plotter = self._make_station_plotter(mt_obj, x_limits=x_limits)
-                        # "All" = full tensor (plot_num=2) + tipper + phase tensor.
                         plotter.plot_num = 2 if plot_all else new_plot_num
-                        if plot_all:
-                            plotter.plot_tipper = "y"
-                            plotter.plot_pt = True
+                        plotter.plot_tipper = _tip_val
+                        plotter.plot_pt = _pt_val
+                        plotter.ellipse_colorby = _colorby_val
                         plotter.show_plot = False
                         # Use the full station label as the panel title.
                         plotter.station = label
@@ -1225,15 +1276,12 @@ class PlotMultipleResponses(BokehPlotBase):
 
                     # Forward visual attrs from self.
                     _forward = [
-                        "plot_tipper",
-                        "plot_pt",
                         "plot_model_error",
                         "lw",
                         "marker_size",
                         "arrow_lw",
                         "arrow_direction",
                         "ellipse_size",
-                        "ellipse_colorby",
                         "ellipse_range",
                         "res_limits",
                         "phase_limits",
@@ -1253,9 +1301,9 @@ class PlotMultipleResponses(BokehPlotBase):
                                 pass
 
                     cmp.plot_num = 2 if plot_all else new_plot_num
-                    if plot_all:
-                        cmp.plot_tipper = "y"
-                        cmp.plot_pt = True
+                    cmp.plot_tipper = _tip_val
+                    cmp.plot_pt = _pt_val
+                    cmp.ellipse_colorby = _colorby_val
 
                     # Collect styling from per-station widgets.
                     cmp.custom_station_styles = {
@@ -1293,9 +1341,17 @@ class PlotMultipleResponses(BokehPlotBase):
                     style_widget,
                     pn.pane.Markdown("**Tensor Components**"),
                     plot_num_widget,
+                    pn.pane.Markdown("**Tipper**"),
+                    tipper_widget,
+                    pn.Row(
+                        pn.Column(
+                            plot_pt_widget,
+                            colorby_widget,
+                        ),
+                    ),
                     pn.Row(generate_btn),
                     status,
-                    width=380,
+                    width=400,
                 ),
                 pn.Column(
                     pn.pane.Markdown("**Stations**"),
