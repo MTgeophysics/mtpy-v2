@@ -415,6 +415,87 @@ def test_replace_mode_overwrites_existing_data():
     assert app._mt_data is new_data
 
 
+# ── Table editing and update ──────────────────────────────────────────────────
+
+
+@pytest.mark.plotting
+def test_edit_toggle_off_by_default():
+    """Table editing should be disabled by default."""
+    app = _make_app()
+    assert app._edit_table_toggle.value is False
+    # All editors should be None (read-only)
+    assert all(v is None for v in app._station_table.editors.values())
+
+
+@pytest.mark.plotting
+def test_edit_toggle_enables_editors():
+    """Turning on edit toggle should set numeric/text editors on editable columns."""
+    app = _make_app()
+    app._edit_table_toggle.value = True
+    editable_cols = {"latitude", "longitude", "elevation", "survey"}
+    for col in editable_cols:
+        assert app._station_table.editors.get(col) is not None
+
+
+@pytest.mark.plotting
+def test_edit_toggle_off_disables_editors():
+    """Turning off edit toggle should restore None editors."""
+    app = _make_app()
+    app._edit_table_toggle.value = True
+    app._edit_table_toggle.value = False
+    assert all(v is None for v in app._station_table.editors.values())
+
+
+@pytest.mark.plotting
+def test_update_button_disabled_before_load():
+    """Update button should be disabled until editing is enabled and data is loaded."""
+    app = _make_app()
+    assert app._update_table_button.disabled is True
+
+
+@pytest.mark.plotting
+def test_update_writes_lat_lon_elev_to_mt_data():
+    """_on_update_table_clicked should write edited lat/lon/elevation back to MTData."""
+    import pandas as pd
+
+    app = _make_app()
+
+    mock_mt_obj = MagicMock()
+    mock_mt_data = MagicMock()
+    mock_mt_data.get_station.return_value = mock_mt_obj
+
+    app._mt_data = mock_mt_data
+    app._station_table.value = pd.DataFrame(
+        [
+            {
+                "survey": "s1",
+                "station": "MT01",
+                "latitude": 35.123456,
+                "longitude": -110.654321,
+                "elevation": 1200.5,
+                "n_periods": 10,
+                "has_impedandance": True,
+                "has_tipper": False,
+            }
+        ]
+    )
+
+    app._on_update_table_clicked(None)
+
+    assert mock_mt_obj.latitude == pytest.approx(35.123456)
+    assert mock_mt_obj.longitude == pytest.approx(-110.654321)
+    assert mock_mt_obj.elevation == pytest.approx(1200.5)
+
+
+@pytest.mark.plotting
+def test_reset_disables_update_button():
+    """Reset should disable the update button."""
+    app = _make_app()
+    app._update_table_button.disabled = False
+    app._on_reset_clicked(None)
+    assert app._update_table_button.disabled is True
+
+
 @pytest.mark.plotting
 def test_build_station_summary_none_returns_empty():
     """_build_station_summary(None) should return an empty DataFrame."""

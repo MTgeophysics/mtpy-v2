@@ -273,6 +273,16 @@ class MTDataApp(param.Parameterized):
         )
 
         # ── Station summary table ─────────────────────────────────────────
+        self._edit_table_toggle = pn.widgets.Checkbox(
+            name="Enable table editing",
+            value=False,
+        )
+        self._update_table_button = pn.widgets.Button(
+            name="Apply Edits to MTData",
+            button_type="primary",
+            width=200,
+            disabled=True,
+        )
         self._station_table = pn.widgets.Tabulator(
             pd.DataFrame(columns=_STATION_TABLE_COLUMNS),
             name="Loaded Stations",
@@ -281,9 +291,12 @@ class MTDataApp(param.Parameterized):
             page_size=20,
             sizing_mode="stretch_width",
             show_index=False,
+            editors={col: None for col in _STATION_TABLE_COLUMNS},
             configuration={"columnDefaults": {"headerFilter": True}},
         )
         self._station_table.param.watch(self._on_table_selection_changed, "selection")
+        self._edit_table_toggle.param.watch(self._on_edit_toggle_changed, "value")
+        self._update_table_button.on_click(self._on_update_table_clicked)
 
         # ── Save-to-MTH5 controls ─────────────────────────────────────────
         self._save_filename_widget = pn.widgets.TextInput(
@@ -374,6 +387,8 @@ class MTDataApp(param.Parameterized):
             self.mt_data_loaded = True
             self._save_button.disabled = False
             self._reset_button.disabled = False
+            if self._edit_table_toggle.value:
+                self._update_table_button.disabled = False
             self._update_station_table(mt_data)
             n = len(mt_data.station_paths)
             self._set_status(f"✅ Loaded **{n}** station(s).")
@@ -392,10 +407,64 @@ class MTDataApp(param.Parameterized):
         self.mt_data_loaded = False
         self._save_button.disabled = True
         self._reset_button.disabled = True
+        self._update_table_button.disabled = True
+        self._edit_table_toggle.value = False
         self._append_toggle.value = False
         self._file_selector.value = []
         self._update_station_table(None)
         self._set_status("_No files loaded yet._")
+
+    def _on_edit_toggle_changed(self, event: param.parameterized.Event) -> None:
+        """Enable or disable in-place editing of the station table."""
+        editable_cols = {"latitude", "longitude", "elevation", "survey"}
+        if event.new:
+            self._station_table.editors = {
+                col: "number"
+                if col in {"latitude", "longitude", "elevation"}
+                else "input"
+                for col in _STATION_TABLE_COLUMNS
+                if col in editable_cols
+            }
+            self._update_table_button.disabled = self._mt_data is None
+        else:
+            self._station_table.editors = {col: None for col in _STATION_TABLE_COLUMNS}
+            self._update_table_button.disabled = True
+
+    def _on_update_table_clicked(self, event: param.parameterized.Event) -> None:
+        """Write edited table values back to the MTData object."""
+        if self._mt_data is None:
+            self._set_status("⚠️ No data loaded.", warning=True)
+            return
+
+        df = self._station_table.value
+        if df is None or df.empty:
+            return
+
+        updated = 0
+        errors = []
+        for _, row in df.iterrows():
+            survey = row.get("survey", "")
+            station = row.get("station", "")
+            path = (
+                f"/{MTData.SURVEYS_NODE}/{survey}" f"/{MTData.STATIONS_NODE}/{station}"
+            )
+            try:
+                mt_obj = self._mt_data.get_station(path, as_mt=True)
+                mt_obj.latitude = float(row["latitude"])
+                mt_obj.longitude = float(row["longitude"])
+                mt_obj.elevation = float(row["elevation"])
+                updated += 1
+            except Exception as exc:
+                errors.append(f"{station}: {exc}")
+
+        if errors:
+            self._set_status(
+                f"⚠️ Updated {updated} station(s) with {len(errors)} error(s): "
+                + "; ".join(errors),
+                warning=True,
+            )
+        else:
+            self._set_status(f"✅ Updated **{updated}** station(s) in MTData.")
 
     def _on_table_selection_changed(self, event: param.parameterized.Event) -> None:
         """Subset the active MTData to the table-selected rows."""
@@ -427,6 +496,63 @@ class MTDataApp(param.Parameterized):
             f"✅ **{n}** station(s) selected — access via `app.selected_station_paths`."
         )
         self._selected_station_paths = list(selected_paths)
+
+    def _on_edit_toggle_changed(self, event: param.parameterized.Event) -> None:
+        """Enable or disable table editing."""
+        editing = bool(event.new)
+        if editing:
+            editors = {
+                "survey": "input",
+                "station": "input",
+                "latitude": {"type": "number", "min": -90, "max": 90, "step": 0.000001},
+                "longitude": {
+                    "type": "number",
+                    "min": -180,
+                    "max": 180,
+                    "step": 0.000001,
+                },
+                "elevation": {"type": "number", "step": 0.01},
+            }
+        else:
+            editors = {col: None for col in _STATION_TABLE_COLUMNS}
+        self._station_table.editors = editors
+        self._update_table_button.disabled = not editing or self._mt_data is None
+
+    def _on_update_table_clicked(self, event: param.parameterized.Event) -> None:
+        """Write edited table values back to the in-memory MTData object."""
+        if self._mt_data is None:
+            self._set_status("⚠️ No data loaded.", warning=True)
+            return
+
+        df = self._station_table.value
+        if df is None or df.empty:
+            return
+
+        updated = 0
+        errors = []
+        for _, row in df.iterrows():
+            survey = row.get("survey", "")
+            station = row.get("station", "")
+            path = f"/{MTData.SURVEYS_NODE}/{survey}/{MTData.STATIONS_NODE}/{station}"
+            try:
+                mt_obj = self._mt_data.get_station(path, as_mt=True)
+                mt_obj.latitude = float(row["latitude"])
+                mt_obj.longitude = float(row["longitude"])
+                mt_obj.elevation = float(row["elevation"])
+                self._mt_data.add_station(mt_obj, overwrite=True)
+                updated += 1
+            except Exception as exc:
+                errors.append(f"{station}: {exc}")
+
+        if errors:
+            self._set_status(
+                f"⚠️ Updated {updated} stations; {len(errors)} error(s): "
+                + "; ".join(errors),
+                warning=True,
+            )
+        else:
+            self._set_status(f"✅ Updated {updated} station(s) in MTData.")
+        self._station_table.value = _build_station_summary(self._mt_data)
 
     def _on_save_clicked(self, event: param.parameterized.Event) -> None:
         """Save current MTData to an MTH5 file."""
@@ -613,6 +739,12 @@ class MTDataApp(param.Parameterized):
             pn.pane.Markdown(
                 "_Select rows to filter the active working set._",
                 styles={"color": "#777", "font-size": "0.85em"},
+            ),
+            pn.Row(
+                self._edit_table_toggle,
+                pn.Spacer(width=10),
+                self._update_table_button,
+                align="center",
             ),
             self._station_table,
             sizing_mode=self.sizing_mode,
