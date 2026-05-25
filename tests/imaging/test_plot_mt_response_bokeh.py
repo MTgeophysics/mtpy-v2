@@ -334,6 +334,7 @@ class TestPlotMTResponsePanel:
             return any(_find_widget(c, widget_type) for c in children)
 
         assert _find_widget(style_card, pn.widgets.IntSlider)
+        assert _find_widget(style_card, pn.widgets.FloatSlider)
 
     def test_preset_full_tensor_adds_diagonal_renderers(
         self, bokeh_plot_mt_response_class, mt_object_bokeh

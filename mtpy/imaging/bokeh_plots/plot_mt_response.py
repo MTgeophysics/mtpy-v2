@@ -74,6 +74,7 @@ class PlotMTResponse(BokehPlotBase):
         other_kwargs = {k: v for k, v in kwargs.items() if k not in param_names}
 
         super().__init__(**param_kwargs)
+        self.marker_size = 5
 
         if self.Z is None:
             self.plot_z = False
@@ -263,7 +264,7 @@ class PlotMTResponse(BokehPlotBase):
             x="period",
             y="value",
             source=source,
-            size=max(int(self.marker_size * 2), 4),
+            size=max(int(self.marker_size), 4),
             color=glyph_color,
             line_color=glyph_color,
             legend_label=comp_label,
@@ -280,7 +281,7 @@ class PlotMTResponse(BokehPlotBase):
                 lower="low",
                 source=source,
                 line_color=glyph_color,
-                line_width=max(self.lw, 1),
+                line_width=max(self.lw, 2),
             )
             whisker.upper_head.size = 4
             whisker.upper_head.line_color = glyph_color
@@ -289,7 +290,7 @@ class PlotMTResponse(BokehPlotBase):
             fig.add_layout(whisker)
             self.renderers.setdefault(comp_key, []).append(whisker)
 
-    def _make_resistivity_figure(self, x_range=None):
+    def _make_resistivity_figure(self, x_range=None, width=800):
         kw = {}
         if x_range is not None:
             kw["x_range"] = x_range
@@ -298,19 +299,19 @@ class PlotMTResponse(BokehPlotBase):
             x_axis_type="log",
             y_axis_type="log",
             height=320,
-            width=800,
+            width=width,
             tools="pan,wheel_zoom,box_zoom,reset,save",
             active_scroll="wheel_zoom",
             **kw,
         )
 
-    def _make_phase_figure(self, x_range):
+    def _make_phase_figure(self, x_range, width=800):
         return figure(
             title=None,
             x_axis_type="log",
             x_range=x_range,
             height=250,
-            width=800,
+            width=width,
             tools="pan,wheel_zoom,box_zoom,reset,save",
             active_scroll="wheel_zoom",
         )
@@ -1051,6 +1052,15 @@ class PlotMTResponse(BokehPlotBase):
             width=160,
         )
 
+        lw_widget = pn.widgets.FloatSlider(
+            name="Line width",
+            start=0.5,
+            end=5.0,
+            step=0.5,
+            value=float(self.lw),
+            width=160,
+        )
+
         # Mutable Row whose objects are replaced after each replot
         style_row = pn.Row()
 
@@ -1086,6 +1096,7 @@ class PlotMTResponse(BokehPlotBase):
             new_cols.append(
                 pn.Column(pn.pane.Markdown("**Marker size**"), marker_size_widget)
             )
+            new_cols.append(pn.Column(pn.pane.Markdown("**Line width**"), lw_widget))
             style_row.objects = new_cols
 
         def _apply_preset_num(new_plot_num):
@@ -1125,6 +1136,7 @@ class PlotMTResponse(BokehPlotBase):
                 setattr(self, _ca, _cw.value)
                 setattr(self, _ma, _mw.value)
             self.marker_size = marker_size_widget.value
+            self.lw = lw_widget.value
             self.res_limits = None
             self.plot()
             bokeh_pane.object = self.layout
@@ -1140,7 +1152,7 @@ class PlotMTResponse(BokehPlotBase):
         component_widget.param.watch(_update_visibility, "value")
         period_widget.param.watch(_update_period, "value")
         marker_size_widget.param.watch(_refresh_after_style_change, "value")
-
+        lw_widget.param.watch(_refresh_after_style_change, "value")
         # Initialise: render off-diagonal (plot_num=1) on first display
         _apply_preset_num(self.plot_num)
 
