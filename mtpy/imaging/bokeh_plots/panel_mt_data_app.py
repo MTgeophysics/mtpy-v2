@@ -3,7 +3,8 @@
 This module provides a standalone Panel application that allows users to select
 MT data files (transfer function files and/or an MTH5 file), load them into a
 unified :class:`~mtpy.core.mt_data.MTData` object, and optionally save the
-result back to an MTH5 file.
+result back to an MTH5 file.  Once data is loaded the **Plots** tab exposes
+all Bokeh-backed plot methods from :class:`~mtpy.core.mt_data.MTData`.
 
 Supported transfer function file types
 ---------------------------------------
@@ -91,6 +92,24 @@ _STATION_TABLE_COLUMNS: list[str] = [
     "has_impedandance",
     "has_tipper",
 ]
+
+# Maps human-readable label → (MTData method name, needs_station_picker)
+_PLOT_TYPES: dict[str, tuple[str, bool]] = {
+    "Station Map": ("plot_stations", False),
+    "Strike": ("plot_strike", False),
+    "MT Response (single station)": ("plot_mt_response", True),
+    "Phase Tensor (single station)": ("plot_phase_tensor", True),
+    "Phase Tensor Map": ("plot_phase_tensor_map", False),
+    "Tipper Map": ("plot_tipper_map", False),
+    "Phase Tensor Pseudosection": ("plot_phase_tensor_pseudosection", False),
+    "Penetration Depth 1D (single station)": ("plot_penetration_depth_1d", True),
+    "Penetration Depth Map": ("plot_penetration_depth_map", False),
+    "Resistivity / Phase Maps": ("plot_resistivity_phase_maps", False),
+    "Resistivity / Phase Pseudosection": (
+        "plot_resistivity_phase_pseudosections",
+        False,
+    ),
+}
 
 
 def _filesystem_root(path: str | None = None) -> str:
@@ -319,6 +338,35 @@ class MTDataApp(param.Parameterized):
         # ── Wire file-pattern and directory changes ───────────────────────
         self._file_pattern_widget.param.watch(self._on_file_pattern_changed, "value")
         self.param.watch(self._on_data_directory_changed, "data_directory")
+
+        # ── Plot tab widgets ──────────────────────────────────────────────
+        self._plot_type_widget = pn.widgets.Select(
+            name="Plot Type",
+            options=list(_PLOT_TYPES.keys()),
+            value="Station Map",
+            width=320,
+        )
+        self._plot_station_widget = pn.widgets.Select(
+            name="Station",
+            options=[],
+            visible=False,
+            width=320,
+        )
+        self._plot_generate_button = pn.widgets.Button(
+            name="Generate Plot",
+            button_type="primary",
+            width=160,
+            disabled=True,
+        )
+        self._plot_status = pn.pane.Markdown(
+            "_Load data first, then select a plot type and click **Generate Plot**._",
+            styles={"color": "#555"},
+        )
+        self._plot_display = pn.Column(sizing_mode="stretch_width")
+
+        self._plot_type_widget.param.watch(self._on_plot_type_changed, "value")
+        self._plot_generate_button.on_click(self._on_generate_plot_clicked)
+        self.param.watch(self._on_mt_data_loaded_changed, "mt_data_loaded")
 
     # ── Public API ────────────────────────────────────────────────────────
 
@@ -629,6 +677,95 @@ class MTDataApp(param.Parameterized):
         finally:
             self._save_button.disabled = False
 
+    # ── Plot callbacks ────────────────────────────────────────────────────
+
+    def _on_mt_data_loaded_changed(self, event: param.parameterized.Event) -> None:
+        """Enable/disable the Generate Plot button and refresh station picker."""
+        self._plot_generate_button.disabled = not event.new
+        if event.new and self._mt_data is not None:
+            self._refresh_plot_station_picker()
+            self._plot_status.object = (
+                "_Select a plot type and click **Generate Plot**._"
+            )
+            self._plot_status.styles = {"color": "#555"}
+        else:
+            self._plot_station_widget.options = []
+            self._plot_status.object = (
+                "_Load data first, then select a plot type and click "
+                "**Generate Plot**._"
+            )
+            self._plot_status.styles = {"color": "#555"}
+            self._plot_display.objects = []
+
+    def _refresh_plot_station_picker(self) -> None:
+        """Repopulate the station Select widget from the current MTData."""
+        if self._mt_data is None:
+            self._plot_station_widget.options = []
+            return
+        paths = list(self._mt_data._iter_station_paths())
+        self._plot_station_widget.options = paths
+        if paths:
+            self._plot_station_widget.value = paths[0]
+
+    def _on_plot_type_changed(self, event: param.parameterized.Event) -> None:
+        """Show/hide the station picker based on whether the plot needs one."""
+        _, needs_station = _PLOT_TYPES.get(event.new, ("", False))
+        self._plot_station_widget.visible = needs_station
+
+    def _on_generate_plot_clicked(self, event: param.parameterized.Event) -> None:
+        """Call the selected MTData plot method and render the result."""
+        if self._mt_data is None:
+            self._plot_status.object = "⚠️ No data loaded."
+            self._plot_status.styles = {"color": "#7a5200"}
+            return
+
+        plot_label = self._plot_type_widget.value
+        method_name, needs_station = _PLOT_TYPES.get(plot_label, ("", False))
+        if not method_name:
+            return
+
+        self._plot_generate_button.disabled = True
+        self._plot_status.object = f"⏳ Generating **{plot_label}**…"
+        self._plot_status.styles = {"color": "#555"}
+        self._plot_display.objects = []
+
+        try:
+            method = getattr(self._mt_data, method_name)
+            kwargs: dict = {"show_plot": False}
+            if needs_station:
+                station_key = self._plot_station_widget.value
+                if not station_key:
+                    self._plot_status.object = "⚠️ No station selected."
+                    self._plot_status.styles = {"color": "#7a5200"}
+                    return
+                plot_obj = method(station_key=station_key, **kwargs)
+            else:
+                plot_obj = method(**kwargs)
+
+            # Render: call .plot(show=False) if available, otherwise use the
+            # object itself (some classes auto-plot in __init__).
+            if hasattr(plot_obj, "plot"):
+                fig = plot_obj.plot(show=False)
+            elif hasattr(plot_obj, "fig"):
+                fig = plot_obj.fig
+            else:
+                fig = plot_obj
+
+            if fig is not None:
+                self._plot_display.objects = [
+                    pn.pane.panel(fig, sizing_mode="stretch_width")
+                ]
+                self._plot_status.object = f"✅ **{plot_label}** rendered."
+                self._plot_status.styles = {"color": "#1a6600"}
+            else:
+                self._plot_status.object = f"⚠️ **{plot_label}** returned no figure."
+                self._plot_status.styles = {"color": "#7a5200"}
+        except Exception as exc:
+            self._plot_status.object = f"❌ Error: `{type(exc).__name__}: {exc}`"
+            self._plot_status.styles = {"color": "#b00020"}
+        finally:
+            self._plot_generate_button.disabled = False
+
     # ── Loading logic ─────────────────────────────────────────────────────
 
     def _load_files(self, selected: list[str]) -> MTData:
@@ -747,17 +884,6 @@ class MTDataApp(param.Parameterized):
         """
         file_controls = pn.Column(
             pn.pane.Markdown("### Select MT Data Files"),
-            # pn.pane.Markdown(
-            #     "_Paste or type an absolute path and click **Go** to jump to any directory. "
-            #     "Then browse and select files below._",
-            #     styles={"color": "#555", "font-size": "0.85em"},
-            # ),
-            # pn.Row(
-            #     self._directory_input,
-            #     self._directory_go_button,
-            #     align="end",
-            #     sizing_mode="stretch_width",
-            # ),
             self._file_pattern_widget,
             self._file_selector,
             pn.Column(
@@ -807,15 +933,47 @@ class MTDataApp(param.Parameterized):
             sizing_mode=self.sizing_mode,
         )
 
-        return pn.Column(
-            pn.pane.Markdown("# MT Data Loader"),
-            pn.layout.Divider(),
+        data_tab = pn.Column(
             file_controls,
             pn.layout.Divider(),
             status_row,
             station_section,
             pn.layout.Divider(),
             save_section,
+            sizing_mode=self.sizing_mode,
+        )
+
+        plots_tab = pn.Column(
+            pn.pane.Markdown("### Generate a Plot"),
+            pn.pane.Markdown(
+                "_Load data in the **Data** tab first. "
+                "Single-station plots use the **Station** selector._",
+                styles={"color": "#777", "font-size": "0.85em"},
+            ),
+            pn.Row(
+                self._plot_type_widget,
+                pn.Spacer(width=10),
+                self._plot_station_widget,
+                align="end",
+            ),
+            pn.Row(
+                self._plot_generate_button,
+                pn.Spacer(width=10),
+                self._plot_status,
+                align="center",
+            ),
+            pn.layout.Divider(),
+            self._plot_display,
+            sizing_mode=self.sizing_mode,
+        )
+
+        return pn.Column(
+            pn.pane.Markdown("# MT Data Loader"),
+            pn.Tabs(
+                ("📂 Data", data_tab),
+                ("📊 Plots", plots_tab),
+                sizing_mode=self.sizing_mode,
+            ),
             sizing_mode=self.sizing_mode,
         )
 

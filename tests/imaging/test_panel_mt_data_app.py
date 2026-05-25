@@ -10,9 +10,12 @@ import pytest
 
 panel = pytest.importorskip("panel")
 
+import panel as pn
+
 from mtpy.core.mt_data import MTData
 from mtpy.imaging.bokeh_plots.panel_mt_data_app import (
     _build_station_summary,
+    _PLOT_TYPES,
     _STATION_TABLE_COLUMNS,
     DAT_FORMAT_MODEM,
     DAT_FORMAT_OCCAM2D,
@@ -668,3 +671,165 @@ def test_load_real_edi_file():
     assert len(app.mt_data.station_paths) >= 1
     assert "✅" in app._status.object
     assert app._save_button.disabled is False
+
+
+# ── Plot Tab ──────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.plotting
+def test_view_has_tabs():
+    """view() should return a Column containing a pn.Tabs with two tabs."""
+    app = _make_app()
+    v = app.view
+    assert isinstance(v, pn.Column)
+    tabs = [obj for obj in v.objects if isinstance(obj, pn.Tabs)]
+    assert len(tabs) == 1
+    tab_names = tabs[0]._names
+    assert "📂 Data" in tab_names
+    assert "📊 Plots" in tab_names
+
+
+@pytest.mark.plotting
+def test_generate_button_disabled_initially():
+    """Generate Plot button should be disabled before any data is loaded."""
+    app = _make_app()
+    assert app._plot_generate_button.disabled is True
+
+
+@pytest.mark.plotting
+def test_generate_plot_no_data_shows_warning():
+    """Clicking Generate Plot with no data loaded should show a warning status."""
+    app = _make_app()
+    app._plot_generate_button.disabled = False  # bypass the guard
+    app._on_generate_plot_clicked(None)
+    assert "No data" in app._plot_status.object or "⚠️" in app._plot_status.object
+
+
+@pytest.mark.plotting
+def test_station_picker_hidden_for_non_station_plots():
+    """Station picker should not be visible for plot types that need no station."""
+    app = _make_app()
+    non_station_labels = [
+        label for label, (_, needs) in _PLOT_TYPES.items() if not needs
+    ]
+    assert non_station_labels, "Expected at least one non-station plot type"
+    # Simulate selecting each non-station plot type
+    for label in non_station_labels:
+        app._plot_type_widget.value = label
+    # After the last one station widget should be hidden
+    assert app._plot_station_widget.visible is False
+
+
+@pytest.mark.plotting
+def test_station_picker_visible_for_single_station_plots():
+    """Station picker should be visible when a single-station plot type is chosen."""
+    app = _make_app()
+    station_labels = [label for label, (_, needs) in _PLOT_TYPES.items() if needs]
+    assert station_labels, "Expected at least one station-picker plot type"
+    app._plot_type_widget.value = station_labels[0]
+    assert app._plot_station_widget.visible is True
+
+
+@pytest.mark.plotting
+def test_mt_data_loaded_enables_generate_button():
+    """Setting mt_data_loaded=True should enable the Generate Plot button."""
+    app = _make_app()
+    assert app._plot_generate_button.disabled is True
+
+    # Simulate a successful load
+    mock_mt = MagicMock(spec=MTData)
+    mock_mt._iter_station_paths = MagicMock(
+        return_value=iter(["/surveys/s/stations/MT01"])
+    )
+    app._mt_data = mock_mt
+    app.mt_data_loaded = True  # triggers _on_mt_data_loaded_changed
+
+    assert app._plot_generate_button.disabled is False
+
+
+@pytest.mark.plotting
+def test_mt_data_loaded_false_disables_generate_button():
+    """Setting mt_data_loaded=False should re-disable the Generate Plot button."""
+    app = _make_app()
+    mock_mt = MagicMock(spec=MTData)
+    mock_mt._iter_station_paths = MagicMock(return_value=iter([]))
+    app._mt_data = mock_mt
+    app.mt_data_loaded = True
+    app.mt_data_loaded = False
+
+    assert app._plot_generate_button.disabled is True
+
+
+@pytest.mark.plotting
+def test_station_picker_populated_after_load():
+    """Station picker options should reflect loaded station paths."""
+    app = _make_app()
+    paths = ["/surveys/survey1/stations/MT01", "/surveys/survey1/stations/MT02"]
+    mock_mt = MagicMock(spec=MTData)
+    mock_mt._iter_station_paths = MagicMock(return_value=iter(paths))
+    app._mt_data = mock_mt
+    app.mt_data_loaded = True
+
+    assert set(app._plot_station_widget.options) == set(paths)
+
+
+@pytest.mark.plotting
+def test_generate_plot_calls_correct_method():
+    """Generate Plot should call the MTData method matching the selected plot type."""
+    app = _make_app()
+
+    mock_fig = MagicMock()
+    mock_fig.plot = MagicMock(return_value=mock_fig)
+
+    # Use a non-station plot type so no station picker is needed
+    label = "Station Map"
+    method_name, _ = _PLOT_TYPES[label]
+    mock_mt = MagicMock(spec=MTData)
+    getattr(mock_mt, method_name).return_value = mock_fig
+    app._mt_data = mock_mt
+    app.mt_data_loaded = True
+    app._plot_type_widget.value = label
+
+    app._on_generate_plot_clicked(None)
+
+    getattr(mock_mt, method_name).assert_called_once()
+
+
+@pytest.mark.plotting
+def test_generate_plot_station_required_but_none_selected():
+    """If station picker has no selection, generate should show a warning."""
+    app = _make_app()
+    label = "MT Response (single station)"
+    mock_mt = MagicMock(spec=MTData)
+    mock_mt._iter_station_paths = MagicMock(return_value=iter([]))
+    app._mt_data = mock_mt
+    app.mt_data_loaded = True
+
+    app._plot_type_widget.value = label
+    # Station widget is empty
+    app._plot_station_widget.options = []
+    app._plot_station_widget.value = None
+
+    app._on_generate_plot_clicked(None)
+
+    assert "⚠️" in app._plot_status.object
+
+
+@pytest.mark.plotting
+def test_plot_types_registry_completeness():
+    """_PLOT_TYPES should expose all 11 MTData plot methods."""
+    expected_methods = {
+        "plot_stations",
+        "plot_strike",
+        "plot_mt_response",
+        "plot_phase_tensor",
+        "plot_phase_tensor_map",
+        "plot_tipper_map",
+        "plot_phase_tensor_pseudosection",
+        "plot_penetration_depth_1d",
+        "plot_penetration_depth_map",
+        "plot_resistivity_phase_maps",
+        "plot_resistivity_phase_pseudosections",
+    }
+    registered_methods = {method for method, _ in _PLOT_TYPES.values()}
+    assert registered_methods == expected_methods
