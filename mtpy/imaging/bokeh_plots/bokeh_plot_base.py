@@ -212,17 +212,17 @@ class BokehPlotBase(param.Parameterized):
     @property
     def cb_label_dict(self) -> dict:
         return {
-            "phiminang": r"$\Phi_{min}$ (deg)",
-            "phimin": r"$\Phi_{min}$ (deg)",
-            "phimaxang": r"$\Phi_{max}$ (deg)",
-            "phimax": r"$\Phi_{max}$ (deg)",
-            "phidet": r"Det{$\Phi$} (deg)",
+            "phiminang": r"$$\Phi_{min}$$ (deg)",
+            "phimin": r"$$\Phi_{min}$$ (deg)",
+            "phimaxang": r"$$\Phi_{max}$$ (deg)",
+            "phimax": r"$$\Phi_{max}$$ (deg)",
+            "phidet": r"Det{$$\Phi$$} (deg)",
             "skew": r"Skew (deg)",
             "normalized_skew": r"Normalized Skew (deg)",
             "ellipticity": r"Ellipticity",
             "skew_seg": r"Skew (deg)",
             "normalized_skew_seg": r"Normalized Skew (deg)",
-            "geometric_mean": r"$\sqrt{\Phi_{min} \cdot \Phi_{max}}$",
+            "geometric_mean": r"$$\sqrt{\Phi_{min} \cdot \Phi_{max}}$$",
             "strike": r"Azimuth (deg)",
             "azimuth": r"Azimuth (deg)",
         }
