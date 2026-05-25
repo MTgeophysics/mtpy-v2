@@ -336,6 +336,39 @@ class TestPlotMTResponsePanel:
         assert _find_widget(style_card, pn.widgets.IntSlider)
         assert _find_widget(style_card, pn.widgets.FloatSlider)
 
+    def test_plot_num2_uses_gridplot_layout(
+        self, bokeh_plot_mt_response_class, mt_object_bokeh
+    ):
+        """plot_num=2 should use gridplot so all columns are consistently sized."""
+        from bokeh.models import GridPlot
+
+        plotter = bokeh_plot_mt_response_class(
+            z_object=mt_object_bokeh.Z.copy(),
+            station=mt_object_bokeh.station,
+            show_plot=False,
+            plot_num=2,
+        )
+        plotter.plot()
+        # Top-level layout is a Column; first child should be a GridPlot
+        from bokeh.layouts import Column
+
+        assert isinstance(plotter.layout, Column)
+        assert isinstance(plotter.layout.children[0], GridPlot)
+
+    def test_plot_num2_figure_width_is_half_base(
+        self, bokeh_plot_mt_response_class, mt_object_bokeh
+    ):
+        """In plot_num=2, OD figures must be half of base_column_width (400px)."""
+        plotter = bokeh_plot_mt_response_class(
+            z_object=mt_object_bokeh.Z.copy(),
+            station=mt_object_bokeh.station,
+            show_plot=False,
+            plot_num=2,
+        )
+        plotter.plot()
+        res_fig = plotter.figures["res"]
+        assert res_fig.width == 400
+
     def test_preset_full_tensor_adds_diagonal_renderers(
         self, bokeh_plot_mt_response_class, mt_object_bokeh
     ):

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import numpy as np
 from bokeh.io import show
-from bokeh.layouts import Column, Row
+from bokeh.layouts import Column, gridplot
 from bokeh.models import (
     Arrow,
     BasicTicker,
@@ -848,8 +848,14 @@ class PlotMTResponse(BokehPlotBase):
 
         self.figures = {}
 
-        res_fig = self._make_resistivity_figure()
-        phase_fig = self._make_phase_figure(res_fig.x_range)
+        # base_column_width is the total width of a single-column layout.
+        # For plot_num=2 (two impedance columns side-by-side) each figure gets
+        # half that width so the combined row matches tipper/PT rows exactly.
+        base_column_width = 800
+        fig_w = base_column_width // 2 if self.plot_num == 2 else base_column_width
+
+        res_fig = self._make_resistivity_figure(width=fig_w)
+        phase_fig = self._make_phase_figure(res_fig.x_range, width=fig_w)
 
         self._plot_od_components(res_fig, phase_fig)
 
@@ -873,21 +879,18 @@ class PlotMTResponse(BokehPlotBase):
 
         tip_fig = None
         pt_fig = None
-        base_column_width = 800
-        n_columns = 2 if self.plot_num == 2 else 1
-        panel_width = base_column_width * n_columns
-        # For plot_num == 2, tipper and PT figures need to span both columns
-        aux_width = panel_width
+        # Tipper and PT always use the full base_column_width so they align
+        # correctly below both single-column and two-column impedance grids.
 
         if self.plot_tipper.find("y") >= 0:
-            tip_fig = self._make_tipper_figure(width=aux_width)
+            tip_fig = self._make_tipper_figure(width=base_column_width)
             self._plot_tipper(tip_fig)
             self._set_legends(tip_fig)
             self.figures["tip"] = tip_fig
             self._linear_x_figure_keys.add("tip")
 
         if self.plot_pt:
-            pt_fig = self._make_pt_figure(width=aux_width)
+            pt_fig = self._make_pt_figure(width=base_column_width)
             self._plot_phase_tensor(pt_fig)
             # PT uses an adjusted x-spacing for equal visual aspect ratio so
             # it cannot share the tipper's raw log10(period) x-range.
@@ -895,8 +898,10 @@ class PlotMTResponse(BokehPlotBase):
             self._linear_x_figure_keys.add("pt")
 
         if self.plot_num == 2:
-            res_fig_diag = self._make_resistivity_figure(x_range=res_fig.x_range)
-            phase_fig_diag = self._make_phase_figure(res_fig.x_range)
+            res_fig_diag = self._make_resistivity_figure(
+                x_range=res_fig.x_range, width=fig_w
+            )
+            phase_fig_diag = self._make_phase_figure(res_fig.x_range, width=fig_w)
             self._plot_diag_components(res_fig_diag, phase_fig_diag)
             self._format_res_axis(res_fig_diag)
             self._format_phase_axis(phase_fig_diag)
@@ -917,22 +922,19 @@ class PlotMTResponse(BokehPlotBase):
             self.figures["phase_diag"] = phase_fig_diag
             self._log_x_figure_keys.update(["res_diag", "phase_diag"])
 
-            # Create 2-column grid for OD and diagonal components
-            layout_rows = []
-            layout_rows.append(
-                Row(res_fig, res_fig_diag, width=panel_width, sizing_mode="fixed")
+            # gridplot aligns the two impedance columns with consistent spacing,
+            # equivalent to matplotlib's GridSpec with colspan.
+            impedance_grid = gridplot(
+                [[res_fig, res_fig_diag], [phase_fig, phase_fig_diag]],
+                merge_tools=False,
+                toolbar_location=None,
             )
-            layout_rows.append(
-                Row(phase_fig, phase_fig_diag, width=panel_width, sizing_mode="fixed")
-            )
-
-            # Add full-width tipper and PT rows
+            layout_rows = [impedance_grid]
             if tip_fig is not None:
                 layout_rows.append(tip_fig)
             if pt_fig is not None:
                 layout_rows.append(pt_fig)
-
-            self.layout = Column(*layout_rows, width=panel_width, sizing_mode="fixed")
+            self.layout = Column(*layout_rows)
         else:
             # Single column layout for plot_num == 1 or 3
             layout_rows = [res_fig, phase_fig]
@@ -940,7 +942,7 @@ class PlotMTResponse(BokehPlotBase):
                 layout_rows.append(tip_fig)
             if pt_fig is not None:
                 layout_rows.append(pt_fig)
-            self.layout = Column(*layout_rows, width=panel_width, sizing_mode="fixed")
+            self.layout = Column(*layout_rows)
 
         if self.show_plot:
             show(self.layout)
