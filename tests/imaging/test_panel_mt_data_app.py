@@ -488,6 +488,53 @@ def test_update_writes_lat_lon_elev_to_mt_data():
 
 
 @pytest.mark.plotting
+def test_update_uses_pre_edit_snapshot_for_rename():
+    """When station/survey names change, the original path from the snapshot is used."""
+    import pandas as pd
+
+    app = _make_app()
+
+    row = {
+        "survey": "s1",
+        "station": "MT01",
+        "latitude": 35.0,
+        "longitude": -110.0,
+        "elevation": 1000.0,
+        "n_periods": 5,
+        "has_impedandance": True,
+        "has_tipper": False,
+    }
+    original_df = pd.DataFrame([row])
+
+    # Simulate having edited survey and station names
+    edited_row = dict(row, survey="s1_renamed", station="MT01_new")
+    edited_df = pd.DataFrame([edited_row])
+
+    mock_mt_obj = MagicMock()
+    mock_mt_data = MagicMock()
+    mock_mt_data.get_station.return_value = mock_mt_obj
+    mock_mt_data.SURVEYS_NODE = "surveys"
+    mock_mt_data.STATIONS_NODE = "stations"
+
+    app._mt_data = mock_mt_data
+    app._pre_edit_station_df = original_df
+    app._station_table.value = edited_df
+
+    from mtpy.core.mt_data import MTData
+
+    app._on_update_table_clicked(None)
+
+    # get_station must be called with the *original* path
+    orig_path = f"/{MTData.SURVEYS_NODE}/s1/{MTData.STATIONS_NODE}/MT01"
+    mock_mt_data.get_station.assert_called_once_with(orig_path, as_mt=True)
+    # Old entry should be removed
+    mock_mt_data.remove_station.assert_called_once_with(orig_path)
+    # MT object should receive the new names
+    assert mock_mt_obj.station == "MT01_new"
+    assert mock_mt_obj.survey == "s1_renamed"
+
+
+@pytest.mark.plotting
 def test_reset_disables_update_button():
     """Reset should disable the update button."""
     app = _make_app()

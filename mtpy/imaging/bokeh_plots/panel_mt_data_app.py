@@ -199,6 +199,9 @@ class MTDataApp(param.Parameterized):
 
         self._mt_data = None  # MTData | None
         self._mt_collection = None  # MTCollection | None
+        self._pre_edit_station_df = None  # snapshot taken when editing is enabled
+        self._selected_station_paths: list[str] = []
+        self._mt_data_subset = None
 
         # # ── Directory path input (lets users type/paste any path) ────────
         # self._directory_input = pn.widgets.TextInput(
@@ -498,9 +501,16 @@ class MTDataApp(param.Parameterized):
         self._selected_station_paths = list(selected_paths)
 
     def _on_edit_toggle_changed(self, event: param.parameterized.Event) -> None:
-        """Enable or disable table editing."""
+        """Enable or disable table editing.
+
+        When editing is turned on a snapshot of the current table is stored so
+        that ``_on_update_table_clicked`` can match edited rows back to their
+        original station paths even if the station or survey name was changed.
+        """
         editing = bool(event.new)
         if editing:
+            # Snapshot the table before any edits so we can look up original paths
+            self._pre_edit_station_df = self._station_table.value.copy()
             editors = {
                 "survey": "input",
                 "station": "input",
@@ -514,12 +524,18 @@ class MTDataApp(param.Parameterized):
                 "elevation": {"type": "number", "step": 0.01},
             }
         else:
+            self._pre_edit_station_df = None
             editors = {col: None for col in _STATION_TABLE_COLUMNS}
         self._station_table.editors = editors
         self._update_table_button.disabled = not editing or self._mt_data is None
 
     def _on_update_table_clicked(self, event: param.parameterized.Event) -> None:
-        """Write edited table values back to the in-memory MTData object."""
+        """Write edited table values back to the in-memory MTData object.
+
+        Rows are matched to their original station path via the pre-edit snapshot
+        (stored when editing was enabled), so renaming survey or station works
+        correctly.
+        """
         if self._mt_data is None:
             self._set_status("⚠️ No data loaded.", warning=True)
             return
@@ -528,21 +544,47 @@ class MTDataApp(param.Parameterized):
         if df is None or df.empty:
             return
 
+        # Fall back to current df as the reference if no snapshot exists
+        original_df = (
+            self._pre_edit_station_df
+            if self._pre_edit_station_df is not None
+            else df.copy()
+        )
+
         updated = 0
         errors = []
-        for _, row in df.iterrows():
-            survey = row.get("survey", "")
-            station = row.get("station", "")
-            path = f"/{MTData.SURVEYS_NODE}/{survey}/{MTData.STATIONS_NODE}/{station}"
+        for idx, row in df.iterrows():
+            # Resolve the *original* survey/station from the snapshot by row index
+            if idx < len(original_df):
+                orig_row = original_df.iloc[idx]
+                orig_survey = str(orig_row.get("survey", ""))
+                orig_station = str(orig_row.get("station", ""))
+            else:
+                orig_survey = str(row.get("survey", ""))
+                orig_station = str(row.get("station", ""))
+
+            orig_path = (
+                f"/{MTData.SURVEYS_NODE}/{orig_survey}"
+                f"/{MTData.STATIONS_NODE}/{orig_station}"
+            )
             try:
-                mt_obj = self._mt_data.get_station(path, as_mt=True)
+                mt_obj = self._mt_data.get_station(orig_path, as_mt=True)
                 mt_obj.latitude = float(row["latitude"])
                 mt_obj.longitude = float(row["longitude"])
                 mt_obj.elevation = float(row["elevation"])
+
+                new_survey = str(row.get("survey", orig_survey))
+                new_station = str(row.get("station", orig_station))
+                renamed = new_survey != orig_survey or new_station != orig_station
+                if renamed:
+                    # Remove old entry then re-add with updated identity
+                    self._mt_data.remove_station(orig_path)
+                    mt_obj.station = new_station
+                    mt_obj.survey = new_survey
                 self._mt_data.add_station(mt_obj, overwrite=True)
                 updated += 1
             except Exception as exc:
-                errors.append(f"{station}: {exc}")
+                errors.append(f"{orig_station}: {exc}")
 
         if errors:
             self._set_status(
@@ -552,7 +594,9 @@ class MTDataApp(param.Parameterized):
             )
         else:
             self._set_status(f"✅ Updated {updated} station(s) in MTData.")
+        # Refresh snapshot and table from MTData
         self._station_table.value = _build_station_summary(self._mt_data)
+        self._pre_edit_station_df = self._station_table.value.copy()
 
     def _on_save_clicked(self, event: param.parameterized.Event) -> None:
         """Save current MTData to an MTH5 file."""
