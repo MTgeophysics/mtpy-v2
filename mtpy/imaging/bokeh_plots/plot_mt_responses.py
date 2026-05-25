@@ -275,19 +275,49 @@ class PlotMultipleResponses(BokehPlotBase):
         return self.layout
 
     def _set_compare_legends(self, figures):
-        """Apply compare legend formatting with optional compaction."""
-        for fig in figures:
-            if fig is None or len(fig.legend) == 0:
-                continue
-            legend = fig.legend[0]
+        """Apply compare legend formatting.
+
+        The legend is shown only on the first figure in ``figures``; all other
+        figures have their legends cleared to avoid repetition (station colours
+        and markers are the same across every panel).
+        """
+        if not figures:
+            return
+
+        # Format the legend on the first (top-left) figure only.
+        legend_fig = figures[0]
+        if legend_fig is not None and len(legend_fig.legend) > 0:
+            legend = legend_fig.legend[0]
             legend.click_policy = "hide"
             legend.location = "bottom_left"
             legend.label_text_font_size = f"{self.compare_legend_font_size}px"
-            if (
-                self.compare_compact_legend
-                and len(legend.items) > self.compare_legend_max_items
-            ):
-                legend.items = legend.items[: self.compare_legend_max_items]
+
+            # Deduplicate: keep one entry per station (strip _component suffix).
+            seen: set = set()
+            unique_items = []
+            for item in legend.items:
+                raw = (
+                    item.label.get("value", "")
+                    if isinstance(item.label, dict)
+                    else str(item.label)
+                )
+                station_key = raw.split("_")[0] if "_" in raw else raw
+                if station_key not in seen:
+                    seen.add(station_key)
+                    item.label = {"value": station_key}
+                    unique_items.append(item)
+
+            if self.compare_compact_legend:
+                unique_items = unique_items[: self.compare_legend_max_items]
+            legend.items = unique_items
+
+        # Clear legends from all other figures.
+        for fig in figures[1:]:
+            if fig is None or len(fig.legend) == 0:
+                continue
+            for leg in fig.legend:
+                leg.items = []
+            fig.legend.visible = False
 
     def _compare_legend_label(self, station, component):
         """Return compare legend label based on configured mode."""
