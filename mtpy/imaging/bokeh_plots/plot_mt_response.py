@@ -7,48 +7,26 @@ PlotMTResponse class for use in Panel dashboards.
 from __future__ import annotations
 
 import numpy as np
+from bokeh.io import show
+from bokeh.layouts import Column, Row
+from bokeh.models import (
+    Arrow,
+    BasicTicker,
+    ColorBar,
+    ColumnDataSource,
+    CustomJSTickFormatter,
+    FixedTicker,
+    HoverTool,
+    LinearColorMapper,
+    NormalHead,
+    Range1d,
+    Whisker,
+)
+from bokeh.palettes import Turbo256
+from bokeh.plotting import figure
+from bokeh.transform import linear_cmap
 
 from .bokeh_plot_base import BokehPlotBase
-
-
-try:
-    from bokeh.io import show
-    from bokeh.layouts import Column, gridplot, Row
-    from bokeh.models import (
-        Arrow,
-        BasicTicker,
-        ColorBar,
-        ColumnDataSource,
-        CustomJSTickFormatter,
-        FixedTicker,
-        HoverTool,
-        LinearColorMapper,
-        NormalHead,
-        Range1d,
-        Whisker,
-    )
-    from bokeh.palettes import Turbo256
-    from bokeh.plotting import figure
-    from bokeh.transform import linear_cmap
-except ImportError:  # pragma: no cover - optional dependency
-    show = None
-    Column = None
-    Row = None
-    gridplot = None
-    Arrow = None
-    BasicTicker = None
-    ColorBar = None
-    ColumnDataSource = None
-    CustomJSTickFormatter = None
-    FixedTicker = None
-    HoverTool = None
-    LinearColorMapper = None
-    NormalHead = None
-    Range1d = None
-    Turbo256 = None
-    Whisker = None
-    figure = None
-    linear_cmap = None
 
 
 class PlotMTResponse(BokehPlotBase):
