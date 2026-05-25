@@ -334,3 +334,35 @@ class TestPlotMTResponsePanel:
             return any(_find_widget(c, widget_type) for c in children)
 
         assert _find_widget(style_card, pn.widgets.IntSlider)
+
+    def test_preset_full_tensor_adds_diagonal_renderers(
+        self, bokeh_plot_mt_response_class, mt_object_bokeh
+    ):
+        """Clicking Full tensor should switch to plot_num=2 and add xx/yy."""
+        plotter = bokeh_plot_mt_response_class(
+            z_object=mt_object_bokeh.Z.copy(),
+            station=mt_object_bokeh.station,
+            show_plot=False,
+            plot_num=1,
+        )
+        plotter.panel()  # builds the interactive panel
+        # Simulate Full tensor click
+        plotter.plot_num = 2
+        plotter.res_limits = None
+        plotter.plot()
+        assert "xx" in plotter.renderers
+        assert "yy" in plotter.renderers
+
+    def test_preset_all_adds_det_renderers(
+        self, bokeh_plot_mt_response_class, mt_object_bokeh
+    ):
+        """Clicking All should switch to plot_num=3 and include det(Z)."""
+        plotter = bokeh_plot_mt_response_class(
+            z_object=mt_object_bokeh.Z.copy(),
+            station=mt_object_bokeh.station,
+            show_plot=False,
+            plot_num=3,
+        )
+        plotter.plot()
+        assert "det" in plotter.renderers
+        assert "xy" in plotter.renderers

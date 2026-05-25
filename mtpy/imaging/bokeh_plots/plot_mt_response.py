@@ -987,12 +987,23 @@ class PlotMTResponse(BokehPlotBase):
             "tip_imag": "Tipper Imag",
             "pt": "Phase Tensor",
         }
-        available = [key for key in options if key in self.renderers]
+
+        # Default visible keys per plot_num:
+        #   1 → off-diagonal only   2 → full tensor (incl. diagonals)
+        #   3 → all (incl. det)
+        _preset_visible = {
+            1: ["xy", "yx", "tip_real", "tip_imag", "pt"],
+            2: ["xy", "yx", "xx", "yy", "tip_real", "tip_imag", "pt"],
+            3: ["xy", "yx", "det", "xx", "yy", "tip_real", "tip_imag", "pt"],
+        }
+
+        def _available():
+            return [key for key in options if key in self.renderers]
 
         component_widget = pn.widgets.CheckButtonGroup(
             name="Visible Components",
-            options={options[key]: key for key in available},
-            value=available,
+            options={options[key]: key for key in _available()},
+            value=_available(),
             button_type="light",
         )
 
@@ -1013,19 +1024,6 @@ class PlotMTResponse(BokehPlotBase):
             step=0.1,
         )
 
-        _preset_map = {
-            "Off-diagonal": [
-                k for k in ["xy", "yx", "tip_real", "tip_imag", "pt"] if k in available
-            ],
-            "Full tensor": [
-                k
-                for k in ["xy", "yx", "xx", "yy", "tip_real", "tip_imag", "pt"]
-                if k in available
-            ],
-            "All": available,
-        }
-        # Use individual Buttons (not RadioButtonGroup) so on_click always fires
-        # even when the previously-selected preset is re-clicked.
         od_btn = pn.widgets.Button(
             name="Off-diagonal", button_type="warning", width=120
         )
@@ -1034,8 +1032,81 @@ class PlotMTResponse(BokehPlotBase):
         )
         all_btn = pn.widgets.Button(name="All", button_type="warning", width=60)
 
+        # ── per-component color / marker / size styling ───────────────────────
+        _style_defs = [
+            ("xy", "Zxy", "xy_color", "xy_marker"),
+            ("yx", "Zyx", "yx_color", "yx_marker"),
+            ("xx", "Zxx", "xx_color", "xx_marker"),
+            ("yy", "Zyy", "yy_color", "yy_marker"),
+            ("det", "det(Z)", "det_color", "det_marker"),
+        ]
+        _marker_options = ["o", "s", "v", "d", "^"]
+        _style_widgets = {}
+
+        marker_size_widget = pn.widgets.IntSlider(
+            name="Marker size",
+            start=2,
+            end=20,
+            value=self.marker_size,
+            width=160,
+        )
+
+        # Mutable Row whose objects are replaced after each replot
+        style_row = pn.Row()
+
+        def _build_style_row(avail):
+            """Rebuild style_row contents to match currently available components."""
+            _style_widgets.clear()
+            new_cols = []
+            for key, label, color_attr, marker_attr in _style_defs:
+                if key not in avail:
+                    continue
+                cw = pn.widgets.ColorPicker(
+                    name=f"{label} color",
+                    value=getattr(self, color_attr),
+                    width=60,
+                )
+                mw = pn.widgets.Select(
+                    name=f"{label} marker",
+                    options=_marker_options,
+                    value=getattr(self, marker_attr),
+                    width=80,
+                )
+                _style_widgets[key] = (cw, mw, color_attr, marker_attr)
+                cw.param.watch(_refresh_after_style_change, "value")
+                mw.param.watch(_refresh_after_style_change, "value")
+                new_cols.append(
+                    pn.Column(
+                        pn.pane.Markdown(f"**{label}**", width=90),
+                        cw,
+                        mw,
+                        width=100,
+                    )
+                )
+            new_cols.append(
+                pn.Column(pn.pane.Markdown("**Marker size**"), marker_size_widget)
+            )
+            style_row.objects = new_cols
+
+        def _apply_preset_num(new_plot_num):
+            """Re-render with new plot_num and update all dependent widgets."""
+            self.plot_num = new_plot_num
+            self.res_limits = None  # recalculate limits for new mode
+            self.plot()
+            bokeh_pane.object = self.layout
+            avail = _available()
+            visible = [k for k in _preset_visible[new_plot_num] if k in avail]
+            # Rebuild component widget options to reflect new renderer set
+            component_widget.options = {options[k]: k for k in avail}
+            component_widget.value = visible
+            self._set_component_visibility(visible)
+            _build_style_row(avail)
+            self._set_period_window(period_widget.value)
+            bokeh_pane.param.trigger("object")
+
         def _refresh_from_error_mode(event):
             self.plot_model_error = event.new == "model"
+            self.res_limits = None
             self.plot()
             bokeh_pane.object = self.layout
             self._set_component_visibility(component_widget.value)
@@ -1049,92 +1120,32 @@ class PlotMTResponse(BokehPlotBase):
         def _update_period(event):
             self._set_period_window(event.new)
 
-        def _apply_preset(preset_name):
-            vals = _preset_map[preset_name]
-            component_widget.value = vals
-            self._set_component_visibility(vals)
-            bokeh_pane.param.trigger("object")
-
-        od_btn.on_click(lambda e: _apply_preset("Off-diagonal"))
-        full_btn.on_click(lambda e: _apply_preset("Full tensor"))
-        all_btn.on_click(lambda e: _apply_preset("All"))
-
-        error_widget.param.watch(_refresh_from_error_mode, "value")
-        component_widget.param.watch(_update_visibility, "value")
-        period_widget.param.watch(_update_period, "value")
-
-        # initialise with Off-diagonal preset active
-        component_widget.value = _preset_map["Off-diagonal"]
-        self._set_component_visibility(component_widget.value)
-        self._set_period_window(period_widget.value)
-
-        # ── per-component color / marker / size styling ───────────────────────
-        _style_defs = [
-            ("xy", "Zxy", "xy_color", "xy_marker"),
-            ("yx", "Zyx", "yx_color", "yx_marker"),
-            ("xx", "Zxx", "xx_color", "xx_marker"),
-            ("yy", "Zyy", "yy_color", "yy_marker"),
-            ("det", "det(Z)", "det_color", "det_marker"),
-        ]
-        _marker_options = ["o", "s", "v", "d", "^"]
-        _style_widgets = {}  # key -> (color_widget, marker_widget)
-
-        for key, label, color_attr, marker_attr in _style_defs:
-            if key not in available:
-                continue
-            cw = pn.widgets.ColorPicker(
-                name=f"{label} color",
-                value=getattr(self, color_attr),
-                width=60,
-            )
-            mw = pn.widgets.Select(
-                name=f"{label} marker",
-                options=_marker_options,
-                value=getattr(self, marker_attr),
-                width=80,
-            )
-            _style_widgets[key] = (cw, mw, color_attr, marker_attr)
-
-        marker_size_widget = pn.widgets.IntSlider(
-            name="Marker size",
-            start=2,
-            end=20,
-            value=self.marker_size,
-            width=160,
-        )
-
         def _refresh_after_style_change(event):
             for _key, (_cw, _mw, _ca, _ma) in _style_widgets.items():
                 setattr(self, _ca, _cw.value)
                 setattr(self, _ma, _mw.value)
             self.marker_size = marker_size_widget.value
+            self.res_limits = None
             self.plot()
             bokeh_pane.object = self.layout
             self._set_component_visibility(component_widget.value)
             bokeh_pane.param.trigger("object")
             self._set_period_window(period_widget.value)
 
-        for _key, (_cw, _mw, _ca, _ma) in _style_widgets.items():
-            _cw.param.watch(_refresh_after_style_change, "value")
-            _mw.param.watch(_refresh_after_style_change, "value")
+        od_btn.on_click(lambda e: _apply_preset_num(1))
+        full_btn.on_click(lambda e: _apply_preset_num(2))
+        all_btn.on_click(lambda e: _apply_preset_num(3))
+
+        error_widget.param.watch(_refresh_from_error_mode, "value")
+        component_widget.param.watch(_update_visibility, "value")
+        period_widget.param.watch(_update_period, "value")
         marker_size_widget.param.watch(_refresh_after_style_change, "value")
 
-        style_cols = [
-            pn.Column(
-                pn.pane.Markdown(f"**{label}**", width=90),
-                _cw,
-                _mw,
-                width=100,
-            )
-            for key, label, *_ in _style_defs
-            if key in _style_widgets
-            for _cw, _mw, _, __ in [_style_widgets[key]]
-        ]
+        # Initialise: render off-diagonal (plot_num=1) on first display
+        _apply_preset_num(self.plot_num)
+
         style_card = pn.Card(
-            pn.Row(
-                *style_cols,
-                pn.Column(pn.pane.Markdown("**Marker size**"), marker_size_widget),
-            ),
+            style_row,
             title="Component Styling",
             collapsed=True,
         )
