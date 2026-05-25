@@ -327,31 +327,60 @@ class PlotMultipleResponses(BokehPlotBase):
         base._require_bokeh()
         base.renderers = {}
 
-        n_columns = 2 if self.plot_num in [1, 2] else 1
-        panel_width = 800 * n_columns
-
+        # Mirror PlotMTResponse sizing: 600px per column for two-column layouts.
         if self.plot_num in [1, 2]:
-            res_fig_xy = base._make_resistivity_figure()
-            res_fig_yx = base._make_resistivity_figure(x_range=res_fig_xy.x_range)
-            phase_fig_xy = base._make_phase_figure(res_fig_xy.x_range)
-            phase_fig_yx = base._make_phase_figure(res_fig_xy.x_range)
+            fig_w = 600
+            aux_width = fig_w * 2
         else:
-            res_fig_xy = base._make_resistivity_figure()
-            res_fig_yx = None
-            phase_fig_xy = base._make_phase_figure(res_fig_xy.x_range)
-            phase_fig_yx = None
+            fig_w = 800
+            aux_width = 800
+        panel_width = aux_width
+
+        # Create figures — plot_num=2 uses a 2×2 tensor grid [[xx,xy],[yx,yy]].
+        if self.plot_num == 1:
+            res_fig_xy = base._make_resistivity_figure(width=fig_w)
+            res_fig_yx = base._make_resistivity_figure(
+                x_range=res_fig_xy.x_range, width=fig_w
+            )
+            phase_fig_xy = base._make_phase_figure(res_fig_xy.x_range, width=fig_w)
+            phase_fig_yx = base._make_phase_figure(res_fig_xy.x_range, width=fig_w)
+        elif self.plot_num == 2:
+            res_fig_xx = base._make_resistivity_figure(width=fig_w)
+            res_fig_xy = base._make_resistivity_figure(
+                x_range=res_fig_xx.x_range, width=fig_w
+            )
+            res_fig_yx = base._make_resistivity_figure(
+                x_range=res_fig_xx.x_range, width=fig_w
+            )
+            res_fig_yy = base._make_resistivity_figure(
+                x_range=res_fig_xx.x_range, width=fig_w
+            )
+            phase_fig_xx = base._make_phase_figure(res_fig_xx.x_range, width=fig_w)
+            phase_fig_xy = base._make_phase_figure(res_fig_xx.x_range, width=fig_w)
+            phase_fig_yx = base._make_phase_figure(res_fig_xx.x_range, width=fig_w)
+            phase_fig_yy = base._make_phase_figure(res_fig_xx.x_range, width=fig_w)
+            # Label each panel with the component name for orientation.
+            for fig, lbl in [
+                (res_fig_xx, "Zxx"),
+                (res_fig_xy, "Zxy"),
+                (res_fig_yx, "Zyx"),
+                (res_fig_yy, "Zyy"),
+            ]:
+                fig.title.text = lbl
+        else:
+            res_fig_xy = base._make_resistivity_figure(width=fig_w)
+            phase_fig_xy = base._make_phase_figure(res_fig_xy.x_range, width=fig_w)
 
         tip_fig = None
         tip_min = np.inf
         tip_max = -np.inf
         if self.plot_tipper.find("y") >= 0:
-            tip_fig = base._make_tipper_figure(width=panel_width)
+            tip_fig = base._make_tipper_figure(width=aux_width)
 
         pt_fig = None
-        pt_mapper = None
         pt_spacing = 1.0
         if self.plot_pt:
-            pt_fig = base._make_pt_figure(width=panel_width)
+            pt_fig = base._make_pt_figure(width=aux_width)
             cmin, cmax = self.ellipse_range[0], self.ellipse_range[1]
             pt_mapper = LinearColorMapper(palette=Turbo256, low=cmin, high=cmax)
             pt_fig.add_layout(
@@ -363,8 +392,7 @@ class PlotMultipleResponses(BokehPlotBase):
                 ),
                 "right",
             )
-
-            fig_width = pt_fig.width if pt_fig.width else panel_width
+            fig_width = pt_fig.width if pt_fig.width else aux_width
             fig_height = pt_fig.height if pt_fig.height else 240
             x_log_range = np.log10(x_limits[1]) - np.log10(x_limits[0])
             pt_ylim = 1.5 * self.ellipse_size
@@ -448,25 +476,34 @@ class PlotMultipleResponses(BokehPlotBase):
                 phase_limits_list.append(
                     base.set_phase_limits(mt_obj.Z.phase, mode="od")
                 )
+
             elif self.plot_num == 2:
+                # Each component occupies its own figure in the 2×2 grid.
+                src_xx_res = base._component_source(period, mt_obj.Z, "xx", kind="res")
                 src_xy_res = base._component_source(period, mt_obj.Z, "xy", kind="res")
                 src_yx_res = base._component_source(period, mt_obj.Z, "yx", kind="res")
+                src_yy_res = base._component_source(period, mt_obj.Z, "yy", kind="res")
+                src_xx_phase = base._component_source(
+                    period, mt_obj.Z, "xx", kind="phase"
+                )
                 src_xy_phase = base._component_source(
                     period, mt_obj.Z, "xy", kind="phase"
                 )
                 src_yx_phase = base._component_source(
                     period, mt_obj.Z, "yx", kind="phase", yx_shift=True
                 )
-
-                src_xx_res = base._component_source(period, mt_obj.Z, "xx", kind="res")
-                src_yy_res = base._component_source(period, mt_obj.Z, "yy", kind="res")
-                src_xx_phase = base._component_source(
-                    period, mt_obj.Z, "xx", kind="phase"
-                )
                 src_yy_phase = base._component_source(
                     period, mt_obj.Z, "yy", kind="phase"
                 )
 
+                base._add_component(
+                    res_fig_xx,
+                    src_xx_res,
+                    self._compare_legend_label(station, "Zxx"),
+                    base.xy_color,
+                    base.xy_marker,
+                    f"xx_{ii}",
+                )
                 base._add_component(
                     res_fig_xy,
                     src_xy_res,
@@ -476,12 +513,28 @@ class PlotMultipleResponses(BokehPlotBase):
                     f"xy_{ii}",
                 )
                 base._add_component(
-                    res_fig_xy,
+                    res_fig_yx,
                     src_yx_res,
                     self._compare_legend_label(station, "Zyx"),
                     base.yx_color,
                     base.yx_marker,
                     f"yx_{ii}",
+                )
+                base._add_component(
+                    res_fig_yy,
+                    src_yy_res,
+                    self._compare_legend_label(station, "Zyy"),
+                    base.yx_color,
+                    base.yx_marker,
+                    f"yy_{ii}",
+                )
+                base._add_component(
+                    phase_fig_xx,
+                    src_xx_phase,
+                    self._compare_legend_label(station, "Zxx"),
+                    base.xy_color,
+                    base.xy_marker,
+                    f"xx_p_{ii}",
                 )
                 base._add_component(
                     phase_fig_xy,
@@ -492,40 +545,15 @@ class PlotMultipleResponses(BokehPlotBase):
                     f"xy_p_{ii}",
                 )
                 base._add_component(
-                    phase_fig_xy,
+                    phase_fig_yx,
                     src_yx_phase,
                     self._compare_legend_label(station, "Zyx"),
                     base.yx_color,
                     base.yx_marker,
                     f"yx_p_{ii}",
                 )
-
                 base._add_component(
-                    res_fig_yx,
-                    src_xx_res,
-                    self._compare_legend_label(station, "Zxx"),
-                    base.xy_color,
-                    base.xy_marker,
-                    f"xx_{ii}",
-                )
-                base._add_component(
-                    res_fig_yx,
-                    src_yy_res,
-                    self._compare_legend_label(station, "Zyy"),
-                    base.yx_color,
-                    base.yx_marker,
-                    f"yy_{ii}",
-                )
-                base._add_component(
-                    phase_fig_yx,
-                    src_xx_phase,
-                    self._compare_legend_label(station, "Zxx"),
-                    base.xy_color,
-                    base.xy_marker,
-                    f"xx_p_{ii}",
-                )
-                base._add_component(
-                    phase_fig_yx,
+                    phase_fig_yy,
                     src_yy_phase,
                     self._compare_legend_label(station, "Zyy"),
                     base.yx_color,
@@ -565,6 +593,7 @@ class PlotMultipleResponses(BokehPlotBase):
                     phase_limits_list.append(phase_od_limits)
                 elif phase_d_limits is not None:
                     phase_limits_list.append(phase_d_limits)
+
             else:
                 src_det_res = base._component_source(
                     period, mt_obj.Z, "det", kind="res"
@@ -762,6 +791,17 @@ class PlotMultipleResponses(BokehPlotBase):
             and lim[1] is not None
         ]
 
+        # Collect the full set of impedance figures for limit/format/hover ops.
+        if self.plot_num == 1:
+            _res_figs = [res_fig_xy, res_fig_yx]
+            _phase_figs = [phase_fig_xy, phase_fig_yx]
+        elif self.plot_num == 2:
+            _res_figs = [res_fig_xx, res_fig_xy, res_fig_yx, res_fig_yy]
+            _phase_figs = [phase_fig_xx, phase_fig_xy, phase_fig_yx, phase_fig_yy]
+        else:
+            _res_figs = [res_fig_xy]
+            _phase_figs = [phase_fig_xy]
+
         if res_limits_list:
             res_limits = self.res_limits
             if res_limits is None:
@@ -769,9 +809,8 @@ class PlotMultipleResponses(BokehPlotBase):
                     min(lim[0] for lim in res_limits_list),
                     max(lim[1] for lim in res_limits_list),
                 ]
-            base._set_axis_limits(res_fig_xy, res_limits)
-            if res_fig_yx is not None:
-                base._set_axis_limits(res_fig_yx, res_limits)
+            for fig in _res_figs:
+                base._set_axis_limits(fig, res_limits)
 
         if phase_limits_list:
             phase_limits = self.phase_limits
@@ -780,33 +819,41 @@ class PlotMultipleResponses(BokehPlotBase):
                     min(lim[0] for lim in phase_limits_list),
                     max(lim[1] for lim in phase_limits_list),
                 ]
-            base._set_axis_limits(phase_fig_xy, phase_limits)
-            if phase_fig_yx is not None:
-                base._set_axis_limits(phase_fig_yx, phase_limits)
+            for fig in _phase_figs:
+                base._set_axis_limits(fig, phase_limits)
 
-        base._format_res_axis(res_fig_xy)
-        base._format_phase_axis(phase_fig_xy)
-        if res_fig_yx is not None:
-            base._format_res_axis(res_fig_yx)
-            base._format_phase_axis(phase_fig_yx)
-            if self.plot_num == 2:
-                res_fig_yx.yaxis.axis_label = ""
-                phase_fig_yx.yaxis.axis_label = ""
+        for fig in _res_figs:
+            base._format_res_axis(fig)
+        for fig in _phase_figs:
+            base._format_phase_axis(fig)
 
-        # Match matplotlib compare where top row has no x tick labels.
-        if res_fig_yx is not None:
+        # Axis label / visibility clean-up per layout mode.
+        if self.plot_num == 1:
+            # Right column: clear redundant y-axis labels.
+            res_fig_yx.yaxis.axis_label = ""
+            phase_fig_yx.yaxis.axis_label = ""
+            # Top row has no x tick labels (bottom row = phase shows them).
             res_fig_xy.xaxis.visible = False
             res_fig_yx.xaxis.visible = False
+        elif self.plot_num == 2:
+            # Right column (xy, yy): no y-axis labels.
+            res_fig_xy.yaxis.axis_label = ""
+            res_fig_yy.yaxis.axis_label = ""
+            phase_fig_xy.yaxis.axis_label = ""
+            phase_fig_yy.yaxis.axis_label = ""
+            # Hide x-axis on all res rows and top phase row; only bottom phase
+            # row (yx, yy) shows x tick labels.
+            for fig in [res_fig_xx, res_fig_xy, res_fig_yx, res_fig_yy]:
+                fig.xaxis.visible = False
+            phase_fig_xx.xaxis.visible = False
+            phase_fig_xy.xaxis.visible = False
+        else:
+            res_fig_xy.xaxis.visible = False
 
-        base._add_hover(res_fig_xy)
-        base._add_hover(phase_fig_xy)
-        if res_fig_yx is not None:
-            base._add_hover(res_fig_yx)
-            base._add_hover(phase_fig_yx)
+        for fig in _res_figs + _phase_figs:
+            base._add_hover(fig)
 
-        legends = [res_fig_xy, phase_fig_xy]
-        if res_fig_yx is not None:
-            legends.extend([res_fig_yx, phase_fig_yx])
+        legends = list(_res_figs) + list(_phase_figs)
 
         if tip_fig is not None:
             tip_fig.line(
@@ -840,10 +887,17 @@ class PlotMultipleResponses(BokehPlotBase):
 
         self._set_compare_legends(legends)
 
-        if self.plot_num in [1, 2]:
+        if self.plot_num == 1:
             rows = [
                 Row(res_fig_xy, res_fig_yx, width=panel_width, sizing_mode="fixed"),
                 Row(phase_fig_xy, phase_fig_yx, width=panel_width, sizing_mode="fixed"),
+            ]
+        elif self.plot_num == 2:
+            rows = [
+                Row(res_fig_xx, res_fig_xy, width=panel_width, sizing_mode="fixed"),
+                Row(res_fig_yx, res_fig_yy, width=panel_width, sizing_mode="fixed"),
+                Row(phase_fig_xx, phase_fig_xy, width=panel_width, sizing_mode="fixed"),
+                Row(phase_fig_yx, phase_fig_yy, width=panel_width, sizing_mode="fixed"),
             ]
         else:
             rows = [res_fig_xy, phase_fig_xy]
