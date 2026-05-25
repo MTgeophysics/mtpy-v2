@@ -295,3 +295,43 @@ class TestPlotStationsPanel:
         plotter.plot_title = "Updated Title"
         fig = plotter.plot(show=False)
         assert fig.title.text == "Updated Title"
+
+    def test_panel_uses_checkboxes_for_toggles(
+        self, bokeh_plot_stations_class, station_gdf
+    ):
+        """Show basemap and Show labels controls should be Checkboxes."""
+        import panel as pn
+
+        plotter = bokeh_plot_stations_class(station_gdf, show_plot=False, plot_cx=False)
+        result = plotter.panel()
+
+        def _find_widgets(obj, widget_type):
+            found = []
+            if isinstance(obj, widget_type):
+                found.append(obj)
+            if hasattr(obj, "objects"):
+                for child in obj.objects:
+                    found.extend(_find_widgets(child, widget_type))
+            return found
+
+        checkboxes = _find_widgets(result, pn.widgets.Checkbox)
+        names = {cb.name for cb in checkboxes}
+        assert "Show basemap" in names
+        assert "Show labels" in names
+
+        # No Toggle buttons should be present for these controls
+        toggles = _find_widgets(result, pn.widgets.Toggle)
+        toggle_names = {t.name for t in toggles}
+        assert "Show basemap" not in toggle_names
+        assert "Show labels" not in toggle_names
+
+    def test_tile_provider_default_is_valid_key(self, bokeh_plot_stations_class):
+        """Default tile provider must use xyzservices dot-notation."""
+        cls = bokeh_plot_stations_class
+        default = cls.param["bokeh_tile_provider"].default
+        assert "." in default, f"Expected dot-notation key, got: {default!r}"
+
+    def test_tile_providers_all_use_dot_notation(self, bokeh_plot_stations_class):
+        """All entries in _TILE_PROVIDERS must use xyzservices dot-notation."""
+        for provider in bokeh_plot_stations_class._TILE_PROVIDERS:
+            assert "." in provider, f"Invalid provider key (no dot): {provider!r}"

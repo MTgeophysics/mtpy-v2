@@ -50,16 +50,26 @@ class PlotStations(BokehPlotBase):
 
     # ── PlotStations-specific params ──────────────────────────────────────
 
+    # Keys must match xyzservices dot-notation (used by bokeh add_tile).
     _TILE_PROVIDERS = [
-        "CartoDB Positron",
-        "Esri Imagery",
-        "OpenStreetMap Mapnik",
+        "CartoDB.Positron",
+        "CartoDB.Voyager",
+        "CartoDB.DarkMatter",
+        "OpenStreetMap.Mapnik",
+        "Esri.WorldImagery",
+        "Esri.WorldStreetMap",
+        "Esri.WorldTopoMap",
+        "Esri.NatGeoWorldMap",
+        "Esri.WorldShadedRelief",
+        "Stadia.StamenTerrain",
+        "Stadia.StamenToner",
+        "Stadia.StamenWatercolor",
     ]
 
     bokeh_tile_provider = param.ObjectSelector(
-        default="CartoDB Positron",
+        default="CartoDB.Positron",
         objects=_TILE_PROVIDERS,
-        doc="Tile basemap provider name",
+        doc="Tile basemap provider (xyzservices dot-notation key)",
     )
     plot_cx = param.Boolean(default=True, doc="Overlay a tile basemap")
     plot_names = param.Boolean(default=True, doc="Annotate stations with their names")
@@ -332,12 +342,8 @@ class PlotStations(BokehPlotBase):
         w_tile = pn.widgets.Select(
             name="Basemap", value=self.bokeh_tile_provider, options=self._TILE_PROVIDERS
         )
-        w_plot_cx = pn.widgets.Toggle(
-            name="Show basemap", value=self.plot_cx, button_type="primary"
-        )
-        w_plot_names = pn.widgets.Toggle(
-            name="Show labels", value=self.plot_names, button_type="primary"
-        )
+        w_plot_cx = pn.widgets.Checkbox(name="Show basemap", value=self.plot_cx)
+        w_plot_names = pn.widgets.Checkbox(name="Show labels", value=self.plot_names)
         w_marker = pn.widgets.Select(
             name="Marker",
             value=self.marker,
@@ -379,15 +385,17 @@ class PlotStations(BokehPlotBase):
                 w_tile,
                 w_plot_cx,
                 w_plot_names,
-                width=220,
+                width=280,
+                margin=(0, 20, 0, 0),
             ),
             pn.Column(
                 w_marker,
                 w_marker_size,
                 w_marker_color,
                 refresh_btn,
-                width=220,
+                width=260,
             ),
+            sizing_mode="fixed",
         )
 
         return pn.Column(controls, plot_pane, sizing_mode="stretch_width")
