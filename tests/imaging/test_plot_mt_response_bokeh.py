@@ -285,3 +285,52 @@ class TestPlotMTResponsePanel:
         # Renderers for diagonal components should be present
         assert "xx" in plotter.renderers
         assert "yy" in plotter.renderers
+
+    def test_panel_preset_buttons_are_individual_buttons(
+        self, bokeh_plot_mt_response_class, mt_object_bokeh
+    ):
+        """Preset controls must be Button widgets (not RadioButtonGroup) so
+        clicking the already-active preset still fires the callback."""
+        import panel as pn
+
+        plotter = bokeh_plot_mt_response_class(
+            z_object=mt_object_bokeh.Z.copy(),
+            station=mt_object_bokeh.station,
+            show_plot=False,
+            plot_num=2,
+        )
+        result = plotter.panel()
+        controls = result[1]
+        assert isinstance(controls, pn.Row)
+        # First child of controls is the preset column
+        preset_col = controls[0]
+        assert isinstance(preset_col, pn.Column)
+        # Second child of preset column is a Row of buttons
+        btn_row = preset_col[1]
+        assert isinstance(btn_row, pn.Row)
+        for widget in btn_row:
+            assert isinstance(widget, pn.widgets.Button)
+
+    def test_panel_style_card_contains_marker_size_widget(
+        self, bokeh_plot_mt_response_class, mt_object_bokeh
+    ):
+        """Style card must contain an IntSlider for marker size."""
+        import panel as pn
+
+        plotter = bokeh_plot_mt_response_class(
+            z_object=mt_object_bokeh.Z.copy(),
+            station=mt_object_bokeh.station,
+            show_plot=False,
+        )
+        result = plotter.panel()
+        style_card = result[2]
+        assert isinstance(style_card, pn.Card)
+
+        # Walk card children looking for an IntSlider
+        def _find_widget(obj, widget_type):
+            if isinstance(obj, widget_type):
+                return True
+            children = getattr(obj, "objects", []) or []
+            return any(_find_widget(c, widget_type) for c in children)
+
+        assert _find_widget(style_card, pn.widgets.IntSlider)

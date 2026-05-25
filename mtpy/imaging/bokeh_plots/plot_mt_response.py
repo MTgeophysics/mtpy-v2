@@ -1024,44 +1024,51 @@ class PlotMTResponse(BokehPlotBase):
             ],
             "All": available,
         }
-        preset_widget = pn.widgets.RadioButtonGroup(
-            name="Preset",
-            options=list(_preset_map.keys()),
-            value="Off-diagonal",
-            button_type="warning",
+        # Use individual Buttons (not RadioButtonGroup) so on_click always fires
+        # even when the previously-selected preset is re-clicked.
+        od_btn = pn.widgets.Button(
+            name="Off-diagonal", button_type="warning", width=120
         )
+        full_btn = pn.widgets.Button(
+            name="Full tensor", button_type="warning", width=120
+        )
+        all_btn = pn.widgets.Button(name="All", button_type="warning", width=60)
 
         def _refresh_from_error_mode(event):
             self.plot_model_error = event.new == "model"
             self.plot()
             bokeh_pane.object = self.layout
             self._set_component_visibility(component_widget.value)
+            bokeh_pane.param.trigger("object")
             self._set_period_window(period_widget.value)
 
         def _update_visibility(event):
             self._set_component_visibility(event.new)
+            bokeh_pane.param.trigger("object")
 
         def _update_period(event):
             self._set_period_window(event.new)
 
-        def _apply_preset(event):
-            new_val = _preset_map[event.new]
-            component_widget.value = new_val
-            # Directly apply visibility in case the watch chain doesn't fire
-            # reliably when value is set programmatically.
-            self._set_component_visibility(new_val)
+        def _apply_preset(preset_name):
+            vals = _preset_map[preset_name]
+            component_widget.value = vals
+            self._set_component_visibility(vals)
+            bokeh_pane.param.trigger("object")
+
+        od_btn.on_click(lambda e: _apply_preset("Off-diagonal"))
+        full_btn.on_click(lambda e: _apply_preset("Full tensor"))
+        all_btn.on_click(lambda e: _apply_preset("All"))
 
         error_widget.param.watch(_refresh_from_error_mode, "value")
         component_widget.param.watch(_update_visibility, "value")
         period_widget.param.watch(_update_period, "value")
-        preset_widget.param.watch(_apply_preset, "value")
 
         # initialise with Off-diagonal preset active
         component_widget.value = _preset_map["Off-diagonal"]
         self._set_component_visibility(component_widget.value)
         self._set_period_window(period_widget.value)
 
-        # ── per-component color / marker styling ──────────────────────────────
+        # ── per-component color / marker / size styling ───────────────────────
         _style_defs = [
             ("xy", "Zxy", "xy_color", "xy_marker"),
             ("yx", "Zyx", "yx_color", "yx_marker"),
@@ -1088,18 +1095,29 @@ class PlotMTResponse(BokehPlotBase):
             )
             _style_widgets[key] = (cw, mw, color_attr, marker_attr)
 
+        marker_size_widget = pn.widgets.IntSlider(
+            name="Marker size",
+            start=2,
+            end=20,
+            value=self.marker_size,
+            width=160,
+        )
+
         def _refresh_after_style_change(event):
             for _key, (_cw, _mw, _ca, _ma) in _style_widgets.items():
                 setattr(self, _ca, _cw.value)
                 setattr(self, _ma, _mw.value)
+            self.marker_size = marker_size_widget.value
             self.plot()
             bokeh_pane.object = self.layout
             self._set_component_visibility(component_widget.value)
+            bokeh_pane.param.trigger("object")
             self._set_period_window(period_widget.value)
 
         for _key, (_cw, _mw, _ca, _ma) in _style_widgets.items():
             _cw.param.watch(_refresh_after_style_change, "value")
             _mw.param.watch(_refresh_after_style_change, "value")
+        marker_size_widget.param.watch(_refresh_after_style_change, "value")
 
         style_cols = [
             pn.Column(
@@ -1113,13 +1131,19 @@ class PlotMTResponse(BokehPlotBase):
             for _cw, _mw, _, __ in [_style_widgets[key]]
         ]
         style_card = pn.Card(
-            pn.Row(*style_cols),
+            pn.Row(
+                *style_cols,
+                pn.Column(pn.pane.Markdown("**Marker size**"), marker_size_widget),
+            ),
             title="Component Styling",
             collapsed=True,
         )
 
         controls = pn.Row(
-            pn.Column(pn.pane.Markdown("**Preset**"), preset_widget),
+            pn.Column(
+                pn.pane.Markdown("**Preset**"),
+                pn.Row(od_btn, full_btn, all_btn),
+            ),
             pn.Column(pn.pane.Markdown("**Components**"), component_widget),
             pn.Column(pn.pane.Markdown("**Error Type**"), error_widget),
             pn.Column(pn.pane.Markdown("**Period Window**"), period_widget),
