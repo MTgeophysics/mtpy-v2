@@ -1187,7 +1187,8 @@ class PlotMultipleResponses(BokehPlotBase):
                     for label in selected:
                         mt_obj = label_to_mt[label]
                         plotter = self._make_station_plotter(mt_obj, x_limits=x_limits)
-                        plotter.plot_num = new_plot_num
+                        # "All" = full tensor (plot_num=2) + tipper + phase tensor.
+                        plotter.plot_num = 2 if plot_all else new_plot_num
                         if plot_all:
                             plotter.plot_tipper = "y"
                             plotter.plot_pt = True
@@ -1248,7 +1249,7 @@ class PlotMultipleResponses(BokehPlotBase):
                             except Exception:
                                 pass
 
-                    cmp.plot_num = new_plot_num
+                    cmp.plot_num = 2 if plot_all else new_plot_num
                     if plot_all:
                         cmp.plot_tipper = "y"
                         cmp.plot_pt = True
