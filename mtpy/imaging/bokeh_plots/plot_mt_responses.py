@@ -293,18 +293,23 @@ class PlotMultipleResponses(BokehPlotBase):
             legend.label_text_font_size = f"{self.compare_legend_font_size}px"
 
             # Deduplicate: keep one entry per station (strip _component suffix).
+            # Bokeh 3.x stores item.label as a Value spec object, so extract
+            # the string via .value first, falling back to dict/str access.
             seen: set = set()
             unique_items = []
             for item in legend.items:
-                raw = (
-                    item.label.get("value", "")
-                    if isinstance(item.label, dict)
-                    else str(item.label)
-                )
+                lbl = item.label
+                if hasattr(lbl, "value"):
+                    raw = lbl.value
+                elif isinstance(lbl, dict):
+                    raw = lbl.get("value", "")
+                else:
+                    raw = str(lbl)
                 station_key = raw.split("_")[0] if "_" in raw else raw
                 if station_key not in seen:
                     seen.add(station_key)
-                    item.label = {"value": station_key}
+                    # Assign a plain string; Bokeh wraps it in a Value spec.
+                    item.label = station_key
                     unique_items.append(item)
 
             if self.compare_compact_legend:
