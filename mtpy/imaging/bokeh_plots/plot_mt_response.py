@@ -6,11 +6,9 @@ PlotMTResponse class for use in Panel dashboards.
 
 from __future__ import annotations
 
-import importlib
-
 import numpy as np
 
-from mtpy.imaging.mtplot_tools import PlotBase
+from .bokeh_plot_base import BokehPlotBase
 
 
 try:
@@ -53,7 +51,7 @@ except ImportError:  # pragma: no cover - optional dependency
     linear_cmap = None
 
 
-class PlotMTResponse(PlotBase):
+class PlotMTResponse(BokehPlotBase):
     """Plot MT apparent resistivity and phase using Bokeh.
 
     The class mirrors core inputs and plotting modes from
@@ -92,7 +90,12 @@ class PlotMTResponse(PlotBase):
         self._linear_x_figure_keys = set()
         self._pt_x_spacing = 1.0
 
-        super().__init__(**kwargs)
+        # param.Parameterized raises TypeError for unknown kwargs; split them.
+        param_names = set(type(self).param)
+        param_kwargs = {k: v for k, v in kwargs.items() if k in param_names}
+        other_kwargs = {k: v for k, v in kwargs.items() if k not in param_names}
+
+        super().__init__(**param_kwargs)
 
         if self.Z is None:
             self.plot_z = False
@@ -104,7 +107,7 @@ class PlotMTResponse(PlotBase):
 
         self.plot_model_error = False
 
-        for key, value in kwargs.items():
+        for key, value in other_kwargs.items():
             setattr(self, key, value)
 
         if self.show_plot:
@@ -946,7 +949,7 @@ class PlotMTResponse(PlotBase):
 
         return self.layout
 
-    def make_panel(self, sizing_mode="stretch_width", interactive=True):
+    def panel(self, sizing_mode="stretch_width", interactive=True):
         """Return a Panel object wrapping the Bokeh layout.
 
         Parameters
@@ -958,7 +961,7 @@ class PlotMTResponse(PlotBase):
             period window, and data/model errors.
         """
         try:
-            pn = importlib.import_module("panel")
+            import panel as pn
         except ImportError as error:  # pragma: no cover - optional dependency
             raise ImportError(
                 "Panel is required to create a panel object. Install with `pip install panel`."
@@ -967,7 +970,7 @@ class PlotMTResponse(PlotBase):
         if self.layout is None:
             self.plot()
 
-        title = self.plot_title if self.plot_title is not None else self.station
+        title = self.plot_title if self.plot_title else self.station
         bokeh_pane = pn.pane.Bokeh(self.layout, sizing_mode=sizing_mode)
 
         if not interactive:
