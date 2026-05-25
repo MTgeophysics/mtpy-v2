@@ -58,7 +58,7 @@ class PlotMTResponse(BokehPlotBase):
         self.pt = pt_obj
         self.station = station
         self._basename = f"{self.station}_mt_response_bokeh"
-        self.plot_num = 1
+        self.plot_num = 2
         self.rotation_angle = 0
 
         self.layout = None
@@ -228,7 +228,12 @@ class PlotMTResponse(BokehPlotBase):
         if kind == "res":
             valid = self._valid_for_log(x, y)
             valid = valid & np.isfinite(err) & (high > 0)
-            low = np.where(low <= 0, np.nan, low)
+            # Clamp the lower error bar to a small but positive value so the
+            # whisker is always visible on the log-scale resistivity axis.
+            # Using 1e-3 * y keeps it three decades below the data point —
+            # well below any realistic resistivity but never NaN or ≤0.
+            low_floor = np.where(np.isfinite(y) & (y > 0), y * 1e-3, np.nan)
+            low = np.where((low <= 0) | ~np.isfinite(low), low_floor, low)
         else:
             valid = np.isfinite(x) & np.isfinite(y) & np.isfinite(err)
 
@@ -283,9 +288,9 @@ class PlotMTResponse(BokehPlotBase):
                 line_color=glyph_color,
                 line_width=max(self.lw, 2),
             )
-            whisker.upper_head.size = 4
+            whisker.upper_head.size = 6
             whisker.upper_head.line_color = glyph_color
-            whisker.lower_head.size = 4
+            whisker.lower_head.size = 6
             whisker.lower_head.line_color = glyph_color
             fig.add_layout(whisker)
             self.renderers.setdefault(comp_key, []).append(whisker)
@@ -354,16 +359,17 @@ class PlotMTResponse(BokehPlotBase):
         ]
         fig.xaxis.ticker = FixedTicker(ticks=ticks)
         fig.xaxis.formatter = CustomJSTickFormatter(
+            args={"x_spacing": x_spacing},
             code="""
             var superscripts = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
-            var exp = String(Math.round(tick));
+            var exp = String(Math.round(tick / x_spacing));
             var result = '10';
             for (var i = 0; i < exp.length; i++) {
                 if (exp[i] === '-') result += '⁻';
                 else result += superscripts[parseInt(exp[i])];
             }
             return result;
-            """
+            """,
         )
         fig.xaxis.axis_label = "Period (s)"
 
