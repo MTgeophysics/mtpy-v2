@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import panel as pn
+import param
 from bokeh.io import show as bokeh_show
 from bokeh.models import ColumnDataSource, HoverTool, LabelSet, Range1d
 from bokeh.plotting import figure
