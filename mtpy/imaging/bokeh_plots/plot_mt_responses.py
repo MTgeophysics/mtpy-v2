@@ -366,7 +366,7 @@ class PlotMultipleResponses(BokehPlotBase):
                 (res_fig_yx, "Zyx"),
                 (res_fig_yy, "Zyy"),
             ]:
-                fig.title.text = lbl
+                fig.title = lbl
         else:
             res_fig_xy = base._make_resistivity_figure(width=fig_w)
             phase_fig_xy = base._make_phase_figure(res_fig_xy.x_range, width=fig_w)
