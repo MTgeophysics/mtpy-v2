@@ -4071,6 +4071,7 @@ class MTData:
         >>> tree.plot_stations(bounding_box=(-121.5, -120.0, 36.5, 38.0))
 
         """
+
         if backend not in ("bokeh", "matplotlib"):
             raise ValueError(
                 f"Unknown backend {backend!r}. Choose 'bokeh' or 'matplotlib'."
