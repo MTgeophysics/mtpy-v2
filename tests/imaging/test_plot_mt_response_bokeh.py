@@ -73,7 +73,7 @@ class TestPlotMTResponseBase:
             station=mt_object_bokeh.station,
             show_plot=False,
         )
-        assert plotter.lw == 1.0
+        assert plotter.lw == 0.5
         assert plotter.plot_z is True
         assert plotter.plot_tipper == "n" or plotter.plot_tipper == "yri"
         assert plotter.ellipse_size == 2.0

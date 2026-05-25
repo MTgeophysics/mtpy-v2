@@ -151,7 +151,7 @@ class BokehPlotBase(param.Parameterized):
     )
 
     # ── MT response line/scatter style ────────────────────────────────────────
-    lw = param.Number(default=1.0, bounds=(0, 10), doc="Line width")
+    lw = param.Number(default=0.5, bounds=(0, 5), doc="Line width")
     xy_color = param.Color(default="#4059bf", doc="Zxy component color")
     yx_color = param.Color(default="#bf4040", doc="Zyx component color")
     xx_color = param.Color(default="#5599cc", doc="Zxx component color")
@@ -211,20 +211,23 @@ class BokehPlotBase(param.Parameterized):
     # ── colorbar label dictionary ─────────────────────────────────────────────
     @property
     def cb_label_dict(self) -> dict:
+        # Bokeh ColorBar.title only accepts plain strings; LaTeX is not rendered.
+        # Use Unicode Φ with plain underscores for subscripts — renders correctly
+        # in all browsers without MathJax.
         return {
-            "phiminang": r"$$\Phi_{min}$$ (deg)",
-            "phimin": r"$$\Phi_{min}$$ (deg)",
-            "phimaxang": r"$$\Phi_{max}$$ (deg)",
-            "phimax": r"$$\Phi_{max}$$ (deg)",
-            "phidet": r"Det{$$\Phi$$} (deg)",
-            "skew": r"Skew (deg)",
-            "normalized_skew": r"Normalized Skew (deg)",
-            "ellipticity": r"Ellipticity",
-            "skew_seg": r"Skew (deg)",
-            "normalized_skew_seg": r"Normalized Skew (deg)",
-            "geometric_mean": r"$$\sqrt{\Phi_{min} \cdot \Phi_{max}}$$",
-            "strike": r"Azimuth (deg)",
-            "azimuth": r"Azimuth (deg)",
+            "phiminang": "\u03A6_min (deg)",
+            "phimin": "\u03A6_min (deg)",
+            "phimaxang": "\u03A6_max (deg)",
+            "phimax": "\u03A6_max (deg)",
+            "phidet": "det(\u03A6) (deg)",
+            "skew": "Skew (deg)",
+            "normalized_skew": "Normalized Skew (deg)",
+            "ellipticity": "Ellipticity",
+            "skew_seg": "Skew (deg)",
+            "normalized_skew_seg": "Normalized Skew (deg)",
+            "geometric_mean": "\u221A(\u03A6_min \u00B7 \u03A6_max)",
+            "strike": "Azimuth (deg)",
+            "azimuth": "Azimuth (deg)",
         }
 
     # ── utility methods ───────────────────────────────────────────────────────
