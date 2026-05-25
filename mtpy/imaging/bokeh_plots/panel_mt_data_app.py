@@ -49,6 +49,8 @@ Watching for data-ready events in a downstream panel::
 
 from __future__ import annotations
 
+import inspect
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -742,10 +744,14 @@ class MTDataApp(param.Parameterized):
             else:
                 plot_obj = method(**kwargs)
 
-            # Render: call .plot(show=False) if available, otherwise use the
-            # object itself (some classes auto-plot in __init__).
+            # Render: call .plot() if available; pass show=False only if the
+            # method accepts it (some Bokeh classes have plot(self) with no args).
             if hasattr(plot_obj, "plot"):
-                fig = plot_obj.plot(show=False)
+                plot_params = inspect.signature(plot_obj.plot).parameters
+                if "show" in plot_params:
+                    fig = plot_obj.plot(show=False)
+                else:
+                    fig = plot_obj.plot()
             elif hasattr(plot_obj, "fig"):
                 fig = plot_obj.fig
             else:
@@ -761,7 +767,9 @@ class MTDataApp(param.Parameterized):
                 self._plot_status.object = f"⚠️ **{plot_label}** returned no figure."
                 self._plot_status.styles = {"color": "#7a5200"}
         except Exception as exc:
-            self._plot_status.object = f"❌ Error: `{type(exc).__name__}: {exc}`"
+            self._plot_status.object = (
+                f"❌ Error: `{type(exc).__name__}: {exc}\n{traceback.format_exc()}`"
+            )
             self._plot_status.styles = {"color": "#b00020"}
         finally:
             self._plot_generate_button.disabled = False
