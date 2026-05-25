@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import numpy as np
 from bokeh.io import show
-from bokeh.layouts import Column, gridplot
+from bokeh.layouts import Column, Row
 from bokeh.models import (
     Arrow,
     BasicTicker,
@@ -930,14 +930,14 @@ class PlotMTResponse(BokehPlotBase):
             self.figures["phase_diag"] = phase_fig_diag
             self._log_x_figure_keys.update(["res_diag", "phase_diag"])
 
-            # gridplot aligns the two impedance columns with consistent spacing,
-            # equivalent to matplotlib's GridSpec with colspan.
-            impedance_grid = gridplot(
-                [[res_fig, res_fig_diag], [phase_fig, phase_fig_diag]],
-                merge_tools=False,
-                toolbar_location=None,
-            )
-            layout_rows = [impedance_grid]
+            # Row-based two-column layout: each figure is fig_w pixels wide so
+            # the combined row (2 * fig_w) matches tipper/PT width exactly.
+            # gridplot was avoided because GridPlot does not reliably propagate
+            # child figure widths to the container when used inside Panel.
+            layout_rows = [
+                Row(res_fig, res_fig_diag),
+                Row(phase_fig, phase_fig_diag),
+            ]
             if tip_fig is not None:
                 layout_rows.append(tip_fig)
             if pt_fig is not None:

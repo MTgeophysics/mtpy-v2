@@ -336,11 +336,11 @@ class TestPlotMTResponsePanel:
         assert _find_widget(style_card, pn.widgets.IntSlider)
         assert _find_widget(style_card, pn.widgets.FloatSlider)
 
-    def test_plot_num2_uses_gridplot_layout(
+    def test_plot_num2_uses_row_layout(
         self, bokeh_plot_mt_response_class, mt_object_bokeh
     ):
-        """plot_num=2 should use gridplot so all columns are consistently sized."""
-        from bokeh.models import GridPlot
+        """plot_num=2 should use Row so figure widths are direct and predictable."""
+        from bokeh.layouts import Column, Row
 
         plotter = bokeh_plot_mt_response_class(
             z_object=mt_object_bokeh.Z.copy(),
@@ -349,11 +349,10 @@ class TestPlotMTResponsePanel:
             plot_num=2,
         )
         plotter.plot()
-        # Top-level layout is a Column; first child should be a GridPlot
-        from bokeh.layouts import Column
-
         assert isinstance(plotter.layout, Column)
-        assert isinstance(plotter.layout.children[0], GridPlot)
+        # First two children of the Column should be Rows (res row, phase row)
+        assert isinstance(plotter.layout.children[0], Row)
+        assert isinstance(plotter.layout.children[1], Row)
 
     def test_plot_num2_figure_width_is_600(
         self, bokeh_plot_mt_response_class, mt_object_bokeh
