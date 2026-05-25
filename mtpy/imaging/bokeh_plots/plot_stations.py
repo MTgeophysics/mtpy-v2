@@ -6,27 +6,13 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import panel as pn
+from bokeh.io import show as bokeh_show
+from bokeh.models import ColumnDataSource, HoverTool, LabelSet, Range1d
+from bokeh.plotting import figure
 
 import mtpy.utils.exceptions as mtex
 from mtpy.imaging.bokeh_plots.bokeh_plot_base import BokehPlotBase
-
-
-try:
-    import panel as pn
-except ImportError:  # pragma: no cover
-    pn = None
-
-try:
-    from bokeh.io import show as bokeh_show
-    from bokeh.models import ColumnDataSource, HoverTool, LabelSet, Range1d
-    from bokeh.plotting import figure
-except ImportError:  # pragma: no cover - optional dependency
-    bokeh_show = None
-    ColumnDataSource = None
-    HoverTool = None
-    LabelSet = None
-    Range1d = None
-    figure = None
 
 
 class PlotStations(BokehPlotBase):
