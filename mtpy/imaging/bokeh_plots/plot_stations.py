@@ -12,11 +12,6 @@ from mtpy.imaging.bokeh_plots.bokeh_plot_base import BokehPlotBase
 
 
 try:
-    import param
-except ImportError:  # pragma: no cover
-    param = None
-
-try:
     import panel as pn
 except ImportError:  # pragma: no cover
     pn = None
