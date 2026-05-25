@@ -1100,7 +1100,7 @@ class PlotMultipleResponses(BokehPlotBase):
                         plotter = self._make_station_plotter(mt_obj, x_limits=x_limits)
                         plotter.plot_num = new_plot_num
                         if plot_all:
-                            plotter.plot_tipper = True
+                            plotter.plot_tipper = "y"
                             plotter.plot_pt = True
                         plotter.show_plot = False
                         # Use the full station label as the panel title.
@@ -1161,7 +1161,7 @@ class PlotMultipleResponses(BokehPlotBase):
 
                     cmp.plot_num = new_plot_num
                     if plot_all:
-                        cmp.plot_tipper = True
+                        cmp.plot_tipper = "y"
                         cmp.plot_pt = True
 
                     # Collect styling from per-station widgets.
