@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from mtpy.imaging.bokeh_plots.bokeh_plot_base import BokehPlotBase
 from mtpy.imaging.bokeh_plots.plot_mt_response import PlotMTResponse
-from mtpy.imaging.mtplot_tools import PlotBase
 
 
 try:
@@ -45,55 +45,71 @@ except ImportError:  # pragma: no cover - optional dependency
     linear_cmap = None
 
 
-class PlotMultipleResponses(PlotBase):
+class PlotMultipleResponses(BokehPlotBase):
     """Plot multiple MT responses using Bokeh layouts.
 
     Parameters
     ----------
     mt_data : object
         Container holding MT objects. Supports either:
-        - objects exposing `values()` with MT objects as values
-        - MTData-like objects exposing `_iter_station_paths()` and `get_station()`
+        - objects exposing ``values()`` with MT objects as values
+        - MTData-like objects exposing ``_iter_station_paths()`` and
+          ``get_station()``
 
     Notes
     -----
-    `plot_style` options mirror matplotlib behavior:
-    - "1" or "single": one plot per station (returned as dict)
-    - "all": full response per station arranged side-by-side
-    - "compare": component rows arranged by station for visual comparison
+    ``plot_style`` options:
+
+    - ``"1"`` or ``"single"``: one plot per station (returned as dict)
+    - ``"all"``: full response per station arranged side-by-side
+    - ``"compare"``: component rows arranged by station for visual comparison
     """
 
     def __init__(self, mt_data, **kwargs):
-        self.plot_num = 1
-        self.plot_style = "1"
         self.mt_data = mt_data
-        self.include_survey = True
-        self.compare_mode = "overlay"
-        self.compare_legend_mode = "station"
-        self.compare_compact_legend = True
-        self.compare_legend_max_items = 16
-        self.compare_legend_font_size = 8
+
+        # Multi-station layout options (plain attrs, not param-managed).
+        self.plot_style = kwargs.pop("plot_style", "1")
+        self.plot_num = kwargs.pop("plot_num", 1)
+        self.include_survey = kwargs.pop("include_survey", True)
+        self.compare_mode = kwargs.pop("compare_mode", "overlay")
+        self.compare_legend_mode = kwargs.pop("compare_legend_mode", "station")
+        self.compare_compact_legend = kwargs.pop("compare_compact_legend", True)
+        self.compare_legend_max_items = kwargs.pop("compare_legend_max_items", 16)
+        self.compare_legend_font_size = kwargs.pop("compare_legend_font_size", 8)
 
         self.layout = None
         self.layouts = {}
+        self.plotters = {}
 
-        super().__init__(**kwargs)
+        # Per-station style overrides populated by panel() in compare mode.
+        # Maps station_label -> {"color": hex_str, "marker": marker_str}.
+        self.custom_station_styles: dict = {}
 
-        self.plot_dict = {
-            "tip": self.plot_tipper,
-            "pt": self.plot_pt,
-            "strike": self.plot_strike,
-            "skew": self.plot_skew,
-        }
+        # Rotation angle backing; applied to all MT objects when set.
+        self._rotation_angle = 0
 
-        self.plot_model_error = None
+        # model_error flag — set before super() so the property setter works.
+        self._plot_model_error = False
+        self._error_str = "error"
+
+        # param.Parameterized raises TypeError for unknown kwargs; filter them.
+        param_names = set(type(self).param)
+        param_kwargs = {k: v for k, v in kwargs.items() if k in param_names}
+        other_kwargs = {k: v for k, v in kwargs.items() if k not in param_names}
+
+        super().__init__(**param_kwargs)
+
+        # Apply any remaining kwargs as plain attributes.
+        for key, value in other_kwargs.items():
+            setattr(self, key, value)
 
         if self.show_plot:
             self.plot()
 
     @property
     def rotation_angle(self):
-        """Rotation angle."""
+        """Rotation angle applied to all MT objects in the collection."""
         return self._rotation_angle
 
     @rotation_angle.setter
@@ -108,17 +124,17 @@ class PlotMultipleResponses(PlotBase):
 
     @property
     def plot_model_error(self):
-        """Plot model error flag."""
+        """Plot model error instead of data error."""
         return self._plot_model_error
 
     @plot_model_error.setter
     def plot_model_error(self, value):
-        """Set model/data error mode."""
+        """Toggle model/data error mode."""
         if value:
             self._error_str = "model_error"
         else:
             self._error_str = "error"
-        self._plot_model_error = value
+        self._plot_model_error = bool(value) if value is not None else False
 
     def _require_bokeh(self):
         if Column is None or Row is None or Div is None:
@@ -290,14 +306,22 @@ class PlotMultipleResponses(PlotBase):
             raise ValueError("No MT objects available to compare.")
 
         # Match matplotlib compare color progression (dark to light).
-        cxy = [(0, float(cc) / ns, 1 - float(cc) / ns) for cc in range(ns)]
-        cyx = [(1, float(cc) / ns, 0) for cc in range(ns)]
-        cdet = [(0, 1 - float(cc) / ns, 0) for cc in range(ns)]
-        ctipr = [(0.75 * cc / ns, 0.75 * cc / ns, 0.75 * cc / ns) for cc in range(ns)]
-        ctipi = [(float(cc) / ns, 1 - float(cc) / ns, 0.25) for cc in range(ns)]
+        # Convert RGB tuples to hex so they satisfy param.Color validation on
+        # BokehPlotBase (which requires CSS colour strings).
+        _to_hex = PlotMTResponse._tuple_to_hex
+        cxy = [_to_hex((0, float(cc) / ns, 1 - float(cc) / ns)) for cc in range(ns)]
+        cyx = [_to_hex((1, float(cc) / ns, 0)) for cc in range(ns)]
+        cdet = [_to_hex((0, 1 - float(cc) / ns, 0)) for cc in range(ns)]
+        ctipr = [
+            _to_hex((0.75 * cc / ns, 0.75 * cc / ns, 0.75 * cc / ns))
+            for cc in range(ns)
+        ]
+        ctipi = [
+            _to_hex((float(cc) / ns, 1 - float(cc) / ns, 0.25)) for cc in range(ns)
+        ]
 
-        mxy = ["s", "d", "x", "+", "asterisk", "triangle", "inverted_triangle"]
-        myx = ["o", "h", "8", "p", "H", "triangle", "diamond"]
+        mxy = ["s", "d", "+", "x", "^", "*", "v", "o"]
+        myx = ["o", "v", "^", "*", "+", "x", "s", "d"]
 
         base = self._make_station_plotter(mt_objects[0], x_limits=x_limits)
         base._require_bokeh()
@@ -359,6 +383,19 @@ class PlotMultipleResponses(PlotBase):
             base.det_color = cdet[ii]
             base.xy_marker = mxy[ii % len(mxy)]
             base.yx_marker = myx[ii % len(myx)]
+
+            # Apply per-station overrides from panel() styling widgets.
+            _custom = self.custom_station_styles.get(station, {})
+            if _custom:
+                _color = _custom.get("color")
+                _marker = _custom.get("marker")
+                if _color:
+                    base.xy_color = _color
+                    base.yx_color = _color
+                    base.det_color = _color
+                if _marker:
+                    base.xy_marker = _marker
+                    base.yx_marker = _marker
 
             period = np.asarray(mt_obj.period, dtype=float)
 
@@ -917,6 +954,271 @@ class PlotMultipleResponses(PlotBase):
             return pn.Column(*children, sizing_mode=sizing_mode)
 
         return pn.pane.Bokeh(result, sizing_mode=sizing_mode)
+
+    def panel(self, sizing_mode="stretch_width"):
+        """Return an interactive Panel app for multi-station MT responses.
+
+        Provides station selection checkboxes, a plot-style toggle
+        (``"single"`` / ``"compare"``), tensor-preset selector, a Generate
+        button, and – for compare mode – per-station colour/marker styling.
+
+        Parameters
+        ----------
+        sizing_mode : str
+            Panel ``sizing_mode`` forwarded to the outer container.
+
+        Returns
+        -------
+        panel.Column
+            A ``panel.Column`` containing all controls and the live plot area.
+        """
+        try:
+            import panel as pn
+        except ImportError as error:  # pragma: no cover
+            raise ImportError(
+                "Panel is required to create a panel object.  "
+                "Install with `pip install panel`."
+            ) from error
+
+        mt_objects = self._get_mt_objects()
+        if not mt_objects:
+            return pn.pane.Markdown("_No MT data loaded._")
+
+        station_labels = [self._station_label(mt_obj) for mt_obj in mt_objects]
+        label_to_mt = dict(zip(station_labels, mt_objects))
+        x_limits = self._global_x_limits(mt_objects)
+
+        # ── Widgets ───────────────────────────────────────────────────────────
+        style_widget = pn.widgets.RadioButtonGroup(
+            name="Plot Style",
+            options=["single", "compare"],
+            value="single",
+            button_type="primary",
+            width=200,
+        )
+
+        station_widget = pn.widgets.CheckBoxGroup(
+            name="Stations",
+            options=station_labels,
+            value=station_labels,
+            inline=False,
+            width=240,
+        )
+
+        select_all_btn = pn.widgets.Button(
+            name="Select All", button_type="light", width=90
+        )
+        clear_btn = pn.widgets.Button(name="Clear", button_type="light", width=70)
+
+        _preset_labels = ["Off-diagonal", "Full tensor", "All"]
+        plot_num_widget = pn.widgets.RadioButtonGroup(
+            name="Tensor",
+            options=_preset_labels,
+            value=_preset_labels[max(0, self.plot_num - 1)],
+            button_type="warning",
+            width=300,
+        )
+
+        generate_btn = pn.widgets.Button(
+            name="Generate", button_type="success", width=120
+        )
+        status = pn.pane.Markdown(
+            "_Select stations and click **Generate**._",
+            styles={"color": "#555"},
+        )
+
+        plot_display = pn.Column(sizing_mode=sizing_mode)
+        style_card_area = pn.Column()
+
+        # ── Per-station compare styling ────────────────────────────────────────
+        _DEFAULT_COLORS = [
+            "#1f77b4",
+            "#ff7f0e",
+            "#2ca02c",
+            "#d62728",
+            "#9467bd",
+            "#8c564b",
+            "#e377c2",
+            "#7f7f7f",
+            "#bcbd22",
+            "#17becf",
+        ]
+        _MARKER_OPTIONS = ["s", "o", "d", "v", "^", "x", "+"]
+        _station_style_widgets: dict = {}
+
+        def _build_compare_style_card(selected_labels):
+            _station_style_widgets.clear()
+            cols = []
+            for ii, label in enumerate(selected_labels):
+                default_color = _DEFAULT_COLORS[ii % len(_DEFAULT_COLORS)]
+                cw = pn.widgets.ColorPicker(name=label, value=default_color, width=60)
+                mw = pn.widgets.Select(
+                    name="marker",
+                    options=_MARKER_OPTIONS,
+                    value=_MARKER_OPTIONS[ii % len(_MARKER_OPTIONS)],
+                    width=80,
+                )
+                _station_style_widgets[label] = (cw, mw)
+                cols.append(
+                    pn.Column(
+                        pn.pane.Markdown(f"**{label}**", margin=(0, 5)),
+                        pn.Row(cw, mw, sizing_mode="fixed"),
+                        width=180,
+                    )
+                )
+
+            card_content = (
+                pn.FlexBox(*cols)
+                if cols
+                else pn.pane.Markdown("_No stations selected._")
+            )
+            style_card_area.objects = [
+                pn.Card(card_content, title="Station Styling", collapsed=True)
+            ]
+
+        # ── Render callback ────────────────────────────────────────────────────
+        def _render(event=None):
+            selected = list(station_widget.value)
+            if not selected:
+                status.object = "⚠️ No stations selected."
+                status.styles = {"color": "#7a5200"}
+                plot_display.objects = []
+                return
+
+            pn_map = {"Off-diagonal": 1, "Full tensor": 2, "All": 3}
+            new_plot_num = pn_map[plot_num_widget.value]
+            style = style_widget.value
+
+            status.object = f"⏳ Generating **{style}** for {len(selected)} station(s)…"
+            status.styles = {"color": "#555"}
+
+            try:
+                if style == "single":
+                    style_card_area.objects = []
+                    panels = []
+                    for label in selected:
+                        mt_obj = label_to_mt[label]
+                        plotter = self._make_station_plotter(mt_obj, x_limits=x_limits)
+                        plotter.plot_num = new_plot_num
+                        plotter.show_plot = False
+                        # Use the full station label as the panel title.
+                        plotter.station = label
+                        panels.append(pn.layout.Divider())
+                        panels.append(plotter.panel(interactive=True))
+
+                    plot_display.objects = (
+                        panels if panels else [pn.pane.Markdown("_Nothing rendered._")]
+                    )
+                    status.object = f"✅ {len(selected)} station(s) rendered."
+                    status.styles = {"color": "#1a6600"}
+
+                else:  # compare
+                    _build_compare_style_card(selected)
+
+                    class _ObjList:
+                        def __init__(self, objs):
+                            self._objs = objs
+
+                        def values(self):
+                            return iter(self._objs)
+
+                    subset_objs = [label_to_mt[lbl] for lbl in selected]
+                    cmp = self.__class__(
+                        mt_data=_ObjList(subset_objs),
+                        show_plot=False,
+                    )
+
+                    # Forward visual attrs from self.
+                    _forward = [
+                        "plot_tipper",
+                        "plot_pt",
+                        "plot_model_error",
+                        "lw",
+                        "marker_size",
+                        "arrow_lw",
+                        "arrow_direction",
+                        "ellipse_size",
+                        "ellipse_colorby",
+                        "ellipse_range",
+                        "res_limits",
+                        "phase_limits",
+                        "tipper_limits",
+                        "font_size",
+                        "include_survey",
+                        "compare_legend_mode",
+                        "compare_compact_legend",
+                        "compare_legend_max_items",
+                        "compare_legend_font_size",
+                    ]
+                    for attr in _forward:
+                        if hasattr(self, attr):
+                            try:
+                                setattr(cmp, attr, getattr(self, attr))
+                            except Exception:
+                                pass
+
+                    cmp.plot_num = new_plot_num
+
+                    # Collect styling from per-station widgets.
+                    cmp.custom_station_styles = {
+                        label: {"color": cw.value, "marker": mw.value}
+                        for label, (cw, mw) in _station_style_widgets.items()
+                    }
+
+                    bokeh_layout = cmp._plot_compare_overlay()
+                    plot_display.objects = [
+                        pn.pane.Bokeh(bokeh_layout, sizing_mode="fixed")
+                    ]
+                    status.object = f"✅ Compare: {len(selected)} station(s) rendered."
+                    status.styles = {"color": "#1a6600"}
+
+            except Exception as exc:
+                import traceback
+
+                status.object = (
+                    f"❌ `{type(exc).__name__}: {exc}\n\n" f"{traceback.format_exc()}`"
+                )
+                status.styles = {"color": "#b00020"}
+
+        # ── Wire callbacks ─────────────────────────────────────────────────────
+        select_all_btn.on_click(
+            lambda e: setattr(station_widget, "value", station_labels)
+        )
+        clear_btn.on_click(lambda e: setattr(station_widget, "value", []))
+        generate_btn.on_click(_render)
+
+        # Render on first load.
+        _render()
+
+        controls = pn.Column(
+            pn.pane.Markdown("### MT Responses — Multi-Station"),
+            pn.Row(
+                pn.Column(
+                    pn.pane.Markdown("**Plot Style**"),
+                    style_widget,
+                    pn.pane.Markdown("**Tensor Components**"),
+                    plot_num_widget,
+                    pn.Row(generate_btn, align="center"),
+                    status,
+                    width=380,
+                ),
+                pn.Column(
+                    pn.pane.Markdown("**Stations**"),
+                    pn.Row(select_all_btn, clear_btn),
+                    station_widget,
+                ),
+                align="start",
+            ),
+            sizing_mode=sizing_mode,
+        )
+
+        return pn.Column(
+            controls,
+            pn.layout.Divider(),
+            style_card_area,
+            plot_display,
+            sizing_mode=sizing_mode,
+        )
 
 
 __all__ = ["PlotMultipleResponses"]

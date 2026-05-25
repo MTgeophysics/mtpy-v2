@@ -99,6 +99,10 @@ class BokehPlotBase(param.Parameterized):
         Marker for det(Z) component, by default ``"v"``.
     res_limits : tuple | None
         Resistivity axis limits ``(min, max)``, or ``None`` for auto.
+    phase_limits : tuple | None
+        Phase axis limits ``(min, max)`` in degrees, or ``None`` for auto.
+    tipper_limits : tuple | None
+        Tipper axis limits ``(min, max)``, or ``None`` for auto.
     plot_z : bool
         Whether to plot impedance data, by default True.
     plot_tipper : str
@@ -148,6 +152,12 @@ class BokehPlotBase(param.Parameterized):
     y_limits = param.Parameter(default=None, doc="Y-axis limits (min, max) or None")
     res_limits = param.Parameter(
         default=None, doc="Resistivity axis limits (min, max) or None"
+    )
+    phase_limits = param.Parameter(
+        default=None, doc="Phase axis limits (min, max) or None"
+    )
+    tipper_limits = param.Parameter(
+        default=None, doc="Tipper axis limits (min, max) or None"
     )
 
     # ── MT response line/scatter style ────────────────────────────────────────
