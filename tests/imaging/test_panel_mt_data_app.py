@@ -870,3 +870,59 @@ def test_generate_plot_passes_backend_to_method():
 
     _, call_kwargs = getattr(mock_mt, method_name).call_args
     assert call_kwargs.get("backend") == "matplotlib"
+
+
+@pytest.mark.plotting
+def test_generate_plot_embeds_panel_when_available():
+    """When the returned plot object has a panel() method, MTDataApp should
+    embed the panel() output rather than calling .plot() directly."""
+    app = _make_app()
+
+    # Build a mock plot object that has a panel() method
+    mock_panel_app = pn.Column()
+    mock_plot_obj = MagicMock()
+    mock_plot_obj.panel = MagicMock(return_value=mock_panel_app)
+    mock_plot_obj.plot = MagicMock()
+
+    label = "Station Map"
+    method_name, _ = _PLOT_TYPES[label]
+    mock_mt = MagicMock(spec=MTData)
+    getattr(mock_mt, method_name).return_value = mock_plot_obj
+    app._mt_data = mock_mt
+    app.mt_data_loaded = True
+    app._plot_type_widget.value = label
+    app._plot_backend_widget.value = "bokeh"
+
+    app._on_generate_plot_clicked(None)
+
+    # panel() should have been called, .plot() should NOT have been called
+    mock_plot_obj.panel.assert_called_once()
+    mock_plot_obj.plot.assert_not_called()
+
+    # The display should contain the panel app
+    assert mock_panel_app in app._plot_display.objects
+
+
+@pytest.mark.plotting
+def test_generate_plot_falls_back_to_plot_when_no_panel_method():
+    """When the plot object has no panel() method, MTDataApp falls back to
+    calling .plot() as before."""
+    app = _make_app()
+
+    mock_fig = MagicMock()
+    # plot object WITHOUT a panel() method
+    mock_plot_obj = MagicMock(spec=["plot", "fig"])
+    mock_plot_obj.plot = MagicMock(return_value=mock_fig)
+
+    label = "Station Map"
+    method_name, _ = _PLOT_TYPES[label]
+    mock_mt = MagicMock(spec=MTData)
+    getattr(mock_mt, method_name).return_value = mock_plot_obj
+    app._mt_data = mock_mt
+    app.mt_data_loaded = True
+    app._plot_type_widget.value = label
+
+    app._on_generate_plot_clicked(None)
+
+    mock_plot_obj.plot.assert_called_once()
+    assert "✅" in app._plot_status.object

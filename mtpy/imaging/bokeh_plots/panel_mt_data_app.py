@@ -752,28 +752,39 @@ class MTDataApp(param.Parameterized):
             else:
                 plot_obj = method(**kwargs)
 
-            # Render: call .plot() if available; pass show=False only if the
-            # method accepts it (some Bokeh classes have plot(self) with no args).
-            if hasattr(plot_obj, "plot"):
-                plot_params = inspect.signature(plot_obj.plot).parameters
-                if "show" in plot_params:
-                    fig = plot_obj.plot(show=False)
-                else:
-                    fig = plot_obj.plot()
-            elif hasattr(plot_obj, "fig"):
-                fig = plot_obj.fig
-            else:
-                fig = plot_obj
-
-            if fig is not None:
-                self._plot_display.objects = [
-                    pn.pane.panel(fig, sizing_mode="stretch_width")
-                ]
+            # If the plot object has a panel() method, embed the full
+            # interactive Panel app (controls + live plot).  Otherwise fall
+            # back to the plain .plot() render for classes without panel().
+            if hasattr(plot_obj, "panel") and callable(plot_obj.panel):
+                panel_app = plot_obj.panel()
+                self._plot_display.objects = [panel_app]
                 self._plot_status.object = f"✅ **{plot_label}** rendered."
                 self._plot_status.styles = {"color": "#1a6600"}
             else:
-                self._plot_status.object = f"⚠️ **{plot_label}** returned no figure."
-                self._plot_status.styles = {"color": "#7a5200"}
+                # Render: call .plot() if available; pass show=False only if the
+                # method accepts it (some Bokeh classes have plot(self) with no args).
+                if hasattr(plot_obj, "plot"):
+                    plot_params = inspect.signature(plot_obj.plot).parameters
+                    if "show" in plot_params:
+                        fig = plot_obj.plot(show=False)
+                    else:
+                        fig = plot_obj.plot()
+                elif hasattr(plot_obj, "fig"):
+                    fig = plot_obj.fig
+                else:
+                    fig = plot_obj
+
+                if fig is not None:
+                    self._plot_display.objects = [
+                        pn.pane.panel(fig, sizing_mode="stretch_width")
+                    ]
+                    self._plot_status.object = f"✅ **{plot_label}** rendered."
+                    self._plot_status.styles = {"color": "#1a6600"}
+                else:
+                    self._plot_status.object = (
+                        f"⚠️ **{plot_label}** returned no figure."
+                    )
+                    self._plot_status.styles = {"color": "#7a5200"}
         except Exception as exc:
             self._plot_status.object = (
                 f"❌ Error: `{type(exc).__name__}: {exc}\n{traceback.format_exc()}`"

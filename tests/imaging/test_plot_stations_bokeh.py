@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tests for Bokeh PlotStations behavior."""
+"""Tests for Bokeh PlotStations behavior and BokehPlotBase."""
 
 from __future__ import annotations
 
@@ -38,6 +38,75 @@ def station_gdf():
         ],
         crs="EPSG:4326",
     )
+
+
+class TestBokehPlotBase:
+    """Tests for the BokehPlotBase param.Parameterized base class."""
+
+    def test_is_param_parameterized(self):
+        import param
+
+        from mtpy.imaging.bokeh_plots.bokeh_plot_base import BokehPlotBase
+
+        assert issubclass(BokehPlotBase, param.Parameterized)
+
+    def test_exported_from_package(self):
+        from mtpy.imaging.bokeh_plots import BokehPlotBase
+
+        assert BokehPlotBase is not None
+
+    def test_show_plot_default_false(self):
+        from mtpy.imaging.bokeh_plots.bokeh_plot_base import BokehPlotBase
+
+        obj = BokehPlotBase()
+        assert obj.show_plot is False
+
+    def test_marker_default(self):
+        from mtpy.imaging.bokeh_plots.bokeh_plot_base import BokehPlotBase
+
+        obj = BokehPlotBase()
+        assert obj.marker == "o"
+
+    def test_marker_color_default_hex(self):
+        from mtpy.imaging.bokeh_plots.bokeh_plot_base import BokehPlotBase
+
+        obj = BokehPlotBase()
+        assert obj.marker_color == "#0000ff"
+
+    def test_marker_size_bounds(self):
+        pass
+
+        from mtpy.imaging.bokeh_plots.bokeh_plot_base import BokehPlotBase
+
+        obj = BokehPlotBase(marker_size=20)
+        assert obj.marker_size == 20
+
+    def test_x_limits_default_none(self):
+        from mtpy.imaging.bokeh_plots.bokeh_plot_base import BokehPlotBase
+
+        obj = BokehPlotBase()
+        assert obj.x_limits is None
+
+    def test_kwargs_set_params(self):
+        from mtpy.imaging.bokeh_plots.bokeh_plot_base import BokehPlotBase
+
+        obj = BokehPlotBase(plot_title="My Plot", marker_size=15)
+        assert obj.plot_title == "My Plot"
+        assert obj.marker_size == 15
+
+    def test_plot_stations_is_subclass(self):
+        pytest.importorskip("bokeh")
+        from mtpy.imaging.bokeh_plots import PlotStations
+        from mtpy.imaging.bokeh_plots.bokeh_plot_base import BokehPlotBase
+
+        assert issubclass(PlotStations, BokehPlotBase)
+
+    def test_plot_stations_not_inheriting_plot_base(self):
+        pytest.importorskip("bokeh")
+        from mtpy.imaging.bokeh_plots import PlotStations
+        from mtpy.imaging.mtplot_tools import PlotBase
+
+        assert not issubclass(PlotStations, PlotBase)
 
 
 class TestPlotStationsBokeh:
@@ -114,3 +183,115 @@ class TestPlotStationsBokeh:
         from mtpy.imaging import PlotStationsBokeh
 
         assert PlotStationsBokeh is not None
+
+
+class TestPlotStationsPanel:
+    """Tests for PlotStations.panel() interactive app."""
+
+    @pytest.fixture(autouse=True)
+    def require_panel(self):
+        pytest.importorskip("panel")
+        pytest.importorskip("bokeh")
+
+    def test_panel_returns_column(self, bokeh_plot_stations_class, station_gdf):
+        import panel as pn
+
+        plotter = bokeh_plot_stations_class(station_gdf, show_plot=False, plot_cx=False)
+        result = plotter.panel()
+
+        assert isinstance(result, pn.Column)
+
+    def test_panel_has_row_of_controls(self, bokeh_plot_stations_class, station_gdf):
+        import panel as pn
+
+        plotter = bokeh_plot_stations_class(station_gdf, show_plot=False, plot_cx=False)
+        result = plotter.panel()
+
+        # First child should be a Row containing the two control columns
+        assert len(result) >= 2
+        controls = result[0]
+        assert isinstance(controls, pn.Row)
+
+    def test_panel_contains_title_widget(self, bokeh_plot_stations_class, station_gdf):
+        import panel as pn
+
+        plotter = bokeh_plot_stations_class(station_gdf, show_plot=False, plot_cx=False)
+        result = plotter.panel()
+
+        def _find_widgets(obj, widget_type):
+            found = []
+            if isinstance(obj, widget_type):
+                found.append(obj)
+            if hasattr(obj, "objects"):
+                for child in obj.objects:
+                    found.extend(_find_widgets(child, widget_type))
+            return found
+
+        text_inputs = _find_widgets(result, pn.widgets.TextInput)
+        assert len(text_inputs) >= 1
+        assert any(w.name == "Title" for w in text_inputs)
+
+    def test_panel_contains_marker_color_picker(
+        self, bokeh_plot_stations_class, station_gdf
+    ):
+        import panel as pn
+
+        plotter = bokeh_plot_stations_class(station_gdf, show_plot=False, plot_cx=False)
+        result = plotter.panel()
+
+        def _find_widgets(obj, widget_type):
+            found = []
+            if isinstance(obj, widget_type):
+                found.append(obj)
+            if hasattr(obj, "objects"):
+                for child in obj.objects:
+                    found.extend(_find_widgets(child, widget_type))
+            return found
+
+        color_pickers = _find_widgets(result, pn.widgets.ColorPicker)
+        assert len(color_pickers) >= 1
+
+    def test_panel_contains_refresh_button(
+        self, bokeh_plot_stations_class, station_gdf
+    ):
+        import panel as pn
+
+        plotter = bokeh_plot_stations_class(station_gdf, show_plot=False, plot_cx=False)
+        result = plotter.panel()
+
+        def _find_widgets(obj, widget_type):
+            found = []
+            if isinstance(obj, widget_type):
+                found.append(obj)
+            if hasattr(obj, "objects"):
+                for child in obj.objects:
+                    found.extend(_find_widgets(child, widget_type))
+            return found
+
+        buttons = _find_widgets(result, pn.widgets.Button)
+        assert any("Refresh" in (b.name or "") for b in buttons)
+
+    def test_panel_renders_initial_plot(self, bokeh_plot_stations_class, station_gdf):
+        """panel() should render a plot immediately (pane.object is set)."""
+        import panel as pn
+
+        plotter = bokeh_plot_stations_class(station_gdf, show_plot=False, plot_cx=False)
+        result = plotter.panel()
+
+        # Last object should be the plot pane with a figure already set
+        plot_pane = result[-1]
+        assert isinstance(plot_pane, pn.pane.Bokeh)
+        assert plot_pane.object is not None
+
+    def test_panel_plot_updates_on_title_change(
+        self, bokeh_plot_stations_class, station_gdf
+    ):
+        """After panel() is returned, changing title param should be reflected
+        on next explicit refresh.  Here we test by directly calling plot()."""
+
+        plotter = bokeh_plot_stations_class(station_gdf, show_plot=False, plot_cx=False)
+        plotter.panel()  # renders initial plot
+
+        plotter.plot_title = "Updated Title"
+        fig = plotter.plot(show=False)
+        assert fig.title.text == "Updated Title"
