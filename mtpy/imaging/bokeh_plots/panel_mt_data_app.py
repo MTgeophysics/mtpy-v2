@@ -422,9 +422,11 @@ class MTDataApp(param.Parameterized):
         editable_cols = {"latitude", "longitude", "elevation", "survey"}
         if event.new:
             self._station_table.editors = {
-                col: "number"
-                if col in {"latitude", "longitude", "elevation"}
-                else "input"
+                col: (
+                    "number"
+                    if col in {"latitude", "longitude", "elevation"}
+                    else "input"
+                )
                 for col in _STATION_TABLE_COLUMNS
                 if col in editable_cols
             }
