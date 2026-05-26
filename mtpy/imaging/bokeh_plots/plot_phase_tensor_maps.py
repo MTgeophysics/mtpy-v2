@@ -110,6 +110,7 @@ class PlotPhaseTensorMaps(BokehPlotBase):
         default=(-10.0, 10.0), doc="Edge color range (min, max)"
     )
     edge_lw = param.Number(default=1.5, bounds=(0, 10), doc="Ellipse edge line width")
+    edge_cmap = param.String(default="turbo", doc="Ellipse edge color palette")
 
     # ── wedge-specific ───────────────────────────────────────────────────────
     wedge_width = param.Number(
@@ -664,7 +665,7 @@ class PlotPhaseTensorMaps(BokehPlotBase):
                     edge_value,
                     self.edge_range[0],
                     self.edge_range[1],
-                    self.ellipse_cmap,
+                    self.edge_cmap,
                 )
 
                 self.fig.ellipse(
@@ -991,9 +992,9 @@ class PlotPhaseTensorMaps(BokehPlotBase):
         return self.layout
 
     def _add_colorbar_edge(self):
-        """Add a right-side colorbar for ellipse edge color."""
+        """Add a left-side colorbar for ellipse edge color."""
         mapper = LinearColorMapper(
-            palette=self._palette_from_name(self.ellipse_cmap),
+            palette=self._palette_from_name(self.edge_cmap),
             low=self.edge_range[0],
             high=self.edge_range[1],
         )
@@ -1064,6 +1065,12 @@ class PlotPhaseTensorMaps(BokehPlotBase):
         w_plot_station = pn.widgets.Checkbox(
             name="Station labels", value=self.plot_station
         )
+        w_x_pad = pn.widgets.NumberInput(
+            name="X pad", value=float(self.x_pad), step=0.001, width=120
+        )
+        w_y_pad = pn.widgets.NumberInput(
+            name="Y pad", value=float(self.y_pad), step=0.001, width=120
+        )
 
         # ── Phase tensor ──────────────────────────────────────────────────────
         w_pt_type = pn.widgets.Select(
@@ -1129,6 +1136,12 @@ class PlotPhaseTensorMaps(BokehPlotBase):
         w_edge_lw = pn.widgets.NumberInput(
             name="Edge line width", value=float(self.edge_lw), step=0.5, width=120
         )
+        w_edge_cmap = pn.widgets.Select(
+            name="Edge palette",
+            value=self.edge_cmap,
+            options=_PALETTE_OPTIONS,
+            width=120,
+        )
 
         def _on_edge_colorby_change(event):
             lo, hi = self._COLORBY_DEFAULTS.get(event.new, (-10, 10))
@@ -1149,6 +1162,18 @@ class PlotPhaseTensorMaps(BokehPlotBase):
         )
         w_arrow_size = pn.widgets.NumberInput(
             name="Arrow size", value=float(self.arrow_size), step=0.001, width=120
+        )
+        w_arrow_head_length = pn.widgets.NumberInput(
+            name="Arrow head length",
+            value=float(self.arrow_head_length),
+            step=0.001,
+            width=140,
+        )
+        w_arrow_head_width = pn.widgets.NumberInput(
+            name="Arrow head width",
+            value=float(self.arrow_head_width),
+            step=0.001,
+            width=140,
         )
         w_arrow_threshold = pn.widgets.NumberInput(
             name="Arrow threshold",
@@ -1195,6 +1220,9 @@ class PlotPhaseTensorMaps(BokehPlotBase):
             self.edge_colorby = w_edge_colorby.value
             self.edge_range = (float(w_edge_min.value), float(w_edge_max.value))
             self.edge_lw = float(w_edge_lw.value)
+            self.edge_cmap = w_edge_cmap.value
+            self.x_pad = float(w_x_pad.value)
+            self.y_pad = float(w_y_pad.value)
             # Tipper mode
             tip_sel = w_tipper.value
             if "Real" in tip_sel and "Imaginary" in tip_sel:
@@ -1206,6 +1234,8 @@ class PlotPhaseTensorMaps(BokehPlotBase):
             else:
                 self.plot_tipper = "n"
             self.arrow_size = float(w_arrow_size.value)
+            self.arrow_head_length = float(w_arrow_head_length.value)
+            self.arrow_head_width = float(w_arrow_head_width.value)
             self.arrow_threshold = float(w_arrow_threshold.value)
             self.arrow_color_real = w_arrow_color_real.value
             self.arrow_color_imag = w_arrow_color_imag.value
@@ -1239,7 +1269,8 @@ class PlotPhaseTensorMaps(BokehPlotBase):
                     w_map_scale,
                     w_tile,
                     w_plot_station,
-                    width=240,
+                    pn.Row(w_x_pad, w_y_pad),
+                    width=260,
                     margin=(0, 16, 0, 0),
                 ),
                 pn.Column(
@@ -1258,6 +1289,7 @@ class PlotPhaseTensorMaps(BokehPlotBase):
                     w_edge_colorby,
                     pn.Row(w_edge_min, w_edge_max),
                     w_edge_lw,
+                    w_edge_cmap,
                     width=240,
                     margin=(0, 16, 0, 0),
                 ),
@@ -1265,11 +1297,12 @@ class PlotPhaseTensorMaps(BokehPlotBase):
                     pn.pane.Markdown("**Tipper**"),
                     w_tipper,
                     w_arrow_size,
+                    pn.Row(w_arrow_head_length, w_arrow_head_width),
                     w_arrow_threshold,
                     w_arrow_color_real,
                     w_arrow_color_imag,
                     w_arrow_dir,
-                    width=240,
+                    width=300,
                 ),
                 align="start",
             ),
