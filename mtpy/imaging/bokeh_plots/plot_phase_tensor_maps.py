@@ -744,27 +744,27 @@ class PlotPhaseTensorMaps(BokehPlotBase):
 
                 for start_deg, end_deg, radius, color in [
                     (
-                        90 - eangle - self.wedge_width,
-                        90 - eangle + self.wedge_width,
-                        esize,
+                        0 - eangle - self.wedge_width,
+                        0 - eangle + self.wedge_width,
+                        2 * esize,
                         major_color,
-                    ),
-                    (
-                        270 - eangle - self.wedge_width,
-                        270 - eangle + self.wedge_width,
-                        esize,
-                        major_color,
-                    ),
-                    (
-                        -1 * eangle - self.wedge_width,
-                        -1 * eangle + self.wedge_width,
-                        esize * ratio,
-                        minor_color,
                     ),
                     (
                         180 - eangle - self.wedge_width,
                         180 - eangle + self.wedge_width,
-                        esize * ratio,
+                        2 * esize,
+                        major_color,
+                    ),
+                    (
+                        90 - eangle - self.wedge_width,
+                        90 - eangle + self.wedge_width,
+                        2 * esize * ratio,
+                        minor_color,
+                    ),
+                    (
+                        270 - eangle - self.wedge_width,
+                        270 - eangle + self.wedge_width,
+                        2 * esize * ratio,
                         minor_color,
                     ),
                 ]:
@@ -801,10 +801,11 @@ class PlotPhaseTensorMaps(BokehPlotBase):
         )
 
     def _add_colorbar_wedges(self):
+        phase_lo, phase_hi = (self.phase_limits or (0, 90))[:2]
         phase_mapper = LinearColorMapper(
             palette=self._palette_from_name(self.ellipse_cmap),
-            low=self.phase_limits[0],
-            high=self.phase_limits[1],
+            low=phase_lo,
+            high=phase_hi,
         )
         self.fig.add_layout(
             ColorBar(
