@@ -136,7 +136,9 @@ class PlotPhaseTensorMaps(BokehPlotBase):
 
     # ── station labels ────────────────────────────────────────────────────────
     plot_station = param.Boolean(default=False, doc="Annotate station positions")
-    station_id = param.Parameter(default=(0, 2), doc="Station name slice (start, stop)")
+    station_id = param.Parameter(
+        default=(0, None), doc="Station name slice (start, stop)"
+    )
     station_pad = param.Parameter(default=0.0005, doc="Vertical label offset")
 
     # ── pre-interpolation cache ───────────────────────────────────────────────
@@ -504,7 +506,39 @@ class PlotPhaseTensorMaps(BokehPlotBase):
         self.fig.xaxis.axis_label = self.x_label
         self.fig.yaxis.axis_label = self.y_label
 
+    @staticmethod
+    def _lonlat_to_webmercator(lon, lat):
+        """Convert lon/lat degrees to Web Mercator (EPSG:3857) metres.
+
+        Parameters
+        ----------
+        lon, lat : float
+            Geographic coordinates in decimal degrees.
+
+        Returns
+        -------
+        x, y : float
+            Web Mercator easting/northing in metres.
+        """
+        R = 6378137.0  # WGS-84 equatorial radius in metres
+        x = np.radians(lon) * R
+        y = (
+            np.log(np.tan(np.pi / 4.0 + np.radians(np.clip(lat, -85.0, 85.0)) / 2.0))
+            * R
+        )
+        return x, y
+
     def _get_location(self, tf):
+        if getattr(self, "_use_mercator", False):
+            # Project lon/lat to Web Mercator (EPSG:3857).
+            x, y = self._lonlat_to_webmercator(tf.longitude, tf.latitude)
+            if tuple(self.reference_point) != (0, 0):
+                rx, ry = self._lonlat_to_webmercator(
+                    self.reference_point[0], self.reference_point[1]
+                )
+                x -= rx
+                y -= ry
+            return x, y
         if self.map_scale == "deg":
             plot_x = tf.longitude - self.reference_point[0]
             plot_y = tf.latitude - self.reference_point[1]
@@ -522,18 +556,20 @@ class PlotPhaseTensorMaps(BokehPlotBase):
     def _get_tipper_patch(self, plot_x, plot_y, t_obj):
         has_tipper = False
         if t_obj is not None and "y" in self.plot_tipper:
+            merc = getattr(self, "_merc_size_scale", 1.0)
+            arrow_size = self.arrow_size * merc
             if "r" in self.plot_tipper and t_obj.mag_real[0] <= self.arrow_threshold:
                 has_tipper = True
                 txr = (
                     t_obj.mag_real[0]
-                    * self.arrow_size
+                    * arrow_size
                     * np.sin(
                         np.deg2rad(t_obj.angle_real[0]) + self.arrow_direction * np.pi
                     )
                 )
                 tyr = (
                     t_obj.mag_real[0]
-                    * self.arrow_size
+                    * arrow_size
                     * np.cos(
                         np.deg2rad(t_obj.angle_real[0]) + self.arrow_direction * np.pi
                     )
@@ -558,14 +594,14 @@ class PlotPhaseTensorMaps(BokehPlotBase):
                 has_tipper = True
                 txi = (
                     t_obj.mag_imag[0]
-                    * self.arrow_size
+                    * arrow_size
                     * np.sin(
                         np.deg2rad(t_obj.angle_imag[0]) + self.arrow_direction * np.pi
                     )
                 )
                 tyi = (
                     t_obj.mag_imag[0]
-                    * self.arrow_size
+                    * arrow_size
                     * np.cos(
                         np.deg2rad(t_obj.angle_imag[0]) + self.arrow_direction * np.pi
                     )
@@ -609,7 +645,8 @@ class PlotPhaseTensorMaps(BokehPlotBase):
             if phimax == 0 or phimax > 100 or phimin == 0 or phimin > 100:
                 has_ellipse = False
             else:
-                scaling = self.ellipse_size / phimax
+                merc = getattr(self, "_merc_size_scale", 1.0)
+                scaling = (self.ellipse_size * merc) / phimax
                 eheight = phimin * scaling
                 ewidth = phimax * scaling
 
@@ -688,11 +725,13 @@ class PlotPhaseTensorMaps(BokehPlotBase):
                 )
 
                 ratio = max(phimin / phimax, 1e-6)
+                merc = getattr(self, "_merc_size_scale", 1.0)
+                esize = self.ellipse_size * merc
                 self.fig.ellipse(
                     x=[plot_x],
                     y=[plot_y],
-                    width=[2 * self.ellipse_size],
-                    height=[2 * self.ellipse_size * ratio],
+                    width=[2 * esize],
+                    height=[2 * esize * ratio],
                     angle=[np.deg2rad(90 - eangle)],
                     fill_color=gm_color,
                     fill_alpha=self.ellipse_alpha,
@@ -704,25 +743,25 @@ class PlotPhaseTensorMaps(BokehPlotBase):
                     (
                         90 - eangle - self.wedge_width,
                         90 - eangle + self.wedge_width,
-                        self.ellipse_size,
+                        esize,
                         major_color,
                     ),
                     (
                         270 - eangle - self.wedge_width,
                         270 - eangle + self.wedge_width,
-                        self.ellipse_size,
+                        esize,
                         major_color,
                     ),
                     (
                         -1 * eangle - self.wedge_width,
                         -1 * eangle + self.wedge_width,
-                        self.ellipse_size * ratio,
+                        esize * ratio,
                         minor_color,
                     ),
                     (
                         180 - eangle - self.wedge_width,
                         180 - eangle + self.wedge_width,
-                        self.ellipse_size * ratio,
+                        esize * ratio,
                         minor_color,
                     ),
                 ]:
@@ -848,7 +887,18 @@ class PlotPhaseTensorMaps(BokehPlotBase):
         del raster_file
         del raster_kwargs
 
-        self.fig = figure(
+        self._use_mercator = (
+            bool(self.bokeh_tile_provider)
+            and self.bokeh_tile_provider != "None"
+            and self.map_scale == "deg"
+        )
+
+        # When projecting to Web Mercator, scale degree-sized glyphs to metres.
+        # 1 degree latitude ≈ 111 320 m; use that as the base scale factor.
+        # A more accurate factor accounts for the latitude of the dataset.
+        self._merc_size_scale = 111320.0 if self._use_mercator else 1.0
+
+        fig_kwargs = dict(
             title="",
             width=900,
             height=700,
@@ -856,6 +906,11 @@ class PlotPhaseTensorMaps(BokehPlotBase):
             active_scroll="wheel_zoom",
             match_aspect=True,
         )
+        if self._use_mercator:
+            fig_kwargs["x_axis_type"] = "mercator"
+            fig_kwargs["y_axis_type"] = "mercator"
+
+        self.fig = figure(**fig_kwargs)
 
         # Optionally add a tile basemap.
         if self.bokeh_tile_provider and self.bokeh_tile_provider != "None":
@@ -884,7 +939,7 @@ class PlotPhaseTensorMaps(BokehPlotBase):
             if self.plot_station and (plot_x != 0 or plot_y != 0):
                 self.fig.text(
                     x=[plot_x],
-                    y=[plot_y + self.station_pad],
+                    y=[plot_y + self.station_pad * self._merc_size_scale],
                     text=[tf.station[self.station_id[0] : self.station_id[1]]],
                     text_align="center",
                     text_baseline="bottom",
@@ -901,12 +956,12 @@ class PlotPhaseTensorMaps(BokehPlotBase):
             non_zero_y = np.array([0.0])
 
         self.fig.x_range = Range1d(
-            start=float(non_zero_x.min() - self.x_pad),
-            end=float(non_zero_x.max() + self.x_pad),
+            start=float(non_zero_x.min() - self.x_pad * self._merc_size_scale),
+            end=float(non_zero_x.max() + self.x_pad * self._merc_size_scale),
         )
         self.fig.y_range = Range1d(
-            start=float(non_zero_y.min() - self.y_pad),
-            end=float(non_zero_y.max() + self.y_pad),
+            start=float(non_zero_y.min() - self.y_pad * self._merc_size_scale),
+            end=float(non_zero_y.max() + self.y_pad * self._merc_size_scale),
         )
 
         titlefreq = f"{self.plot_period:.5g} (s)"
@@ -1109,9 +1164,11 @@ class PlotPhaseTensorMaps(BokehPlotBase):
         )
         w_arrow_dir = pn.widgets.Select(
             name="Arrow direction",
-            value="Parkinson (toward)"
-            if self.arrow_direction == 1
-            else "Away from conductor",
+            value=(
+                "Parkinson (toward)"
+                if self.arrow_direction == 1
+                else "Away from conductor"
+            ),
             options=["Parkinson (toward)", "Away from conductor"],
             width=180,
         )
