@@ -40,6 +40,7 @@ from mth5.helpers import close_open_files, validate_name
 from mtpy import MT, MTCollection
 from mtpy.core import MTData
 
+
 # =============================================================================
 # Test MTCollection basic functionality
 # =============================================================================
@@ -332,6 +333,47 @@ class TestMTCollectionFromMTData03:
         for station_path in mt_data_obj._iter_station_paths():
             station_ds = mt_data_obj.get_station(station_path)
             assert station_ds.attrs["coordinate_reference_frame"] == "NED"
+
+
+@pytest.mark.slow
+def test_repeated_open_close_does_not_bloat_collection_file(
+    cleanup_test_collection_files,
+):
+    """Repeated read-like open/close cycles should not inflate file size."""
+    import mtpy_data
+
+    temp_dir = Path(tempfile.mkdtemp())
+    test_file = temp_dir / f"test_collection_growth_{uuid.uuid4().hex[:8]}.h5"
+    cleanup_test_collection_files(test_file)
+
+    grid_dir = Path(mtpy_data.__file__).parent / "data" / "grid"
+    edi_files = sorted(grid_dir.glob("*.edi"))[:10]
+    assert len(edi_files) == 10
+
+    mt_data = MTData()
+    mt_data.add_station(edi_files)
+
+    writer = MTCollection()
+    writer.open_collection(test_file)
+    writer.from_mt_data(mt_data, new_survey="test")
+    writer.close_collection()
+
+    initial_size = test_file.stat().st_size
+    final_size = initial_size
+
+    for _ in range(6):
+        with MTCollection() as reader:
+            reader.open_collection(test_file)
+            _ = reader.to_mt_data()
+        final_size = test_file.stat().st_size
+
+    growth = final_size - initial_size
+    allowed_growth = max(4096, int(initial_size * 0.02))
+    assert growth <= allowed_growth, (
+        f"Collection file grew by {growth} bytes after repeated open/close cycles; "
+        f"allowed growth is {allowed_growth} bytes. "
+        f"initial={initial_size}, final={final_size}"
+    )
 
 
 # =============================================================================
