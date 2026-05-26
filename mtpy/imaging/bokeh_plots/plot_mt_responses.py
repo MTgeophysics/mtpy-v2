@@ -817,7 +817,7 @@ class PlotMultipleResponses(BokehPlotBase):
                     }
                 )
 
-                edge_color = base._tuple_to_hex(cxy[ii])
+                edge_color = base._tuple_to_hex(base.xy_color)
                 pt_renderer = pt_fig.ellipse(
                     x="x",
                     y="y",
@@ -1196,6 +1196,50 @@ class PlotMultipleResponses(BokehPlotBase):
             value=self.ellipse_colorby,
             width=160,
         )
+        _COLORBY_DEFAULTS = {
+            "phimin": (0, 90),
+            "phiminang": (0, 90),
+            "phimax": (0, 90),
+            "phimaxang": (0, 90),
+            "phidet": (0, 90),
+            "skew": (-10, 10),
+            "skew_seg": (-10, 10),
+            "normalized_skew": (-0.5, 0.5),
+            "normalized_skew_seg": (-0.5, 0.5),
+            "ellipticity": (0, 1),
+            "strike": (-90, 90),
+            "azimuth": (-90, 90),
+        }
+        _initial_lo, _initial_hi = _COLORBY_DEFAULTS.get(
+            self.ellipse_colorby, (self.ellipse_range[0], self.ellipse_range[1])
+        )
+        pt_min_widget = pn.widgets.NumberInput(
+            name="PT min",
+            value=float(_initial_lo),
+            step=1.0,
+            width=90,
+        )
+        pt_max_widget = pn.widgets.NumberInput(
+            name="PT max",
+            value=float(_initial_hi),
+            step=1.0,
+            width=90,
+        )
+
+        def _on_colorby_change(event):
+            lo, hi = _COLORBY_DEFAULTS.get(event.new, (0, 90))
+            pt_min_widget.value = float(lo)
+            pt_max_widget.value = float(hi)
+
+        colorby_widget.param.watch(_on_colorby_change, "value")
+
+        def _on_preset_change(event):
+            """Sync tipper/PT widgets when 'All' preset is selected."""
+            if event.new == "All":
+                tipper_widget.value = ["Real", "Imaginary"]
+                plot_pt_widget.value = True
+
+        plot_num_widget.param.watch(_on_preset_change, "value")
 
         # ── Per-station compare styling ────────────────────────────────────────
         _DEFAULT_COLORS = [
@@ -1270,12 +1314,7 @@ class PlotMultipleResponses(BokehPlotBase):
 
             _pt_val = plot_pt_widget.value
             _colorby_val = colorby_widget.value
-
-            # "All" always enables full tensor + tipper + PT regardless of
-            # individual widget state.
-            if plot_all:
-                _tip_val = "yri"
-                _pt_val = True
+            _ellipse_range = (pt_min_widget.value, pt_max_widget.value, 10)
 
             status.object = f"⏳ Generating **{style}** for {len(selected)} station(s)…"
             status.styles = {"color": "#555"}
@@ -1291,6 +1330,7 @@ class PlotMultipleResponses(BokehPlotBase):
                         plotter.plot_tipper = _tip_val
                         plotter.plot_pt = _pt_val
                         plotter.ellipse_colorby = _colorby_val
+                        plotter.ellipse_range = _ellipse_range
                         plotter.show_plot = False
                         # Use the full station label as the panel title.
                         plotter.station = label
@@ -1349,6 +1389,7 @@ class PlotMultipleResponses(BokehPlotBase):
                     cmp.plot_tipper = _tip_val
                     cmp.plot_pt = _pt_val
                     cmp.ellipse_colorby = _colorby_val
+                    cmp.ellipse_range = _ellipse_range
 
                     # Collect styling from per-station widgets.
                     cmp.custom_station_styles = {
@@ -1392,6 +1433,7 @@ class PlotMultipleResponses(BokehPlotBase):
                         pn.Column(
                             plot_pt_widget,
                             colorby_widget,
+                            pn.Row(pt_min_widget, pt_max_widget),
                         ),
                     ),
                     pn.Row(generate_btn),
