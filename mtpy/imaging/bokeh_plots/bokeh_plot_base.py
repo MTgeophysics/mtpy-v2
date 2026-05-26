@@ -202,7 +202,7 @@ class BokehPlotBase(param.Parameterized):
 
     # ── phase-tensor ellipses ─────────────────────────────────────────────────
     ellipse_size = param.Number(
-        default=2.0, bounds=(0.01, 100), doc="Ellipse size in data units"
+        default=2.0, bounds=(0.0001, None), doc="Ellipse size in data units"
     )
     ellipse_range = param.Parameter(
         default=(0, 90, 10), doc="Ellipse color range (min, max, step)"
