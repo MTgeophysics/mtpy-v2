@@ -690,6 +690,8 @@ class PlotPhaseTensorMaps(BokehPlotBase):
         plot_x, plot_y = self._get_location(tf)
         has_ellipse = False
 
+        phase_lo, phase_hi = (self.phase_limits or (0, 90))[:2]
+
         if pt_obj is not None and self.plot_pt:
             phimin = float(np.nan_to_num(pt_obj.phimin)[0])
             phimax = float(np.nan_to_num(pt_obj.phimax)[0])
@@ -701,21 +703,21 @@ class PlotPhaseTensorMaps(BokehPlotBase):
 
                 major_color = self._scalar_to_color(
                     phimax,
-                    self.phase_limits[0],
-                    self.phase_limits[1],
+                    phase_lo,
+                    phase_hi,
                     self.ellipse_cmap,
                 )
                 minor_color = self._scalar_to_color(
                     phimin,
-                    self.phase_limits[0],
-                    self.phase_limits[1],
+                    phase_lo,
+                    phase_hi,
                     self.ellipse_cmap,
                 )
                 gm = np.sqrt(abs(phimin) * abs(phimax))
                 gm_color = self._scalar_to_color(
                     gm,
-                    self.phase_limits[0],
-                    self.phase_limits[1],
+                    phase_lo,
+                    phase_hi,
                     self.ellipse_cmap,
                 )
                 skew_color = self._scalar_to_color(
