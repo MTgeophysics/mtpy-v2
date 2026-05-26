@@ -1085,6 +1085,15 @@ class PlotPhaseTensorMaps(BokehPlotBase):
             step=0.001,
             width=130,
         )
+
+        def _on_ellipse_size_change(event):
+            new_size = float(event.new)
+            if float(w_x_pad.value) < new_size:
+                w_x_pad.value = new_size
+            if float(w_y_pad.value) < new_size:
+                w_y_pad.value = new_size
+
+        w_ellipse_size.param.watch(_on_ellipse_size_change, "value")
         w_ellipse_alpha = pn.widgets.FloatSlider(
             name="Fill alpha", value=self.ellipse_alpha, start=0.0, end=1.0, step=0.05
         )
