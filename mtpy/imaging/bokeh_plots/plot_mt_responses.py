@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from mtpy.imaging.bokeh_plots.bokeh_plot_base import BokehPlotBase
 from mtpy.imaging.bokeh_plots.plot_mt_response import PlotMTResponse
-from mtpy.imaging.mtplot_tools import PlotBase
 
 
 try:
@@ -45,55 +45,71 @@ except ImportError:  # pragma: no cover - optional dependency
     linear_cmap = None
 
 
-class PlotMultipleResponses(PlotBase):
+class PlotMultipleResponses(BokehPlotBase):
     """Plot multiple MT responses using Bokeh layouts.
 
     Parameters
     ----------
     mt_data : object
         Container holding MT objects. Supports either:
-        - objects exposing `values()` with MT objects as values
-        - MTData-like objects exposing `_iter_station_paths()` and `get_station()`
+        - objects exposing ``values()`` with MT objects as values
+        - MTData-like objects exposing ``_iter_station_paths()`` and
+          ``get_station()``
 
     Notes
     -----
-    `plot_style` options mirror matplotlib behavior:
-    - "1" or "single": one plot per station (returned as dict)
-    - "all": full response per station arranged side-by-side
-    - "compare": component rows arranged by station for visual comparison
+    ``plot_style`` options:
+
+    - ``"1"`` or ``"single"``: one plot per station (returned as dict)
+    - ``"all"``: full response per station arranged side-by-side
+    - ``"compare"``: component rows arranged by station for visual comparison
     """
 
     def __init__(self, mt_data, **kwargs):
-        self.plot_num = 1
-        self.plot_style = "1"
         self.mt_data = mt_data
-        self.include_survey = True
-        self.compare_mode = "overlay"
-        self.compare_legend_mode = "station"
-        self.compare_compact_legend = True
-        self.compare_legend_max_items = 16
-        self.compare_legend_font_size = 8
+
+        # Multi-station layout options (plain attrs, not param-managed).
+        self.plot_style = kwargs.pop("plot_style", "1")
+        self.plot_num = kwargs.pop("plot_num", 1)
+        self.include_survey = kwargs.pop("include_survey", True)
+        self.compare_mode = kwargs.pop("compare_mode", "overlay")
+        self.compare_legend_mode = kwargs.pop("compare_legend_mode", "station")
+        self.compare_compact_legend = kwargs.pop("compare_compact_legend", True)
+        self.compare_legend_max_items = kwargs.pop("compare_legend_max_items", 16)
+        self.compare_legend_font_size = kwargs.pop("compare_legend_font_size", 8)
 
         self.layout = None
         self.layouts = {}
+        self.plotters = {}
 
-        super().__init__(**kwargs)
+        # Per-station style overrides populated by panel() in compare mode.
+        # Maps station_label -> {"color": hex_str, "marker": marker_str}.
+        self.custom_station_styles: dict = {}
 
-        self.plot_dict = {
-            "tip": self.plot_tipper,
-            "pt": self.plot_pt,
-            "strike": self.plot_strike,
-            "skew": self.plot_skew,
-        }
+        # Rotation angle backing; applied to all MT objects when set.
+        self._rotation_angle = 0
 
-        self.plot_model_error = None
+        # model_error flag — set before super() so the property setter works.
+        self._plot_model_error = False
+        self._error_str = "error"
+
+        # param.Parameterized raises TypeError for unknown kwargs; filter them.
+        param_names = set(type(self).param)
+        param_kwargs = {k: v for k, v in kwargs.items() if k in param_names}
+        other_kwargs = {k: v for k, v in kwargs.items() if k not in param_names}
+
+        super().__init__(**param_kwargs)
+
+        # Apply any remaining kwargs as plain attributes.
+        for key, value in other_kwargs.items():
+            setattr(self, key, value)
 
         if self.show_plot:
             self.plot()
 
     @property
     def rotation_angle(self):
-        """Rotation angle."""
+        """Rotation angle applied to all MT objects in the collection."""
         return self._rotation_angle
 
     @rotation_angle.setter
@@ -108,17 +124,17 @@ class PlotMultipleResponses(PlotBase):
 
     @property
     def plot_model_error(self):
-        """Plot model error flag."""
+        """Plot model error instead of data error."""
         return self._plot_model_error
 
     @plot_model_error.setter
     def plot_model_error(self, value):
-        """Set model/data error mode."""
+        """Toggle model/data error mode."""
         if value:
             self._error_str = "model_error"
         else:
             self._error_str = "error"
-        self._plot_model_error = value
+        self._plot_model_error = bool(value) if value is not None else False
 
     def _require_bokeh(self):
         if Column is None or Row is None or Div is None:
@@ -259,19 +275,57 @@ class PlotMultipleResponses(PlotBase):
         return self.layout
 
     def _set_compare_legends(self, figures):
-        """Apply compare legend formatting with optional compaction."""
-        for fig in figures:
-            if fig is None or len(fig.legend) == 0:
-                continue
-            legend = fig.legend[0]
+        """Apply compare legend formatting.
+
+        The legend is shown only on the first figure in ``figures``; all other
+        figures have their legends cleared to avoid repetition (station colours
+        and markers are the same across every panel).
+        """
+        if not figures:
+            return
+
+        # Format the legend on the first (top-left) figure only.
+        legend_fig = figures[0]
+        if legend_fig is not None and len(legend_fig.legend) > 0:
+            legend = legend_fig.legend[0]
             legend.click_policy = "hide"
             legend.location = "bottom_left"
             legend.label_text_font_size = f"{self.compare_legend_font_size}px"
-            if (
-                self.compare_compact_legend
-                and len(legend.items) > self.compare_legend_max_items
-            ):
-                legend.items = legend.items[: self.compare_legend_max_items]
+
+            # Deduplicate: keep one entry per station (strip _component suffix).
+            # Bokeh 3.x StringSpec: bare string → Field ref ("Invalid field").
+            # Use {"value": ...} dict to force a literal Value spec.
+            # Reading: item.label is a Value spec object; extract via .value,
+            # falling back to dict or str for older Bokeh builds.
+            seen: set = set()
+            unique_items = []
+            for item in legend.items:
+                lbl = item.label
+                if hasattr(lbl, "value"):
+                    raw = lbl.value
+                elif isinstance(lbl, dict):
+                    raw = lbl.get("value", "") or lbl.get("field", "")
+                else:
+                    raw = str(lbl)
+                station_key = raw.split("_")[0] if "_" in raw else raw
+                if station_key not in seen:
+                    seen.add(station_key)
+                    # {"value": ...} is the StringSpec literal form; a bare
+                    # string would be treated as a field reference by Bokeh.
+                    item.label = {"value": station_key}
+                    unique_items.append(item)
+
+            if self.compare_compact_legend:
+                unique_items = unique_items[: self.compare_legend_max_items]
+            legend.items = unique_items
+
+        # Clear legends from all other figures.
+        for fig in figures[1:]:
+            if fig is None or len(fig.legend) == 0:
+                continue
+            for leg in fig.legend:
+                leg.items = []
+            fig.legend.visible = False
 
     def _compare_legend_label(self, station, component):
         """Return compare legend label based on configured mode."""
@@ -290,44 +344,100 @@ class PlotMultipleResponses(PlotBase):
             raise ValueError("No MT objects available to compare.")
 
         # Match matplotlib compare color progression (dark to light).
-        cxy = [(0, float(cc) / ns, 1 - float(cc) / ns) for cc in range(ns)]
-        cyx = [(1, float(cc) / ns, 0) for cc in range(ns)]
-        cdet = [(0, 1 - float(cc) / ns, 0) for cc in range(ns)]
-        ctipr = [(0.75 * cc / ns, 0.75 * cc / ns, 0.75 * cc / ns) for cc in range(ns)]
-        ctipi = [(float(cc) / ns, 1 - float(cc) / ns, 0.25) for cc in range(ns)]
+        # Convert RGB tuples to hex so they satisfy param.Color validation on
+        # BokehPlotBase (which requires CSS colour strings).
+        _to_hex = PlotMTResponse._tuple_to_hex
+        cxy = [_to_hex((0, float(cc) / ns, 1 - float(cc) / ns)) for cc in range(ns)]
+        cyx = [_to_hex((1, float(cc) / ns, 0)) for cc in range(ns)]
+        cdet = [_to_hex((0, 1 - float(cc) / ns, 0)) for cc in range(ns)]
 
-        mxy = ["s", "d", "x", "+", "asterisk", "triangle", "inverted_triangle"]
-        myx = ["o", "h", "8", "p", "H", "triangle", "diamond"]
+        mxy = ["s", "d", "+", "x", "^", "*", "v", "o"]
+        myx = ["o", "v", "^", "*", "+", "x", "s", "d"]
 
         base = self._make_station_plotter(mt_objects[0], x_limits=x_limits)
         base._require_bokeh()
         base.renderers = {}
 
-        n_columns = 2 if self.plot_num in [1, 2] else 1
-        panel_width = 800 * n_columns
-
+        # Mirror PlotMTResponse sizing: 600px per column for two-column layouts.
         if self.plot_num in [1, 2]:
-            res_fig_xy = base._make_resistivity_figure()
-            res_fig_yx = base._make_resistivity_figure(x_range=res_fig_xy.x_range)
-            phase_fig_xy = base._make_phase_figure(res_fig_xy.x_range)
-            phase_fig_yx = base._make_phase_figure(res_fig_xy.x_range)
+            fig_w = 600
+            aux_width = fig_w * 2
         else:
-            res_fig_xy = base._make_resistivity_figure()
-            res_fig_yx = None
-            phase_fig_xy = base._make_phase_figure(res_fig_xy.x_range)
-            phase_fig_yx = None
+            fig_w = 800
+            aux_width = 800
+        panel_width = aux_width
 
-        tip_fig = None
-        tip_min = np.inf
-        tip_max = -np.inf
-        if self.plot_tipper.find("y") >= 0:
-            tip_fig = base._make_tipper_figure(width=panel_width)
+        # Create figures — plot_num=2 uses a 2×2 tensor grid [[xx,xy],[yx,yy]].
+        if self.plot_num == 1:
+            res_fig_xy = base._make_resistivity_figure(width=fig_w)
+            res_fig_yx = base._make_resistivity_figure(
+                x_range=res_fig_xy.x_range, width=fig_w
+            )
+            phase_fig_xy = base._make_phase_figure(res_fig_xy.x_range, width=fig_w)
+            phase_fig_yx = base._make_phase_figure(res_fig_xy.x_range, width=fig_w)
+
+            for fig, lbl in [
+                (res_fig_xy, "Zxy"),
+                (res_fig_yx, "Zyx"),
+            ]:
+                fig.title = lbl
+        elif self.plot_num == 2:
+            res_fig_xx = base._make_resistivity_figure(width=fig_w)
+            res_fig_xy = base._make_resistivity_figure(
+                x_range=res_fig_xx.x_range, width=fig_w
+            )
+            res_fig_yx = base._make_resistivity_figure(
+                x_range=res_fig_xx.x_range, width=fig_w
+            )
+            res_fig_yy = base._make_resistivity_figure(
+                x_range=res_fig_xx.x_range, width=fig_w
+            )
+            phase_fig_xx = base._make_phase_figure(res_fig_xx.x_range, width=fig_w)
+            phase_fig_xy = base._make_phase_figure(res_fig_xx.x_range, width=fig_w)
+            phase_fig_yx = base._make_phase_figure(res_fig_xx.x_range, width=fig_w)
+            phase_fig_yy = base._make_phase_figure(res_fig_xx.x_range, width=fig_w)
+            # Label each panel with the component name for orientation.
+            for fig, lbl in [
+                (res_fig_xx, "Zxx"),
+                (res_fig_xy, "Zxy"),
+                (res_fig_yx, "Zyx"),
+                (res_fig_yy, "Zyy"),
+            ]:
+                fig.title = lbl
+        else:
+            res_fig_xy = base._make_resistivity_figure(width=fig_w)
+            phase_fig_xy = base._make_phase_figure(res_fig_xy.x_range, width=fig_w)
+
+        # Normalise "y" → "yri" so that both real ("r") and imag ("i") checks
+        # below will pass.  "y" alone means "yes, plot both components".
+        _tipper_mode = self.plot_tipper
+        if _tipper_mode == "y":
+            _tipper_mode = "yri"
+
+        tip_real_fig = None
+        tip_imag_fig = None
+        tip_real_min = np.inf
+        tip_real_max = -np.inf
+        tip_imag_min = np.inf
+        tip_imag_max = -np.inf
+        if _tipper_mode.find("y") >= 0:
+            if "r" in _tipper_mode:
+                tip_real_fig = base._make_tipper_figure(width=aux_width)
+                tip_real_fig.title = "Tipper Real"
+            if "i" in _tipper_mode:
+                x_range_ref = tip_real_fig.x_range if tip_real_fig is not None else None
+                tip_imag_fig = base._make_tipper_figure(width=aux_width)
+                tip_imag_fig.title = "Tipper Imaginary"
+                if x_range_ref is not None:
+                    tip_imag_fig.x_range = x_range_ref
+            # If only imag requested, give it its own range.
+            if tip_real_fig is None and tip_imag_fig is not None:
+                pass  # tip_imag_fig already has its own range
 
         pt_fig = None
-        pt_mapper = None
         pt_spacing = 1.0
         if self.plot_pt:
-            pt_fig = base._make_pt_figure(width=panel_width)
+            pt_fig = base._make_pt_figure(width=aux_width)
             cmin, cmax = self.ellipse_range[0], self.ellipse_range[1]
             pt_mapper = LinearColorMapper(palette=Turbo256, low=cmin, high=cmax)
             pt_fig.add_layout(
@@ -339,8 +449,7 @@ class PlotMultipleResponses(PlotBase):
                 ),
                 "right",
             )
-
-            fig_width = pt_fig.width if pt_fig.width else panel_width
+            fig_width = pt_fig.width if pt_fig.width else aux_width
             fig_height = pt_fig.height if pt_fig.height else 240
             x_log_range = np.log10(x_limits[1]) - np.log10(x_limits[0])
             pt_ylim = 1.5 * self.ellipse_size
@@ -359,6 +468,19 @@ class PlotMultipleResponses(PlotBase):
             base.det_color = cdet[ii]
             base.xy_marker = mxy[ii % len(mxy)]
             base.yx_marker = myx[ii % len(myx)]
+
+            # Apply per-station overrides from panel() styling widgets.
+            _custom = self.custom_station_styles.get(station, {})
+            if _custom:
+                _color = _custom.get("color")
+                _marker = _custom.get("marker")
+                if _color:
+                    base.xy_color = _color
+                    base.yx_color = _color
+                    base.det_color = _color
+                if _marker:
+                    base.xy_marker = _marker
+                    base.yx_marker = _marker
 
             period = np.asarray(mt_obj.period, dtype=float)
 
@@ -411,25 +533,34 @@ class PlotMultipleResponses(PlotBase):
                 phase_limits_list.append(
                     base.set_phase_limits(mt_obj.Z.phase, mode="od")
                 )
+
             elif self.plot_num == 2:
+                # Each component occupies its own figure in the 2×2 grid.
+                src_xx_res = base._component_source(period, mt_obj.Z, "xx", kind="res")
                 src_xy_res = base._component_source(period, mt_obj.Z, "xy", kind="res")
                 src_yx_res = base._component_source(period, mt_obj.Z, "yx", kind="res")
+                src_yy_res = base._component_source(period, mt_obj.Z, "yy", kind="res")
+                src_xx_phase = base._component_source(
+                    period, mt_obj.Z, "xx", kind="phase"
+                )
                 src_xy_phase = base._component_source(
                     period, mt_obj.Z, "xy", kind="phase"
                 )
                 src_yx_phase = base._component_source(
                     period, mt_obj.Z, "yx", kind="phase", yx_shift=True
                 )
-
-                src_xx_res = base._component_source(period, mt_obj.Z, "xx", kind="res")
-                src_yy_res = base._component_source(period, mt_obj.Z, "yy", kind="res")
-                src_xx_phase = base._component_source(
-                    period, mt_obj.Z, "xx", kind="phase"
-                )
                 src_yy_phase = base._component_source(
                     period, mt_obj.Z, "yy", kind="phase"
                 )
 
+                base._add_component(
+                    res_fig_xx,
+                    src_xx_res,
+                    self._compare_legend_label(station, "Zxx"),
+                    base.xy_color,
+                    base.xy_marker,
+                    f"xx_{ii}",
+                )
                 base._add_component(
                     res_fig_xy,
                     src_xy_res,
@@ -439,12 +570,28 @@ class PlotMultipleResponses(PlotBase):
                     f"xy_{ii}",
                 )
                 base._add_component(
-                    res_fig_xy,
+                    res_fig_yx,
                     src_yx_res,
                     self._compare_legend_label(station, "Zyx"),
                     base.yx_color,
                     base.yx_marker,
                     f"yx_{ii}",
+                )
+                base._add_component(
+                    res_fig_yy,
+                    src_yy_res,
+                    self._compare_legend_label(station, "Zyy"),
+                    base.yx_color,
+                    base.yx_marker,
+                    f"yy_{ii}",
+                )
+                base._add_component(
+                    phase_fig_xx,
+                    src_xx_phase,
+                    self._compare_legend_label(station, "Zxx"),
+                    base.xy_color,
+                    base.xy_marker,
+                    f"xx_p_{ii}",
                 )
                 base._add_component(
                     phase_fig_xy,
@@ -455,40 +602,15 @@ class PlotMultipleResponses(PlotBase):
                     f"xy_p_{ii}",
                 )
                 base._add_component(
-                    phase_fig_xy,
+                    phase_fig_yx,
                     src_yx_phase,
                     self._compare_legend_label(station, "Zyx"),
                     base.yx_color,
                     base.yx_marker,
                     f"yx_p_{ii}",
                 )
-
                 base._add_component(
-                    res_fig_yx,
-                    src_xx_res,
-                    self._compare_legend_label(station, "Zxx"),
-                    base.xy_color,
-                    base.xy_marker,
-                    f"xx_{ii}",
-                )
-                base._add_component(
-                    res_fig_yx,
-                    src_yy_res,
-                    self._compare_legend_label(station, "Zyy"),
-                    base.yx_color,
-                    base.yx_marker,
-                    f"yy_{ii}",
-                )
-                base._add_component(
-                    phase_fig_yx,
-                    src_xx_phase,
-                    self._compare_legend_label(station, "Zxx"),
-                    base.xy_color,
-                    base.xy_marker,
-                    f"xx_p_{ii}",
-                )
-                base._add_component(
-                    phase_fig_yx,
+                    phase_fig_yy,
                     src_yy_phase,
                     self._compare_legend_label(station, "Zyy"),
                     base.yx_color,
@@ -528,6 +650,7 @@ class PlotMultipleResponses(PlotBase):
                     phase_limits_list.append(phase_od_limits)
                 elif phase_d_limits is not None:
                     phase_limits_list.append(phase_d_limits)
+
             else:
                 src_det_res = base._component_source(
                     period, mt_obj.Z, "det", kind="res"
@@ -560,82 +683,96 @@ class PlotMultipleResponses(PlotBase):
                     base.set_phase_limits(mt_obj.Z.phase, mode="det")
                 )
 
-            if tip_fig is not None and mt_obj.Tipper is not None:
-                base.Tipper = mt_obj.Tipper
-                base.arrow_color_real = ctipr[ii]
-                base.arrow_color_imag = ctipi[ii]
-
-                vectors = base._tipper_vectors()
-                if vectors["x0"].size > 0:
-                    tip_min = min(tip_min, np.nanmin([vectors["yr"], vectors["yi"]]))
-                    tip_max = max(tip_max, np.nanmax([vectors["yr"], vectors["yi"]]))
-
-                    source = ColumnDataSource(
+            if (
+                tip_real_fig is not None or tip_imag_fig is not None
+            ) and mt_obj.Tipper is not None:
+                period_t = np.asarray(1.0 / mt_obj.Tipper.frequency, dtype=float)
+                mag_real = np.asarray(mt_obj.Tipper.mag_real, dtype=float)
+                mag_imag = np.asarray(mt_obj.Tipper.mag_imag, dtype=float)
+                log_p = np.log10(period_t)
+                valid = (
+                    np.isfinite(log_p)
+                    & (period_t > 0)
+                    & np.isfinite(mag_real)
+                    & np.isfinite(mag_imag)
+                )
+                if np.any(valid):
+                    station_color = base._tuple_to_hex(base.xy_color)
+                    station_marker = base.xy_marker
+                    src_real = ColumnDataSource(
                         data={
-                            "x0": vectors["x0"],
-                            "y0": vectors["y0"],
-                            "xr": vectors["xr"],
-                            "yr": vectors["yr"],
-                            "xi": vectors["xi"],
-                            "yi": vectors["yi"],
-                            "station": [station] * len(vectors["x0"]),
+                            "period": log_p[valid],
+                            "value": mag_real[valid],
+                            "station": [station] * int(np.count_nonzero(valid)),
+                        }
+                    )
+                    src_imag = ColumnDataSource(
+                        data={
+                            "period": log_p[valid],
+                            "value": mag_imag[valid],
+                            "station": [station] * int(np.count_nonzero(valid)),
                         }
                     )
 
-                    real_color = base._tuple_to_hex(base.arrow_color_real)
-                    imag_color = base._tuple_to_hex(base.arrow_color_imag)
-
-                    if "r" in self.plot_tipper:
-                        tip_fig.add_layout(
-                            Arrow(
-                                end=NormalHead(
-                                    size=8,
-                                    fill_color=real_color,
-                                    line_color=real_color,
-                                ),
-                                source=source,
-                                x_start="x0",
-                                y_start="y0",
-                                x_end="xr",
-                                y_end="yr",
-                                line_color=real_color,
-                                line_width=max(self.arrow_lw * 2, 1),
-                            )
+                    if tip_real_fig is not None:
+                        tip_real_max = max(
+                            tip_real_max, float(np.nanmax(mag_real[valid]))
                         )
-                        tip_fig.line(
-                            x=[np.nan],
-                            y=[np.nan],
-                            color=real_color,
-                            line_width=max(self.arrow_lw * 2, 1),
+                        tip_real_min = min(
+                            tip_real_min, float(np.nanmin(mag_real[valid]))
+                        )
+                        tip_real_fig.line(
+                            x="period",
+                            y="value",
+                            source=src_real,
+                            color=station_color,
+                            line_width=max(self.lw, 1),
+                            line_dash="dashed",
+                        )
+                        scatter_m = getattr(
+                            tip_real_fig,
+                            base._marker_name(station_marker),
+                            tip_real_fig.circle,
+                        )
+                        scatter_m(
+                            x="period",
+                            y="value",
+                            source=src_real,
+                            size=max(int(self.marker_size), 4),
+                            color=station_color,
+                            line_color=station_color,
                             legend_label=self._compare_legend_label(
                                 station, "tip real"
                             ),
                         )
 
-                    if "i" in self.plot_tipper:
-                        tip_fig.add_layout(
-                            Arrow(
-                                end=NormalHead(
-                                    size=8,
-                                    fill_color=imag_color,
-                                    line_color=imag_color,
-                                ),
-                                source=source,
-                                x_start="x0",
-                                y_start="y0",
-                                x_end="xi",
-                                y_end="yi",
-                                line_color=imag_color,
-                                line_width=max(self.arrow_lw * 2, 1),
-                                line_dash="dashed",
-                            )
+                    if tip_imag_fig is not None:
+                        tip_imag_max = max(
+                            tip_imag_max, float(np.nanmax(mag_imag[valid]))
                         )
-                        tip_fig.line(
-                            x=[np.nan],
-                            y=[np.nan],
-                            color=imag_color,
+                        tip_imag_min = min(
+                            tip_imag_min, float(np.nanmin(mag_imag[valid]))
+                        )
+                        tip_imag_fig.line(
+                            x="period",
+                            y="value",
+                            source=src_imag,
+                            color=station_color,
+                            line_width=max(self.lw, 1),
                             line_dash="dashed",
-                            line_width=max(self.arrow_lw * 2, 1),
+                        )
+                        scatter_m = getattr(
+                            tip_imag_fig,
+                            base._marker_name(station_marker),
+                            tip_imag_fig.circle,
+                        )
+                        scatter_m(
+                            x="period",
+                            y="value",
+                            source=src_imag,
+                            size=max(int(self.marker_size), 4),
+                            color=station_color,
+                            line_color=station_color,
                             legend_label=self._compare_legend_label(
                                 station, "tip imag"
                             ),
@@ -680,7 +817,7 @@ class PlotMultipleResponses(PlotBase):
                     }
                 )
 
-                edge_color = base._tuple_to_hex(cxy[ii])
+                edge_color = base._tuple_to_hex(base.xy_color)
                 pt_renderer = pt_fig.ellipse(
                     x="x",
                     y="y",
@@ -725,6 +862,17 @@ class PlotMultipleResponses(PlotBase):
             and lim[1] is not None
         ]
 
+        # Collect the full set of impedance figures for limit/format/hover ops.
+        if self.plot_num == 1:
+            _res_figs = [res_fig_xy, res_fig_yx]
+            _phase_figs = [phase_fig_xy, phase_fig_yx]
+        elif self.plot_num == 2:
+            _res_figs = [res_fig_xx, res_fig_xy, res_fig_yx, res_fig_yy]
+            _phase_figs = [phase_fig_xx, phase_fig_xy, phase_fig_yx, phase_fig_yy]
+        else:
+            _res_figs = [res_fig_xy]
+            _phase_figs = [phase_fig_xy]
+
         if res_limits_list:
             res_limits = self.res_limits
             if res_limits is None:
@@ -732,9 +880,8 @@ class PlotMultipleResponses(PlotBase):
                     min(lim[0] for lim in res_limits_list),
                     max(lim[1] for lim in res_limits_list),
                 ]
-            base._set_axis_limits(res_fig_xy, res_limits)
-            if res_fig_yx is not None:
-                base._set_axis_limits(res_fig_yx, res_limits)
+            for fig in _res_figs:
+                base._set_axis_limits(fig, res_limits)
 
         if phase_limits_list:
             phase_limits = self.phase_limits
@@ -743,51 +890,81 @@ class PlotMultipleResponses(PlotBase):
                     min(lim[0] for lim in phase_limits_list),
                     max(lim[1] for lim in phase_limits_list),
                 ]
-            base._set_axis_limits(phase_fig_xy, phase_limits)
-            if phase_fig_yx is not None:
-                base._set_axis_limits(phase_fig_yx, phase_limits)
+            for fig in _phase_figs:
+                base._set_axis_limits(fig, phase_limits)
 
-        base._format_res_axis(res_fig_xy)
-        base._format_phase_axis(phase_fig_xy)
-        if res_fig_yx is not None:
-            base._format_res_axis(res_fig_yx)
-            base._format_phase_axis(phase_fig_yx)
-            if self.plot_num == 2:
-                res_fig_yx.yaxis.axis_label = ""
-                phase_fig_yx.yaxis.axis_label = ""
+        for fig in _res_figs:
+            base._format_res_axis(fig)
+        for fig in _phase_figs:
+            base._format_phase_axis(fig)
 
-        # Match matplotlib compare where top row has no x tick labels.
-        if res_fig_yx is not None:
+        # Axis label / visibility clean-up per layout mode.
+        if self.plot_num == 1:
+            # Right column: clear redundant y-axis labels.
+            res_fig_yx.yaxis.axis_label = ""
+            phase_fig_yx.yaxis.axis_label = ""
+            # Top row has no x tick labels (bottom row = phase shows them).
             res_fig_xy.xaxis.visible = False
             res_fig_yx.xaxis.visible = False
+        elif self.plot_num == 2:
+            # Right column (xy, yy): no y-axis labels.
+            res_fig_xy.yaxis.axis_label = ""
+            res_fig_yy.yaxis.axis_label = ""
+            phase_fig_xy.yaxis.axis_label = ""
+            phase_fig_yy.yaxis.axis_label = ""
+            # Hide x-axis on all res rows and top phase row; only bottom phase
+            # row (yx, yy) shows x tick labels.
+            for fig in [res_fig_xx, res_fig_xy, res_fig_yx, res_fig_yy]:
+                fig.xaxis.visible = False
+            phase_fig_xx.xaxis.visible = False
+            phase_fig_xy.xaxis.visible = False
+        else:
+            res_fig_xy.xaxis.visible = False
 
-        base._add_hover(res_fig_xy)
-        base._add_hover(phase_fig_xy)
-        if res_fig_yx is not None:
-            base._add_hover(res_fig_yx)
-            base._add_hover(phase_fig_yx)
+        for fig in _res_figs + _phase_figs:
+            base._add_hover(fig)
 
-        legends = [res_fig_xy, phase_fig_xy]
-        if res_fig_yx is not None:
-            legends.extend([res_fig_yx, phase_fig_yx])
+        legends = list(_res_figs) + list(_phase_figs)
 
-        if tip_fig is not None:
-            tip_fig.line(
+        def _finalize_tipper_fig(fig, y_min, y_max, label, hide_xaxis=False):
+            fig.line(
                 x=[np.log10(x_limits[0]), np.log10(x_limits[1])],
                 y=[0, 0],
                 color="#444444",
                 line_width=1,
                 line_alpha=0.5,
             )
-            tip_fig.x_range.start = np.log10(x_limits[0])
-            tip_fig.x_range.end = np.log10(x_limits[1])
-            if np.isfinite(tip_min) and np.isfinite(tip_max):
-                tip_fig.y_range.start = max(tip_min - 0.1, -1.0)
-                tip_fig.y_range.end = min(tip_max + 0.1, 1.0)
-            tip_fig.yaxis.axis_label = "Tipper"
-            tip_fig.grid.grid_line_alpha = 0.25
-            base._apply_log_period_ticks(tip_fig)
-            legends.append(tip_fig)
+            fig.x_range.start = np.log10(x_limits[0])
+            fig.x_range.end = np.log10(x_limits[1])
+            pad = 0.05
+            if np.isfinite(y_min) and np.isfinite(y_max):
+                fig.y_range.start = max(y_min - pad, -1.1)
+                fig.y_range.end = min(y_max + pad, 1.1)
+            fig.yaxis.axis_label = label
+            fig.grid.grid_line_alpha = 0.25
+            base._apply_log_period_ticks(fig)
+            if hide_xaxis:
+                fig.xaxis.visible = False
+
+        if tip_real_fig is not None:
+            _finalize_tipper_fig(
+                tip_real_fig,
+                tip_real_min,
+                tip_real_max,
+                "Tipper Real",
+                hide_xaxis=(tip_imag_fig is not None),
+            )
+            legends.append(tip_real_fig)
+
+        if tip_imag_fig is not None:
+            _finalize_tipper_fig(
+                tip_imag_fig,
+                tip_imag_min,
+                tip_imag_max,
+                "Tipper Imag",
+                hide_xaxis=False,
+            )
+            legends.append(tip_imag_fig)
 
         if pt_fig is not None:
             pt_ylim = 1.5 * self.ellipse_size
@@ -803,16 +980,25 @@ class PlotMultipleResponses(PlotBase):
 
         self._set_compare_legends(legends)
 
-        if self.plot_num in [1, 2]:
+        if self.plot_num == 1:
             rows = [
                 Row(res_fig_xy, res_fig_yx, width=panel_width, sizing_mode="fixed"),
                 Row(phase_fig_xy, phase_fig_yx, width=panel_width, sizing_mode="fixed"),
             ]
+        elif self.plot_num == 2:
+            rows = [
+                Row(res_fig_xx, res_fig_xy, width=panel_width, sizing_mode="fixed"),
+                Row(res_fig_yx, res_fig_yy, width=panel_width, sizing_mode="fixed"),
+                Row(phase_fig_xx, phase_fig_xy, width=panel_width, sizing_mode="fixed"),
+                Row(phase_fig_yx, phase_fig_yy, width=panel_width, sizing_mode="fixed"),
+            ]
         else:
             rows = [res_fig_xy, phase_fig_xy]
 
-        if tip_fig is not None:
-            rows.append(tip_fig)
+        if tip_real_fig is not None:
+            rows.append(tip_real_fig)
+        if tip_imag_fig is not None:
+            rows.append(tip_imag_fig)
         if pt_fig is not None:
             rows.append(pt_fig)
 
@@ -917,6 +1103,360 @@ class PlotMultipleResponses(PlotBase):
             return pn.Column(*children, sizing_mode=sizing_mode)
 
         return pn.pane.Bokeh(result, sizing_mode=sizing_mode)
+
+    def panel(self, sizing_mode="stretch_width"):
+        """Return an interactive Panel app for multi-station MT responses.
+
+        Provides station selection checkboxes, a plot-style toggle
+        (``"single"`` / ``"compare"``), tensor-preset selector, a Generate
+        button, and – for compare mode – per-station colour/marker styling.
+
+        Parameters
+        ----------
+        sizing_mode : str
+            Panel ``sizing_mode`` forwarded to the outer container.
+
+        Returns
+        -------
+        panel.Column
+            A ``panel.Column`` containing all controls and the live plot area.
+        """
+        try:
+            import panel as pn
+        except ImportError as error:  # pragma: no cover
+            raise ImportError(
+                "Panel is required to create a panel object.  "
+                "Install with `pip install panel`."
+            ) from error
+
+        mt_objects = self._get_mt_objects()
+        if not mt_objects:
+            return pn.pane.Markdown("_No MT data loaded._")
+
+        station_labels = [self._station_label(mt_obj) for mt_obj in mt_objects]
+        label_to_mt = dict(zip(station_labels, mt_objects))
+        x_limits = self._global_x_limits(mt_objects)
+
+        # ── Widgets ───────────────────────────────────────────────────────────
+        style_widget = pn.widgets.RadioButtonGroup(
+            name="Plot Style",
+            options=["single", "compare"],
+            value="single",
+            button_type="primary",
+            width=200,
+        )
+
+        station_widget = pn.widgets.CheckBoxGroup(
+            name="Stations",
+            options=station_labels,
+            value=[],
+            inline=False,
+            width=240,
+        )
+
+        select_all_btn = pn.widgets.Button(
+            name="Select All", button_type="light", width=90
+        )
+        clear_btn = pn.widgets.Button(name="Clear", button_type="light", width=70)
+
+        _preset_labels = ["Off-diagonal", "Full tensor", "All"]
+        plot_num_widget = pn.widgets.RadioButtonGroup(
+            name="Tensor",
+            options=_preset_labels,
+            value=_preset_labels[max(0, self.plot_num - 1)],
+            button_type="warning",
+            width=300,
+        )
+
+        generate_btn = pn.widgets.Button(name="Plot", button_type="success", width=120)
+        status = pn.pane.Markdown(
+            "_Select stations and click **Generate**._",
+            styles={"color": "#555"},
+        )
+
+        plot_display = pn.Column(sizing_mode=sizing_mode)
+        style_card_area = pn.Column()
+
+        # ── Tipper & PT widgets ───────────────────────────────────────────────
+        tipper_widget = pn.widgets.CheckBoxGroup(
+            name="Tipper",
+            options=["Real", "Imaginary"],
+            value=["Real", "Imaginary"] if self.plot_tipper.find("y") >= 0 else [],
+            inline=True,
+            width=200,
+        )
+        plot_pt_widget = pn.widgets.Checkbox(
+            name="Phase Tensor",
+            value=self.plot_pt,
+            width=160,
+        )
+        colorby_widget = pn.widgets.Select(
+            name="PT Color by",
+            options=list(type(self).param["ellipse_colorby"].objects),
+            value=self.ellipse_colorby,
+            width=160,
+        )
+        _COLORBY_DEFAULTS = {
+            "phimin": (0, 90),
+            "phiminang": (0, 90),
+            "phimax": (0, 90),
+            "phimaxang": (0, 90),
+            "phidet": (0, 90),
+            "skew": (-10, 10),
+            "skew_seg": (-10, 10),
+            "normalized_skew": (-0.5, 0.5),
+            "normalized_skew_seg": (-0.5, 0.5),
+            "ellipticity": (0, 1),
+            "strike": (-90, 90),
+            "azimuth": (-90, 90),
+        }
+        _initial_lo, _initial_hi = _COLORBY_DEFAULTS.get(
+            self.ellipse_colorby, (self.ellipse_range[0], self.ellipse_range[1])
+        )
+        pt_min_widget = pn.widgets.NumberInput(
+            name="PT min",
+            value=float(_initial_lo),
+            step=1.0,
+            width=90,
+        )
+        pt_max_widget = pn.widgets.NumberInput(
+            name="PT max",
+            value=float(_initial_hi),
+            step=1.0,
+            width=90,
+        )
+
+        def _on_colorby_change(event):
+            lo, hi = _COLORBY_DEFAULTS.get(event.new, (0, 90))
+            pt_min_widget.value = float(lo)
+            pt_max_widget.value = float(hi)
+
+        colorby_widget.param.watch(_on_colorby_change, "value")
+
+        def _on_preset_change(event):
+            """Sync tipper/PT widgets when 'All' preset is selected."""
+            if event.new == "All":
+                tipper_widget.value = ["Real", "Imaginary"]
+                plot_pt_widget.value = True
+
+        plot_num_widget.param.watch(_on_preset_change, "value")
+
+        # ── Per-station compare styling ────────────────────────────────────────
+        _DEFAULT_COLORS = [
+            "#1f77b4",
+            "#ff7f0e",
+            "#2ca02c",
+            "#d62728",
+            "#9467bd",
+            "#8c564b",
+            "#e377c2",
+            "#7f7f7f",
+            "#bcbd22",
+            "#17becf",
+        ]
+        _MARKER_OPTIONS = ["s", "o", "d", "v", "^", "x", "+"]
+        _station_style_widgets: dict = {}
+
+        def _build_compare_style_card(selected_labels):
+            _station_style_widgets.clear()
+            cols = []
+            for ii, label in enumerate(selected_labels):
+                default_color = _DEFAULT_COLORS[ii % len(_DEFAULT_COLORS)]
+                cw = pn.widgets.ColorPicker(name=label, value=default_color, width=60)
+                mw = pn.widgets.Select(
+                    name="marker",
+                    options=_MARKER_OPTIONS,
+                    value=_MARKER_OPTIONS[ii % len(_MARKER_OPTIONS)],
+                    width=80,
+                )
+                _station_style_widgets[label] = (cw, mw)
+                cols.append(
+                    pn.Column(
+                        pn.pane.Markdown(f"**{label}**", margin=(0, 5)),
+                        pn.Row(cw, mw, sizing_mode="fixed"),
+                        width=180,
+                    )
+                )
+
+            card_content = (
+                pn.FlexBox(*cols)
+                if cols
+                else pn.pane.Markdown("_No stations selected._")
+            )
+            style_card_area.objects = [
+                pn.Card(card_content, title="Station Styling", collapsed=True)
+            ]
+
+        # ── Render callback ────────────────────────────────────────────────────
+        def _render(event=None):
+            selected = list(station_widget.value)
+            if not selected:
+                status.object = "⚠️ No stations selected."
+                status.styles = {"color": "#7a5200"}
+                plot_display.objects = []
+                return
+
+            pn_map = {"Off-diagonal": 1, "Full tensor": 2, "All": 3}
+            new_plot_num = pn_map[plot_num_widget.value]
+            style = style_widget.value
+            plot_all = new_plot_num == 3
+
+            # Derive plot_tipper string from checkboxes: "n", "yr", "yi", "yri".
+            tip_sel = tipper_widget.value
+            if "Real" in tip_sel and "Imaginary" in tip_sel:
+                _tip_val = "yri"
+            elif "Real" in tip_sel:
+                _tip_val = "yr"
+            elif "Imaginary" in tip_sel:
+                _tip_val = "yi"
+            else:
+                _tip_val = "n"
+
+            _pt_val = plot_pt_widget.value
+            _colorby_val = colorby_widget.value
+            _ellipse_range = (pt_min_widget.value, pt_max_widget.value, 10)
+
+            status.object = f"⏳ Generating **{style}** for {len(selected)} station(s)…"
+            status.styles = {"color": "#555"}
+
+            try:
+                if style == "single":
+                    style_card_area.objects = []
+                    panels = []
+                    for label in selected:
+                        mt_obj = label_to_mt[label]
+                        plotter = self._make_station_plotter(mt_obj, x_limits=x_limits)
+                        plotter.plot_num = 2 if plot_all else new_plot_num
+                        plotter.plot_tipper = _tip_val
+                        plotter.plot_pt = _pt_val
+                        plotter.ellipse_colorby = _colorby_val
+                        plotter.ellipse_range = _ellipse_range
+                        plotter.show_plot = False
+                        # Use the full station label as the panel title.
+                        plotter.station = label
+                        panels.append(pn.layout.Divider())
+                        panels.append(plotter.panel(interactive=True))
+
+                    plot_display.objects = (
+                        panels if panels else [pn.pane.Markdown("_Nothing rendered._")]
+                    )
+                    status.object = f"✅ {len(selected)} station(s) rendered."
+                    status.styles = {"color": "#1a6600"}
+
+                else:  # compare
+                    _build_compare_style_card(selected)
+
+                    class _ObjList:
+                        def __init__(self, objs):
+                            self._objs = objs
+
+                        def values(self):
+                            return iter(self._objs)
+
+                    subset_objs = [label_to_mt[lbl] for lbl in selected]
+                    cmp = self.__class__(
+                        mt_data=_ObjList(subset_objs),
+                        show_plot=False,
+                    )
+
+                    # Forward visual attrs from self.
+                    _forward = [
+                        "plot_model_error",
+                        "lw",
+                        "marker_size",
+                        "arrow_lw",
+                        "arrow_direction",
+                        "ellipse_size",
+                        "ellipse_range",
+                        "res_limits",
+                        "phase_limits",
+                        "tipper_limits",
+                        "font_size",
+                        "include_survey",
+                        "compare_legend_mode",
+                        "compare_compact_legend",
+                        "compare_legend_max_items",
+                        "compare_legend_font_size",
+                    ]
+                    for attr in _forward:
+                        if hasattr(self, attr):
+                            try:
+                                setattr(cmp, attr, getattr(self, attr))
+                            except Exception:
+                                pass
+
+                    cmp.plot_num = 2 if plot_all else new_plot_num
+                    cmp.plot_tipper = _tip_val
+                    cmp.plot_pt = _pt_val
+                    cmp.ellipse_colorby = _colorby_val
+                    cmp.ellipse_range = _ellipse_range
+
+                    # Collect styling from per-station widgets.
+                    cmp.custom_station_styles = {
+                        label: {"color": cw.value, "marker": mw.value}
+                        for label, (cw, mw) in _station_style_widgets.items()
+                    }
+
+                    bokeh_layout = cmp._plot_compare_overlay()
+                    plot_display.objects = [
+                        pn.pane.Bokeh(bokeh_layout, sizing_mode="fixed")
+                    ]
+                    status.object = f"✅ Compare: {len(selected)} station(s) rendered."
+                    status.styles = {"color": "#1a6600"}
+
+            except Exception as exc:
+                import traceback
+
+                status.object = (
+                    f"❌ `{type(exc).__name__}: {exc}\n\n" f"{traceback.format_exc()}`"
+                )
+                status.styles = {"color": "#b00020"}
+
+        # ── Wire callbacks ─────────────────────────────────────────────────────
+        select_all_btn.on_click(
+            lambda e: setattr(station_widget, "value", station_labels)
+        )
+        clear_btn.on_click(lambda e: setattr(station_widget, "value", []))
+        generate_btn.on_click(_render)
+
+        controls = pn.Column(
+            pn.pane.Markdown("### MT Responses — Multi-Station"),
+            pn.Row(
+                pn.Column(
+                    pn.pane.Markdown("**Plot Style**"),
+                    style_widget,
+                    pn.pane.Markdown("**Tensor Components**"),
+                    plot_num_widget,
+                    pn.pane.Markdown("**Tipper**"),
+                    tipper_widget,
+                    pn.Row(
+                        pn.Column(
+                            plot_pt_widget,
+                            colorby_widget,
+                            pn.Row(pt_min_widget, pt_max_widget),
+                        ),
+                    ),
+                    pn.Row(generate_btn),
+                    status,
+                    width=400,
+                ),
+                pn.Column(
+                    pn.pane.Markdown("**Stations**"),
+                    pn.Row(select_all_btn, clear_btn),
+                    station_widget,
+                ),
+                align="start",
+            ),
+            sizing_mode=sizing_mode,
+        )
+
+        return pn.Column(
+            controls,
+            pn.layout.Divider(),
+            style_card_area,
+            plot_display,
+            sizing_mode=sizing_mode,
+        )
 
 
 __all__ = ["PlotMultipleResponses"]

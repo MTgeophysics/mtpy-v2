@@ -54,7 +54,7 @@ class PlotStrike(PlotBase):
     layout : Bokeh layout or None
         The last layout produced by :meth:`plot`.
     figures : dict
-        Mapping of label -> individual Bokeh figure objects produced
+        Mapping of label → individual Bokeh figure objects produced
         by the last call to :meth:`plot`.
     """
 
@@ -225,15 +225,15 @@ class PlotStrike(PlotBase):
         self.strike_df = pd.DataFrame(entries)
 
     def get_mean(self, estimate_df):
-        """Return mean strike angle (0-360 deg)."""
+        """Return mean strike angle (0-360°)."""
         return estimate_df.measured_strike.mean(skipna=True) % 360
 
     def get_median(self, estimate_df):
-        """Return median strike angle (0-360 deg)."""
+        """Return median strike angle (0-360°)."""
         return estimate_df.measured_strike.median(skipna=True) % 360
 
     def get_mode(self, estimate_df):
-        """Return histogram-mode strike angle (0-360 deg)."""
+        """Return histogram-mode strike angle (0-360°)."""
         bins = np.linspace(-360, 360, 146)
         binned = pd.cut(estimate_df["measured_strike"], bins).value_counts()
         s_mode = binned.index[np.argmax(binned)].mid
@@ -449,7 +449,7 @@ class PlotStrike(PlotBase):
             line_width=1.0,
         )
 
-        # Radial spokes every 30 degrees
+        # Radial spokes every 30°
         for deg in range(0, 360, 30):
             rad = np.deg2rad(deg)
             fig.line(
