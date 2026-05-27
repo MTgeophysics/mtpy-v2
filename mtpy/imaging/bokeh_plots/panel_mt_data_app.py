@@ -55,6 +55,7 @@ import param
 
 from mtpy.core.mt_collection import MTCollection
 from mtpy.core.mt_data import MTData
+from mtpy.imaging.bokeh_plots.plot_penetration_depth_1d import PlotPenetrationDepth1D
 
 
 pn.extension("tabulator")
@@ -237,6 +238,16 @@ class MTDataApp(param.Parameterized):
         )
         self._station_table.param.watch(self._on_table_selection_changed, "selection")
 
+        # ── Penetration depth viewer ──────────────────────────────────────
+        self._pen_depth_container = pn.Column(
+            pn.pane.Markdown(
+                "_Select a single station in the table above to view its "
+                "1-D penetration depth._",
+                styles={"color": "#777"},
+            ),
+            sizing_mode=self.sizing_mode,
+        )
+
         # ── Save-to-MTH5 controls ─────────────────────────────────────────
         self._save_filename_widget = pn.widgets.TextInput(
             name="Output MTH5 filename",
@@ -303,8 +314,16 @@ class MTDataApp(param.Parameterized):
 
         selected_indices: list[int] = list(event.new or [])
         if not selected_indices:
-            # Nothing selected → expose full dataset
+            # Nothing selected → expose full dataset and clear penetration depth
             self._mt_data_subset = None
+            self._pen_depth_container.clear()
+            self._pen_depth_container.append(
+                pn.pane.Markdown(
+                    "_Select a single station in the table above to view its "
+                    "1-D penetration depth._",
+                    styles={"color": "#777"},
+                )
+            )
             return
 
         df = self._station_table.value
@@ -319,13 +338,14 @@ class MTDataApp(param.Parameterized):
             path = f"/{MTData.SURVEYS_NODE}/{survey}/{MTData.STATIONS_NODE}/{station}"
             selected_paths.add(path)
 
-        # Expose subset info via status (actual subsetting can be done
-        # by consumers via mt_data.get_station() with the paths)
         n = len(selected_paths)
         self._set_status(
             f"✅ **{n}** station(s) selected — access via `app.selected_station_paths`."
         )
         self._selected_station_paths = list(selected_paths)
+
+        # ── Penetration depth for a single selected station ───────────────
+        self._update_penetration_depth(selected_paths)
 
     def _on_save_clicked(self, event: param.parameterized.Event) -> None:
         """Save current MTData to an MTH5 file."""
@@ -357,6 +377,50 @@ class MTDataApp(param.Parameterized):
             self._save_button.disabled = False
 
     # ── Loading logic ─────────────────────────────────────────────────────
+
+    def _update_penetration_depth(self, station_paths: set[str]) -> None:
+        """Render a penetration depth plot for the selected station(s).
+
+        If exactly one station is selected its 1-D Niblett-Bostick
+        depth-of-investigation plot is displayed in
+        ``_pen_depth_container``.  If multiple stations are selected a
+        message is shown instead — multi-station comparisons are not
+        supported here.
+
+        Parameters
+        ----------
+        station_paths : set of str
+            HDF5-style station paths, e.g.
+            ``{'/Surveys/survey01/Stations/MT01'}``.
+        """
+        self._pen_depth_container.clear()
+
+        if len(station_paths) != 1:
+            self._pen_depth_container.append(
+                pn.pane.Markdown(
+                    "_Select exactly **one** station to view its "
+                    "penetration depth._",
+                    styles={"color": "#777"},
+                )
+            )
+            return
+
+        station_path = next(iter(station_paths))
+        try:
+            mt_obj = self._mt_data.get_station(station_path, as_mt=True)
+            if mt_obj is None or mt_obj.Z is None:
+                raise ValueError("No impedance data available for this station.")
+            plotter = PlotPenetrationDepth1D(mt_obj, show_plot=False)
+            panel_plot = plotter.make_panel(sizing_mode=self.sizing_mode)
+            self._pen_depth_container.append(panel_plot)
+        except Exception as exc:
+            self._pen_depth_container.append(
+                pn.pane.Markdown(
+                    f"⚠️ Could not render penetration depth: "
+                    f"`{type(exc).__name__}: {exc}`",
+                    styles={"color": "#b00020"},
+                )
+            )
 
     def _load_files(self, selected: list[str]) -> MTData:
         """Partition files and load them into a single MTData.
@@ -476,10 +540,17 @@ class MTDataApp(param.Parameterized):
         station_section = pn.Column(
             pn.pane.Markdown("### Loaded Stations"),
             pn.pane.Markdown(
-                "_Select rows to filter the active working set._",
+                "_Select a row to filter the active working set and view its "
+                "penetration depth._",
                 styles={"color": "#777", "font-size": "0.85em"},
             ),
             self._station_table,
+            sizing_mode=self.sizing_mode,
+        )
+
+        penetration_depth_section = pn.Column(
+            pn.pane.Markdown("### Penetration Depth (1-D)"),
+            self._pen_depth_container,
             sizing_mode=self.sizing_mode,
         )
 
@@ -501,6 +572,8 @@ class MTDataApp(param.Parameterized):
             pn.layout.Divider(),
             status_row,
             station_section,
+            pn.layout.Divider(),
+            penetration_depth_section,
             pn.layout.Divider(),
             save_section,
             sizing_mode=self.sizing_mode,

@@ -2,24 +2,17 @@
 
 from __future__ import annotations
 
+import importlib
+
 import numpy as np
+from bokeh.io import show
+from bokeh.models import ColumnDataSource, HoverTool, Range1d
+from bokeh.plotting import figure
 
-from mtpy.imaging.mtplot_tools import PlotBase
-
-
-try:
-    from bokeh.io import show
-    from bokeh.models import ColumnDataSource, HoverTool, Range1d
-    from bokeh.plotting import figure
-except ImportError:  # pragma: no cover - optional dependency
-    show = None
-    ColumnDataSource = None
-    HoverTool = None
-    Range1d = None
-    figure = None
+from mtpy.imaging.bokeh_plots.base import BokehPlotBase
 
 
-class PlotPenetrationDepth1D(PlotBase):
+class PlotPenetrationDepth1D(BokehPlotBase):
     """Plot the depth of penetration based on the Niblett-Bostick approximation."""
 
     _MARKER_MAP = {
@@ -48,6 +41,7 @@ class PlotPenetrationDepth1D(PlotBase):
         self.tf = tf
         self.fig = None
         self.layout = None
+        self._renderers: dict[str, list] = {}
 
         super().__init__(**kwargs)
 
@@ -230,6 +224,7 @@ class PlotPenetrationDepth1D(PlotBase):
             line_color=None,
         )
 
+        self._renderers = {}
         label_list = ["TE", "TM", "DET"]
         for comp, label in zip(["xy", "yx", "det"], label_list):
             source = ColumnDataSource(
@@ -246,6 +241,7 @@ class PlotPenetrationDepth1D(PlotBase):
                 getattr(self, f"{comp}_marker"),
                 getattr(self, f"{comp}_ls"),
             )
+            self._renderers[comp] = [line_renderer, scatter_renderer]
             self.fig.add_tools(
                 HoverTool(
                     renderers=[scatter_renderer, line_renderer],
@@ -269,3 +265,90 @@ class PlotPenetrationDepth1D(PlotBase):
             show(self.fig)
 
         return self.layout
+
+    def make_panel(self, sizing_mode: str = "stretch_width"):
+        """Return a Panel layout with interactive mode and units controls.
+
+        Renders the penetration depth figure wrapped in a Panel column with:
+
+        * **Modes** — a :class:`~panel.widgets.CheckButtonGroup` to toggle
+          the TE (Zxy), TM (Zyx) and Determinant curves on/off.
+        * **Depth Units** — a :class:`~panel.widgets.RadioButtonGroup` to
+          switch between kilometres and metres.  Switching rebuilds the
+          figure in-place and updates the embedded Bokeh pane.
+
+        Parameters
+        ----------
+        sizing_mode : str, optional
+            Panel sizing mode, by default ``"stretch_width"``.
+
+        Returns
+        -------
+        panel.Column
+            A Panel layout containing the controls and the Bokeh figure.
+
+        Raises
+        ------
+        ImportError
+            If ``panel`` is not installed.
+        """
+        try:
+            pn = importlib.import_module("panel")
+        except ImportError as exc:  # pragma: no cover
+            raise ImportError(
+                "Panel is required for make_panel(). Install with `pip install panel`."
+            ) from exc
+
+        if self.layout is None:
+            self.plot()
+
+        # ── Controls ─────────────────────────────────────────────────────
+        mode_widget = pn.widgets.CheckButtonGroup(
+            name="Modes",
+            options={"TE (Zxy)": "xy", "TM (Zyx)": "yx", "Determinant": "det"},
+            value=["xy", "yx", "det"],
+            button_type="light",
+        )
+
+        depth_units_widget = pn.widgets.RadioButtonGroup(
+            name="Depth Units",
+            options=["km", "m"],
+            value=self.depth_units,
+            button_type="primary",
+        )
+
+        # ── Bokeh pane (mutable reference) ────────────────────────────────
+        bokeh_pane = pn.pane.Bokeh(self.fig, sizing_mode=sizing_mode)
+
+        # ── Callbacks ─────────────────────────────────────────────────────
+        def _toggle_modes(event):
+            for comp, renderers in self._renderers.items():
+                visible = comp in (event.new or [])
+                for r in renderers:
+                    r.visible = visible
+
+        def _change_depth_units(event):
+            self.depth_units = event.new
+            self.plot()
+            bokeh_pane.object = self.fig
+
+        mode_widget.param.watch(_toggle_modes, "value")
+        depth_units_widget.param.watch(_change_depth_units, "value")
+
+        controls = pn.Row(
+            pn.Column(
+                pn.pane.Markdown("**Modes:**", margin=(0, 0, 2, 0)),
+                mode_widget,
+            ),
+            pn.Column(
+                pn.pane.Markdown("**Depth Units:**", margin=(0, 0, 2, 0)),
+                depth_units_widget,
+            ),
+            sizing_mode="stretch_width",
+        )
+
+        return pn.Column(
+            controls,
+            bokeh_pane,
+            sizing_mode=sizing_mode,
+        )
