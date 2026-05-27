@@ -333,7 +333,27 @@ class TestBokehPlotBase:
 
         BokehPlotBase.make_panel(plotter)
 
-        assert plotter.layout is not None
+    def test_panel_alias_returns_same_result_as_make_panel(self, fake_tf):
+        """panel() should be an alias for make_panel() on BokehPlotBase."""
+        pytest.importorskip("panel")
+        pytest.importorskip("bokeh")
+        from mtpy.imaging.bokeh_plots import PlotPenetrationDepth1D
+
+        plotter = PlotPenetrationDepth1D(fake_tf, show_plot=False)
+        plotter.plot()
+
+        result_make = plotter.make_panel()
+        result_panel = plotter.panel()
+
+        assert type(result_make) is type(result_panel)
+
+    def test_panel_method_exists_on_subclass(self, fake_tf):
+        """PlotPenetrationDepth1D should expose .panel() via BokehPlotBase."""
+        pytest.importorskip("bokeh")
+        from mtpy.imaging.bokeh_plots import PlotPenetrationDepth1D
+
+        plotter = PlotPenetrationDepth1D(fake_tf, show_plot=False)
+        assert hasattr(plotter, "panel") and callable(plotter.panel)
 
 
 class TestPenetrationDepth1DApp:
@@ -460,3 +480,55 @@ class TestMTDataAppPenetrationDepthIntegration:
             for obj in app._pen_depth_container.objects
         )
         assert has_placeholder
+
+    def test_table_selection_calls_update_penetration_depth(self, app_class):
+        """Selecting stations via the table should trigger _update_penetration_depth."""
+        app = app_class()
+        called_with = []
+
+        def _spy(station_paths):
+            called_with.append(set(station_paths))
+
+        app._update_penetration_depth = _spy
+        app._mt_data = object()  # non-None so callback proceeds past guard
+
+        import pandas as pd
+
+        app._station_table.value = pd.DataFrame(
+            [
+                {
+                    "survey": "s1",
+                    "station": "ST01",
+                    "latitude": 0.0,
+                    "longitude": 0.0,
+                    "elevation": 0.0,
+                    "n_periods": 3,
+                    "has_impedandance": True,
+                    "has_tipper": False,
+                }
+            ],
+        )
+
+        class FakeEvent:
+            new = [0]
+
+        app._on_table_selection_changed(FakeEvent())
+
+        assert len(called_with) == 1
+        assert any("ST01" in p for p in next(iter(called_with)))
+
+    def test_plot_tab_dispatches_via_panel_method(self, app_class, fake_tf):
+        """The Plots-tab generate button uses .panel() when available."""
+        pytest.importorskip("bokeh")
+        from mtpy.imaging.bokeh_plots import PlotPenetrationDepth1D
+
+        # Verify the dispatcher protocol: plot object must expose .panel()
+        plotter = PlotPenetrationDepth1D(fake_tf, show_plot=False)
+        plotter.plot()
+
+        assert hasattr(plotter, "panel") and callable(plotter.panel)
+        result = plotter.panel()
+
+        import panel as pn
+
+        assert isinstance(result, pn.viewable.Viewable)

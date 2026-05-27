@@ -3,50 +3,29 @@
 from __future__ import annotations
 
 import numpy as np
+from bokeh.io import show as bokeh_show
+from bokeh.layouts import Column
+from bokeh.models import (
+    BasicTicker,
+    ColorBar,
+    ColumnDataSource,
+    FixedTicker,
+    LinearAxis,
+    LinearColorMapper,
+    Range1d,
+    Whisker,
+)
+from bokeh.palettes import (
+    Cividis256,
+    Inferno256,
+    Magma256,
+    Plasma256,
+    Turbo256,
+    Viridis256,
+)
+from bokeh.plotting import figure
 
 from mtpy.imaging.mtplot_tools import PlotBase
-
-
-try:
-    from bokeh.io import show as bokeh_show
-    from bokeh.layouts import Column
-    from bokeh.models import (
-        BasicTicker,
-        ColorBar,
-        ColumnDataSource,
-        FixedTicker,
-        LinearAxis,
-        LinearColorMapper,
-        Range1d,
-        Whisker,
-    )
-    from bokeh.palettes import (
-        Cividis256,
-        Inferno256,
-        Magma256,
-        Plasma256,
-        Turbo256,
-        Viridis256,
-    )
-    from bokeh.plotting import figure
-except ImportError:  # pragma: no cover - optional dependency
-    bokeh_show = None
-    Column = None
-    BasicTicker = None
-    ColorBar = None
-    ColumnDataSource = None
-    FixedTicker = None
-    LinearAxis = None
-    LinearColorMapper = None
-    Range1d = None
-    Whisker = None
-    Cividis256 = None
-    Inferno256 = None
-    Magma256 = None
-    Plasma256 = None
-    Turbo256 = None
-    Viridis256 = None
-    figure = None
 
 
 class PlotPhaseTensor(PlotBase):

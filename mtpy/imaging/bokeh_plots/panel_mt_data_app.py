@@ -577,6 +577,9 @@ class MTDataApp(param.Parameterized):
         )
         self._selected_station_paths = list(selected_paths)
 
+        # ── Penetration depth for the selected station(s) ─────────────────
+        self._update_penetration_depth(selected_paths)
+
     def _on_edit_toggle_changed(self, event: param.parameterized.Event) -> None:
         """Enable or disable table editing.
 

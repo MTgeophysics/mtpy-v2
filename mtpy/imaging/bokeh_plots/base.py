@@ -47,3 +47,18 @@ class BokehPlotBase(PlotBase):
             self.plot()
 
         return pn.pane.Bokeh(self.layout, sizing_mode=sizing_mode)
+
+    def panel(self, sizing_mode: str = "stretch_width"):
+        """Alias for :meth:`make_panel` used by the MTDataApp plot dispatcher.
+
+        The :class:`MTDataApp` dispatch loop calls ``plot_obj.panel()`` when
+        it exists to obtain the full interactive Panel layout (controls + plot).
+        This alias ensures every ``BokehPlotBase`` subclass participates in
+        that protocol automatically.
+
+        Parameters
+        ----------
+        sizing_mode : str, optional
+            Forwarded to :meth:`make_panel`.
+        """
+        return self.make_panel(sizing_mode=sizing_mode)
