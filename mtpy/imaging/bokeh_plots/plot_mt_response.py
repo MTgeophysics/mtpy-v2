@@ -6,54 +6,30 @@ PlotMTResponse class for use in Panel dashboards.
 
 from __future__ import annotations
 
-import importlib
-
 import numpy as np
+from bokeh.io import show
+from bokeh.layouts import Column, Row
+from bokeh.models import (
+    Arrow,
+    BasicTicker,
+    ColorBar,
+    ColumnDataSource,
+    CustomJSTickFormatter,
+    FixedTicker,
+    HoverTool,
+    LinearColorMapper,
+    NormalHead,
+    Range1d,
+    Whisker,
+)
+from bokeh.palettes import Turbo256
+from bokeh.plotting import figure
+from bokeh.transform import linear_cmap
 
-from mtpy.imaging.mtplot_tools import PlotBase
-
-
-try:
-    from bokeh.io import show
-    from bokeh.layouts import Column, gridplot, Row
-    from bokeh.models import (
-        Arrow,
-        BasicTicker,
-        ColorBar,
-        ColumnDataSource,
-        CustomJSTickFormatter,
-        FixedTicker,
-        HoverTool,
-        LinearColorMapper,
-        NormalHead,
-        Range1d,
-        Whisker,
-    )
-    from bokeh.palettes import Turbo256
-    from bokeh.plotting import figure
-    from bokeh.transform import linear_cmap
-except ImportError:  # pragma: no cover - optional dependency
-    show = None
-    Column = None
-    Row = None
-    gridplot = None
-    Arrow = None
-    BasicTicker = None
-    ColorBar = None
-    ColumnDataSource = None
-    CustomJSTickFormatter = None
-    FixedTicker = None
-    HoverTool = None
-    LinearColorMapper = None
-    NormalHead = None
-    Range1d = None
-    Turbo256 = None
-    Whisker = None
-    figure = None
-    linear_cmap = None
+from .bokeh_plot_base import BokehPlotBase
 
 
-class PlotMTResponse(PlotBase):
+class PlotMTResponse(BokehPlotBase):
     """Plot MT apparent resistivity and phase using Bokeh.
 
     The class mirrors core inputs and plotting modes from
@@ -82,7 +58,7 @@ class PlotMTResponse(PlotBase):
         self.pt = pt_obj
         self.station = station
         self._basename = f"{self.station}_mt_response_bokeh"
-        self.plot_num = 1
+        self.plot_num = 2
         self.rotation_angle = 0
 
         self.layout = None
@@ -92,7 +68,13 @@ class PlotMTResponse(PlotBase):
         self._linear_x_figure_keys = set()
         self._pt_x_spacing = 1.0
 
-        super().__init__(**kwargs)
+        # param.Parameterized raises TypeError for unknown kwargs; split them.
+        param_names = set(type(self).param)
+        param_kwargs = {k: v for k, v in kwargs.items() if k in param_names}
+        other_kwargs = {k: v for k, v in kwargs.items() if k not in param_names}
+
+        super().__init__(**param_kwargs)
+        self.marker_size = 5
 
         if self.Z is None:
             self.plot_z = False
@@ -104,7 +86,7 @@ class PlotMTResponse(PlotBase):
 
         self.plot_model_error = False
 
-        for key, value in kwargs.items():
+        for key, value in other_kwargs.items():
             setattr(self, key, value)
 
         if self.show_plot:
@@ -230,6 +212,12 @@ class PlotMTResponse(PlotBase):
 
         y = self._get_values(z_obj, y_attr, comp)
         err = self._get_values(z_obj, e_attr, comp)
+
+        # When model error is unavailable (all NaN), fall back to zero errors
+        # so data points still render without error bars rather than vanishing.
+        if not np.any(np.isfinite(err)):
+            err = np.zeros_like(y)
+
         if yx_shift:
             y = y + 180
 
@@ -240,7 +228,12 @@ class PlotMTResponse(PlotBase):
         if kind == "res":
             valid = self._valid_for_log(x, y)
             valid = valid & np.isfinite(err) & (high > 0)
-            low = np.where(low <= 0, np.nan, low)
+            # Clamp the lower error bar to a small but positive value so the
+            # whisker is always visible on the log-scale resistivity axis.
+            # Using 1e-3 * y keeps it three decades below the data point —
+            # well below any realistic resistivity but never NaN or ≤0.
+            low_floor = np.where(np.isfinite(y) & (y > 0), y * 1e-3, np.nan)
+            low = np.where((low <= 0) | ~np.isfinite(low), low_floor, low)
         else:
             valid = np.isfinite(x) & np.isfinite(y) & np.isfinite(err)
 
@@ -270,13 +263,14 @@ class PlotMTResponse(PlotBase):
             source=source,
             color=glyph_color,
             line_width=max(self.lw, 1),
+            line_dash="dashed",
         )
         scatter_method = getattr(fig, self._marker_name(marker), fig.circle)
         scatter_renderer = scatter_method(
             x="period",
             y="value",
             source=source,
-            size=max(int(self.marker_size * 2), 4),
+            size=max(int(self.marker_size), 4),
             color=glyph_color,
             line_color=glyph_color,
             legend_label=comp_label,
@@ -293,16 +287,16 @@ class PlotMTResponse(PlotBase):
                 lower="low",
                 source=source,
                 line_color=glyph_color,
-                line_width=max(self.lw, 1),
+                line_width=max(self.lw, 2),
             )
-            whisker.upper_head.size = 4
+            whisker.upper_head.size = self.marker_size
             whisker.upper_head.line_color = glyph_color
-            whisker.lower_head.size = 4
+            whisker.lower_head.size = self.marker_size
             whisker.lower_head.line_color = glyph_color
             fig.add_layout(whisker)
             self.renderers.setdefault(comp_key, []).append(whisker)
 
-    def _make_resistivity_figure(self, x_range=None):
+    def _make_resistivity_figure(self, x_range=None, width=800):
         kw = {}
         if x_range is not None:
             kw["x_range"] = x_range
@@ -311,19 +305,19 @@ class PlotMTResponse(PlotBase):
             x_axis_type="log",
             y_axis_type="log",
             height=320,
-            width=800,
+            width=width,
             tools="pan,wheel_zoom,box_zoom,reset,save",
             active_scroll="wheel_zoom",
             **kw,
         )
 
-    def _make_phase_figure(self, x_range):
+    def _make_phase_figure(self, x_range, width=800):
         return figure(
             title=None,
             x_axis_type="log",
             x_range=x_range,
             height=250,
-            width=800,
+            width=width,
             tools="pan,wheel_zoom,box_zoom,reset,save",
             active_scroll="wheel_zoom",
         )
@@ -366,16 +360,17 @@ class PlotMTResponse(PlotBase):
         ]
         fig.xaxis.ticker = FixedTicker(ticks=ticks)
         fig.xaxis.formatter = CustomJSTickFormatter(
+            args={"x_spacing": x_spacing},
             code="""
             var superscripts = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
-            var exp = String(Math.round(tick));
+            var exp = String(Math.round(tick / x_spacing));
             var result = '10';
             for (var i = 0; i < exp.length; i++) {
                 if (exp[i] === '-') result += '⁻';
                 else result += superscripts[parseInt(exp[i])];
             }
             return result;
-            """
+            """,
         )
         fig.xaxis.axis_label = "Period (s)"
 
@@ -734,37 +729,50 @@ class PlotMTResponse(PlotBase):
         )
 
         self._add_component(
-            res_fig, xx_source_res, "Zxx", self.xy_color, self.xy_marker, "xx"
+            res_fig, xx_source_res, "Zxx", self.xx_color, self.xx_marker, "xx"
         )
         self._add_component(
-            res_fig, yy_source_res, "Zyy", self.yx_color, self.yx_marker, "yy"
+            res_fig, yy_source_res, "Zyy", self.yy_color, self.yy_marker, "yy"
         )
         self._add_component(
-            phase_fig, xx_source_phase, "Zxx", self.xy_color, self.xy_marker, "xx"
+            phase_fig, xx_source_phase, "Zxx", self.xx_color, self.xx_marker, "xx"
         )
         self._add_component(
-            phase_fig, yy_source_phase, "Zyy", self.yx_color, self.yx_marker, "yy"
+            phase_fig, yy_source_phase, "Zyy", self.yy_color, self.yy_marker, "yy"
         )
 
     def _plot_determinant(self, res_fig, phase_fig):
+        res_err_attr = f"res_{self._error_str}_det"
+        phase_err_attr = f"phase_{self._error_str}_det"
+
+        try:
+            res_err = np.asarray(getattr(self.Z, res_err_attr), dtype=float)
+        except AttributeError:
+            res_err = np.asarray(self.Z.res_error_det, dtype=float)
+        if not np.any(np.isfinite(res_err)):
+            res_err = np.zeros(len(self.period), dtype=float)
+
+        try:
+            phase_err = np.asarray(getattr(self.Z, phase_err_attr), dtype=float)
+        except AttributeError:
+            phase_err = np.asarray(self.Z.phase_error_det, dtype=float)
+        if not np.any(np.isfinite(phase_err)):
+            phase_err = np.zeros(len(self.period), dtype=float)
+
         source_res = ColumnDataSource(
             data={
                 "period": np.asarray(self.period, dtype=float),
                 "value": np.asarray(self.Z.res_det, dtype=float),
-                "low": np.asarray(self.Z.res_det - self.Z.res_error_det, dtype=float),
-                "high": np.asarray(self.Z.res_det + self.Z.res_error_det, dtype=float),
+                "low": np.asarray(self.Z.res_det - res_err, dtype=float),
+                "high": np.asarray(self.Z.res_det + res_err, dtype=float),
             }
         )
         source_phase = ColumnDataSource(
             data={
                 "period": np.asarray(self.period, dtype=float),
                 "value": np.asarray(self.Z.phase_det, dtype=float),
-                "low": np.asarray(
-                    self.Z.phase_det - self.Z.phase_error_det, dtype=float
-                ),
-                "high": np.asarray(
-                    self.Z.phase_det + self.Z.phase_error_det, dtype=float
-                ),
+                "low": np.asarray(self.Z.phase_det - phase_err, dtype=float),
+                "high": np.asarray(self.Z.phase_det + phase_err, dtype=float),
             }
         )
 
@@ -847,8 +855,22 @@ class PlotMTResponse(PlotBase):
 
         self.figures = {}
 
-        res_fig = self._make_resistivity_figure()
-        phase_fig = self._make_phase_figure(res_fig.x_range)
+        # base_column_width is the total width of a single-column layout.
+        # For plot_num=2, each impedance figure is set to half of the two-column
+        # total width (2 * fig_w_2col). Tipper/PT are set to 2 * fig_w_2col so
+        # they align exactly with the gridplot below them.
+        # 600px per column gives 1200px total — readable with axis labels/legends
+        # and fits comfortably on a 1366px-wide screen.
+        base_column_width = 800
+        if self.plot_num == 2:
+            fig_w = 600  # per impedance column; gridplot total = 2 * 600 = 1200px
+            aux_width = fig_w * 2  # tipper/PT span both columns
+        else:
+            fig_w = base_column_width
+            aux_width = base_column_width
+
+        res_fig = self._make_resistivity_figure(width=fig_w)
+        phase_fig = self._make_phase_figure(res_fig.x_range, width=fig_w)
 
         self._plot_od_components(res_fig, phase_fig)
 
@@ -872,11 +894,8 @@ class PlotMTResponse(PlotBase):
 
         tip_fig = None
         pt_fig = None
-        base_column_width = 800
-        n_columns = 2 if self.plot_num == 2 else 1
-        panel_width = base_column_width * n_columns
-        # For plot_num == 2, tipper and PT figures need to span both columns
-        aux_width = panel_width
+        # Tipper and PT always use the full base_column_width so they align
+        # correctly below both single-column and two-column impedance grids.
 
         if self.plot_tipper.find("y") >= 0:
             tip_fig = self._make_tipper_figure(width=aux_width)
@@ -894,8 +913,10 @@ class PlotMTResponse(PlotBase):
             self._linear_x_figure_keys.add("pt")
 
         if self.plot_num == 2:
-            res_fig_diag = self._make_resistivity_figure(x_range=res_fig.x_range)
-            phase_fig_diag = self._make_phase_figure(res_fig.x_range)
+            res_fig_diag = self._make_resistivity_figure(
+                x_range=res_fig.x_range, width=fig_w
+            )
+            phase_fig_diag = self._make_phase_figure(res_fig.x_range, width=fig_w)
             self._plot_diag_components(res_fig_diag, phase_fig_diag)
             self._format_res_axis(res_fig_diag)
             self._format_phase_axis(phase_fig_diag)
@@ -916,22 +937,19 @@ class PlotMTResponse(PlotBase):
             self.figures["phase_diag"] = phase_fig_diag
             self._log_x_figure_keys.update(["res_diag", "phase_diag"])
 
-            # Create 2-column grid for OD and diagonal components
-            layout_rows = []
-            layout_rows.append(
-                Row(res_fig, res_fig_diag, width=panel_width, sizing_mode="fixed")
-            )
-            layout_rows.append(
-                Row(phase_fig, phase_fig_diag, width=panel_width, sizing_mode="fixed")
-            )
-
-            # Add full-width tipper and PT rows
+            # Row-based two-column layout: each figure is fig_w pixels wide so
+            # the combined row (2 * fig_w) matches tipper/PT width exactly.
+            # gridplot was avoided because GridPlot does not reliably propagate
+            # child figure widths to the container when used inside Panel.
+            layout_rows = [
+                Row(res_fig, res_fig_diag),
+                Row(phase_fig, phase_fig_diag),
+            ]
             if tip_fig is not None:
                 layout_rows.append(tip_fig)
             if pt_fig is not None:
                 layout_rows.append(pt_fig)
-
-            self.layout = Column(*layout_rows, width=panel_width, sizing_mode="fixed")
+            self.layout = Column(*layout_rows)
         else:
             # Single column layout for plot_num == 1 or 3
             layout_rows = [res_fig, phase_fig]
@@ -939,14 +957,14 @@ class PlotMTResponse(PlotBase):
                 layout_rows.append(tip_fig)
             if pt_fig is not None:
                 layout_rows.append(pt_fig)
-            self.layout = Column(*layout_rows, width=panel_width, sizing_mode="fixed")
+            self.layout = Column(*layout_rows)
 
         if self.show_plot:
             show(self.layout)
 
         return self.layout
 
-    def make_panel(self, sizing_mode="stretch_width", interactive=True):
+    def panel(self, sizing_mode="stretch_width", interactive=True):
         """Return a Panel object wrapping the Bokeh layout.
 
         Parameters
@@ -958,7 +976,7 @@ class PlotMTResponse(PlotBase):
             period window, and data/model errors.
         """
         try:
-            pn = importlib.import_module("panel")
+            import panel as pn
         except ImportError as error:  # pragma: no cover - optional dependency
             raise ImportError(
                 "Panel is required to create a panel object. Install with `pip install panel`."
@@ -967,7 +985,7 @@ class PlotMTResponse(PlotBase):
         if self.layout is None:
             self.plot()
 
-        title = self.plot_title if self.plot_title is not None else self.station
+        title = self.plot_title if self.plot_title else self.station
         bokeh_pane = pn.pane.Bokeh(self.layout, sizing_mode=sizing_mode)
 
         if not interactive:
@@ -987,12 +1005,23 @@ class PlotMTResponse(PlotBase):
             "tip_imag": "Tipper Imag",
             "pt": "Phase Tensor",
         }
-        available = [key for key in options if key in self.renderers]
+
+        # Default visible keys per plot_num:
+        #   1 → off-diagonal only   2 → full tensor (incl. diagonals)
+        #   3 → all (incl. det)
+        _preset_visible = {
+            1: ["xy", "yx", "tip_real", "tip_imag", "pt"],
+            2: ["xy", "yx", "xx", "yy", "tip_real", "tip_imag", "pt"],
+            3: ["xy", "yx", "det", "xx", "yy", "tip_real", "tip_imag", "pt"],
+        }
+
+        def _available():
+            return [key for key in options if key in self.renderers]
 
         component_widget = pn.widgets.CheckButtonGroup(
             name="Visible Components",
-            options={options[key]: key for key in available},
-            value=available,
+            options={options[key]: key for key in _available()},
+            value=_available(),
             button_type="light",
         )
 
@@ -1013,52 +1042,148 @@ class PlotMTResponse(PlotBase):
             step=0.1,
         )
 
-        _preset_map = {
-            "Off-diagonal": [
-                k for k in ["xy", "yx", "tip_real", "tip_imag", "pt"] if k in available
-            ],
-            "Full tensor": [
-                k
-                for k in ["xy", "yx", "xx", "yy", "tip_real", "tip_imag", "pt"]
-                if k in available
-            ],
-            "All": available,
-        }
-        preset_widget = pn.widgets.RadioButtonGroup(
-            name="Preset",
-            options=list(_preset_map.keys()),
-            value="Off-diagonal",
-            button_type="warning",
+        od_btn = pn.widgets.Button(
+            name="Off-diagonal", button_type="warning", width=120
         )
+        full_btn = pn.widgets.Button(
+            name="Full tensor", button_type="warning", width=120
+        )
+        all_btn = pn.widgets.Button(name="All", button_type="warning", width=60)
+
+        # ── per-component color / marker / size styling ───────────────────────
+        _style_defs = [
+            ("xy", "Zxy", "xy_color", "xy_marker"),
+            ("yx", "Zyx", "yx_color", "yx_marker"),
+            ("xx", "Zxx", "xx_color", "xx_marker"),
+            ("yy", "Zyy", "yy_color", "yy_marker"),
+            ("det", "det(Z)", "det_color", "det_marker"),
+        ]
+        _marker_options = ["o", "s", "v", "d", "^"]
+        _style_widgets = {}
+
+        marker_size_widget = pn.widgets.IntSlider(
+            name="Marker size",
+            start=2,
+            end=20,
+            value=self.marker_size,
+            width=160,
+        )
+
+        lw_widget = pn.widgets.FloatSlider(
+            name="Line width",
+            start=0.5,
+            end=5.0,
+            step=0.25,
+            value=float(self.lw),
+            width=160,
+        )
+
+        # Mutable Row whose objects are replaced after each replot
+        style_row = pn.Row()
+
+        def _build_style_row(avail):
+            """Rebuild style_row contents to match currently available components."""
+            _style_widgets.clear()
+            new_cols = []
+            for key, label, color_attr, marker_attr in _style_defs:
+                if key not in avail:
+                    continue
+                cw = pn.widgets.ColorPicker(
+                    name=f"{label} color",
+                    value=getattr(self, color_attr),
+                    width=60,
+                )
+                mw = pn.widgets.Select(
+                    name=f"{label} marker",
+                    options=_marker_options,
+                    value=getattr(self, marker_attr),
+                    width=80,
+                )
+                _style_widgets[key] = (cw, mw, color_attr, marker_attr)
+                cw.param.watch(_refresh_after_style_change, "value")
+                mw.param.watch(_refresh_after_style_change, "value")
+                new_cols.append(
+                    pn.Column(
+                        pn.pane.Markdown(f"**{label}**", width=90),
+                        cw,
+                        mw,
+                        width=100,
+                    )
+                )
+            new_cols.append(
+                pn.Column(pn.pane.Markdown("**Marker size**"), marker_size_widget)
+            )
+            new_cols.append(pn.Column(pn.pane.Markdown("**Line width**"), lw_widget))
+            style_row.objects = new_cols
+
+        def _apply_preset_num(new_plot_num):
+            """Re-render with new plot_num and update all dependent widgets."""
+            self.plot_num = new_plot_num
+            self.res_limits = None  # recalculate limits for new mode
+            self.plot()
+            bokeh_pane.object = self.layout
+            avail = _available()
+            visible = [k for k in _preset_visible[new_plot_num] if k in avail]
+            # Rebuild component widget options to reflect new renderer set
+            component_widget.options = {options[k]: k for k in avail}
+            component_widget.value = visible
+            self._set_component_visibility(visible)
+            _build_style_row(avail)
+            self._set_period_window(period_widget.value)
+            bokeh_pane.param.trigger("object")
 
         def _refresh_from_error_mode(event):
             self.plot_model_error = event.new == "model"
+            self.res_limits = None
             self.plot()
             bokeh_pane.object = self.layout
             self._set_component_visibility(component_widget.value)
+            bokeh_pane.param.trigger("object")
             self._set_period_window(period_widget.value)
 
         def _update_visibility(event):
             self._set_component_visibility(event.new)
+            bokeh_pane.param.trigger("object")
 
         def _update_period(event):
             self._set_period_window(event.new)
 
-        def _apply_preset(event):
-            component_widget.value = _preset_map[event.new]
+        def _refresh_after_style_change(event):
+            for _key, (_cw, _mw, _ca, _ma) in _style_widgets.items():
+                setattr(self, _ca, _cw.value)
+                setattr(self, _ma, _mw.value)
+            self.marker_size = marker_size_widget.value
+            self.lw = lw_widget.value
+            self.res_limits = None
+            self.plot()
+            bokeh_pane.object = self.layout
+            self._set_component_visibility(component_widget.value)
+            bokeh_pane.param.trigger("object")
+            self._set_period_window(period_widget.value)
+
+        od_btn.on_click(lambda e: _apply_preset_num(1))
+        full_btn.on_click(lambda e: _apply_preset_num(2))
+        all_btn.on_click(lambda e: _apply_preset_num(3))
 
         error_widget.param.watch(_refresh_from_error_mode, "value")
         component_widget.param.watch(_update_visibility, "value")
         period_widget.param.watch(_update_period, "value")
-        preset_widget.param.watch(_apply_preset, "value")
+        marker_size_widget.param.watch(_refresh_after_style_change, "value")
+        lw_widget.param.watch(_refresh_after_style_change, "value")
+        # Initialise: render off-diagonal (plot_num=1) on first display
+        _apply_preset_num(self.plot_num)
 
-        # initialise with Off-diagonal preset active
-        component_widget.value = _preset_map["Off-diagonal"]
-        self._set_component_visibility(component_widget.value)
-        self._set_period_window(period_widget.value)
+        style_card = pn.Card(
+            style_row,
+            title="Component Styling",
+            collapsed=True,
+        )
 
         controls = pn.Row(
-            pn.Column(pn.pane.Markdown("**Preset**"), preset_widget),
+            pn.Column(
+                pn.pane.Markdown("**Preset**"),
+                pn.Row(od_btn, full_btn, all_btn),
+            ),
             pn.Column(pn.pane.Markdown("**Components**"), component_widget),
             pn.Column(pn.pane.Markdown("**Error Type**"), error_widget),
             pn.Column(pn.pane.Markdown("**Period Window**"), period_widget),
@@ -1067,6 +1192,7 @@ class PlotMTResponse(PlotBase):
         return pn.Column(
             pn.pane.Markdown(f"## {title}"),
             controls,
+            style_card,
             bokeh_pane,
             sizing_mode=sizing_mode,
         )

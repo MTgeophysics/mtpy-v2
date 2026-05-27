@@ -158,3 +158,6 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+
+# Test-generated HDF5 files (can be held open by other processes)
+mtpy/imaging/bokeh_plots/mt_collection.h5

@@ -6,26 +6,63 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import panel as pn
+import param
+from bokeh.io import show as bokeh_show
+from bokeh.models import ColumnDataSource, HoverTool, LabelSet, Range1d
+from bokeh.plotting import figure
 
 import mtpy.utils.exceptions as mtex
-from mtpy.imaging.mtplot_tools import PlotBase
+from mtpy.imaging.bokeh_plots.bokeh_plot_base import BokehPlotBase
 
 
-try:
-    from bokeh.io import show as bokeh_show
-    from bokeh.models import ColumnDataSource, HoverTool, LabelSet, Range1d
-    from bokeh.plotting import figure
-except ImportError:  # pragma: no cover - optional dependency
-    bokeh_show = None
-    ColumnDataSource = None
-    HoverTool = None
-    LabelSet = None
-    Range1d = None
-    figure = None
+class PlotStations(BokehPlotBase):
+    """Plot station locations in map view using Bokeh.
 
+    Inherits all common parameters from :class:`BokehPlotBase` and adds
+    station-map-specific parameters.
 
-class PlotStations(PlotBase):
-    """Plot station locations in map view using Bokeh."""
+    Parameters
+    ----------
+    geo_df : geopandas.GeoDataFrame
+        GeoDataFrame with station geometry and a ``station`` column.
+    **kwargs
+        Any :class:`BokehPlotBase` or :class:`PlotStations` parameter by name.
+    """
+
+    # ── PlotStations-specific params ──────────────────────────────────────
+
+    # Keys must match xyzservices dot-notation (used by bokeh add_tile).
+    _TILE_PROVIDERS = [
+        "CartoDB.Positron",
+        "CartoDB.Voyager",
+        "CartoDB.DarkMatter",
+        "OpenStreetMap.Mapnik",
+        "Esri.WorldImagery",
+        "Esri.WorldStreetMap",
+        "Esri.WorldTopoMap",
+        "Esri.NatGeoWorldMap",
+        "Esri.WorldShadedRelief",
+        "Stadia.StamenTerrain",
+        "Stadia.StamenToner",
+        "Stadia.StamenWatercolor",
+    ]
+
+    bokeh_tile_provider = param.ObjectSelector(
+        default="CartoDB.Positron",
+        objects=_TILE_PROVIDERS,
+        doc="Tile basemap provider (xyzservices dot-notation key)",
+    )
+    plot_cx = param.Boolean(default=True, doc="Overlay a tile basemap")
+    plot_names = param.Boolean(default=True, doc="Annotate stations with their names")
+    map_epsg = param.Integer(default=4326, doc="Input CRS EPSG code")
+    station_id = param.Parameter(default=None, doc="Subset of station IDs to plot")
+    ref_point = param.Parameter(default=(0, 0), doc="Reference point (lon, lat)")
+    pad = param.Parameter(default=None, doc="Axis padding (auto if None)")
+    image_file = param.Parameter(default=None, doc="Background image file path")
+    image_extent = param.Parameter(default=None, doc="Image extent (x0, y0, x1, y1)")
+
+    # ── Marker shape lookup ────────────────────────────────────────────────
 
     _MARKER_MAP = {
         "o": "circle",
@@ -39,20 +76,6 @@ class PlotStations(PlotBase):
     }
 
     def __init__(self, geo_df, **kwargs):
-        self.plot_title = None
-        self.station_id = None
-        self.ref_point = (0, 0)
-
-        self.map_epsg = 4326
-        self.plot_names = True
-        self.plot_cx = True
-
-        self.image_file = None
-        self.image_extent = None
-        self.pad = None
-
-        self.bokeh_tile_provider = "CartoDB Positron"
-
         super().__init__(**kwargs)
 
         self._basename = "stations_map"
@@ -61,9 +84,6 @@ class PlotStations(PlotBase):
         self.fig = None
         self.layout = None
 
-        for key, value in kwargs.items():
-            setattr(self, key, value)
-
         if self.image_file is not None and self.image_extent is None:
             raise mtex.MTpyError_input_arguments(
                 "Need to input extents of the image as(x0, y0, x1, y1)"
@@ -71,6 +91,8 @@ class PlotStations(PlotBase):
 
         if self.show_plot:
             self.plot(show=True)
+
+    # ── Helpers ───────────────────────────────────────────────────────────
 
     def _require_bokeh(self):
         if (
@@ -178,6 +200,8 @@ class PlotStations(PlotBase):
 
         return figure(**kwargs)
 
+    # ── Primary plot method ───────────────────────────────────────────────
+
     def plot(self, show=True):
         """Plot stations using Bokeh, optionally with a built-in tile basemap."""
 
@@ -192,7 +216,7 @@ class PlotStations(PlotBase):
 
         fig_obj = self._make_figure(x_limits, y_limits)
 
-        if self.plot_title is not None:
+        if self.plot_title:
             fig_obj.title.text = self.plot_title
 
         if self.plot_cx:
@@ -267,3 +291,93 @@ class PlotStations(PlotBase):
             bokeh_show(fig_obj)
 
         return fig_obj
+
+    # ── Interactive Panel app ─────────────────────────────────────────────
+
+    def panel(self):
+        """Return a standalone, embeddable Panel app (controls + live plot).
+
+        The returned ``pn.Column`` contains a row of option widgets and a
+        live Bokeh plot pane.  Clicking *Refresh* re-renders the plot with
+        the current widget values.
+
+        The widget values are kept in sync with this object's ``param``
+        attributes so the same object can be used programmatically or
+        interactively.
+
+        Returns
+        -------
+        pn.Column
+            A Panel layout that is both standalone and embeddable in a
+            larger ``MTDataApp`` panel.
+        """
+        if pn is None:
+            raise ImportError(
+                "panel is required for PlotStations.panel(). "
+                "Install with `pip install panel`."
+            )
+
+        # ── Widgets ───────────────────────────────────────────────────────
+        w_title = pn.widgets.TextInput(
+            name="Title", value=self.plot_title, placeholder="(none)"
+        )
+        w_tile = pn.widgets.Select(
+            name="Basemap", value=self.bokeh_tile_provider, options=self._TILE_PROVIDERS
+        )
+        w_plot_cx = pn.widgets.Checkbox(name="Show basemap", value=self.plot_cx)
+        w_plot_names = pn.widgets.Checkbox(name="Show labels", value=self.plot_names)
+        w_marker = pn.widgets.Select(
+            name="Marker",
+            value=self.marker,
+            options=list(self._MARKER_MAP.keys()),
+        )
+        w_marker_size = pn.widgets.IntSlider(
+            name="Marker size", value=self.marker_size, start=1, end=50
+        )
+        w_marker_color = pn.widgets.ColorPicker(
+            name="Marker color", value=self._to_hex(self.marker_color)
+        )
+        refresh_btn = pn.widgets.Button(
+            name="🔄 Refresh", button_type="success", width=120
+        )
+
+        plot_pane = pn.pane.Bokeh(sizing_mode="stretch_width")
+
+        def _refresh(_event=None):
+            self.plot_title = w_title.value
+            self.bokeh_tile_provider = w_tile.value
+            self.plot_cx = w_plot_cx.value
+            self.plot_names = w_plot_names.value
+            self.marker = w_marker.value
+            self.marker_size = w_marker_size.value
+            self.marker_color = w_marker_color.value
+            # Reset cached pad so it is recomputed for new basemap projection
+            self.pad = None
+            fig = self.plot(show=False)
+            plot_pane.object = fig
+
+        refresh_btn.on_click(_refresh)
+
+        # Render an initial plot
+        _refresh()
+
+        controls = pn.Row(
+            pn.Column(
+                w_title,
+                w_tile,
+                w_plot_cx,
+                w_plot_names,
+                width=280,
+                margin=(0, 20, 0, 0),
+            ),
+            pn.Column(
+                w_marker,
+                w_marker_size,
+                w_marker_color,
+                refresh_btn,
+                width=260,
+            ),
+            sizing_mode="fixed",
+        )
+
+        return pn.Column(controls, plot_pane, sizing_mode="stretch_width")

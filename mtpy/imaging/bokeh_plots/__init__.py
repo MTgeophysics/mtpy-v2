@@ -1,6 +1,6 @@
 """Bokeh-based plotting utilities for MT response visualization."""
 
-from .base import BokehPlotBase
+from .bokeh_plot_base import BokehPlotBase
 from .plot_mt_response import PlotMTResponse
 from .plot_mt_responses import PlotMultipleResponses
 from .plot_penetration_depth_1d import PlotPenetrationDepth1D
