@@ -251,8 +251,8 @@ class Simpeg1D:
     ):
         """Run fixed layer inversion."""
         receivers_list = [
-            nsem.receivers.PointNaturalSource(component="app_res"),
-            nsem.receivers.PointNaturalSource(component="phase"),
+            nsem.receivers.Impedance(component="app_res"),
+            nsem.receivers.Impedance(component="phase"),
         ]
 
         # Cull the data
