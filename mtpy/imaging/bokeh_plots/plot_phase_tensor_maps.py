@@ -27,11 +27,8 @@ from bokeh.plotting import figure
 
 from mtpy.core import Tipper
 from mtpy.core.transfer_function import PhaseTensor
-from mtpy.imaging.bokeh_plots.bokeh_plot_base import (
-    _ELLIPSE_COLORBY_OPTIONS,
-    BokehPlotBase,
-)
-from mtpy.imaging.mtplot_tools.base import PlotBaseMaps
+from mtpy.imaging.bokeh_plots.bokeh_plot_base import _ELLIPSE_COLORBY_OPTIONS
+from mtpy.imaging.bokeh_plots.bokeh_plot_base_maps import BokehPlotBaseMaps
 
 
 _PALETTE_OPTIONS = ["turbo", "viridis", "magma", "inferno", "plasma", "cividis"]
@@ -53,10 +50,11 @@ _TILE_PROVIDERS = [
 ]
 
 
-class PlotPhaseTensorMaps(BokehPlotBase):
+class PlotPhaseTensorMaps(BokehPlotBaseMaps):
     """Plots phase tensor ellipses/wedges in map view using Bokeh.
 
-    Inherits all shared display params from :class:`BokehPlotBase`.
+    Inherits shared Bokeh plotting and map interpolation helpers from
+    :class:`BokehPlotBaseMaps`.
 
     Parameters
     ----------
@@ -143,10 +141,6 @@ class PlotPhaseTensorMaps(BokehPlotBase):
     station_pad = param.Parameter(default=0.0005, doc="Vertical label offset")
 
     # ── pre-interpolation cache ───────────────────────────────────────────────
-    use_mt_data_preinterpolation = param.Boolean(
-        default=True, doc="Cache interpolated mt_data per plot period"
-    )
-
     def __init__(self, mt_data, **kwargs):
         super().__init__(**kwargs)
 
@@ -225,77 +219,6 @@ class PlotPhaseTensorMaps(BokehPlotBase):
                 tf.rotation_angle = value
         self._rotation_angle = value
 
-    def _iter_mt_objects(self):
-        if hasattr(self.mt_data, "values"):
-            yield from self.mt_data.values()
-            return
-
-        if hasattr(self.mt_data, "_iter_station_paths") and hasattr(
-            self.mt_data, "get_station"
-        ):
-            if hasattr(self.mt_data, "compute"):
-                self.mt_data.compute()
-            for station_path in self.mt_data._iter_station_paths():
-                yield self.mt_data.get_station(station_path, as_mt=True)
-            return
-
-        raise TypeError("mt_data must provide values() or MTData-style station access")
-
-    def _get_mt_data_for_plot_period(self):
-        if not self.use_mt_data_preinterpolation:
-            return self.mt_data
-
-        if not (
-            hasattr(self.mt_data, "interpolate")
-            and hasattr(self.mt_data, "_iter_station_paths")
-            and hasattr(self.mt_data, "get_station")
-        ):
-            return self.mt_data
-
-        target_period = float(self.plot_period)
-        if (
-            self._interpolated_mt_data_cache is not None
-            and self._interpolated_mt_data_cache_period is not None
-            and np.isclose(self._interpolated_mt_data_cache_period, target_period)
-        ):
-            return self._interpolated_mt_data_cache
-
-        try:
-            interpolated = self.mt_data.interpolate(
-                np.array([target_period], dtype=float),
-                inplace=False,
-                bounds_error=False,
-            )
-            if interpolated is not None:
-                self._interpolated_mt_data_cache = interpolated
-                self._interpolated_mt_data_cache_period = target_period
-                return interpolated
-        except Exception as error:
-            self.logger.debug(
-                "Falling back to per-station interpolation for plot period "
-                f"{target_period}: {error}"
-            )
-
-        return self.mt_data
-
-    def _get_mt_objects(self):
-        data_source = self._get_mt_data_for_plot_period()
-
-        if hasattr(data_source, "values"):
-            return list(data_source.values())
-
-        if hasattr(data_source, "_iter_station_paths") and hasattr(
-            data_source, "get_station"
-        ):
-            if hasattr(data_source, "compute"):
-                data_source.compute()
-            return [
-                data_source.get_station(station_path, as_mt=True)
-                for station_path in data_source._iter_station_paths()
-            ]
-
-        return list(self._iter_mt_objects())
-
     def _palette_from_name(self, name):
         if name is None:
             return Turbo256
@@ -329,144 +252,6 @@ class PlotPhaseTensorMaps(BokehPlotBase):
         alpha = float(np.clip(alpha, 0.0, 1.0))
         idx = int(alpha * (len(palette) - 1))
         return palette[idx]
-
-    # ── interpolation helpers (ported from PlotBaseMaps) ─────────────────────
-
-    @staticmethod
-    def get_interp1d_functions_z(tf, interp_type="slinear"):
-        return PlotBaseMaps.get_interp1d_functions_z(tf, interp_type)
-
-    @staticmethod
-    def get_interp1d_functions_t(tf, interp_type="slinear"):
-        return PlotBaseMaps.get_interp1d_functions_t(tf, interp_type)
-
-    def _get_plot_period_index(self, tf, rtol=1e-6):
-        period = getattr(tf, "period", None)
-        if period is None:
-            return None
-        period_array = np.asarray(period, dtype=float)
-        if period_array.size == 0:
-            return None
-        idx = np.where(np.isclose(period_array, float(self.plot_period), rtol=rtol))[0]
-        if idx.size == 0:
-            return None
-        return int(idx[0])
-
-    def _get_interpolated_z(self, tf) -> np.ndarray:
-        idx = self._get_plot_period_index(tf)
-        if idx is not None and tf.Z is not None:
-            try:
-                return np.nan_to_num(np.asarray(tf.Z.z[idx : idx + 1], dtype=complex))
-            except Exception:
-                pass
-        if not hasattr(tf, "z_interp_dict"):
-            tf.z_interp_dict = self.get_interp1d_functions_z(tf)
-        freq = 1.0 / self.plot_period
-        return np.nan_to_num(
-            np.array(
-                [
-                    [
-                        tf.z_interp_dict["zxx"]["real"](freq)[0]
-                        + 1j * tf.z_interp_dict["zxx"]["imag"](freq)[0],
-                        tf.z_interp_dict["zxy"]["real"](freq)[0]
-                        + 1j * tf.z_interp_dict["zxy"]["imag"](freq)[0],
-                    ],
-                    [
-                        tf.z_interp_dict["zyx"]["real"](freq)[0]
-                        + 1j * tf.z_interp_dict["zyx"]["imag"](freq)[0],
-                        tf.z_interp_dict["zyy"]["real"](freq)[0]
-                        + 1j * tf.z_interp_dict["zyy"]["imag"](freq)[0],
-                    ],
-                ]
-            )
-        ).reshape((1, 2, 2))
-
-    def _get_interpolated_z_error(self, tf) -> np.ndarray:
-        idx = self._get_plot_period_index(tf)
-        if idx is not None and tf.Z is not None and tf.Z._has_tf_error():
-            try:
-                return np.nan_to_num(
-                    np.asarray(tf.Z.z_error[idx : idx + 1], dtype=float)
-                )
-            except Exception:
-                pass
-        if not hasattr(tf, "z_interp_dict"):
-            tf.z_interp_dict = self.get_interp1d_functions_z(tf)
-        if tf.z_interp_dict.get("zxy", {}).get("err") is not None:
-            freq = 1.0 / self.plot_period
-            return np.nan_to_num(
-                np.array(
-                    [
-                        [
-                            tf.z_interp_dict["zxx"]["err"](freq)[0],
-                            tf.z_interp_dict["zxy"]["err"](freq)[0],
-                        ],
-                        [
-                            tf.z_interp_dict["zyx"]["err"](freq)[0],
-                            tf.z_interp_dict["zyy"]["err"](freq)[0],
-                        ],
-                    ]
-                )
-            ).reshape((1, 2, 2))
-        return np.zeros((1, 2, 2), dtype=float)
-
-    def _get_interpolated_t(self, tf) -> np.ndarray:
-        idx = self._get_plot_period_index(tf)
-        if idx is not None and tf.has_tipper() and tf.Tipper is not None:
-            try:
-                return np.nan_to_num(
-                    np.asarray(tf.Tipper.tipper[idx : idx + 1], dtype=complex)
-                )
-            except Exception:
-                pass
-        if not hasattr(tf, "t_interp_dict"):
-            tf.t_interp_dict = self.get_interp1d_functions_t(tf)
-        if not tf.has_tipper():
-            return np.zeros((1, 1, 2), dtype=complex)
-        freq = 1.0 / self.plot_period
-        return np.nan_to_num(
-            np.array(
-                [
-                    [
-                        [
-                            tf.t_interp_dict["tzx"]["real"](freq)[0]
-                            + 1j * tf.t_interp_dict["tzx"]["imag"](freq)[0],
-                            tf.t_interp_dict["tzy"]["real"](freq)[0]
-                            + 1j * tf.t_interp_dict["tzy"]["imag"](freq)[0],
-                        ]
-                    ]
-                ]
-            )
-        ).reshape((1, 1, 2))
-
-    def _get_interpolated_t_err(self, tf) -> np.ndarray:
-        idx = self._get_plot_period_index(tf)
-        if idx is not None and tf.has_tipper() and tf.Tipper._has_tf_error():
-            try:
-                return np.nan_to_num(
-                    np.asarray(tf.Tipper.tipper_error[idx : idx + 1], dtype=float)
-                )
-            except Exception:
-                pass
-        if not hasattr(tf, "t_interp_dict"):
-            tf.t_interp_dict = self.get_interp1d_functions_t(tf)
-        if not tf.has_tipper():
-            return np.zeros((1, 1, 2), dtype=float)
-        if tf.Tipper._has_tf_error():
-            freq = 1.0 / self.plot_period
-            return np.nan_to_num(
-                np.array(
-                    [
-                        [
-                            [
-                                tf.t_interp_dict["tzx"]["err"](freq)[0],
-                                tf.t_interp_dict["tzy"]["err"](freq)[0],
-                            ]
-                        ]
-                    ]
-                )
-            ).reshape((1, 1, 2))
-        return np.zeros((1, 1, 2), dtype=float)
 
     def _get_pt(self, tf):
         pt_obj = None

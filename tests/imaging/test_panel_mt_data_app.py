@@ -817,11 +817,12 @@ def test_generate_plot_station_required_but_none_selected():
 
 @pytest.mark.plotting
 def test_plot_types_registry_completeness():
-    """_PLOT_TYPES should expose all 11 MTData plot methods."""
+    """_PLOT_TYPES should expose all MTData plot methods in the app."""
     expected_methods = {
         "plot_stations",
         "plot_strike",
         "plot_mt_response",
+        "plot_mt_responses",
         "plot_phase_tensor",
         "plot_phase_tensor_map",
         "plot_tipper_map",
@@ -926,3 +927,33 @@ def test_generate_plot_falls_back_to_plot_when_no_panel_method():
 
     mock_plot_obj.plot.assert_called_once()
     assert "✅" in app._plot_status.object
+
+
+@pytest.mark.plotting
+def test_generate_phase_tensor_plot_uses_panel_and_station_key():
+    """Phase Tensor (single station) should forward station_key and embed panel()."""
+    app = _make_app()
+
+    station_path = "/surveys/survey1/stations/MT01"
+    mock_panel_app = pn.Column()
+    mock_plot_obj = MagicMock()
+    mock_plot_obj.panel = MagicMock(return_value=mock_panel_app)
+
+    mock_mt = MagicMock(spec=MTData)
+    mock_mt._iter_station_paths = MagicMock(return_value=iter([station_path]))
+    mock_mt.plot_phase_tensor.return_value = mock_plot_obj
+
+    app._mt_data = mock_mt
+    app.mt_data_loaded = True
+    app._plot_backend_widget.value = "bokeh"
+    app._plot_type_widget.value = "Phase Tensor (single station)"
+    app._plot_station_widget.value = station_path
+
+    app._on_generate_plot_clicked(None)
+
+    mock_mt.plot_phase_tensor.assert_called_once()
+    _, kwargs = mock_mt.plot_phase_tensor.call_args
+    assert kwargs.get("station_key") == station_path
+    assert kwargs.get("backend") == "bokeh"
+    mock_plot_obj.panel.assert_called_once()
+    assert mock_panel_app in app._plot_display.objects

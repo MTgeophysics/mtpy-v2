@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import importlib
+
 import numpy as np
+import param
 from bokeh.io import show as bokeh_show
 from bokeh.layouts import Column
 from bokeh.models import (
@@ -10,6 +13,7 @@ from bokeh.models import (
     ColorBar,
     ColumnDataSource,
     FixedTicker,
+    HoverTool,
     LinearAxis,
     LinearColorMapper,
     Range1d,
@@ -25,11 +29,28 @@ from bokeh.palettes import (
 )
 from bokeh.plotting import figure
 
-from mtpy.imaging.mtplot_tools import PlotBase
+from mtpy.imaging.bokeh_plots.bokeh_plot_base import (
+    _ELLIPSE_COLORBY_OPTIONS,
+    BokehPlotBase,
+)
 
 
-class PlotPhaseTensor(PlotBase):
+_PALETTE_OPTIONS = ["turbo", "viridis", "magma", "inferno", "plasma", "cividis"]
+
+
+class PlotPhaseTensor(BokehPlotBase):
     """Plot phase tensor elements in a Bokeh multi-panel layout."""
+
+    ellipse_colorby = param.ObjectSelector(
+        default="phimin",
+        objects=_ELLIPSE_COLORBY_OPTIONS,
+        doc="PT property used to color ellipses",
+    )
+    ellipse_cmap = param.ObjectSelector(
+        default="turbo",
+        objects=_PALETTE_OPTIONS,
+        doc="Color palette used for PT ellipse fill",
+    )
 
     _MARKER_MAP = {
         "o": "circle",
@@ -43,15 +64,32 @@ class PlotPhaseTensor(PlotBase):
     }
 
     def __init__(self, pt_object, station=None, **kwargs):
-        kwargs["ellipse_size"] = kwargs.get("ellipse_size", 2)
+        kwargs["ellipse_size"] = kwargs.get("ellipse_size", 2.0)
+
+        param_names = set(type(self).param)
+        param_kwargs = {k: v for k, v in kwargs.items() if k in param_names}
+        other_kwargs = {k: v for k, v in kwargs.items() if k not in param_names}
 
         self._rotation_angle = 0
-        super().__init__(**kwargs)
+        super().__init__(**param_kwargs)
+
+        self.marker_size = kwargs.get("marker_size", 5)
 
         self.pt = pt_object
         self.station = station
         self.skew_cutoff = 3
         self.ellip_cutoff = 0.1
+
+        self.pt_limits = None
+        self.skew_limits = None
+        self.strike_limits = None
+
+        self.skew_color = "#008000"
+        self.skew_marker = "o"
+        self.strike_pt_color = "#000000"
+        self.strike_pt_marker = "o"
+
+        self.det_color = "#610968"
 
         self.cb_position = (0.045, 0.78, 0.015, 0.12)
 
@@ -68,7 +106,7 @@ class PlotPhaseTensor(PlotBase):
         self.fig = None
         self.figures = {}
 
-        for key, value in kwargs.items():
+        for key, value in other_kwargs.items():
             setattr(self, key, value)
 
         if self.show_plot:
@@ -179,13 +217,34 @@ class PlotPhaseTensor(PlotBase):
                 limits[1] = 99.99
             self.pt_limits = limits
 
-    def _make_log_tick_overrides(self):
+    def _make_log_tick_overrides(self, x_spacing=None):
         dmin = int(np.floor(np.log10(self.x_limits[0])))
         dmax = int(np.ceil(np.log10(self.x_limits[1])))
         periods = np.power(10.0, np.arange(dmin, dmax + 1, dtype=float))
-        ticks = np.log10(periods) * float(self.ellipse_spacing)
+        spacing = float(self.ellipse_spacing) if x_spacing is None else float(x_spacing)
+        ticks = np.log10(periods) * spacing
         labels = {float(tick): f"{period:g}" for tick, period in zip(ticks, periods)}
         return ticks, labels
+
+    def _get_colorby_limits(self, colorby=None):
+        """Return finite min/max limits for the requested PT colorby array."""
+        current_colorby = self.ellipse_colorby if colorby is None else colorby
+        original_colorby = self.ellipse_colorby
+        try:
+            self.ellipse_colorby = current_colorby
+            arr = np.asarray(self.get_pt_color_array(self.pt), dtype=float)
+        finally:
+            self.ellipse_colorby = original_colorby
+
+        finite = arr[np.isfinite(arr)]
+        if finite.size == 0:
+            return float(self.ellipse_range[0]), float(self.ellipse_range[1])
+
+        lo = float(np.nanmin(finite))
+        hi = float(np.nanmax(finite))
+        if np.isclose(lo, hi):
+            hi = lo + 1.0
+        return lo, hi
 
     def plot(self, rotation_angle=None, show=True):
         """Create and return a Bokeh layout with phase tensor elements."""
@@ -243,20 +302,45 @@ class PlotPhaseTensor(PlotBase):
             match_aspect=True,
         )
 
-        xmax = float(np.nanmax(np.abs(phimax))) if np.isfinite(phimax).any() else 1.0
-        if xmax <= 0:
-            xmax = 1.0
+        fig_width = fig_pt.width if fig_pt.width else 900
+        fig_height = fig_pt.height if fig_pt.height else 250
+        x_log_range = np.log10(self.x_limits[1]) - np.log10(self.x_limits[0])
+        pt_ylim = 1.5 * self.ellipse_size
+        adjusted_spacing = (2 * pt_ylim * fig_width) / (x_log_range * fig_height)
+
+        x = np.log10(period) * adjusted_spacing
+        valid_pt = (
+            np.isfinite(x)
+            & np.isfinite(phimin)
+            & np.isfinite(phimax)
+            & (phimax > 0)
+            & np.isfinite(azimuth)
+            & np.isfinite(color_array)
+        )
+
+        phimax_station = np.nanmax(phimax[valid_pt]) if np.any(valid_pt) else np.nan
+        if np.isfinite(phimax_station) and phimax_station > 0:
+            scaling = self.ellipse_size / phimax_station
+        else:
+            scaling = 0.0
+
+        n_valid = int(np.count_nonzero(valid_pt))
+        width = phimax[valid_pt] * scaling
+        height = phimin[valid_pt] * scaling
+        angle = np.deg2rad(90.0 - azimuth[valid_pt])
 
         src_pt = ColumnDataSource(
             data={
-                "x": np.log10(period) * float(self.ellipse_spacing),
-                "y": np.zeros_like(period),
-                "width": np.clip(np.abs(phimax) / xmax, 0, None)
-                * float(self.ellipse_size),
-                "height": np.clip(np.abs(phimin) / xmax, 0, None)
-                * float(self.ellipse_size),
-                "angle": np.deg2rad(azimuth),
-                "color": color_array,
+                "x": x[valid_pt],
+                "y": np.zeros(n_valid),
+                "width": width,
+                "height": height,
+                "angle": angle,
+                "color_value": color_array[valid_pt],
+                "phimin": phimin[valid_pt],
+                "phimax": phimax[valid_pt],
+                "azimuth": azimuth[valid_pt],
+                "period": period[valid_pt],
             }
         )
 
@@ -265,15 +349,16 @@ class PlotPhaseTensor(PlotBase):
             low=float(self.ellipse_range[0]),
             high=float(self.ellipse_range[1]),
         )
-        fig_pt.ellipse(
+        pt_renderer = fig_pt.ellipse(
             x="x",
             y="y",
             width="width",
             height="height",
             angle="angle",
             source=src_pt,
-            fill_color={"field": "color", "transform": mapper},
-            line_color="black",
+            fill_color={"field": "color_value", "transform": mapper},
+            line_color="#222222",
+            line_width=0.6,
             fill_alpha=0.9,
         )
 
@@ -287,19 +372,32 @@ class PlotPhaseTensor(PlotBase):
             "right",
         )
 
-        pt_ticks, pt_tick_labels = self._make_log_tick_overrides()
+        pt_ticks, pt_tick_labels = self._make_log_tick_overrides(
+            x_spacing=adjusted_spacing
+        )
         fig_pt.xaxis.ticker = FixedTicker(ticks=[float(v) for v in pt_ticks])
         fig_pt.xaxis.major_label_overrides = pt_tick_labels
+        x_pad = 0.5 * self.ellipse_size
         fig_pt.x_range = Range1d(
-            start=float(np.log10(self.x_limits[0]) * self.ellipse_spacing),
-            end=float(np.log10(self.x_limits[1]) * self.ellipse_spacing),
+            start=float(np.log10(self.x_limits[0]) * adjusted_spacing - x_pad),
+            end=float(np.log10(self.x_limits[1]) * adjusted_spacing + x_pad),
         )
-        fig_pt.y_range = Range1d(
-            start=-1.5 * self.ellipse_size, end=1.5 * self.ellipse_size
-        )
+        fig_pt.y_range = Range1d(start=-pt_ylim, end=pt_ylim)
         fig_pt.yaxis.visible = False
         fig_pt.xaxis.axis_label = "Period (s)"
         fig_pt.grid.grid_line_alpha = 0.25
+        fig_pt.add_tools(
+            HoverTool(
+                renderers=[pt_renderer],
+                tooltips=[
+                    ("Period (s)", "@period{0.000}"),
+                    (f"{self.ellipse_colorby}", "@color_value{0.0}"),
+                    ("phimin (deg)", "@phimin{0.0}"),
+                    ("phimax (deg)", "@phimax{0.0}"),
+                    ("azimuth (deg)", "@azimuth{0.0}"),
+                ],
+            )
+        )
 
         fig_phase = figure(
             title="",
@@ -498,3 +596,116 @@ class PlotPhaseTensor(PlotBase):
             bokeh_show(self.layout)
 
         return self.layout
+
+    def make_panel(self, sizing_mode="stretch_width"):
+        """Create a standalone interactive Panel app for phase tensor plots."""
+        try:
+            pn = importlib.import_module("panel")
+        except ImportError as exc:  # pragma: no cover
+            raise ImportError(
+                "Panel is required for make_panel(). Install with `pip install panel`."
+            ) from exc
+
+        if self.layout is None:
+            self.plot(show=False)
+
+        bokeh_pane = pn.pane.Bokeh(self.layout, sizing_mode=sizing_mode)
+
+        colorby_widget = pn.widgets.Select(
+            name="Phase Tensor Color By",
+            options=list(_ELLIPSE_COLORBY_OPTIONS),
+            value=self.ellipse_colorby,
+            width=260,
+        )
+
+        initial_min, initial_max = self._get_colorby_limits(self.ellipse_colorby)
+
+        color_min_widget = pn.widgets.NumberInput(
+            name="Ellipse Min",
+            value=float(initial_min),
+            step=0.1,
+            width=120,
+        )
+        color_max_widget = pn.widgets.NumberInput(
+            name="Ellipse Max",
+            value=float(initial_max),
+            step=0.1,
+            width=120,
+        )
+
+        palette_value = str(self.ellipse_cmap).lower()
+        if palette_value not in _PALETTE_OPTIONS:
+            palette_value = "turbo"
+
+        palette_widget = pn.widgets.Select(
+            name="Ellipse Palette",
+            options=_PALETTE_OPTIONS,
+            value=palette_value,
+            width=220,
+        )
+
+        marker_size_widget = pn.widgets.IntSlider(
+            name="Marker Size",
+            start=2,
+            end=20,
+            value=int(self.marker_size),
+            width=220,
+        )
+
+        limit_status = pn.pane.Markdown("", styles={"color": "#666"})
+
+        def _on_colorby_change(event):
+            lo, hi = self._get_colorby_limits(event.new)
+            color_min_widget.value = float(lo)
+            color_max_widget.value = float(hi)
+            _refresh()
+
+        def _refresh(_event=None):
+            self.ellipse_colorby = colorby_widget.value
+            self.ellipse_cmap = palette_widget.value
+            self.marker_size = int(marker_size_widget.value)
+            lo = float(color_min_widget.value)
+            hi = float(color_max_widget.value)
+            if hi <= lo:
+                hi = lo + 1.0
+                color_max_widget.value = hi
+                limit_status.object = (
+                    f"⚠️ Ellipse Max must be greater than Ellipse Min. "
+                    f"Adjusted max to {hi:.3g}."
+                )
+                limit_status.styles = {"color": "#7a5200"}
+            else:
+                limit_status.object = ""
+                limit_status.styles = {"color": "#666"}
+            self.ellipse_range = (lo, hi, self.ellipse_range[2])
+            self.plot(show=False)
+            bokeh_pane.object = self.layout
+
+        colorby_widget.param.watch(_on_colorby_change, "value")
+        palette_widget.param.watch(_refresh, "value")
+        marker_size_widget.param.watch(_refresh, "value")
+        color_min_widget.param.watch(_refresh, "value")
+        color_max_widget.param.watch(_refresh, "value")
+
+        title = self.plot_title if self.plot_title else (self.station or "Phase Tensor")
+        controls = pn.Row(
+            pn.Column(
+                pn.pane.Markdown("**Color By**"),
+                colorby_widget,
+                pn.Row(color_min_widget, color_max_widget),
+            ),
+            pn.Column(pn.pane.Markdown("**Palette**"), palette_widget),
+            pn.Column(pn.pane.Markdown("**Marker Size**"), marker_size_widget),
+        )
+
+        return pn.Column(
+            pn.pane.Markdown(f"## {title}"),
+            controls,
+            limit_status,
+            bokeh_pane,
+            sizing_mode=sizing_mode,
+        )
+
+    def panel(self, sizing_mode="stretch_width"):
+        """Alias used by MTDataApp plot dispatch."""
+        return self.make_panel(sizing_mode=sizing_mode)

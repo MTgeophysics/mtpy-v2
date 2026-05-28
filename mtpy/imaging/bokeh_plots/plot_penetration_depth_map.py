@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from mtpy.core import Z
-from mtpy.imaging.mtplot_tools import PlotBaseMaps
+from mtpy.imaging.bokeh_plots.bokeh_plot_base_maps import BokehPlotBaseMaps
 
 
 try:
@@ -49,13 +49,12 @@ except ImportError:  # pragma: no cover - optional dependency
     figure = None
 
 
-class PlotPenetrationDepthMap(PlotBaseMaps):
+class PlotPenetrationDepthMap(BokehPlotBaseMaps):
     """Plot the depth of penetration based on the Niblett-Bostick approximation."""
 
     def __init__(self, mt_data, **kwargs):
         self.mt_data = mt_data
         self._depth_array_cache = None
-        self.use_mt_data_preinterpolation = True
         self._interpolated_mt_data_cache = None
         self._interpolated_mt_data_cache_period = None
 
@@ -74,7 +73,7 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
         self.plot_tm = True
         self.plot_stations = True
         self.depth_cmap = "magma"
-        self.marker_color = "k"
+        self.marker_color = "#000000"
         self.marker_size = 10
         self.subplot_title_dict = {
             "det": "Determinant",
@@ -132,83 +131,6 @@ class PlotPenetrationDepthMap(PlotBaseMaps):
         """Get the depth of investigation estimation."""
 
         return z_object.estimate_depth_of_investigation()
-
-    def _iter_mt_objects(self):
-        """Yield MT objects from supported container types."""
-
-        if hasattr(self.mt_data, "values"):
-            yield from self.mt_data.values()
-            return
-
-        if hasattr(self.mt_data, "_iter_station_paths") and hasattr(
-            self.mt_data, "get_station"
-        ):
-            if hasattr(self.mt_data, "compute"):
-                self.mt_data.compute()
-            for station_path in self.mt_data._iter_station_paths():
-                yield self.mt_data.get_station(station_path, as_mt=True)
-            return
-
-        raise TypeError("mt_data must provide values() or MTData-style station access")
-
-    def _get_mt_objects(self):
-        """Return MT objects as a list for repeated calculations."""
-
-        data_source = self._get_mt_data_for_plot_period()
-
-        if hasattr(data_source, "values"):
-            return list(data_source.values())
-
-        if hasattr(data_source, "_iter_station_paths") and hasattr(
-            data_source, "get_station"
-        ):
-            if hasattr(data_source, "compute"):
-                data_source.compute()
-            return [
-                data_source.get_station(station_path, as_mt=True)
-                for station_path in data_source._iter_station_paths()
-            ]
-
-        return list(self._iter_mt_objects())
-
-    def _get_mt_data_for_plot_period(self):
-        """Return MTData interpolated to the active plot period when supported."""
-
-        if not self.use_mt_data_preinterpolation:
-            return self.mt_data
-
-        if not (
-            hasattr(self.mt_data, "interpolate")
-            and hasattr(self.mt_data, "_iter_station_paths")
-            and hasattr(self.mt_data, "get_station")
-        ):
-            return self.mt_data
-
-        target_period = float(self.plot_period)
-        if (
-            self._interpolated_mt_data_cache is not None
-            and self._interpolated_mt_data_cache_period is not None
-            and np.isclose(self._interpolated_mt_data_cache_period, target_period)
-        ):
-            return self._interpolated_mt_data_cache
-
-        try:
-            interpolated = self.mt_data.interpolate(
-                np.array([target_period], dtype=float),
-                inplace=False,
-                bounds_error=False,
-            )
-            if interpolated is not None:
-                self._interpolated_mt_data_cache = interpolated
-                self._interpolated_mt_data_cache_period = target_period
-                return interpolated
-        except Exception as error:
-            self.logger.debug(
-                "Falling back to per-station interpolation for plot period "
-                f"{target_period}: {error}"
-            )
-
-        return self.mt_data
 
     def _filter_depth_array(self, depth_array, comp):
         """Filter out some bad data points."""
