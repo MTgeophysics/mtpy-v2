@@ -2,53 +2,25 @@
 
 from __future__ import annotations
 
+import importlib
+
 import numpy as np
+from bokeh.io import show as bokeh_show
+from bokeh.layouts import Column, gridplot
+from bokeh.models import (
+    BasicTicker,
+    ColorBar,
+    ColumnDataSource,
+    Div,
+    FixedTicker,
+    HoverTool,
+    LinearColorMapper,
+    Range1d,
+)
+from bokeh.plotting import figure
 
 from mtpy.core import Z
 from mtpy.imaging.bokeh_plots.bokeh_plot_base_maps import BokehPlotBaseMaps
-
-
-try:
-    from bokeh.io import show as bokeh_show
-    from bokeh.layouts import Column, gridplot
-    from bokeh.models import (
-        BasicTicker,
-        ColorBar,
-        ColumnDataSource,
-        Div,
-        FixedTicker,
-        HoverTool,
-        LinearColorMapper,
-        Range1d,
-    )
-    from bokeh.palettes import (
-        Cividis256,
-        Inferno256,
-        Magma256,
-        Plasma256,
-        Turbo256,
-        Viridis256,
-    )
-    from bokeh.plotting import figure
-except ImportError:  # pragma: no cover - optional dependency
-    bokeh_show = None
-    Column = None
-    gridplot = None
-    BasicTicker = None
-    ColorBar = None
-    ColumnDataSource = None
-    Div = None
-    FixedTicker = None
-    HoverTool = None
-    LinearColorMapper = None
-    Range1d = None
-    Cividis256 = None
-    Inferno256 = None
-    Magma256 = None
-    Plasma256 = None
-    Turbo256 = None
-    Viridis256 = None
-    figure = None
 
 
 class PlotResPhaseMaps(BokehPlotBaseMaps):
@@ -257,20 +229,11 @@ class PlotResPhaseMaps(BokehPlotBaseMaps):
 
     def _palette_from_name(self, name):
         if name is None:
-            return Turbo256
+            return self.palette_options["turbo"]
 
         lname = str(name).lower()
-        if "magma" in lname:
-            return Magma256
-        if "inferno" in lname:
-            return Inferno256
-        if "plasma" in lname:
-            return Plasma256
-        if "viridis" in lname:
-            return Viridis256
-        if "cividis" in lname:
-            return Cividis256
-        return Turbo256
+
+        return self.palette_options.get(lname, self.palette_options["turbo"])
 
     def _get_cmap(self, component):
         if "res" in component:
@@ -462,9 +425,6 @@ class PlotResPhaseMaps(BokehPlotBaseMaps):
         for comp, subplot in subplot_numbers.items():
             if subplot is None:
                 continue
-
-            plot_array = data_array[np.nonzero(data_array[comp])]
-            if plot_array.size == 0:
                 continue
 
             nr, nc, nindex = subplot
@@ -487,7 +447,7 @@ class PlotResPhaseMaps(BokehPlotBaseMaps):
             )
 
             fig_obj.grid.grid_line_alpha = 0.25
-            self._plot_component(fig_obj, plot_array, comp)
+            self._plot_component(fig_obj, data_array, comp)
             self.figures[comp] = fig_obj
 
         if len(self.figures) == 0:
@@ -520,3 +480,141 @@ class PlotResPhaseMaps(BokehPlotBaseMaps):
             bokeh_show(self.layout)
 
         return self.layout
+
+    def panel(self):
+        """Return an interactive, embeddable Panel app for map controls."""
+
+        try:
+            pn = importlib.import_module("panel")
+        except ImportError as exc:  # pragma: no cover
+            raise ImportError(
+                "panel is required for PlotResPhaseMaps.panel(). "
+                "Install with `pip install panel`."
+            ) from exc
+
+        palette_options = [
+            "turbo",
+            "viridis",
+            "magma",
+            "inferno",
+            "plasma",
+            "cividis",
+            "rainbow",
+            "rainbow_r",
+        ]
+
+        active_components = [
+            comp
+            for comp in ["xx", "xy", "yx", "yy", "det"]
+            if getattr(self, f"plot_{comp}")
+        ]
+        active_rows = []
+        if self.plot_resistivity:
+            active_rows.append("Resistivity")
+        if self.plot_phase:
+            active_rows.append("Phase")
+
+        w_period = pn.widgets.NumberInput(
+            name="Plot Period (s)",
+            value=float(self.plot_period),
+            step=0.1,
+            width=160,
+        )
+        w_components = pn.widgets.CheckButtonGroup(
+            name="Components",
+            options=["xx", "xy", "yx", "yy", "det"],
+            value=active_components,
+        )
+        w_rows = pn.widgets.CheckBoxGroup(
+            name="Rows",
+            options=["Resistivity", "Phase"],
+            value=active_rows,
+            inline=True,
+        )
+        w_res_palette = pn.widgets.Select(
+            name="Resistivity Palette",
+            value=(self.res_cmap if self.res_cmap in palette_options else "turbo"),
+            options=palette_options,
+            width=170,
+        )
+        w_phase_palette = pn.widgets.Select(
+            name="Phase Palette",
+            value=(self.phase_cmap if self.phase_cmap in palette_options else "turbo"),
+            options=palette_options,
+            width=170,
+        )
+        w_plot_stations = pn.widgets.Checkbox(
+            name="Plot Stations", value=bool(self.plot_stations)
+        )
+        w_map_units = pn.widgets.Select(
+            name="Map Units",
+            value=self.map_units,
+            options=["deg", "m", "km"],
+            width=120,
+        )
+        refresh_btn = pn.widgets.Button(
+            name="Refresh",
+            button_type="success",
+            width=120,
+        )
+
+        status = pn.pane.Markdown(
+            "_Adjust controls and click **Refresh** to update the map._",
+            styles={"color": "#555"},
+        )
+        plot_pane = pn.pane.Bokeh(sizing_mode="stretch_width")
+
+        def _refresh(_event=None):
+            self.plot_period = float(w_period.value)
+            self.plot_resistivity = "Resistivity" in list(w_rows.value)
+            self.plot_phase = "Phase" in list(w_rows.value)
+            selected_components = set(w_components.value)
+            for comp in ["xx", "xy", "yx", "yy", "det"]:
+                setattr(self, f"plot_{comp}", comp in selected_components)
+
+            self.res_cmap = str(w_res_palette.value)
+            self.phase_cmap = str(w_phase_palette.value)
+            self.plot_stations = bool(w_plot_stations.value)
+            self.map_units = str(w_map_units.value)
+
+            layout = self.plot(show=False)
+            plot_pane.object = layout
+
+            if layout is None:
+                status.object = "⚠️ No mappable data for the current control selection."
+                status.styles = {"color": "#7a5200"}
+            else:
+                status.object = "✅ Map rendered."
+                status.styles = {"color": "#1a6600"}
+
+        refresh_btn.on_click(_refresh)
+        _refresh()
+
+        controls = pn.Row(
+            pn.Column(
+                w_period,
+                w_map_units,
+                w_rows,
+                w_components,
+                width=320,
+                margin=(0, 20, 0, 0),
+            ),
+            pn.Column(
+                w_res_palette,
+                w_phase_palette,
+                w_plot_stations,
+                refresh_btn,
+                width=260,
+            ),
+            sizing_mode="fixed",
+        )
+
+        return pn.Column(controls, status, plot_pane, sizing_mode="stretch_width")
+
+    def servable(self, title: str | None = None):
+        """Return a standalone servable Panel view of this plot app."""
+
+        app = self.panel()
+        if title is None:
+            return app.servable()
+        return app.servable(title=title)

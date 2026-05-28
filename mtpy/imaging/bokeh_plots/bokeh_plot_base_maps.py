@@ -18,6 +18,16 @@ except ImportError:  # pragma: no cover
         "param is required for Bokeh plot classes. Install with `pip install param`."
     )
 
+from bokeh.palettes import (
+    Cividis256,
+    Inferno256,
+    Magma256,
+    Plasma256,
+    Turbo256,
+    Viridis256,
+)
+from matplotlib import colormaps
+from matplotlib.colors import to_hex
 from scipy import interpolate
 
 from mtpy.imaging.mtplot_tools.map_interpolation_tools import interpolate_to_map
@@ -57,6 +67,24 @@ class BokehPlotBaseMaps(BokehPlotBase):
         default=True,
         doc="Cache interpolated mt_data per plot period",
     )
+
+    rainbow_palette = [to_hex(colormaps["rainbow"](ii / 255)) for ii in range(256)]
+    palette_options = {
+        "turbo": Turbo256,
+        "turbo_r": list(reversed(Turbo256)),
+        "magma": Magma256,
+        "magma_r": list(reversed(Magma256)),
+        "inferno": Inferno256,
+        "inferno_r": list(reversed(Inferno256)),
+        "plasma": Plasma256,
+        "plasma_r": list(reversed(Plasma256)),
+        "viridis": Viridis256,
+        "viridis_r": list(reversed(Viridis256)),
+        "cividis": Cividis256,
+        "cividis_r": list(reversed(Cividis256)),
+        "rainbow": rainbow_palette,
+        "rainbow_r": list(reversed(rainbow_palette)),
+    }
 
     def _iter_mt_objects(self):
         """Yield MT objects from supported container types."""
@@ -149,6 +177,9 @@ class BokehPlotBaseMaps(BokehPlotBase):
     def interpolate_to_map(self, plot_array, component: str):
         """Interpolate data points onto a 2D map grid."""
 
+        n_points = max(1, int(len(plot_array)))
+        nearest_neighbors = min(int(self.nearest_neighbors), n_points)
+
         return interpolate_to_map(
             plot_array,
             component,
@@ -156,7 +187,7 @@ class BokehPlotBaseMaps(BokehPlotBase):
             n_padding_cells=self.n_padding_cells,
             interpolation_method=self.interpolation_method,
             interpolation_power=self.interpolation_power,
-            nearest_neighbors=self.nearest_neighbors,
+            nearest_neighbors=nearest_neighbors,
         )
 
     @staticmethod

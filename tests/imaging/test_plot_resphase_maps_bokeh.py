@@ -216,3 +216,141 @@ class TestPlotResPhaseMapsBokehMTData:
         from mtpy.imaging import PlotResPhaseMapsBokeh
 
         assert PlotResPhaseMapsBokeh is not None
+
+    def test_rainbow_reverse_palette_is_reversed(
+        self, bokeh_plot_resphase_maps_class, mt_data_tree
+    ):
+        plotter = bokeh_plot_resphase_maps_class(mt_data_tree, show_plot=False)
+
+        rainbow = plotter._palette_from_name("rainbow")
+        rainbow_r = plotter._palette_from_name("rainbow_r")
+
+        assert rainbow_r == list(reversed(rainbow))
+        assert rainbow_r is not rainbow
+
+
+class TestPlotResPhaseMapsPanel:
+    @pytest.fixture(autouse=True)
+    def require_panel(self):
+        pytest.importorskip("panel")
+        pytest.importorskip("bokeh")
+
+    @staticmethod
+    def _find_widgets(obj, widget_type):
+        found = []
+        if isinstance(obj, widget_type):
+            found.append(obj)
+        if hasattr(obj, "objects"):
+            for child in obj.objects:
+                found.extend(
+                    TestPlotResPhaseMapsPanel._find_widgets(child, widget_type)
+                )
+        return found
+
+    def test_panel_returns_column(self, bokeh_plot_resphase_maps_class, mt_data_tree):
+        import panel as pn
+
+        plotter = bokeh_plot_resphase_maps_class(mt_data_tree, show_plot=False)
+        panel_obj = plotter.panel()
+
+        assert isinstance(panel_obj, pn.Column)
+        assert len(panel_obj) >= 3
+
+    def test_panel_contains_expected_controls(
+        self, bokeh_plot_resphase_maps_class, mt_data_tree
+    ):
+        import panel as pn
+
+        plotter = bokeh_plot_resphase_maps_class(mt_data_tree, show_plot=False)
+        panel_obj = plotter.panel()
+
+        select_widgets = self._find_widgets(panel_obj, pn.widgets.Select)
+        checkbox_widgets = self._find_widgets(panel_obj, pn.widgets.Checkbox)
+        button_widgets = self._find_widgets(panel_obj, pn.widgets.Button)
+
+        select_names = {w.name for w in select_widgets}
+        checkbox_names = {w.name for w in checkbox_widgets}
+
+        assert "Map Units" in select_names
+        assert "Resistivity Palette" in select_names
+        assert "Phase Palette" in select_names
+        assert "Plot Stations" in checkbox_names
+        assert any(("Refresh" in (b.name or "")) for b in button_widgets)
+
+    def test_panel_refresh_updates_plotter_parameters(
+        self, bokeh_plot_resphase_maps_class, mt_data_tree
+    ):
+        import panel as pn
+
+        plotter = bokeh_plot_resphase_maps_class(mt_data_tree, show_plot=False)
+        panel_obj = plotter.panel()
+
+        period_widget = [
+            w
+            for w in panel_obj.select()
+            if getattr(w, "name", "") == "Plot Period (s)" and hasattr(w, "value")
+        ][0]
+        map_units_widget = [
+            w
+            for w in self._find_widgets(panel_obj, pn.widgets.Select)
+            if w.name == "Map Units"
+        ][0]
+        res_palette_widget = [
+            w
+            for w in self._find_widgets(panel_obj, pn.widgets.Select)
+            if w.name == "Resistivity Palette"
+        ][0]
+        phase_palette_widget = [
+            w
+            for w in self._find_widgets(panel_obj, pn.widgets.Select)
+            if w.name == "Phase Palette"
+        ][0]
+        station_widget = [
+            w
+            for w in self._find_widgets(panel_obj, pn.widgets.Checkbox)
+            if w.name == "Plot Stations"
+        ][0]
+        component_widget = [
+            w
+            for w in self._find_widgets(panel_obj, pn.widgets.CheckButtonGroup)
+            if w.name == "Components"
+        ][0]
+        rows_widget = [
+            w
+            for w in self._find_widgets(panel_obj, pn.widgets.CheckBoxGroup)
+            if w.name == "Rows"
+        ][0]
+        refresh_btn = [
+            w
+            for w in self._find_widgets(panel_obj, pn.widgets.Button)
+            if "Refresh" in (w.name or "")
+        ][0]
+
+        period_widget.value = 10.0
+        map_units_widget.value = "km"
+        res_palette_widget.value = "magma"
+        phase_palette_widget.value = "viridis"
+        station_widget.value = False
+        component_widget.value = ["xy"]
+        rows_widget.value = ["Resistivity"]
+
+        refresh_btn.clicks = refresh_btn.clicks + 1
+
+        assert plotter.plot_period == pytest.approx(10.0)
+        assert plotter.map_units == "km"
+        assert str(plotter.res_cmap).lower() == "magma"
+        assert str(plotter.phase_cmap).lower() == "viridis"
+        assert plotter.plot_stations is False
+        assert plotter.plot_xy is True
+        assert plotter.plot_yx is False
+        assert plotter.plot_resistivity is True
+        assert plotter.plot_phase is False
+
+    def test_servable_returns_viewable(
+        self, bokeh_plot_resphase_maps_class, mt_data_tree
+    ):
+        plotter = bokeh_plot_resphase_maps_class(mt_data_tree, show_plot=False)
+
+        viewable = plotter.servable(title="ResPhase Maps")
+
+        assert viewable is not None

@@ -33,6 +33,21 @@ def test_class_hierarchy_and_default_parameters(bokeh_plot_base_maps_class):
     assert obj.nearest_neighbors == 7
 
 
+def test_palette_options_include_reverse_variants(bokeh_plot_base_maps_class):
+    obj = bokeh_plot_base_maps_class()
+
+    assert "magma" in obj.palette_options
+    assert "magma_r" in obj.palette_options
+    assert "rainbow" in obj.palette_options
+    assert "rainbow_r" in obj.palette_options
+    assert obj.palette_options["magma_r"] == list(
+        reversed(obj.palette_options["magma"])
+    )
+    assert obj.palette_options["rainbow_r"] == list(
+        reversed(obj.palette_options["rainbow"])
+    )
+
+
 def test_interpolate_to_map_uses_param_settings(
     bokeh_plot_base_maps_class, monkeypatch
 ):
@@ -84,7 +99,7 @@ def test_interpolate_to_map_uses_param_settings(
     assert captured["n_padding_cells"] == 4
     assert captured["interpolation_method"] == "linear"
     assert captured["interpolation_power"] == pytest.approx(2)
-    assert captured["nearest_neighbors"] == 3
+    assert captured["nearest_neighbors"] == 1
 
 
 class _DummyZ:

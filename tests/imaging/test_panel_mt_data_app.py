@@ -957,3 +957,30 @@ def test_generate_phase_tensor_plot_uses_panel_and_station_key():
     assert kwargs.get("backend") == "bokeh"
     mock_plot_obj.panel.assert_called_once()
     assert mock_panel_app in app._plot_display.objects
+
+
+@pytest.mark.plotting
+def test_generate_res_phase_maps_uses_panel_app():
+    """Resistivity / Phase Maps should embed plot_obj.panel() in the Plots tab."""
+    app = _make_app()
+
+    mock_panel_app = pn.Column()
+    mock_plot_obj = MagicMock()
+    mock_plot_obj.panel = MagicMock(return_value=mock_panel_app)
+
+    mock_mt = MagicMock(spec=MTData)
+    mock_mt._iter_station_paths = MagicMock(return_value=iter([]))
+    mock_mt.plot_resistivity_phase_maps.return_value = mock_plot_obj
+
+    app._mt_data = mock_mt
+    app.mt_data_loaded = True
+    app._plot_backend_widget.value = "bokeh"
+    app._plot_type_widget.value = "Resistivity / Phase Maps"
+
+    app._on_generate_plot_clicked(None)
+
+    mock_mt.plot_resistivity_phase_maps.assert_called_once()
+    _, kwargs = mock_mt.plot_resistivity_phase_maps.call_args
+    assert kwargs.get("backend") == "bokeh"
+    mock_plot_obj.panel.assert_called_once()
+    assert mock_panel_app in app._plot_display.objects
