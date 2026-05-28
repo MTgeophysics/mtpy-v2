@@ -274,6 +274,12 @@ class TestPlotResPhaseMapsPanel:
         assert "Map Units" in select_names
         assert "Resistivity Palette" in select_names
         assert "Phase Palette" in select_names
+        assert "Resistivity Limits" in {
+            w.name for w in self._find_widgets(panel_obj, pn.widgets.RangeSlider)
+        }
+        assert "Phase Limits" in {
+            w.name for w in self._find_widgets(panel_obj, pn.widgets.RangeSlider)
+        }
         assert "Plot Stations" in checkbox_names
         assert any(("Refresh" in (b.name or "")) for b in button_widgets)
 
@@ -305,6 +311,16 @@ class TestPlotResPhaseMapsPanel:
             for w in self._find_widgets(panel_obj, pn.widgets.Select)
             if w.name == "Phase Palette"
         ][0]
+        res_limits_widget = [
+            w
+            for w in self._find_widgets(panel_obj, pn.widgets.RangeSlider)
+            if w.name == "Resistivity Limits"
+        ][0]
+        phase_limits_widget = [
+            w
+            for w in self._find_widgets(panel_obj, pn.widgets.RangeSlider)
+            if w.name == "Phase Limits"
+        ][0]
         station_widget = [
             w
             for w in self._find_widgets(panel_obj, pn.widgets.Checkbox)
@@ -330,6 +346,8 @@ class TestPlotResPhaseMapsPanel:
         map_units_widget.value = "km"
         res_palette_widget.value = "magma"
         phase_palette_widget.value = "viridis"
+        res_limits_widget.value = (-1.0, 2.0)
+        phase_limits_widget.value = (10.0, 80.0)
         station_widget.value = False
         component_widget.value = ["xy"]
         rows_widget.value = ["Resistivity"]
@@ -340,6 +358,10 @@ class TestPlotResPhaseMapsPanel:
         assert plotter.map_units == "km"
         assert str(plotter.res_cmap).lower() == "magma"
         assert str(plotter.phase_cmap).lower() == "viridis"
+        assert plotter.cmap_limits["res_xy"] == (-1.0, 2.0)
+        assert plotter.cmap_limits["phase_xy"] == (10.0, 80.0)
+        assert plotter.cmap_limits["res_yx"] == (-1.0, 2.0)
+        assert plotter.cmap_limits["phase_det"] == (10.0, 80.0)
         assert plotter.plot_stations is False
         assert plotter.plot_xy is True
         assert plotter.plot_yx is False

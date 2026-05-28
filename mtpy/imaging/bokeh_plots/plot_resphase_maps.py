@@ -67,16 +67,16 @@ class PlotResPhaseMaps(BokehPlotBaseMaps):
         }
 
         self.label_dict = {
-            "res_xx": r"$\rho_{xx}  \mathrm{[\Omega m]}$",
-            "res_xy": r"$\rho_{xy}  \mathrm{[\Omega m]}$",
-            "res_yx": r"$\rho_{yx}  \mathrm{[\Omega m]}$",
-            "res_yy": r"$\rho_{yy}  \mathrm{[\Omega m]}$",
-            "res_det": r"$\rho_{det}  \mathrm{[\Omega m]}$",
-            "phase_xx": r"$\phi_{xx}$",
-            "phase_xy": r"$\phi_{xy}$",
-            "phase_yx": r"$\phi_{yx}$",
-            "phase_yy": r"$\phi_{yy}$",
-            "phase_det": r"$\phi_{det}$",
+            "res_xx": "ρxx [Ω m]",
+            "res_xy": "ρxy [Ω m]",
+            "res_yx": "ρyx [Ω m]",
+            "res_yy": "ρyy [Ω m]",
+            "res_det": "ρdet [Ω m]",
+            "phase_xx": "φxx",
+            "phase_xy": "φxy",
+            "phase_yx": "φyx",
+            "phase_yy": "φyy",
+            "phase_det": "φdet",
         }
 
         self.fig = None
@@ -492,16 +492,7 @@ class PlotResPhaseMaps(BokehPlotBaseMaps):
                 "Install with `pip install panel`."
             ) from exc
 
-        palette_options = [
-            "turbo",
-            "viridis",
-            "magma",
-            "inferno",
-            "plasma",
-            "cividis",
-            "rainbow",
-            "rainbow_r",
-        ]
+        palette_options = list(self.palette_options.keys())
 
         active_components = [
             comp
@@ -543,6 +534,22 @@ class PlotResPhaseMaps(BokehPlotBaseMaps):
             options=palette_options,
             width=170,
         )
+        w_res_limits = pn.widgets.RangeSlider(
+            name="Resistivity Limits",
+            start=-2.0,
+            end=4.0,
+            value=tuple(self.cmap_limits.get("res_xy", (0.0, 3.0))),
+            step=0.1,
+            width=240,
+        )
+        w_phase_limits = pn.widgets.RangeSlider(
+            name="Phase Limits",
+            start=-180.0,
+            end=180.0,
+            value=tuple(self.cmap_limits.get("phase_xy", (0.0, 100.0))),
+            step=1.0,
+            width=240,
+        )
         w_plot_stations = pn.widgets.Checkbox(
             name="Plot Stations", value=bool(self.plot_stations)
         )
@@ -574,6 +581,12 @@ class PlotResPhaseMaps(BokehPlotBaseMaps):
 
             self.res_cmap = str(w_res_palette.value)
             self.phase_cmap = str(w_phase_palette.value)
+            res_limits = tuple(float(value) for value in w_res_limits.value)
+            phase_limits = tuple(float(value) for value in w_phase_limits.value)
+            for comp in ["res_xx", "res_xy", "res_yx", "res_yy", "res_det"]:
+                self.cmap_limits[comp] = res_limits
+            for comp in ["phase_xx", "phase_xy", "phase_yx", "phase_yy", "phase_det"]:
+                self.cmap_limits[comp] = phase_limits
             self.plot_stations = bool(w_plot_stations.value)
             self.map_units = str(w_map_units.value)
 
@@ -602,6 +615,8 @@ class PlotResPhaseMaps(BokehPlotBaseMaps):
             pn.Column(
                 w_res_palette,
                 w_phase_palette,
+                w_res_limits,
+                w_phase_limits,
                 w_plot_stations,
                 refresh_btn,
                 width=260,
