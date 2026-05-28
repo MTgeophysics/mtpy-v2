@@ -268,7 +268,9 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
         if tf.has_impedance() and self.plot_pt:
             try:
                 z = self._get_interpolated_z(tf)
-                z_error = self._get_interpolated_z_error(tf)
+                z_error = None
+                if not np.all(tf.impedance_error == 0):
+                    z_error = self._get_interpolated_z_error(tf)
 
                 pt_obj = PhaseTensor(z=z, z_error=z_error)
             except ValueError as error:
@@ -282,9 +284,11 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
         if tf.has_tipper() and "y" in self.plot_tipper:
             try:
                 t = self._get_interpolated_t(tf)
-                t_err = self._get_interpolated_t_err(tf)
+                t_error = None
+                if not np.all(tf.tipper_error == 0):
+                    t_error = self._get_interpolated_t_err(tf)
                 if (t != 0).all():
-                    new_t_obj = Tipper(t, t_err, [1.0 / self.plot_period])
+                    new_t_obj = Tipper(t, t_error, [1.0 / self.plot_period])
             except ValueError:
                 self.logger.warning(
                     f"Could not estimate tipper for {tf.station} at period "
@@ -599,7 +603,7 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
             )
             e1.set_edgecolor(
                 mtcolors.get_plot_color(
-                    np.nan_to_num(pt_obj.skew),
+                    np.nan_to_num(pt_obj.skew)[0],
                     "skew_seg",
                     self.skew_cmap,
                     self.skew_limits[0],
