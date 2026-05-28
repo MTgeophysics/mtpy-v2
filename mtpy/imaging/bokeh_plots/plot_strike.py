@@ -8,27 +8,15 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+from bokeh.io import show as bokeh_show
+from bokeh.layouts import column as bokeh_column
+from bokeh.layouts import gridplot
+from bokeh.layouts import row as bokeh_row
+from bokeh.models import ColumnDataSource, Label, Range1d
+from bokeh.plotting import figure
 
 from mtpy.core import Tipper
 from mtpy.imaging.mtplot_tools import PlotBase
-
-
-try:
-    from bokeh.io import show as bokeh_show
-    from bokeh.layouts import column as bokeh_column
-    from bokeh.layouts import gridplot
-    from bokeh.layouts import row as bokeh_row
-    from bokeh.models import ColumnDataSource, Label, Range1d
-    from bokeh.plotting import figure
-except ImportError:  # pragma: no cover - optional dependency
-    bokeh_show = None
-    bokeh_column = None
-    bokeh_row = None
-    gridplot = None
-    ColumnDataSource = None
-    Label = None
-    Range1d = None
-    figure = None
 
 
 class PlotStrike(PlotBase):
@@ -66,7 +54,7 @@ class PlotStrike(PlotBase):
 
         # ---- plot-control attributes (mirror matplotlib version) ----
         self.plot_range = "data"
-        self.plot_orientation = "h"
+        self.plot_orientation = "v"
         self.plot_type = 2
 
         self.period_tolerance = 0.05
@@ -343,6 +331,51 @@ class PlotStrike(PlotBase):
         """Convert an (r, g, b) tuple with values in [0, 1] to a CSS hex string."""
         r, g, b = [int(np.clip(c, 0, 1) * 255) for c in rgb]
         return f"#{r:02x}{g:02x}{b:02x}"
+
+    @staticmethod
+    def _to_superscript(number):
+        """Convert an integer to a Unicode superscript string."""
+        superscript_map = {
+            "0": "\u2070",
+            "1": "\u00b9",
+            "2": "\u00b2",
+            "3": "\u00b3",
+            "4": "\u2074",
+            "5": "\u2075",
+            "6": "\u2076",
+            "7": "\u2077",
+            "8": "\u2078",
+            "9": "\u2079",
+            "-": "\u207b",
+        }
+        return "".join(superscript_map.get(char, char) for char in str(int(number)))
+
+    def _format_period_band_label(self, decade_start):
+        """Return a decade-band label using Unicode superscript exponents."""
+        start = self._to_superscript(decade_start)
+        end = self._to_superscript(decade_start + 1)
+        return f"10{start} - 10{end} s"
+
+    @staticmethod
+    def _hex_to_rgb(color):
+        """Convert a CSS hex color string to an (r, g, b) tuple in [0, 1]."""
+        if not isinstance(color, str):
+            return color
+
+        text = color.strip()
+        if not text.startswith("#"):
+            return color
+        if len(text) != 7:
+            return color
+
+        try:
+            return (
+                int(text[1:3], 16) / 255.0,
+                int(text[3:5], 16) / 255.0,
+                int(text[5:7], 16) / 255.0,
+            )
+        except ValueError:
+            return color
 
     def _compute_bar_colors(self, hist, estimate):
         """Return a list of CSS hex color strings for each histogram bar.
@@ -667,7 +700,7 @@ class PlotStrike(PlotBase):
 
         for bb in bin_range:
             period_range = [10**bb, 10 ** (bb + 1)]
-            period_label = self.title_dict.get(int(bb), f"10^{int(bb)} s")
+            period_label = self._format_period_band_label(int(bb))
 
             row_figs = []
             for estimate in enabled:
@@ -723,3 +756,143 @@ class PlotStrike(PlotBase):
         if self.plot_type == 1:
             return self._plot_per_period(show=show)
         return self._plot_all_periods(show=show)
+
+    def panel(self):
+        """Return a Panel app with controls for strike plotting options."""
+        try:
+            import panel as pn
+        except ImportError as error:  # pragma: no cover
+            raise ImportError(
+                "Panel is required for PlotStrike.panel(). Install with `pip install panel`."
+            ) from error
+
+        if self.strike_df is None:
+            self.make_strike_df()
+
+        mode_options = {
+            "By Period": 1,
+            "All Periods": 2,
+        }
+
+        active_estimates = []
+        if self.plot_invariant:
+            active_estimates.append("Invariant")
+        if self.plot_pt:
+            active_estimates.append("Phase Tensor")
+        if self.plot_tipper:
+            active_estimates.append("Tipper")
+
+        w_mode = pn.widgets.Select(
+            name="Plot Mode",
+            options=list(mode_options.keys()),
+            value=("By Period" if int(self.plot_type) == 1 else "All Periods"),
+            width=180,
+        )
+        w_estimates = pn.widgets.CheckButtonGroup(
+            name="Estimates",
+            options=["Invariant", "Phase Tensor", "Tipper"],
+            value=active_estimates,
+        )
+        w_use_dynamic_colors = pn.widgets.Checkbox(
+            name="Use Dynamic Colors",
+            value=bool(self.color),
+        )
+        w_rotation = pn.widgets.TextInput(
+            name="Rotation Angle",
+            value=str(float(self.rotation_angle)),
+            width=240,
+        )
+
+        w_color_inv = pn.widgets.ColorPicker(
+            name="Invariant Color",
+            value=self._rgb_to_hex(self.color_inv),
+            width=180,
+        )
+        w_color_pt = pn.widgets.ColorPicker(
+            name="Phase Tensor Color",
+            value=self._rgb_to_hex(self.color_pt),
+            width=180,
+        )
+        w_color_tip = pn.widgets.ColorPicker(
+            name="Tipper Color",
+            value=self._rgb_to_hex(self.color_tip),
+            width=180,
+        )
+
+        refresh_btn = pn.widgets.Button(
+            name="Refresh",
+            button_type="success",
+            width=120,
+        )
+
+        status = pn.pane.Markdown(
+            "_Adjust controls and click **Refresh** to update the strike plot._",
+            styles={"color": "#555"},
+        )
+        plot_pane = pn.pane.Bokeh(sizing_mode="stretch_width")
+
+        def _refresh(_event=None):
+            try:
+                self.rotation_angle = float(w_rotation.value)
+            except (TypeError, ValueError):
+                status.object = "⚠️ Rotation Angle must be a number."
+                status.styles = {"color": "#7a5200"}
+                return
+            self.plot_type = mode_options.get(w_mode.value, 2)
+            if self.plot_type == 2:
+                self.plot_orientation = "h"
+            else:
+                self.plot_orientation = "v"
+            selected = set(w_estimates.value)
+            self.plot_invariant = "Invariant" in selected
+            self.plot_pt = "Phase Tensor" in selected
+            self.plot_tipper = "Tipper" in selected
+
+            self.color = bool(w_use_dynamic_colors.value)
+            self.color_inv = self._hex_to_rgb(w_color_inv.value)
+            self.color_pt = self._hex_to_rgb(w_color_pt.value)
+            self.color_tip = self._hex_to_rgb(w_color_tip.value)
+
+            layout = self.plot(show=False)
+            plot_pane.object = layout
+
+            if layout is None or len(self.figures) == 0:
+                status.object = (
+                    "⚠️ No strike plots available for the current selection."
+                )
+                status.styles = {"color": "#7a5200"}
+            else:
+                status.object = "✅ Strike plot rendered."
+                status.styles = {"color": "#1a6600"}
+
+        refresh_btn.on_click(_refresh)
+        _refresh()
+
+        controls = pn.Row(
+            pn.Column(
+                w_rotation,
+                w_mode,
+                w_estimates,
+                w_use_dynamic_colors,
+                width=320,
+                margin=(0, 20, 0, 0),
+            ),
+            pn.Column(
+                w_color_inv,
+                w_color_pt,
+                w_color_tip,
+                refresh_btn,
+                width=220,
+            ),
+            sizing_mode="fixed",
+        )
+
+        return pn.Column(controls, status, plot_pane, sizing_mode="stretch_width")
+
+    def servable(self, title: str | None = None):
+        """Return a standalone servable Panel view of this plot app."""
+
+        app = self.panel()
+        if title is None:
+            return app.servable()
+        return app.servable(title=title)

@@ -298,6 +298,24 @@ class TestPlotStrikeBokehPlot:
         assert all(k.startswith("invariant_") for k in keys)
         assert len(keys) >= 1
 
+    def test_plot_type1_titles_use_superscript_decades(
+        self, bokeh_plot_strike_class, mt_data_tree
+    ):
+        plotter = bokeh_plot_strike_class(
+            mt_data_tree,
+            show_plot=False,
+            plot_type=1,
+            plot_invariant=True,
+            plot_pt=False,
+            plot_tipper=False,
+        )
+        plotter.plot(show=False)
+
+        first_key = sorted(plotter.figures.keys())[0]
+        title_text = plotter.figures[first_key].title.text
+        assert "10" in title_text
+        assert any(ch in title_text for ch in ["\u207b", "\u00b9", "\u00b2", "\u00b3"])
+
     def test_figures_are_bokeh_figure_instances(
         self, bokeh_plot_strike_class, mt_data_tree
     ):
@@ -382,6 +400,140 @@ class TestPlotStrikeBokehPlot:
         assert plotter._rgb_to_hex((0.0, 1.0, 0.0)) == "#00ff00"
         assert plotter._rgb_to_hex((0.0, 0.0, 1.0)) == "#0000ff"
         assert plotter._rgb_to_hex((0.0, 0.0, 0.0)) == "#000000"
+
+
+class TestPlotStrikeBokehPanel:
+    @pytest.fixture(autouse=True)
+    def require_panel(self):
+        pytest.importorskip("panel")
+        pytest.importorskip("bokeh")
+
+    @staticmethod
+    def _find_widgets(obj, widget_type):
+        found = []
+        if isinstance(obj, widget_type):
+            found.append(obj)
+        if hasattr(obj, "objects"):
+            for child in obj.objects:
+                found.extend(TestPlotStrikeBokehPanel._find_widgets(child, widget_type))
+        return found
+
+    def test_panel_returns_column(self, bokeh_plot_strike_class, mt_data_tree):
+        import panel as pn
+
+        plotter = bokeh_plot_strike_class(mt_data_tree, show_plot=False)
+        panel_obj = plotter.panel()
+
+        assert isinstance(panel_obj, pn.Column)
+        assert len(panel_obj) >= 3
+
+    def test_panel_contains_expected_controls(
+        self, bokeh_plot_strike_class, mt_data_tree
+    ):
+        import panel as pn
+
+        plotter = bokeh_plot_strike_class(mt_data_tree, show_plot=False)
+        panel_obj = plotter.panel()
+
+        select_names = {
+            w.name for w in self._find_widgets(panel_obj, pn.widgets.Select)
+        }
+        text_input_names = {
+            w.name for w in self._find_widgets(panel_obj, pn.widgets.TextInput)
+        }
+        checkbox_names = {
+            w.name for w in self._find_widgets(panel_obj, pn.widgets.Checkbox)
+        }
+        color_picker_names = {
+            w.name for w in self._find_widgets(panel_obj, pn.widgets.ColorPicker)
+        }
+        check_button_names = {
+            w.name for w in self._find_widgets(panel_obj, pn.widgets.CheckButtonGroup)
+        }
+
+        assert "Plot Mode" in select_names
+        assert "Rotation Angle" in text_input_names
+        assert "Estimates" in check_button_names
+        assert "Use Dynamic Colors" in checkbox_names
+        assert "Invariant Color" in color_picker_names
+        assert "Phase Tensor Color" in color_picker_names
+        assert "Tipper Color" in color_picker_names
+
+    def test_panel_refresh_updates_parameters(
+        self, bokeh_plot_strike_class, mt_data_tree
+    ):
+        import panel as pn
+
+        plotter = bokeh_plot_strike_class(mt_data_tree, show_plot=False)
+        panel_obj = plotter.panel()
+
+        mode_widget = [
+            w
+            for w in self._find_widgets(panel_obj, pn.widgets.Select)
+            if w.name == "Plot Mode"
+        ][0]
+        rotation_widget = [
+            w
+            for w in self._find_widgets(panel_obj, pn.widgets.TextInput)
+            if w.name == "Rotation Angle"
+        ][0]
+        estimates_widget = [
+            w
+            for w in self._find_widgets(panel_obj, pn.widgets.CheckButtonGroup)
+            if w.name == "Estimates"
+        ][0]
+        dynamic_color_widget = [
+            w
+            for w in self._find_widgets(panel_obj, pn.widgets.Checkbox)
+            if w.name == "Use Dynamic Colors"
+        ][0]
+        inv_color_widget = [
+            w
+            for w in self._find_widgets(panel_obj, pn.widgets.ColorPicker)
+            if w.name == "Invariant Color"
+        ][0]
+        pt_color_widget = [
+            w
+            for w in self._find_widgets(panel_obj, pn.widgets.ColorPicker)
+            if w.name == "Phase Tensor Color"
+        ][0]
+        tip_color_widget = [
+            w
+            for w in self._find_widgets(panel_obj, pn.widgets.ColorPicker)
+            if w.name == "Tipper Color"
+        ][0]
+        refresh_btn = [
+            w
+            for w in self._find_widgets(panel_obj, pn.widgets.Button)
+            if "Refresh" in (w.name or "")
+        ][0]
+
+        mode_widget.value = "By Period"
+        rotation_widget.value = "15.0"
+        estimates_widget.value = ["Invariant", "Tipper"]
+        dynamic_color_widget.value = False
+        inv_color_widget.value = "#ff0000"
+        pt_color_widget.value = "#0000ff"
+        tip_color_widget.value = "#00ff00"
+
+        refresh_btn.clicks = refresh_btn.clicks + 1
+
+        assert plotter.rotation_angle == pytest.approx(15.0)
+        assert plotter.plot_type == 1
+        assert plotter.plot_invariant is True
+        assert plotter.plot_pt is False
+        assert plotter.plot_tipper is True
+        assert plotter.color is False
+        assert plotter.color_inv == pytest.approx((1.0, 0.0, 0.0))
+        assert plotter.color_pt == pytest.approx((0.0, 0.0, 1.0))
+        assert plotter.color_tip == pytest.approx((0.0, 1.0, 0.0))
+
+    def test_servable_returns_viewable(self, bokeh_plot_strike_class, mt_data_tree):
+        plotter = bokeh_plot_strike_class(mt_data_tree, show_plot=False)
+
+        viewable = plotter.servable(title="Strike")
+
+        assert viewable is not None
 
 
 # ---------------------------------------------------------------------------
