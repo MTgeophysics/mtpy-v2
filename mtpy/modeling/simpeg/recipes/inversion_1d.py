@@ -5,15 +5,21 @@ Created on Wed Nov  1 11:58:59 2023
 @author: jpeacock
 """
 
+from __future__ import annotations
+
+from typing import Any
+
 # =============================================================================
 # Imports
 # =============================================================================
 import numpy as np
 import pandas as pd
 from loguru import logger
+from matplotlib.figure import Figure
 
 from mtpy.core import MTDataFrame
 from mtpy.imaging.mtplot_tools.plotters import plot_errorbar
+
 
 try:
     from discretize import TensorMesh
@@ -35,38 +41,80 @@ import matplotlib.gridspec as gridspec
 from matplotlib import pyplot as plt
 from matplotlib.ticker import LogLocator
 
+
 # =============================================================================
 
 
 class Simpeg1D:
-    """Run a 1D simpeg inversion."""
+    """Run a 1D SimPEG inversion for MT apparent resistivity and phase.
 
-    def __init__(self, mt_dataframe=None, **kwargs):
-        self._acceptable_modes = ["te", "tm", "det"]
+    Parameters
+    ----------
+    mt_dataframe : pandas.DataFrame or dict or None, optional
+        Input tabular data that can be consumed by :class:`mtpy.core.MTDataFrame`.
+    **kwargs : Any
+        Optional overrides for instance attributes such as ``mode``,
+        ``n_layers``, ``rho_initial``, etc.
+
+    Notes
+    -----
+    For inversion, phase values are internally mapped to the SimPEG recursive
+    1D convention ``[-180, -90]``. During plotting, phase values are converted
+    to display convention ``[0, 90]``.
+
+    Examples
+    --------
+    >>> inv = Simpeg1D(mt_dataframe=df, mode="tm", n_layers=60)
+    >>> inv.run_fixed_layer_inversion(maxIter=30)
+    >>> _ = inv.plot_response()
+    """
+
+    def __init__(
+        self,
+        mt_dataframe: pd.DataFrame | dict[str, Any] | None = None,
+        resistivity_error: float = 10,
+        phase_error: float = 2.5,
+        **kwargs: Any,
+    ) -> None:
+        self._acceptable_modes: list[str] = ["te", "tm", "det"]
         self.mt_dataframe = MTDataFrame(data=mt_dataframe)
 
-        self.mode = "det"
-        self.dz = 5
-        self.n_layers = 50
-        self.z_factor = 1.2
-        self.rho_initial = 100
-        self.rho_reference = 100
-        self.output_dict = None
-        self.max_iterations = 40
+        self.mode: str = "det"
+        self.dz: float = 5
+        self.n_layers: int = 50
+        self.z_factor: float = 1.2
+        self.rho_initial: float = 100
+        self.rho_reference: float = 100
+        self.output_dict: dict[int, dict[str, Any]] | None = None
+        self.max_iterations: int = 40
+        self.resistivity_error: float = resistivity_error
+        self.phase_error: float = phase_error
 
         for key, value in kwargs.items():
             setattr(self, key, value)
 
-        self._sub_df = self._get_sub_dataframe()
+        self._sub_df: pd.DataFrame = self._get_sub_dataframe()
 
     @property
-    def mode(self):
-        """Mode function."""
+    def mode(self) -> str:
+        """Inversion mode.
+
+        Returns
+        -------
+        str
+            One of ``"te"``, ``"tm"``, or ``"det"``.
+        """
         return self._mode
 
     @mode.setter
-    def mode(self, mode):
-        """Mode function."""
+    def mode(self, mode: str) -> None:
+        """Set inversion mode.
+
+        Parameters
+        ----------
+        mode : str
+            Inversion mode. Must be one of ``"te"``, ``"tm"``, or ``"det"``.
+        """
         if mode not in self._acceptable_modes:
             raise ValueError(
                 f"Mode {mode} not in accetable modes {self._acceptable_modes}"
@@ -75,105 +123,256 @@ class Simpeg1D:
         self._get_sub_dataframe()
 
     @property
-    def thicknesses(self):
-        """Thicknesses function."""
+    def thicknesses(self) -> np.ndarray:
+        """Layer thicknesses used in the recursive 1D simulation.
+
+        Returns
+        -------
+        numpy.ndarray
+            Layer thicknesses in meters ordered from top to bottom.
+        """
         return self.dz * self.z_factor ** np.arange(self.n_layers)[::-1]
 
     @property
-    def mesh(self):
-        """Mesh function."""
+    def mesh(self) -> TensorMesh:
+        """Regularization mesh.
+
+        Returns
+        -------
+        discretize.TensorMesh
+            1D tensor mesh used by SimPEG regularization.
+        """
         return TensorMesh([np.r_[self.thicknesses, self.thicknesses[-1]]], "N")
 
     @property
-    def frequencies(self):
-        """Frequencies function."""
+    def frequencies(self) -> pd.Series:
+        """Frequency series used by inversion.
+
+        Returns
+        -------
+        pandas.Series
+            Frequencies in Hz sorted high-to-low.
+        """
         return self._sub_df.frequency
 
     @property
-    def periods(self):
-        """Periods function."""
+    def periods(self) -> pd.Series:
+        """Period series used by inversion and plotting.
+
+        Returns
+        -------
+        pandas.Series
+            Periods in seconds.
+        """
         return 1.0 / self.frequencies
 
-    def _get_sub_dataframe(self):
-        """Get sub dataframe."""
+    def _get_sub_dataframe(self) -> pd.DataFrame:
+        """Build and clean the mode-specific inversion DataFrame.
+
+        Returns
+        -------
+        pandas.DataFrame
+            DataFrame with columns ``frequency``, ``res``, ``res_error``,
+            ``phase``, and ``phase_error``.
+        """
         if self._mode == "te":
+            self.mt_dataframe.dataframe["res_xy_model_error"] = (
+                self.mt_dataframe.dataframe.res_xy * self.resistivity_error / 100
+            )
+            self.mt_dataframe.dataframe.loc[
+                self.mt_dataframe.dataframe.res_xy_error
+                > self.mt_dataframe.dataframe.res_xy_model_error,
+                "res_xy_model_error",
+            ] = self.mt_dataframe.dataframe.res_xy_error
+
+            self.mt_dataframe.dataframe["phase_xy_model_error"] = self.phase_error
+            self.mt_dataframe.dataframe.loc[
+                self.mt_dataframe.dataframe.phase_xy_error
+                > self.mt_dataframe.dataframe.phase_xy_model_error,
+                "phase_xy_model_error",
+            ] = self.mt_dataframe.dataframe.phase_xy_error
+
             sub_df = pd.DataFrame(
                 {
                     "frequency": self.mt_dataframe.frequency,
                     "res": self.mt_dataframe.dataframe.res_xy,
                     "res_error": self.mt_dataframe.dataframe.res_xy_model_error,
-                    "phase": self.mt_dataframe.dataframe.phase_xy,
+                    "phase": self.mt_dataframe.dataframe.phase_xy - 180,
                     "phase_error": self.mt_dataframe.dataframe.phase_xy_model_error,
                 }
             )
+            sub_df.loc[sub_df.res_error]
 
         elif self._mode == "tm":
+            self.mt_dataframe.dataframe["res_yx_model_error"] = (
+                self.mt_dataframe.dataframe.res_yx * self.resistivity_error / 100
+            )
+            self.mt_dataframe.dataframe.loc[
+                self.mt_dataframe.dataframe.res_yx_error
+                > self.mt_dataframe.dataframe.res_yx_model_error,
+                "res_yx_model_error",
+            ] = self.mt_dataframe.dataframe.res_yx_error
+
+            self.mt_dataframe.dataframe["phase_yx_model_error"] = self.phase_error
+            self.mt_dataframe.dataframe.loc[
+                self.mt_dataframe.dataframe.phase_yx_error
+                > self.mt_dataframe.dataframe.phase_yx_model_error,
+                "phase_yx_model_error",
+            ] = self.mt_dataframe.dataframe.phase_yx_error
+
             sub_df = pd.DataFrame(
                 {
                     "frequency": self.mt_dataframe.frequency,
                     "res": self.mt_dataframe.dataframe.res_yx,
                     "res_error": self.mt_dataframe.dataframe.res_yx_model_error,
-                    "phase": self.mt_dataframe.dataframe.phase_yx % 180,
+                    "phase": self.mt_dataframe.dataframe.phase_yx,
                     "phase_error": self.mt_dataframe.dataframe.phase_yx_model_error,
                 }
             )
 
         elif self._mode == "det":
+            self.mt_dataframe.dataframe["res_det_model_error"] = (
+                self.mt_dataframe.dataframe.res_xy * self.resistivity_error / 100
+            )
+            self.mt_dataframe.dataframe.loc[
+                self.mt_dataframe.dataframe.res_xy_error
+                > self.mt_dataframe.dataframe.res_det_model_error,
+                "res_det_model_error",
+            ] = self.mt_dataframe.dataframe.res_xy_error
+
+            self.mt_dataframe.dataframe["phase_det_model_error"] = self.phase_error
+            self.mt_dataframe.dataframe.loc[
+                self.mt_dataframe.dataframe.phase_xy_error
+                > self.mt_dataframe.dataframe.phase_det_model_error,
+                "phase_det_model_error",
+            ] = self.mt_dataframe.dataframe.phase_xy_error
+
             z_obj = self.mt_dataframe.to_z_object()
 
             sub_df = pd.DataFrame(
                 {
                     "frequency": self.mt_dataframe.frequency,
                     "res": z_obj.res_det,
-                    "res_error": z_obj.res_model_error_det,
-                    "phase": z_obj.phase_det,
-                    "phase_error": z_obj.phase_model_error_det,
+                    "res_error": z_obj.res_det_model_error,
+                    "phase": z_obj.phase_det - 180,
+                    "phase_error": z_obj.phase_det_model_error,
                 }
             )
 
         sub_df = sub_df.sort_values("frequency", ascending=False).reindex()
-        sub_df = self._remove_outofquadrant_phase(sub_df)
+        sub_df = self._ensure_inversion_phase_convention(sub_df)
         sub_df = self._remove_nan_in_errors(sub_df)
         sub_df = self._remove_zeros(sub_df)
 
         return sub_df
 
-    def _remove_outofquadrant_phase(self, sub_df):
-        """Remove out of quadrant phase from data."""
+    def _ensure_inversion_phase_convention(self, sub_df: pd.DataFrame) -> pd.DataFrame:
+        """Map phase to the branch expected by recursive 1D SimPEG.
 
-        sub_df.loc[(sub_df.phase % 180 < 0), "phase"] = 0
+        Parameters
+        ----------
+        sub_df : pandas.DataFrame
+            Mode-specific data table.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Updated table with phase constrained to ``[-180, -90]``. Values
+            outside the target branch are set to 0 and removed downstream.
+        """
+
+        phase = sub_df.phase.to_numpy(dtype=float)
+
+        # Wrap to [-180, 180) first, then move first-quadrant values to their
+        # equivalent third-quadrant representation by subtracting 180.
+        phase = ((phase + 180.0) % 360.0) - 180.0
+        phase = np.where(phase > 0.0, phase - 180.0, phase)
+
+        # Keep only the target inversion phase branch. Out-of-band values are
+        # marked as 0 and removed by _remove_zeros.
+        in_band = (phase >= -180.0) & (phase <= -90.0)
+        phase = np.where(in_band, phase, 0.0)
+
+        sub_df["phase"] = phase
 
         return sub_df
 
-    def _remove_nan_in_errors(self, sub_df, large_error=1e2):
-        """Remove nans in error."""
+    def _phase_for_plotting(self, phase_values: np.ndarray | pd.Series) -> np.ndarray:
+        """Convert inversion phase convention ``[-180, -90]`` to display ``[0, 90]``.
+
+        Parameters
+        ----------
+        phase_values : numpy.ndarray or pandas.Series
+            Input phase values in degrees.
+
+        Returns
+        -------
+        numpy.ndarray
+            Phase values in the plotting convention ``[0, 90]``.
+        """
+
+        phase_values = np.asarray(phase_values, dtype=float)
+        return np.where(phase_values < 0.0, phase_values + 180.0, phase_values)
+
+    def _remove_nan_in_errors(
+        self, sub_df: pd.DataFrame, large_error: float = 1e2
+    ) -> pd.DataFrame:
+        """Replace missing error values with a large fallback error.
+
+        Parameters
+        ----------
+        sub_df : pandas.DataFrame
+            Input data table.
+        large_error : float, default=1e2
+            Replacement value for missing ``res_error`` and ``phase_error``.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Data table with missing error values filled.
+        """
         sub_df["res_error"] = sub_df.res_error.fillna(large_error)
         sub_df["phase_error"] = sub_df.phase_error.fillna(large_error)
         return sub_df
 
-    def _remove_zeros(self, sub_df):
-        """Remove zeros from the data frame.
-        :param sub_df: DESCRIPTION.
-        :type sub_df: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def _remove_zeros(self, sub_df: pd.DataFrame) -> pd.DataFrame:
+        """Drop rows containing zero values.
+
+        Parameters
+        ----------
+        sub_df : pandas.DataFrame
+            Input data table.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Filtered table where all columns are non-zero.
         """
         return sub_df.loc[(sub_df != 0).all(axis=1)]
 
-    def cull_from_difference(self, sub_df, max_diff_res=1.0, max_diff_phase=10):
-        """
-        Remove points based on a simple difference between neighboring points
+    def cull_from_difference(
+        self,
+        sub_df: pd.DataFrame,
+        max_diff_res: float = 1.0,
+        max_diff_phase: float = 10.0,
+    ) -> pd.DataFrame:
+        """Cull outliers using nearest-neighbor differences.
 
-        uses np.diff
+        Resistivity culling is done in log10-difference space.
 
-        res difference is in log space.
-        :param sub_df:
-        :param max_diff_res: DESCRIPTION, defaults to 1.0.
-        :type max_diff_res: TYPE, optional
-        :param max_diff_phase: DESCRIPTION, defaults to 10.
-        :type max_diff_phase: TYPE, optional
-        :return: DESCRIPTION.
-        :rtype: TYPE
+        Parameters
+        ----------
+        sub_df : pandas.DataFrame
+            Input data table.
+        max_diff_res : float, default=1.0
+            Maximum allowed neighboring difference in log10 resistivity.
+        max_diff_phase : float, default=10.0
+            Maximum allowed neighboring difference in phase (degrees).
+
+        Returns
+        -------
+        pandas.DataFrame
+            Filtered table after removing rows flagged as outliers.
         """
 
         sub_df.phase[np.where(abs(np.diff(sub_df.phase)) > max_diff_phase)[0] + 1] = 0
@@ -187,16 +386,23 @@ class Simpeg1D:
 
         return sub_df.loc[(sub_df != 0).all(axis=1)]
 
-    def cull_from_interpolated(self, sub_df, tolerance=0.1, s_factor=2):
-        """
-        create a cubic spline as a smooth version of the data and then
-        find points a certain distance away to remove.
+    def cull_from_interpolated(
+        self, sub_df: pd.DataFrame, tolerance: float = 0.1, s_factor: float = 2
+    ) -> None:
+        """Prototype spline-based data culling method.
 
-        :param : DESCRIPTION
-        :type : TYPE
-        :return: DESCRIPTION
-        :rtype: TYPE
+        Parameters
+        ----------
+        sub_df : pandas.DataFrame
+            Input data table.
+        tolerance : float, default=0.1
+            Allowed absolute residual from spline prediction.
+        s_factor : float, default=2
+            Smoothing multiplier applied to the spline fit.
 
+        Notes
+        -----
+        This method is currently incomplete and does not return filtered data.
         """
 
         from scipy import interpolate
@@ -212,47 +418,96 @@ class Simpeg1D:
             > tolerance
         )
 
-    def cull_from_model(self, iteration):
-        """Remove bad point based on initial run.
-        :param iteration: DESCRIPTION.
-        :type iteration: TYPE
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def cull_from_model(self, iteration: int) -> None:
+        """Placeholder for model-based culling logic.
+
+        Parameters
+        ----------
+        iteration : int
+            Inversion iteration number.
         """
 
         if self.output_dict is None:
             raise ValueError("Must run an inversion first")
 
     @property
-    def data(self):
-        """Data function."""
+    def data(self) -> np.ndarray:
+        """Flattened inversion data vector.
+
+        Returns
+        -------
+        numpy.ndarray
+            Data vector ordered by ``[rho, phase]`` for each frequency.
+        """
         return np.c_[self._sub_df.res, self._sub_df.phase].flatten()
 
     @property
-    def data_error(self):
-        """Data error."""
+    def data_error(self) -> np.ndarray:
+        """Flattened data standard deviation vector.
+
+        Returns
+        -------
+        numpy.ndarray
+            Error vector ordered by ``[rho_error, phase_error]``.
+        """
         return np.c_[self._sub_df.res_error, self._sub_df.phase_error].flatten()
 
     def run_fixed_layer_inversion(
         self,
-        cull_from_difference=False,
-        maxIter=40,
-        maxIterCG=30,
-        alpha_s=1e-10,
-        alpha_z=1,
-        beta0_ratio=1,
-        coolingFactor=2,
-        coolingRate=1,
-        chi_factor=1,
-        use_irls=False,
-        p_s=2,
-        p_z=2,
-        **kwargs,
-    ):
-        """Run fixed layer inversion."""
+        cull_from_difference: bool = False,
+        maxIter: int = 40,
+        maxIterCG: int = 30,
+        alpha_s: float = 1e-10,
+        alpha_z: float = 1,
+        beta0_ratio: float = 1,
+        coolingFactor: float = 2,
+        coolingRate: int = 1,
+        chi_factor: float = 1,
+        use_irls: bool = False,
+        p_s: float = 2,
+        p_z: float = 2,
+        **kwargs: Any,
+    ) -> None:
+        """Run a fixed-layer 1D inversion.
+
+        Parameters
+        ----------
+        cull_from_difference : bool, default=False
+            If ``True``, apply simple nearest-neighbor culling before inversion.
+        maxIter : int, default=40
+            Maximum Gauss-Newton iterations.
+        maxIterCG : int, default=30
+            Maximum conjugate-gradient iterations per GN step.
+        alpha_s : float, default=1e-10
+            Smallness regularization weight.
+        alpha_z : float, default=1
+            Vertical smoothness regularization weight.
+        beta0_ratio : float, default=1
+            Initial beta estimate scaling.
+        coolingFactor : float, default=2
+            Beta reduction factor.
+        coolingRate : int, default=1
+            Number of iterations between beta updates.
+        chi_factor : float, default=1
+            Target misfit factor.
+        use_irls : bool, default=False
+            If ``True``, enable IRLS regularization updates.
+        p_s : float, default=2
+            Smallness norm exponent.
+        p_z : float, default=2
+            Smoothness norm exponent.
+        **kwargs : Any
+            Reserved for future optional controls.
+
+        Examples
+        --------
+        >>> inv = Simpeg1D(mt_dataframe=df, mode="tm")
+        >>> inv.run_fixed_layer_inversion(maxIter=25, alpha_z=2.0)
+        """
+        print("Running inversion with parameters: yx")
         receivers_list = [
-            nsem.receivers.Impedance([[]], component="app_res"),
-            nsem.receivers.Impedance([[]], component="phase"),
+            nsem.receivers.Impedance([[]], component="rho", orientation="yx"),
+            nsem.receivers.Impedance([[]], component="phase", orientation="yx"),
         ]
 
         # Cull the data
@@ -359,13 +614,29 @@ class Simpeg1D:
 
         # Run the inversion
         recovered_model = inv.run(m0)
+        _ = recovered_model
 
         self.output_dict = save_dictionary.outDict
 
-    def plot_model_fitting(self, scale="log", fig_num=1):
-        """Plot predicted vs model.
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def plot_model_fitting(self, scale: str = "log", fig_num: int = 1) -> Figure:
+        """Plot trade-off curve for inversion iterations.
+
+        Parameters
+        ----------
+        scale : str, default="log"
+            Axis scale. Common choice is ``"log"``.
+        fig_num : int, default=1
+            Matplotlib figure number.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            Created matplotlib figure.
+
+        Examples
+        --------
+        >>> inv.run_fixed_layer_inversion()
+        >>> fig = inv.plot_model_fitting(scale="log")
         """
 
         target_misfit = self.data.size
@@ -384,8 +655,8 @@ class Simpeg1D:
         ax.plot(phi_ms, phi_ds, marker="o", mfc="w", color="r", ls=":", ms=10)
         for x, y, num in zip(phi_ms, phi_ds, range(len(phi_ms))):
             ax.text(x, y, num, ha="center", va="center")
-        ax.set_xlabel("$\phi_m$")
-        ax.set_ylabel("$\phi_d$")
+        ax.set_xlabel(r"$\phi_m$")
+        ax.set_ylabel(r"$\phi_d$")
         if scale == "log":
             ax.set_xscale("log")
             ax.set_yscale("log")
@@ -401,19 +672,40 @@ class Simpeg1D:
         return fig
 
     @property
-    def _plot_z(self):
-        """Plot z."""
+    def _plot_z(self) -> np.ndarray:
+        """Depth axis used for model step plots.
+
+        Returns
+        -------
+        numpy.ndarray
+            Depths in kilometers.
+        """
         z_grid = np.r_[0.0, np.cumsum(self.thicknesses[::-1])]
         return z_grid / 1000
 
-    def plot_response(self, iteration=None, fig_num=1, **kwargs):
-        """Plot response.
-        :param fig_num:
-            Defaults to 2.
-        :param iteration: DESCRIPTION, defaults to None.
-        :type iteration: TYPE, optional
-        :return: DESCRIPTION.
-        :rtype: TYPE
+    def plot_response(
+        self, iteration: int | None = None, fig_num: int = 1, **kwargs: Any
+    ) -> Figure:
+        """Plot recovered 1D model and data fit.
+
+        Parameters
+        ----------
+        iteration : int or None, default=None
+            Iteration index to plot. If ``None``, uses the final iteration.
+        fig_num : int, default=1
+            Matplotlib figure number.
+        **kwargs : Any
+            Optional plotting controls such as ``y_limits`` and ``y_scale``.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            Created matplotlib figure.
+
+        Examples
+        --------
+        >>> inv.run_fixed_layer_inversion()
+        >>> fig = inv.plot_response(y_scale="log")
         """
         if iteration is None:
             iteration = sorted(list(self.output_dict.keys()))[-1]
@@ -442,8 +734,8 @@ class Simpeg1D:
         )
 
         # ax_model.legend()
-        ax_model.set_xlabel("Resistivity ($\Omega$m)")
-        y_limits = kwargs.get("y_limits", (0.01, self._plot_z.max()))
+        ax_model.set_xlabel(r"Resistivity ($\Omega$m)")
+        y_limits = kwargs.get("y_limits", (self._plot_z.max(), 0.01))
         ax_model.set_ylim(y_limits)
         ax_model.set_ylabel("Depth (km)")
         ax_model.set_xscale("log")
@@ -511,13 +803,13 @@ class Simpeg1D:
         )
 
         ax_res.grid(True, which="both", alpha=0.5)
-        ax_res.set_ylabel("Apparent resistivity ($\Omega$m)")
+        ax_res.set_ylabel(r"Apparent resistivity ($\Omega$m)")
 
         ax_phase = fig.add_subplot(gs[-1, 1:], sharex=ax_res)
         eb_phase = plot_errorbar(
             ax_phase,
             self.periods,
-            self.data.reshape((nf, 2))[:, 1],
+            self._phase_for_plotting(self.data.reshape((nf, 2))[:, 1]),
             self.data_error.reshape((nf, 2))[:, 1],
             **{
                 "marker": "o",
@@ -535,7 +827,7 @@ class Simpeg1D:
         eb_phase_m = plot_errorbar(
             ax_phase,
             self.periods,
-            dpred.reshape((nf, 2))[:, 1],
+            self._phase_for_plotting(dpred.reshape((nf, 2))[:, 1]),
             **{
                 "marker": "d",
                 "ms": 4,
@@ -556,7 +848,7 @@ class Simpeg1D:
             ncol=2,
         )
 
-        ax_phase.set_ylabel("Phase ($\degree$)")
+        ax_phase.set_ylabel(r"Phase ($\degree$)")
         ax_phase.set_xlabel("Period(s)")
         ax_phase.grid(True, which="both", alpha=0.5)
         plt.show()

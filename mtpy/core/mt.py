@@ -1474,9 +1474,10 @@ class MT(TF, MTLocation):
         )
 
         if inplace:
-            self._transfer_function["transfer_function"] = (
-                self._transfer_function.transfer_function.real * (noise_real)
-                + (1j * self._transfer_function.transfer_function.imag * noise_imag)
+            self._transfer_function[
+                "transfer_function"
+            ] = self._transfer_function.transfer_function.real * (noise_real) + (
+                1j * self._transfer_function.transfer_function.imag * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
@@ -1485,9 +1486,10 @@ class MT(TF, MTLocation):
 
         else:
             new_mt_obj._transfer_function = self._transfer_function.copy()
-            new_mt_obj._transfer_function["transfer_function"] = (
-                self._transfer_function.transfer_function.real * (noise_real)
-                + (1j * self._transfer_function.transfer_function.imag * noise_imag)
+            new_mt_obj._transfer_function[
+                "transfer_function"
+            ] = self._transfer_function.transfer_function.real * (noise_real) + (
+                1j * self._transfer_function.transfer_function.imag * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
@@ -1542,7 +1544,9 @@ class MT(TF, MTLocation):
 
         return occam_data
 
-    def to_simpeg_1d(self, mode: str = "det", **kwargs: Any) -> Simpeg1D:
+    def to_simpeg_1d(
+        self, mode: str = "det", resistivity_error=10, phase_error=2.5, **kwargs: Any
+    ) -> Simpeg1D:
         """
         Run a 1D inversion using SimPEG.
 
@@ -1577,7 +1581,14 @@ class MT(TF, MTLocation):
         if not self.Z._has_tf_model_error():
             self.compute_model_z_errors()
             self.logger.info("Using default errors for impedance")
-        simpeg_1d = Simpeg1D(self.to_dataframe(), mode=mode, **kwargs)
+        simpeg_1d = Simpeg1D(
+            self.to_dataframe(impedance_units="mt"),
+            mode=mode,
+            resistivity_error=resistivity_error,
+            phase_error=phase_error,
+            phase_error=phase_error,
+            **kwargs,
+        )
         simpeg_1d.run_fixed_layer_inversion(**kwargs)
         simpeg_1d.plot_model_fitting(fig_num=1)
         simpeg_1d.plot_response(fig_num=2, **kwargs)
