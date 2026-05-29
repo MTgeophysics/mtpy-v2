@@ -1586,7 +1586,6 @@ class MT(TF, MTLocation):
             mode=mode,
             resistivity_error=resistivity_error,
             phase_error=phase_error,
-            phase_error=phase_error,
             **kwargs,
         )
         simpeg_1d.run_fixed_layer_inversion(**kwargs)
