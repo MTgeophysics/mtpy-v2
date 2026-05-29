@@ -96,6 +96,15 @@ jobs:
         python -c "import pandas as pd; print(f'pandas version: {pd.__version__}')"
         conda list
 
+    - name: Run Simpeg1D tests (non-Windows)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        source ~/.profile
+        conda init --all
+        conda activate mtpy-v2-test
+        pytest -rA -q tests/modeling/simpeg/test_simpeg_1d_inversion_recipe.py
+
     - name: Run Tests
       shell: bash
       run: |

@@ -78,7 +78,8 @@ class Simpeg1D:
     ) -> None:
         self._acceptable_modes: list[str] = ["te", "tm", "det"]
         self.mt_dataframe = MTDataFrame(data=mt_dataframe)
-
+        self.resistivity_error: float = resistivity_error
+        self.phase_error: float = phase_error
         self.mode: str = "det"
         self.dz: float = 5
         self.n_layers: int = 50
@@ -87,8 +88,6 @@ class Simpeg1D:
         self.rho_reference: float = 100
         self.output_dict: dict[int, dict[str, Any]] | None = None
         self.max_iterations: int = 40
-        self.resistivity_error: float = resistivity_error
-        self.phase_error: float = phase_error
 
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -201,7 +200,6 @@ class Simpeg1D:
                     "phase_error": self.mt_dataframe.dataframe.phase_xy_model_error,
                 }
             )
-            sub_df.loc[sub_df.res_error]
 
         elif self._mode == "tm":
             self.mt_dataframe.dataframe["res_yx_model_error"] = (
@@ -231,31 +229,29 @@ class Simpeg1D:
             )
 
         elif self._mode == "det":
-            self.mt_dataframe.dataframe["res_det_model_error"] = (
-                self.mt_dataframe.dataframe.res_xy * self.resistivity_error / 100
-            )
-            self.mt_dataframe.dataframe.loc[
-                self.mt_dataframe.dataframe.res_xy_error
-                > self.mt_dataframe.dataframe.res_det_model_error,
-                "res_det_model_error",
-            ] = self.mt_dataframe.dataframe.res_xy_error
-
-            self.mt_dataframe.dataframe["phase_det_model_error"] = self.phase_error
-            self.mt_dataframe.dataframe.loc[
-                self.mt_dataframe.dataframe.phase_xy_error
-                > self.mt_dataframe.dataframe.phase_det_model_error,
-                "phase_det_model_error",
-            ] = self.mt_dataframe.dataframe.phase_xy_error
-
             z_obj = self.mt_dataframe.to_z_object()
+
+            res_model_error = z_obj.res_det * self.resistivity_error / 100
+            res_model_error[
+                np.where(z_obj.res_model_error_det > res_model_error)[0]
+            ] = z_obj.res_model_error_det[
+                np.where(z_obj.res_model_error_det > res_model_error)[0]
+            ]
+
+            phase_model_error = np.ones_like(z_obj.phase_det) * self.phase_error
+            # phase_model_error[
+            #     np.where(z_obj.phase_model_error_det > phase_model_error)[0]
+            # ] = z_obj.phase_model_error_det[
+            #     np.where(z_obj.phase_model_error_det > phase_model_error)[0]
+            # ]
 
             sub_df = pd.DataFrame(
                 {
                     "frequency": self.mt_dataframe.frequency,
                     "res": z_obj.res_det,
-                    "res_error": z_obj.res_det_model_error,
+                    "res_error": res_model_error,
                     "phase": z_obj.phase_det - 180,
-                    "phase_error": z_obj.phase_det_model_error,
+                    "phase_error": phase_model_error,
                 }
             )
 
@@ -504,7 +500,7 @@ class Simpeg1D:
         >>> inv = Simpeg1D(mt_dataframe=df, mode="tm")
         >>> inv.run_fixed_layer_inversion(maxIter=25, alpha_z=2.0)
         """
-        print("Running inversion with parameters: yx")
+
         receivers_list = [
             nsem.receivers.Impedance([[]], component="rho", orientation="yx"),
             nsem.receivers.Impedance([[]], component="phase", orientation="yx"),
@@ -728,14 +724,14 @@ class Simpeg1D:
         ax_model = fig.add_subplot(gs[:, 0])
         ax_model.step(
             (1.0 / (np.exp(m))),
-            self._plot_z[::-1],
+            self._plot_z,
             color="k",
             **{"linestyle": "-"},
         )
 
         # ax_model.legend()
         ax_model.set_xlabel(r"Resistivity ($\Omega$m)")
-        y_limits = kwargs.get("y_limits", (self._plot_z.max(), 0.01))
+        y_limits = kwargs.get("y_limits", (self._plot_z.max(), 0.5))
         ax_model.set_ylim(y_limits)
         ax_model.set_ylabel("Depth (km)")
         ax_model.set_xscale("log")
