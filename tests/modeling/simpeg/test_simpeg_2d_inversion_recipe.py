@@ -13,6 +13,7 @@ import unittest
 import numpy as np
 import pytest
 
+
 PROFILE_LIST = pytest.importorskip("mtpy_data").PROFILE_LIST
 from simpeg import (
     data_misfit,
@@ -25,6 +26,7 @@ from simpeg.electromagnetics import natural_source as nsem
 
 from mtpy import MTData
 from mtpy.modeling.simpeg.recipes.inversion_2d import Simpeg2D
+
 
 # =============================================================================
 
@@ -175,6 +177,12 @@ class TestSimpeg2DRecipeRun(unittest.TestCase):
         self.assertEqual(
             len(self.simpeg_inversion.iterations.keys()), self.n_iterations
         )
+
+    def test_fit(self):
+        final_misfit = self.simpeg_inversion.iterations[self.n_iterations - 1][
+            "data_misfit"
+        ]
+        self.assertLess(final_misfit, self.simpeg_inversion.target_misfit._chifact)
 
 
 # =============================================================================

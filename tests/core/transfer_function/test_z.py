@@ -17,6 +17,7 @@ import pytest
 from mtpy.core.transfer_function import MT_TO_OHM_FACTOR
 from mtpy.core.transfer_function.z import Z
 
+
 # =============================================================================
 # Session Fixtures
 # =============================================================================
@@ -559,6 +560,25 @@ class TestUnits:
 
         assert np.allclose(z_ohm.resistivity, z_mt.resistivity)
         assert np.allclose(z_ohm.phase, z_mt.phase)
+
+    def test_resistivity_phase_equal_when_switching_units(self):
+        """Test resistivity and phase remain unchanged when units are switched."""
+        frequency = np.array([1.0])
+        resistivity = np.array([[[100.0, 80.0], [120.0, 60.0]]])
+        phase = np.array([[[45.0, 30.0], [-135.0, -90.0]]])
+
+        z_obj = Z(units="mt")
+        z_obj.set_resistivity_phase(
+            resistivity=resistivity, phase=phase, frequency=frequency
+        )
+
+        resistivity_mt = z_obj.resistivity.copy()
+        phase_mt = z_obj.phase.copy()
+
+        z_obj.units = "ohm"
+
+        assert np.allclose(z_obj.resistivity, resistivity_mt)
+        assert np.allclose(z_obj.phase, phase_mt)
 
 
 # =============================================================================

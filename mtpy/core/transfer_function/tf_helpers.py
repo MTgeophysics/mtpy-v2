@@ -7,18 +7,31 @@ import numpy as np
 import mtpy.utils.calculator as MTcc
 
 
+MT_TO_OHM_FACTOR = 1.0 / np.pi * np.sqrt(5.0 / 8.0) * 10**3.5
+IMPEDANCE_UNITS = {"mt": 1, "ohm": MT_TO_OHM_FACTOR}
+
+
 def compute_resistivity(
-    z_mt: np.ndarray | None, frequency: np.ndarray
+    z_mt: np.ndarray | None, frequency: np.ndarray, z_units: str = "mt"
 ) -> np.ndarray | None:
     """Compute apparent resistivity from impedance in mt units."""
     if z_mt is None:
         return None
 
-    return np.apply_along_axis(
-        lambda values: np.abs(values) ** 2 / frequency * 0.2,
-        0,
-        z_mt,
-    )
+    if z_units == "mt":
+        return np.apply_along_axis(
+            lambda values: np.abs(values) ** 2 / frequency * 0.2,
+            0,
+            z_mt,
+        )
+    elif z_units == "ohm":
+        return np.apply_along_axis(
+            lambda values: np.abs(values / IMPEDANCE_UNITS["ohm"]) ** 2
+            * frequency
+            * 0.2,
+            0,
+            z_mt,
+        )
 
 
 def compute_phase(z_mt: np.ndarray | None) -> np.ndarray | None:
@@ -33,29 +46,43 @@ def compute_resistivity_error(
     z_mt: np.ndarray | None,
     z_error_mt: np.ndarray | None,
     frequency: np.ndarray,
+    z_units: str = "mt",
 ) -> np.ndarray | None:
     """Compute apparent resistivity error from impedance and standard deviation."""
     if z_mt is None or z_error_mt is None:
         return None
 
     with np.errstate(divide="ignore", invalid="ignore"):
-        return np.apply_along_axis(
-            lambda values: values / frequency * 0.2,
-            0,
-            2 * z_error_mt * np.abs(z_mt),
-        )
+        if z_units == "mt":
+            return np.apply_along_axis(
+                lambda values: values / frequency * 0.2,
+                0,
+                2 * z_error_mt * np.abs(z_mt),
+            )
+        elif z_units == "ohm":
+            return np.apply_along_axis(
+                lambda values: values / frequency * 0.2,
+                0,
+                2 * z_error_mt * np.abs(z_mt / IMPEDANCE_UNITS["ohm"]),
+            )
 
 
 def compute_phase_error(
     z_mt: np.ndarray | None,
     z_error: np.ndarray | None,
+    z_units: str = "mt",
 ) -> np.ndarray | None:
     """Compute impedance phase error in degrees from complex impedance error."""
     if z_mt is None or z_error is None:
         return None
 
     with np.errstate(divide="ignore", invalid="ignore"):
-        return np.degrees(np.arctan(z_error / np.abs(z_mt)))
+        if z_units == "mt":
+            return np.degrees(np.arctan(z_error / np.abs(z_mt)))
+        elif z_units == "ohm":
+            return np.degrees(
+                np.arctan(z_error / np.abs(z_mt / IMPEDANCE_UNITS["ohm"]))
+            )
 
 
 def compute_impedance_error(

@@ -136,7 +136,7 @@ class Z(TFBase):
         if value.lower() not in self._unit_factors.keys():
             raise ValueError(f"{value} is not an acceptable unit for impedance.")
 
-        self._units = value
+        self._units = value.lower()
 
     @property
     def _scale_factor(self) -> float:
@@ -419,14 +419,16 @@ class Z(TFBase):
     @property
     def resistivity(self) -> np.ndarray | None:
         """Resistivity of impedance."""
-        if self.z is not None:
-            return compute_resistivity(self.z * self._scale_factor, self.frequency)
+        if self._has_tf():
+            return compute_resistivity(
+                self._dataset.transfer_function.values, self.frequency
+            )
 
     @property
     def phase(self) -> np.ndarray | None:
         """Phase of impedance."""
-        if self.z is not None:
-            return compute_phase(self.z * self._scale_factor)
+        if self._has_tf():
+            return compute_phase(self._dataset.transfer_function.values)
 
     @property
     def resistivity_error(self) -> np.ndarray | None:
@@ -437,10 +439,10 @@ class Z(TFBase):
         2 * relative error in z amplitude.
 
         """
-        if self.z is not None and self.z_error is not None:
+        if self._has_tf() and self._has_tf_error():
             return compute_resistivity_error(
-                self.z * self._scale_factor,
-                self.z_error * self._scale_factor,
+                self._dataset.transfer_function.values,
+                self._dataset.transfer_function_error.values,
                 self.frequency,
             )
 
@@ -455,24 +457,30 @@ class Z(TFBase):
         tangent to the circle.
 
         """
-        if self.z is not None and self.z_error is not None:
-            return compute_phase_error(self.z, self.z_error)
+        if self._has_tf() and self._has_tf_error():
+            return compute_phase_error(
+                self._dataset.transfer_function.values,
+                self._dataset.transfer_function_error.values,
+            )
 
     @property
     def resistivity_model_error(self) -> np.ndarray | None:
         """Resistivity model error of impedance."""
-        if self.z is not None and self.z_model_error is not None:
+        if self._has_tf() and self._has_tf_model_error():
             return compute_resistivity_error(
-                self.z * self._scale_factor,
-                self.z_model_error * self._scale_factor,
+                self._dataset.transfer_function.values,
+                self._dataset.transfer_function_model_error.values,
                 self.frequency,
             )
 
     @property
     def phase_model_error(self) -> np.ndarray | None:
         """Phase model error of impedance."""
-        if self.z is not None and self.z_model_error is not None:
-            return compute_phase_error(self.z, self.z_model_error)
+        if self._has_tf() and self._has_tf_model_error():
+            return compute_phase_error(
+                self._dataset.transfer_function.values,
+                self._dataset.transfer_function_model_error.values,
+            )
 
     def _compute_z_error(
         self, res_error: np.ndarray | None, phase_error: np.ndarray | None
@@ -627,14 +635,18 @@ class Z(TFBase):
     def res_det(self) -> np.ndarray | None:
         """Resistivity determinant."""
         if self.det is not None:
-            return 0.2 * (1.0 / self.frequency) * abs(self.det) ** 2
+            return (
+                0.2 * (1.0 / self.frequency) * abs(self.det / self._scale_factor) ** 2
+            )
 
     @property
     def res_error_det(self) -> np.ndarray | None:
         """Resistivity error determinant."""
         if self.det_error is not None:
             return (
-                0.2 * (1.0 / self.frequency) * np.abs(self.det + self.det_error) ** 2
+                0.2
+                * (1.0 / self.frequency)
+                * np.abs((self.det + self.det_error) / self._scale_factor) ** 2
                 - self.res_det
             )
 
@@ -645,7 +657,7 @@ class Z(TFBase):
             return (
                 0.2
                 * (1.0 / self.frequency)
-                * np.abs(self.det + self.det_model_error) ** 2
+                * np.abs((self.det + self.det_model_error) / self._scale_factor) ** 2
                 - self.res_det
             )
 
