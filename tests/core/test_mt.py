@@ -24,6 +24,7 @@ from mtpy import MT
 from mtpy.core.mt_dataframe import MTDataFrame
 from mtpy.core.transfer_function import MT_TO_OHM_FACTOR
 
+
 # =============================================================================
 # Basic MT Object Tests
 # =============================================================================
@@ -538,6 +539,25 @@ class TestMTDataFrameOhm:
         """Test impedance with different units are not equal."""
         mt_df = mt_from_edi.to_dataframe(impedance_units="ohm")
         assert mt_from_edi.Z != mt_df.to_z_object(units="mt")
+
+    def test_from_dataframe_interprets_ohm_input_units(self, mt_from_edi):
+        """Test from_dataframe interprets impedance values in ohm correctly."""
+        mt_df = mt_from_edi.to_dataframe(impedance_units="ohm")
+
+        mt2 = MT()
+        mt2.from_dataframe(mt_df, impedance_units="ohm")
+
+        assert mt2.Z == mt_df.to_z_object(units="ohm")
+        assert mt2.impedance_units == "ohm"
+
+    def test_from_dataframe_ohm_round_trip_matches_original(self, mt_from_edi):
+        """Test ohm dataframe round-trip preserves transfer function data."""
+        mt_df = mt_from_edi.to_dataframe(impedance_units="ohm")
+
+        mt2 = MT()
+        mt2.from_dataframe(mt_df, impedance_units="ohm")
+
+        assert mt2._transfer_function == mt_from_edi._transfer_function
 
 
 # =============================================================================

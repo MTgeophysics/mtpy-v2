@@ -986,7 +986,8 @@ class MT(TF, MTLocation):
         cols : list of str, optional
             Column names to include, by default None
         impedance_units : str, optional
-            Impedance units, "mt" [mV/km/nT] or "ohm" [Ohms], by default "mt"
+            Impedance output units in the dataframe,
+            "mt" [mV/km/nT] or "ohm" [Ohms], by default "mt"
 
         Returns
         -------
@@ -1017,7 +1018,9 @@ class MT(TF, MTLocation):
         mt_df.dataframe.loc[:, "period"] = self.period
         if self.has_impedance():
             z_object = self.Z
-            z_object.units = impedance_units
+            # Keep Z internal storage in mt units while exposing dataframe values
+            # in requested output units.
+            z_object.output_units = impedance_units
             mt_df.from_z_object(z_object)
         if self.has_tipper():
             mt_df.from_t_object(self.Tipper)
@@ -1035,7 +1038,8 @@ class MT(TF, MTLocation):
         mt_df : MTDataFrame or DataFrame-like
             Dataframe containing MT data for a single station
         impedance_units : str, optional
-            Impedance units, "mt" [mV/km/nT] or "ohm" [Ohms], by default "mt"
+            Impedance units represented in the dataframe,
+            "mt" [mV/km/nT] or "ohm" [Ohms], by default "mt"
 
         Raises
         ------
@@ -1077,8 +1081,9 @@ class MT(TF, MTLocation):
 
         self.tf_id = self.station
 
-        z_obj = mt_df.to_z_object()
-        z_obj.units = impedance_units
+        # Construct with dataframe units so incoming arrays are interpreted
+        # correctly, and keep output units aligned with MT impedance units.
+        z_obj = mt_df.to_z_object(units=impedance_units)
         self.Z = z_obj
         self.Tipper = mt_df.to_t_object()
 
@@ -1474,9 +1479,10 @@ class MT(TF, MTLocation):
         )
 
         if inplace:
-            self._transfer_function["transfer_function"] = (
-                self._transfer_function.transfer_function.real * (noise_real)
-                + (1j * self._transfer_function.transfer_function.imag * noise_imag)
+            self._transfer_function[
+                "transfer_function"
+            ] = self._transfer_function.transfer_function.real * (noise_real) + (
+                1j * self._transfer_function.transfer_function.imag * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
@@ -1485,9 +1491,10 @@ class MT(TF, MTLocation):
 
         else:
             new_mt_obj._transfer_function = self._transfer_function.copy()
-            new_mt_obj._transfer_function["transfer_function"] = (
-                self._transfer_function.transfer_function.real * (noise_real)
-                + (1j * self._transfer_function.transfer_function.imag * noise_imag)
+            new_mt_obj._transfer_function[
+                "transfer_function"
+            ] = self._transfer_function.transfer_function.real * (noise_real) + (
+                1j * self._transfer_function.transfer_function.imag * noise_imag
             )
 
             self._transfer_function["transfer_function_error"] = (
