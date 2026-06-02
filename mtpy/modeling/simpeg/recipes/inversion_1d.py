@@ -20,7 +20,6 @@ from matplotlib.figure import Figure
 from mtpy.core import MTDataFrame
 from mtpy.imaging.mtplot_tools.plotters import plot_errorbar
 
-
 try:
     from discretize import TensorMesh
     from simpeg import (
@@ -40,7 +39,6 @@ except ImportError:
 import matplotlib.gridspec as gridspec
 from matplotlib import pyplot as plt
 from matplotlib.ticker import LogLocator
-
 
 # =============================================================================
 
