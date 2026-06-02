@@ -17,7 +17,6 @@ import pytest
 from mtpy.core.transfer_function import MT_TO_OHM_FACTOR
 from mtpy.core.transfer_function.z import Z
 
-
 # =============================================================================
 # Session Fixtures
 # =============================================================================

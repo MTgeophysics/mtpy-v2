@@ -18,7 +18,6 @@ from scipy.spatial.distance import pdist
 
 from . import Tipper, Z
 
-
 # =============================================================================
 
 
@@ -637,9 +636,9 @@ class MTDataFrame:
 
         """
         if self._has_data():
-            self.dataframe.loc[
-                self.dataframe.station == self.station, "latitude"
-            ] = value
+            self.dataframe.loc[self.dataframe.station == self.station, "latitude"] = (
+                value
+            )
 
     @property
     def longitude(self) -> float | None:
@@ -669,9 +668,9 @@ class MTDataFrame:
 
         """
         if self._has_data():
-            self.dataframe.loc[
-                self.dataframe.station == self.station, "longitude"
-            ] = value
+            self.dataframe.loc[self.dataframe.station == self.station, "longitude"] = (
+                value
+            )
 
     @property
     def elevation(self) -> float | None:
@@ -701,9 +700,9 @@ class MTDataFrame:
 
         """
         if self._has_data():
-            self.dataframe.loc[
-                self.dataframe.station == self.station, "elevation"
-            ] = value
+            self.dataframe.loc[self.dataframe.station == self.station, "elevation"] = (
+                value
+            )
 
     @property
     def datum_epsg(self) -> str | None:
@@ -857,9 +856,9 @@ class MTDataFrame:
 
         """
         if self._has_data():
-            self.dataframe.loc[
-                self.dataframe.station == self.station, "model_east"
-            ] = value
+            self.dataframe.loc[self.dataframe.station == self.station, "model_east"] = (
+                value
+            )
 
     @property
     def model_north(self) -> float | None:
@@ -1070,9 +1069,9 @@ class MTDataFrame:
         z_export = z_object.copy()
         z_export.output_units = units
 
-        self.dataframe.loc[
-            self.dataframe.station == self.station, "period"
-        ] = z_export.period
+        self.dataframe.loc[self.dataframe.station == self.station, "period"] = (
+            z_export.period
+        )
 
         # should make a copy of the phase tensor otherwise it gets calculated
         # multiple times and becomes a time sink.
@@ -1127,9 +1126,9 @@ class MTDataFrame:
         Populates tipper magnitude, angle, and component columns
 
         """
-        self.dataframe.loc[
-            self.dataframe.station == self.station, "period"
-        ] = t_object.period
+        self.dataframe.loc[self.dataframe.station == self.station, "period"] = (
+            t_object.period
+        )
 
         for error in ["", "_error", "_model_error"]:
             if getattr(t_object, f"_has_tf{error}")():

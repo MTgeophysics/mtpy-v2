@@ -1479,10 +1479,9 @@ class MT(TF, MTLocation):
         )
 
         if inplace:
-            self._transfer_function[
-                "transfer_function"
-            ] = self._transfer_function.transfer_function.real * (noise_real) + (
-                1j * self._transfer_function.transfer_function.imag * noise_imag
+            self._transfer_function["transfer_function"] = (
+                self._transfer_function.transfer_function.real * (noise_real)
+                + (1j * self._transfer_function.transfer_function.imag * noise_imag)
             )
 
             self._transfer_function["transfer_function_error"] = (
@@ -1491,10 +1490,9 @@ class MT(TF, MTLocation):
 
         else:
             new_mt_obj._transfer_function = self._transfer_function.copy()
-            new_mt_obj._transfer_function[
-                "transfer_function"
-            ] = self._transfer_function.transfer_function.real * (noise_real) + (
-                1j * self._transfer_function.transfer_function.imag * noise_imag
+            new_mt_obj._transfer_function["transfer_function"] = (
+                self._transfer_function.transfer_function.real * (noise_real)
+                + (1j * self._transfer_function.transfer_function.imag * noise_imag)
             )
 
             self._transfer_function["transfer_function_error"] = (
