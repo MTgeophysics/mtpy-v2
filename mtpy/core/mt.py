@@ -1021,7 +1021,7 @@ class MT(TF, MTLocation):
             # Keep Z internal storage in mt units while exposing dataframe values
             # in requested output units.
             z_object.output_units = impedance_units
-            mt_df.from_z_object(z_object)
+            mt_df.from_z_object(z_object, units=impedance_units)
         if self.has_tipper():
             mt_df.from_t_object(self.Tipper)
 

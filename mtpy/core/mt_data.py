@@ -36,6 +36,7 @@ from . import mt_data_accessor as _mt_data_accessor  # noqa: F401
 from .mt_data_tree_index import MTDataTreeIndexStore
 from .mt_dataframe import MTDataFrame
 
+
 COORDINATE_REFERENCE_FRAME_OPTIONS = {
     "+": "ned",
     "-": "enu",
@@ -752,9 +753,9 @@ class MTData:
 
         for station_path in self._iter_station_paths():
             station_ds = self.get_station(station_path)
-            station_ds.attrs["coordinate_reference_frame"] = (
-                self.coordinate_reference_frame
-            )
+            station_ds.attrs[
+                "coordinate_reference_frame"
+            ] = self.coordinate_reference_frame
 
     @property
     def impedance_units(self) -> str:
@@ -1155,9 +1156,9 @@ class MTData:
         for station_path in target_paths:
             station_ds = tree_obj.get_station(station_path).copy(deep=False)
             if lazy:
-                tree_obj._lazy_station_transforms[station_path] = (
-                    lambda ds=station_ds, op=transform: op(ds)
-                )
+                tree_obj._lazy_station_transforms[
+                    station_path
+                ] = lambda ds=station_ds, op=transform: op(ds)
         if not lazy:
 
             def _validated_transform(ds: xr.Dataset) -> xr.Dataset:
@@ -1232,9 +1233,9 @@ class MTData:
         )
 
         for station_path, transform in list(lazy_tree._lazy_station_transforms.items()):
-            lazy_tree._lazy_station_transforms[station_path] = (
-                lambda fn=transform: delayed(fn)()
-            )
+            lazy_tree._lazy_station_transforms[
+                station_path
+            ] = lambda fn=transform: delayed(fn)()
 
         if compute:
             lazy_tree.compute(scheduler=scheduler)
@@ -1298,9 +1299,9 @@ class MTData:
         )
 
         for station_path, transform in list(lazy_tree._lazy_station_transforms.items()):
-            lazy_tree._lazy_station_transforms[station_path] = (
-                lambda fn=transform: delayed(fn)()
-            )
+            lazy_tree._lazy_station_transforms[
+                station_path
+            ] = lambda fn=transform: delayed(fn)()
 
         if compute:
             lazy_tree.compute(scheduler=scheduler)
@@ -1720,9 +1721,10 @@ class MTData:
                     z_error=tf_error,
                     frequency=1.0 / period,
                     z_model_error=tf_model_error,
-                    units=impedance_units,
+                    input_units="mt",
+                    output_units=impedance_units,
                 )
-                station_df.from_z_object(z_object)
+                station_df.from_z_object(z_object, units=impedance_units)
 
             t_output = self._pick_channel_labels(output_labels, ["hz", "z"], 1)
             t_inputs = self._pick_channel_labels(
