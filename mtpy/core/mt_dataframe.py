@@ -1049,7 +1049,7 @@ class MTDataFrame:
                     column,
                 ] = data_array[:, index["ii"], index["jj"]]
 
-    def from_z_object(self, z_object: Z) -> None:
+    def from_z_object(self, z_object: Z, units="mt") -> None:
         """
         Fill dataframe from a Z impedance object.
 
@@ -1057,26 +1057,31 @@ class MTDataFrame:
         ----------
         z_object : Z
             Z object containing impedance tensor data
+        units : str, optional
+            Units to write impedance values into the dataframe,
+            by default "mt"
 
         Notes
         -----
         Populates impedance, resistivity, phase, and phase tensor columns
 
         """
+        z_export = z_object.copy()
+        z_export.output_units = units
 
         self.dataframe.loc[self.dataframe.station == self.station, "period"] = (
-            z_object.period
+            z_export.period
         )
 
         # should make a copy of the phase tensor otherwise it gets calculated
         # multiple times and becomes a time sink.
-        pt_object = z_object.phase_tensor.copy()
+        pt_object = z_export.phase_tensor.copy()
 
         for error in ["", "_error", "_model_error"]:
-            if getattr(z_object, f"_has_tf{error}")():
+            if getattr(z_export, f"_has_tf{error}")():
                 for key in ["z", "res", "phase"]:
                     obj_key = self._key_dict[key]
-                    data_array = getattr(z_object, f"{obj_key}{error}").copy()
+                    data_array = getattr(z_export, f"{obj_key}{error}").copy()
                     for comp in ["xx", "xy", "yx", "yy"]:
                         index = self._get_index(comp)
                         # if key in ["pt"]:
@@ -1150,7 +1155,9 @@ class MTDataFrame:
         Parameters
         ----------
         units : str, optional
-            Impedance units ('mt' or 'ohm'), by default 'mt'
+            Units represented by impedance values in the dataframe
+            and returned by the resulting Z object ('mt' or 'ohm'),
+            by default 'mt'
 
         Returns
         -------
@@ -1191,7 +1198,14 @@ class MTDataFrame:
                 self.dataframe.station == self.station, f"z_{comp}_model_error"
             ]
 
-        z_object = Z(z, z_err, self.frequency, z_model_err, units=units)
+        z_object = Z(
+            z,
+            z_err,
+            self.frequency,
+            z_model_err,
+            input_units=units,
+            output_units=units,
+        )
 
         if (z == 0).all():
             for comp in ["xx", "xy", "yx", "yy"]:
@@ -1224,6 +1238,8 @@ class MTDataFrame:
 
             if not (res == 0).all():
                 if not (phase == 0).all():
+                    # Resistivity/phase-to-Z computation returns mt-based impedance.
+                    z_object.input_units = "mt"
                     z_object.set_resistivity_phase(
                         res,
                         phase,

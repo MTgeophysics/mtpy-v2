@@ -1264,6 +1264,12 @@ class MTData:
     ) -> "MTData":
         """Rotate stations using dask-delayed execution.
 
+        **Note**: Rotation is defined as a rotation of the coordinate reference frame
+        of the transfer function, not a rotation of the physical measurement. So,
+        for example, a 90 degree rotation of a station with NED coordinates would
+        swap the North and East components of the transfer function and change the
+        coordinate reference frame to ENU.
+
         Parameters
         ----------
         rotation_angle : float or ndarray
@@ -1732,9 +1738,10 @@ class MTData:
                     z_error=tf_error,
                     frequency=1.0 / period,
                     z_model_error=tf_model_error,
-                    units=impedance_units,
+                    input_units="mt",
+                    output_units=impedance_units,
                 )
-                station_df.from_z_object(z_object)
+                station_df.from_z_object(z_object, units=impedance_units)
 
             t_output = self._pick_channel_labels(output_labels, ["hz", "z"], 1)
             t_inputs = self._pick_channel_labels(
@@ -3329,6 +3336,16 @@ class MTData:
         inplace: bool = True,
     ) -> "MTData" | None:
         """Rotate all station transfer functions.
+
+        **Note**: This method is not intended for general coordinate
+        rotation of station locations.  It is designed to rotate the
+        impedance and tipper channels of each station dataset
+        according to the specified angle and coordinate reference frame.
+        The station location coordinates are not modified by this method.
+        Rotation is off the coordinate system therefore a positive
+        clockwise rotation of 10 degrees will rotate the coordinate
+        system 10 degrees and the estimated strike angle will be 10
+        degrees less than the strike angle before rotation.
 
         Parameters
         ----------

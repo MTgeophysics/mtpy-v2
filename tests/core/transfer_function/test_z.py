@@ -174,6 +174,8 @@ class TestZInitialize:
 
     def test_units_default(self, empty_z):
         assert empty_z.units == "mt"
+        assert empty_z.input_units == "mt"
+        assert empty_z.output_units == "mt"
 
 
 # =============================================================================
@@ -484,6 +486,19 @@ class TestZAnalysis:
 class TestUnits:
     """Tests for Z unit conversions between MT and Ohm."""
 
+    def test_initialize_with_input_output_units(self, z_units_data):
+        """Test separate input and output unit configuration."""
+        z_obj = Z(z=z_units_data["z_ohm"], input_units="ohm", output_units="mt")
+
+        # Internal storage should be in MT units
+        assert np.allclose(
+            z_units_data["z_mt"], z_obj._dataset.transfer_function.values
+        )
+        # Output should be in MT units
+        assert np.allclose(z_units_data["z_mt"], z_obj.z)
+        assert z_obj.input_units == "ohm"
+        assert z_obj.output_units == "mt"
+
     def test_initialize_with_units_ohm(self, z_units_data):
         """Test initialization with Ohm units."""
         z_obj = Z(z=z_units_data["z_ohm"], units="ohm")
@@ -545,6 +560,43 @@ class TestUnits:
         with pytest.raises(ValueError):
             z_obj.units = "ants"
 
+    def test_set_input_unit_fail_bad_type(self, z_units_data):
+        """Test that invalid input unit type raises TypeError."""
+        z_obj = Z(z=z_units_data["z_mt"])
+        with pytest.raises(TypeError):
+            z_obj.input_units = 4
+
+    def test_set_output_unit_fail_bad_choice(self, z_units_data):
+        """Test that invalid output unit choice raises ValueError."""
+        z_obj = Z(z=z_units_data["z_mt"])
+        with pytest.raises(ValueError):
+            z_obj.output_units = "ants"
+
+    def test_output_units_change_mt_to_ohm(self, z_units_data):
+        """Test changing output units from MT to Ohm."""
+        z_obj = Z(z=z_units_data["z_mt"], input_units="mt", output_units="mt")
+        z_obj.output_units = "ohm"
+
+        # Internal storage should remain in MT units
+        assert np.allclose(
+            z_units_data["z_mt"], z_obj._dataset.transfer_function.values
+        )
+        # Output should now be in Ohm units
+        assert np.allclose(z_units_data["z_ohm"], z_obj.z)
+        assert z_obj.output_units == "ohm"
+
+    def test_setter_uses_input_units_for_new_values(self, z_units_data):
+        """Test z setter interprets incoming arrays using input_units."""
+        z_obj = Z(input_units="ohm", output_units="ohm")
+        z_obj.z = z_units_data["z_ohm"]
+
+        # Internal storage should be converted to MT units
+        assert np.allclose(
+            z_units_data["z_mt"], z_obj._dataset.transfer_function.values
+        )
+        # Returned values should respect output units
+        assert np.allclose(z_units_data["z_ohm"], z_obj.z)
+
     def test_phase_tensor_equal(self, z_units_data):
         """Test that phase tensor is unit-independent."""
         z_ohm = Z(z=z_units_data["z_ohm"], units="ohm")
@@ -559,6 +611,75 @@ class TestUnits:
 
         assert np.allclose(z_ohm.resistivity, z_mt.resistivity)
         assert np.allclose(z_ohm.phase, z_mt.phase)
+
+    def test_resistivity_phase_equal_when_switching_units(self):
+        """Test resistivity and phase remain unchanged when units are switched."""
+        frequency = np.array([1.0])
+        resistivity = np.array([[[100.0, 80.0], [120.0, 60.0]]])
+        phase = np.array([[[45.0, 30.0], [-135.0, -90.0]]])
+
+        z_obj = Z(units="mt")
+        z_obj.set_resistivity_phase(
+            resistivity=resistivity, phase=phase, frequency=frequency
+        )
+
+        resistivity_mt = z_obj.resistivity.copy()
+        phase_mt = z_obj.phase.copy()
+
+        z_obj.units = "ohm"
+
+        assert np.allclose(z_obj.resistivity, resistivity_mt)
+        assert np.allclose(z_obj.phase, phase_mt)
+
+    def test_error_equal_when_switching_units(self):
+        """Test resistivity and phase errors remain unchanged when units are switched."""
+        frequency = np.array([1.0])
+        resistivity = np.array([[[100.0, 80.0], [120.0, 60.0]]])
+        phase = np.array([[[45.0, 30.0], [-135.0, -90.0]]])
+        resistivity_error = np.array([[[10.0, 8.0], [12.0, 6.0]]])
+        phase_error = np.array([[[0.57, 0.45], [0.63, 0.51]]])
+
+        z_obj = Z(units="mt")
+        z_obj.set_resistivity_phase(
+            resistivity=resistivity,
+            phase=phase,
+            frequency=frequency,
+            res_error=resistivity_error,
+            phase_error=phase_error,
+        )
+
+        resistivity_error_mt = z_obj.resistivity_error.copy()
+        phase_error_mt = z_obj.phase_error.copy()
+
+        z_obj.units = "ohm"
+
+        assert np.allclose(z_obj.resistivity_error, resistivity_error_mt)
+        assert np.allclose(z_obj.phase_error, phase_error_mt)
+
+    def test_model_error_equal_when_switching_units(self):
+        """Test model errors remain unchanged when units are switched."""
+        frequency = np.array([1.0])
+        resistivity = np.array([[[100.0, 80.0], [120.0, 60.0]]])
+        phase = np.array([[[45.0, 30.0], [-135.0, -90.0]]])
+        resistivity_model_error = np.array([[[9.0, 7.0], [11.0, 5.0]]])
+        phase_model_error = np.array([[[0.54, 0.42], [0.60, 0.48]]])
+
+        z_obj = Z(units="mt")
+        z_obj.set_resistivity_phase(
+            resistivity=resistivity,
+            phase=phase,
+            frequency=frequency,
+            res_model_error=resistivity_model_error,
+            phase_model_error=phase_model_error,
+        )
+
+        resistivity_model_error_mt = z_obj.resistivity_model_error.copy()
+        phase_model_error_mt = z_obj.phase_model_error.copy()
+
+        z_obj.units = "ohm"
+
+        assert np.allclose(z_obj.resistivity_model_error, resistivity_model_error_mt)
+        assert np.allclose(z_obj.phase_model_error, phase_model_error_mt)
 
 
 # =============================================================================

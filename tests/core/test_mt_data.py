@@ -2058,6 +2058,21 @@ class TestMTDataDataFrames:
             mt.station for mt in loaded_profile_mt_objects
         }
 
+    def test_to_dataframe_with_ohm_units(self, loaded_profile_mt_objects):
+        tree = MTData()
+        tree.add_station(loaded_profile_mt_objects)
+
+        df = tree.to_dataframe(impedance_units="ohm")
+
+        for mt_obj in loaded_profile_mt_objects:
+            station_df = MTDataFrame(df[df.station == mt_obj.station].copy())
+            z_obj = station_df.to_z_object(units="ohm")
+
+            assert np.allclose(
+                z_obj._dataset.transfer_function.values,
+                mt_obj.Z._dataset.transfer_function.values,
+            )
+
     def test_from_dataframe_populates_tree(self, loaded_profile_mt_objects):
         source_tree = MTData()
         source_tree.add_station(loaded_profile_mt_objects)
@@ -2079,6 +2094,24 @@ class TestMTDataDataFrames:
 
         assert len(tree._iter_station_paths()) == len(loaded_profile_mt_objects)
         assert np.array_equal(tree.get_periods(), source_tree.get_periods())
+
+    def test_from_dataframe_with_ohm_units_round_trip(self, loaded_profile_mt_objects):
+        source_tree = MTData()
+        source_tree.add_station(loaded_profile_mt_objects)
+        df = source_tree.to_dataframe(impedance_units="ohm")
+
+        tree = MTData()
+        tree.from_dataframe(df, impedance_units="ohm")
+
+        assert len(tree._iter_station_paths()) == len(loaded_profile_mt_objects)
+
+        for path in source_tree._iter_station_paths():
+            source_mt = source_tree._dataset_to_mt(source_tree.get_station(path))
+            new_mt = tree._dataset_to_mt(tree.get_station(path))
+            assert np.allclose(
+                source_mt.Z._dataset.transfer_function.values,
+                new_mt.Z._dataset.transfer_function.values,
+            )
 
     def test_to_dataframe_empty_tree_returns_empty_dataframe(self):
         tree = MTData()

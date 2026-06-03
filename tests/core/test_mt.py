@@ -400,6 +400,48 @@ class TestMTModelError:
         assert pytest.approx(mt.pt.azimuth[0], abs=0.1) == 285.0
         assert mt.rotation_angle == 30
 
+    def test_rotation_shifts_estimated_strike_with_frame_rotation(self, mt_from_edi):
+        """+10 deg frame rotation should shift estimated strike/azimuth by -10 deg."""
+        mt_from_edi.coordinate_reference_frame = "ned"
+        assert mt_from_edi.coordinate_reference_frame == "NED"
+
+        original_strike = mt_from_edi.Z.invariants.strike
+        original_azimuth = mt_from_edi.pt.azimuth
+
+        rotated_mt = mt_from_edi.rotate(10, inplace=False)
+        assert rotated_mt.coordinate_reference_frame == "NED"
+
+        rotated_strike = rotated_mt.Z.invariants.strike
+        rotated_azimuth = rotated_mt.pt.azimuth
+
+        valid_strike = np.isfinite(original_strike) & np.isfinite(rotated_strike)
+        valid_azimuth = np.isfinite(original_azimuth) & np.isfinite(rotated_azimuth)
+
+        assert np.any(valid_strike), "No finite invariant-strike estimates available"
+        assert np.any(
+            valid_azimuth
+        ), "No finite phase-tensor azimuth estimates available"
+
+        # Strike is 180-degree ambiguous, so compare wrapped differences in [-90, 90].
+        strike_delta = (
+            (rotated_strike[valid_strike] - original_strike[valid_strike] + 90) % 180
+        ) - 90
+        azimuth_delta = (
+            (rotated_azimuth[valid_azimuth] - original_azimuth[valid_azimuth] + 90)
+            % 180
+        ) - 90
+
+        assert np.allclose(
+            strike_delta,
+            -10.0,
+            atol=0.5,
+        ), f"Invariant strike delta expected -10 deg, got median={np.nanmedian(strike_delta):.3f}"
+        assert np.allclose(
+            azimuth_delta,
+            -10.0,
+            atol=0.5,
+        ), f"PT azimuth delta expected -10 deg, got median={np.nanmedian(azimuth_delta):.3f}"
+
 
 # =============================================================================
 # Tipper Tests
@@ -538,6 +580,25 @@ class TestMTDataFrameOhm:
         """Test impedance with different units are not equal."""
         mt_df = mt_from_edi.to_dataframe(impedance_units="ohm")
         assert mt_from_edi.Z != mt_df.to_z_object(units="mt")
+
+    def test_from_dataframe_interprets_ohm_input_units(self, mt_from_edi):
+        """Test from_dataframe interprets impedance values in ohm correctly."""
+        mt_df = mt_from_edi.to_dataframe(impedance_units="ohm")
+
+        mt2 = MT()
+        mt2.from_dataframe(mt_df, impedance_units="ohm")
+
+        assert mt2.Z == mt_df.to_z_object(units="ohm")
+        assert mt2.impedance_units == "ohm"
+
+    def test_from_dataframe_ohm_round_trip_matches_original(self, mt_from_edi):
+        """Test ohm dataframe round-trip preserves transfer function data."""
+        mt_df = mt_from_edi.to_dataframe(impedance_units="ohm")
+
+        mt2 = MT()
+        mt2.from_dataframe(mt_df, impedance_units="ohm")
+
+        assert mt2._transfer_function == mt_from_edi._transfer_function
 
 
 # =============================================================================
