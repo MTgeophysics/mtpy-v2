@@ -36,6 +36,7 @@ from . import mt_data_accessor as _mt_data_accessor  # noqa: F401
 from .mt_data_tree_index import MTDataTreeIndexStore
 from .mt_dataframe import MTDataFrame
 
+
 COORDINATE_REFERENCE_FRAME_OPTIONS = {
     "+": "ned",
     "-": "enu",
@@ -752,9 +753,9 @@ class MTData:
 
         for station_path in self._iter_station_paths():
             station_ds = self.get_station(station_path)
-            station_ds.attrs["coordinate_reference_frame"] = (
-                self.coordinate_reference_frame
-            )
+            station_ds.attrs[
+                "coordinate_reference_frame"
+            ] = self.coordinate_reference_frame
 
     @property
     def impedance_units(self) -> str:
@@ -1155,9 +1156,9 @@ class MTData:
         for station_path in target_paths:
             station_ds = tree_obj.get_station(station_path).copy(deep=False)
             if lazy:
-                tree_obj._lazy_station_transforms[station_path] = (
-                    lambda ds=station_ds, op=transform: op(ds)
-                )
+                tree_obj._lazy_station_transforms[
+                    station_path
+                ] = lambda ds=station_ds, op=transform: op(ds)
         if not lazy:
 
             def _validated_transform(ds: xr.Dataset) -> xr.Dataset:
@@ -1232,9 +1233,9 @@ class MTData:
         )
 
         for station_path, transform in list(lazy_tree._lazy_station_transforms.items()):
-            lazy_tree._lazy_station_transforms[station_path] = (
-                lambda fn=transform: delayed(fn)()
-            )
+            lazy_tree._lazy_station_transforms[
+                station_path
+            ] = lambda fn=transform: delayed(fn)()
 
         if compute:
             lazy_tree.compute(scheduler=scheduler)
@@ -1251,6 +1252,12 @@ class MTData:
         inplace: bool = False,
     ) -> "MTData":
         """Rotate stations using dask-delayed execution.
+
+        **Note**: Rotation is defined as a rotation of the coordinate reference frame
+        of the transfer function, not a rotation of the physical measurement. So,
+        for example, a 90 degree rotation of a station with NED coordinates would
+        swap the North and East components of the transfer function and change the
+        coordinate reference frame to ENU.
 
         Parameters
         ----------
@@ -1298,9 +1305,9 @@ class MTData:
         )
 
         for station_path, transform in list(lazy_tree._lazy_station_transforms.items()):
-            lazy_tree._lazy_station_transforms[station_path] = (
-                lambda fn=transform: delayed(fn)()
-            )
+            lazy_tree._lazy_station_transforms[
+                station_path
+            ] = lambda fn=transform: delayed(fn)()
 
         if compute:
             lazy_tree.compute(scheduler=scheduler)
@@ -3318,6 +3325,16 @@ class MTData:
         inplace: bool = True,
     ) -> "MTData" | None:
         """Rotate all station transfer functions.
+
+        **Note**: This method is not intended for general coordinate
+        rotation of station locations.  It is designed to rotate the
+        impedance and tipper channels of each station dataset
+        according to the specified angle and coordinate reference frame.
+        The station location coordinates are not modified by this method.
+        Rotation is off the coordinate system therefore a positive
+        clockwise rotation of 10 degrees will rotate the coordinate
+        system 10 degrees and the estimated strike angle will be 10
+        degrees less than the strike angle before rotation.
 
         Parameters
         ----------
