@@ -16,7 +16,6 @@ Created on December 23, 2025
 from __future__ import annotations
 
 import shutil
-import tempfile
 import uuid
 from pathlib import Path
 
@@ -34,8 +33,13 @@ from mth5.utils.helpers import close_open_files
 from mtpy import MT
 from mtpy.processing.aurora.process_aurora import AuroraProcessing
 
-# Mark all tests in this module as integration tests
-pytestmark = pytest.mark.integration
+
+# Mark all tests in this module as integration tests and force single-worker
+# execution for this module under pytest-xdist.
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.xdist_group("aurora_processing"),
+]
 
 
 # =============================================================================
@@ -44,39 +48,48 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.fixture(scope="session")
-def mth5_test_file_cache():
-    """Create or locate test12rr MTH5 file in cache for entire test session."""
-    mth5_path = MTH5_PATH.joinpath("test12rr.h5")
-    if not mth5_path.exists():
-        mth5_path = create_test12rr_h5()
-    yield mth5_path
-    # Cleanup handled by mth5 module
+def mth5_test_file_cache(tmp_path_factory):
+    """Create a worker-local cached copy of test12rr MTH5 file for the session."""
+    source_path = MTH5_PATH.joinpath("test12rr.h5")
+    if not source_path.exists():
+        source_path = create_test12rr_h5()
+
+    # Keep a worker-local cache file to avoid cross-worker locking on the shared source.
+    cache_dir = tmp_path_factory.mktemp("aurora_mth5_cache")
+    cache_path = cache_dir / f"test12rr_cache_{uuid.uuid4().hex[:8]}.h5"
+
+    close_open_files()
+    shutil.copy2(source_path, cache_path)
+    close_open_files()
+
+    yield cache_path
 
 
 @pytest.fixture(scope="function")
-def mth5_test_file(mth5_test_file_cache):
+def mth5_test_file(mth5_test_file_cache, tmp_path):
     """
     Create a unique copy of test12rr MTH5 file for each test.
 
     This prevents file locking conflicts when running tests in parallel with pytest-xdist.
     Each test gets its own isolated copy of the file.
     """
-    temp_dir = tempfile.mkdtemp(prefix="mth5_test_")
     unique_id = str(uuid.uuid4())[:8]
-    unique_file = Path(temp_dir) / f"test12rr_{unique_id}.h5"
+    unique_file = tmp_path / f"test12rr_{unique_id}.h5"
 
     # Copy from cached file
     shutil.copy2(mth5_test_file_cache, unique_file)
 
     yield unique_file
 
-    # Cleanup
+    # Cleanup open handles; pytest manages temp directory deletion.
     close_open_files()
-    try:
-        unique_file.unlink()
-        unique_file.parent.rmdir()
-    except (OSError, PermissionError):
-        pass
+
+
+@pytest.fixture(autouse=True)
+def _close_mth5_files_after_each_test():
+    """Always close mth5 handles to prevent cross-test locking issues."""
+    yield
+    close_open_files()
 
 
 @pytest.fixture(scope="session")
