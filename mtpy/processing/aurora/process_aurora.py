@@ -31,7 +31,6 @@ from mth5.processing.kernel_dataset import KernelDataset
 from mtpy import MT
 from mtpy.processing.base import BaseProcessing
 
-
 warnings.filterwarnings("ignore")
 # =============================================================================
 
