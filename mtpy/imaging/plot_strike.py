@@ -15,7 +15,6 @@ from matplotlib.ticker import MultipleLocator
 from mtpy.core import Tipper
 from mtpy.imaging.mtplot_tools import PlotBase
 
-
 # ==============================================================================
 
 
