@@ -738,15 +738,9 @@ class TestRemoteReferenceWithMerge:
             tf.station_metadata.remove_run("0")
 
             assert tf_obj.survey_metadata == tf.survey_metadata
-            # Tipper is typically a bit noisier than impedance in this RR path.
             assert np.isclose(
-                tf_obj.transfer_function.data[:, :2, :],
-                tf.transfer_function.data[:, :2, :],
-                atol=0.01,
-            ).all()
-            assert np.isclose(
-                tf_obj.transfer_function.data[:, 2:, :],
-                tf.transfer_function.data[:, 2:, :],
+                tf_obj.transfer_function.data,
+                tf.transfer_function.data,
                 atol=0.03,
             ).all()
 
