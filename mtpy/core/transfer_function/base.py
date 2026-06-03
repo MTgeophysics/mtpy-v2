@@ -610,6 +610,14 @@ class TFBase:
             positive angle. In this coordinate system the rotation matrix is
             the inverse of the conventional rotation matrix.
 
+        **Note**: Rotation is a rotation of the coordinate reference
+        frame of the transfer function, not a rotation of the physical measurement.
+        So, for example, if you have a transfer function that is referenced to
+        a coordinate system that is rotated 30 degrees clockwise from north,
+        then you would rotate by -30 degrees to get the transfer function in
+        a coordinate system that is aligned with north. This is because the
+        rotation is of the reference frame, not the physical measurement.
+
         Parameters
         ----------
         alpha : float or int or str or array-like

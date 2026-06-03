@@ -401,6 +401,48 @@ class TestMTModelError:
         assert pytest.approx(mt.pt.azimuth[0], abs=0.1) == 285.0
         assert mt.rotation_angle == 30
 
+    def test_rotation_shifts_estimated_strike_with_frame_rotation(self, mt_from_edi):
+        """+10 deg frame rotation should shift estimated strike/azimuth by -10 deg."""
+        mt_from_edi.coordinate_reference_frame = "ned"
+        assert mt_from_edi.coordinate_reference_frame == "NED"
+
+        original_strike = mt_from_edi.Z.invariants.strike
+        original_azimuth = mt_from_edi.pt.azimuth
+
+        rotated_mt = mt_from_edi.rotate(10, inplace=False)
+        assert rotated_mt.coordinate_reference_frame == "NED"
+
+        rotated_strike = rotated_mt.Z.invariants.strike
+        rotated_azimuth = rotated_mt.pt.azimuth
+
+        valid_strike = np.isfinite(original_strike) & np.isfinite(rotated_strike)
+        valid_azimuth = np.isfinite(original_azimuth) & np.isfinite(rotated_azimuth)
+
+        assert np.any(valid_strike), "No finite invariant-strike estimates available"
+        assert np.any(
+            valid_azimuth
+        ), "No finite phase-tensor azimuth estimates available"
+
+        # Strike is 180-degree ambiguous, so compare wrapped differences in [-90, 90].
+        strike_delta = (
+            (rotated_strike[valid_strike] - original_strike[valid_strike] + 90) % 180
+        ) - 90
+        azimuth_delta = (
+            (rotated_azimuth[valid_azimuth] - original_azimuth[valid_azimuth] + 90)
+            % 180
+        ) - 90
+
+        assert np.allclose(
+            strike_delta,
+            -10.0,
+            atol=0.5,
+        ), f"Invariant strike delta expected -10 deg, got median={np.nanmedian(strike_delta):.3f}"
+        assert np.allclose(
+            azimuth_delta,
+            -10.0,
+            atol=0.5,
+        ), f"PT azimuth delta expected -10 deg, got median={np.nanmedian(azimuth_delta):.3f}"
+
 
 # =============================================================================
 # Tipper Tests
