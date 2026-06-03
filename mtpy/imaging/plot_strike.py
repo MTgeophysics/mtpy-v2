@@ -15,6 +15,7 @@ from matplotlib.ticker import MultipleLocator
 from mtpy.core import Tipper
 from mtpy.imaging.mtplot_tools import PlotBase
 
+
 # ==============================================================================
 
 
@@ -180,6 +181,11 @@ class PlotStrike(PlotBase):
     @rotation_angle.setter
     def rotation_angle(self, value):
         """Only a single value is allowed."""
+        self.logger.info(
+            f"Rotating the coordinate system by {value} degrees "
+            "clockwise. The strike angle will be orignal strike "
+            "angle - rotation angle."
+        )
         if hasattr(self.mt_data, "rotate") and hasattr(self.mt_data, "get_station"):
             self.mt_data.rotate(value, inplace=True)
         else:
