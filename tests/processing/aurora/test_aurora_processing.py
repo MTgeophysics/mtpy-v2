@@ -85,6 +85,22 @@ def mth5_test_file(mth5_test_file_cache, tmp_path):
     close_open_files()
 
 
+def _make_worker_unique_mth5_copy(
+    source_path: Path,
+    tmp_path_factory,
+    worker_id: str,
+    stem: str,
+) -> Path:
+    """Create a worker-unique MTH5 copy for class-level fixtures."""
+    unique_id = uuid.uuid4().hex[:8]
+    temp_dir = tmp_path_factory.mktemp(f"{stem}_{worker_id}")
+    unique_file = temp_dir / f"{stem}_{worker_id}_{unique_id}.h5"
+    close_open_files()
+    shutil.copy2(source_path, unique_file)
+    close_open_files()
+    return unique_file
+
+
 @pytest.fixture(autouse=True)
 def _close_mth5_files_after_each_test():
     """Always close mth5 handles to prevent cross-test locking issues."""
@@ -240,13 +256,16 @@ class TestSingleStationComparison:
     """Compare new and legacy processing pipelines for single station."""
 
     @pytest.fixture(scope="class")
-    def processed_data_new(self, mth5_test_file_cache, decimation_kwargs):
+    def processed_data_new(
+        self, mth5_test_file_cache, decimation_kwargs, tmp_path_factory, worker_id
+    ):
         """Process with new mtpy pipeline using unique copy."""
-        # Need unique copy to avoid file locking during processing
-        temp_dir = tempfile.mkdtemp(prefix="mth5_test_new_")
-        unique_id = str(uuid.uuid4())[:8]
-        unique_file = Path(temp_dir) / f"test12rr_new_{unique_id}.h5"
-        shutil.copy2(mth5_test_file_cache, unique_file)
+        unique_file = _make_worker_unique_mth5_copy(
+            mth5_test_file_cache,
+            tmp_path_factory,
+            worker_id,
+            "mth5_test_new",
+        )
 
         ap = AuroraProcessing()
         ap.local_station_id = "test1"
@@ -255,13 +274,16 @@ class TestSingleStationComparison:
         return {"mt_obj": mt_obj_new, "processor": ap}
 
     @pytest.fixture(scope="class")
-    def processed_data_legacy(self, mth5_test_file_cache, decimation_kwargs):
+    def processed_data_legacy(
+        self, mth5_test_file_cache, decimation_kwargs, tmp_path_factory, worker_id
+    ):
         """Process with legacy aurora infrastructure using unique copy."""
-        # Need unique copy to avoid file locking during processing
-        temp_dir = tempfile.mkdtemp(prefix="mth5_test_data_legacy_")
-        unique_id = str(uuid.uuid4())[:8]
-        unique_file = Path(temp_dir) / f"test12rr_data_legacy_{unique_id}.h5"
-        shutil.copy2(mth5_test_file_cache, unique_file)
+        unique_file = _make_worker_unique_mth5_copy(
+            mth5_test_file_cache,
+            tmp_path_factory,
+            worker_id,
+            "mth5_test_data_legacy",
+        )
 
         run_summary = RunSummary()
         run_summary.from_mth5s([unique_file])
@@ -331,13 +353,16 @@ class TestSingleStationWithMerge:
     """Test single station processing with merge and mth5 save options."""
 
     @pytest.fixture(scope="class")
-    def processed_with_merge(self, mth5_test_file_cache, decimation_kwargs):
+    def processed_with_merge(
+        self, mth5_test_file_cache, decimation_kwargs, tmp_path_factory, worker_id
+    ):
         """Process with merge=True and save_to_mth5=True using unique copy."""
-        # Need unique copy since we're writing to mth5
-        temp_dir = tempfile.mkdtemp(prefix="mth5_test_merge_")
-        unique_id = str(uuid.uuid4())[:8]
-        unique_file = Path(temp_dir) / f"test12rr_merge_{unique_id}.h5"
-        shutil.copy2(mth5_test_file_cache, unique_file)
+        unique_file = _make_worker_unique_mth5_copy(
+            mth5_test_file_cache,
+            tmp_path_factory,
+            worker_id,
+            "mth5_test_merge",
+        )
 
         ap = AuroraProcessing()
         ap.local_station_id = "test1"
@@ -352,13 +377,16 @@ class TestSingleStationWithMerge:
         }
 
     @pytest.fixture(scope="class")
-    def legacy_comparison(self, mth5_test_file_cache, decimation_kwargs):
+    def legacy_comparison(
+        self, mth5_test_file_cache, decimation_kwargs, tmp_path_factory, worker_id
+    ):
         """Create legacy comparison data using unique copy."""
-        # Need unique copy to avoid file locking during processing
-        temp_dir = tempfile.mkdtemp(prefix="mth5_test_legacy_")
-        unique_id = str(uuid.uuid4())[:8]
-        unique_file = Path(temp_dir) / f"test12rr_legacy_{unique_id}.h5"
-        shutil.copy2(mth5_test_file_cache, unique_file)
+        unique_file = _make_worker_unique_mth5_copy(
+            mth5_test_file_cache,
+            tmp_path_factory,
+            worker_id,
+            "mth5_test_legacy",
+        )
 
         run_summary = RunSummary()
         run_summary.from_mth5s([unique_file])
@@ -460,13 +488,16 @@ class TestRemoteReferenceComparison:
     """Compare new and legacy processing for remote reference."""
 
     @pytest.fixture(scope="class")
-    def processed_data_new_rr(self, mth5_test_file_cache, decimation_kwargs):
+    def processed_data_new_rr(
+        self, mth5_test_file_cache, decimation_kwargs, tmp_path_factory, worker_id
+    ):
         """Process with new mtpy pipeline using remote reference with unique copy."""
-        # Need unique copy to avoid file locking during processing
-        temp_dir = tempfile.mkdtemp(prefix="mth5_test_new_rr_")
-        unique_id = str(uuid.uuid4())[:8]
-        unique_file = Path(temp_dir) / f"test12rr_new_rr_{unique_id}.h5"
-        shutil.copy2(mth5_test_file_cache, unique_file)
+        unique_file = _make_worker_unique_mth5_copy(
+            mth5_test_file_cache,
+            tmp_path_factory,
+            worker_id,
+            "mth5_test_new_rr",
+        )
 
         ap = AuroraProcessing()
         ap.local_station_id = "test1"
@@ -478,13 +509,16 @@ class TestRemoteReferenceComparison:
         return {"mt_obj": mt_obj_new, "processor": ap}
 
     @pytest.fixture(scope="class")
-    def processed_data_legacy_rr(self, mth5_test_file_cache, decimation_kwargs):
+    def processed_data_legacy_rr(
+        self, mth5_test_file_cache, decimation_kwargs, tmp_path_factory, worker_id
+    ):
         """Process with legacy aurora infrastructure using remote reference with unique copy."""
-        # Need unique copy to avoid file locking during processing
-        temp_dir = tempfile.mkdtemp(prefix="mth5_test_data_legacy_rr_")
-        unique_id = str(uuid.uuid4())[:8]
-        unique_file = Path(temp_dir) / f"test12rr_data_legacy_rr_{unique_id}.h5"
-        shutil.copy2(mth5_test_file_cache, unique_file)
+        unique_file = _make_worker_unique_mth5_copy(
+            mth5_test_file_cache,
+            tmp_path_factory,
+            worker_id,
+            "mth5_test_data_legacy_rr",
+        )
 
         run_summary = RunSummary()
         run_summary.from_mth5s([unique_file])
@@ -543,13 +577,16 @@ class TestRemoteReferenceWithMerge:
     """Test remote reference processing with merge and mth5 save options."""
 
     @pytest.fixture(scope="class")
-    def processed_with_merge_rr(self, mth5_test_file_cache, decimation_kwargs):
+    def processed_with_merge_rr(
+        self, mth5_test_file_cache, decimation_kwargs, tmp_path_factory, worker_id
+    ):
         """Process RR with merge=True and save_to_mth5=True using unique copy."""
-        # Need unique copy since we're writing to mth5
-        temp_dir = tempfile.mkdtemp(prefix="mth5_test_merge_rr_")
-        unique_id = str(uuid.uuid4())[:8]
-        unique_file = Path(temp_dir) / f"test12rr_merge_rr_{unique_id}.h5"
-        shutil.copy2(mth5_test_file_cache, unique_file)
+        unique_file = _make_worker_unique_mth5_copy(
+            mth5_test_file_cache,
+            tmp_path_factory,
+            worker_id,
+            "mth5_test_merge_rr",
+        )
 
         ap = AuroraProcessing()
         ap.local_station_id = "test1"
@@ -567,13 +604,16 @@ class TestRemoteReferenceWithMerge:
         }
 
     @pytest.fixture(scope="class")
-    def legacy_comparison_rr(self, mth5_test_file_cache, decimation_kwargs):
+    def legacy_comparison_rr(
+        self, mth5_test_file_cache, decimation_kwargs, tmp_path_factory, worker_id
+    ):
         """Create legacy RR comparison data using unique copy."""
-        # Need unique copy to avoid file locking during processing
-        temp_dir = tempfile.mkdtemp(prefix="mth5_test_legacy_rr_")
-        unique_id = str(uuid.uuid4())[:8]
-        unique_file = Path(temp_dir) / f"test12rr_legacy_rr_{unique_id}.h5"
-        shutil.copy2(mth5_test_file_cache, unique_file)
+        unique_file = _make_worker_unique_mth5_copy(
+            mth5_test_file_cache,
+            tmp_path_factory,
+            worker_id,
+            "mth5_test_legacy_rr",
+        )
 
         run_summary = RunSummary()
         run_summary.from_mth5s([unique_file])
