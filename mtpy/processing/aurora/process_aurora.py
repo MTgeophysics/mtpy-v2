@@ -31,6 +31,7 @@ from mth5.processing.kernel_dataset import KernelDataset
 from mtpy import MT
 from mtpy.processing.base import BaseProcessing
 
+
 warnings.filterwarnings("ignore")
 # =============================================================================
 
@@ -395,6 +396,7 @@ class AuroraProcessing(BaseProcessing):
         mt_obj.channel_nomenclature = tf_obj.channel_nomenclature
         mt_obj._transfer_function = tf_obj._transfer_function
 
+        close_open_files()
         return mt_obj
 
     def process(
@@ -662,7 +664,7 @@ class AuroraProcessing(BaseProcessing):
             Dictionary of transfer functions to add.
 
         """
-
+        close_open_files()
         with MTH5() as m:
             m.open_mth5(self.local_mth5_path)
             for p_dict in tf_dict.values():
