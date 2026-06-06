@@ -68,11 +68,18 @@ class Simpeg1DPanelApp(param.Parameterized):
             step=0.5,
             width=170,
         )
+        self._res_model_error_widget.param.watch(
+            lambda *_: self._update_data_errors(), "value"
+        )
+
         self._phase_model_error_widget = pn.widgets.FloatInput(
             name="Phase model error (deg)",
             value=2.5,
             step=0.1,
             width=170,
+        )
+        self._phase_model_error_widget.param.watch(
+            lambda *_: self._update_data_errors(), "value"
         )
 
         self._selected_res_error_widget = pn.widgets.FloatInput(
@@ -227,14 +234,51 @@ class Simpeg1DPanelApp(param.Parameterized):
                 "phase_error": {"type": "number", "step": 0.01},
                 "use": {"type": "tickCross"},
             },
-            hidden_columns=["frequency"],
+            hidden_columns=[],
         )
         self._data_table.param.watch(self._on_table_value_changed, "value")
 
-        self._response_plot = pn.pane.Bokeh(sizing_mode="stretch_both")
-        self._model_plot = pn.pane.Bokeh(sizing_mode="stretch_height", height=360)
+        self._response_plot = pn.pane.Bokeh(sizing_mode="stretch_width", min_height=760)
+        self._model_plot = pn.pane.Bokeh(
+            sizing_mode="stretch_width", min_height=760, max_width=200
+        )
 
         self._refresh_station_options()
+
+    @staticmethod
+    def _sanitize_station_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+        """Coerce numeric transfer-function columns to float/NaN.
+
+        Some station files provide missing error values as ``None`` objects.
+        Converting these columns to numeric avoids downstream type comparisons
+        like ``float < NoneType`` inside Simpeg1D preprocessing.
+        """
+
+        clean_df = df.copy()
+        numeric_cols = [
+            "frequency",
+            "res_xy",
+            "res_xy_error",
+            "phase_xy",
+            "phase_xy_error",
+            "res_yx",
+            "res_yx_error",
+            "phase_yx",
+            "phase_yx_error",
+            "z_xx",
+            "z_xx_error",
+            "z_xy",
+            "z_xy_error",
+            "z_yx",
+            "z_yx_error",
+            "z_yy",
+            "z_yy_error",
+        ]
+        for col in numeric_cols:
+            if col in clean_df.columns:
+                clean_df[col] = pd.to_numeric(clean_df[col], errors="coerce")
+
+        return clean_df
 
     def set_mt_data(self, mt_data) -> None:
         """Set MTData reference and refresh station picker options."""
@@ -269,6 +313,24 @@ class Simpeg1DPanelApp(param.Parameterized):
         self._station_widget.options = paths
         self._station_widget.value = paths[0] if paths else None
 
+    def _update_data_errors(self):
+        if self._data_df is None or self._data_df.empty:
+            return
+
+        res_pct = float(self._res_model_error_widget.value)
+        phase_abs = float(self._phase_model_error_widget.value)
+
+        self._data_df["res_error"] = np.maximum(
+            self._data_df["res_error"].astype(float),
+            np.abs(self._data_df["res"].astype(float)) * res_pct / 100.0,
+        )
+        self._data_df["phase_error"] = np.maximum(
+            self._data_df["phase_error"].astype(float),
+            np.ones(len(self._data_df), dtype=float) * phase_abs,
+        )
+
+        self._refresh_plots()
+
     def _on_load_station_clicked(self, _event=None) -> None:
         if self._mt_data is None:
             self._status.object = "⚠️ No MTData loaded."
@@ -283,7 +345,9 @@ class Simpeg1DPanelApp(param.Parameterized):
 
         try:
             mt_obj = self._mt_data.get_station(station_key, as_mt=True)
-            mt_df_full = mt_obj.to_dataframe().dataframe.copy()
+            mt_df_full = self._sanitize_station_dataframe(
+                mt_obj.to_dataframe().dataframe
+            )
 
             sim_mode = _MODE_MAP[self._mode_widget.value]
             sim = Simpeg1D(
@@ -330,6 +394,7 @@ class Simpeg1DPanelApp(param.Parameterized):
         if not selected:
             self._status.object = "⚠️ Select one or more points to delete."
             self._status.styles = {"color": "#7a5200"}
+
             return
 
         self._data_df = self._data_df.drop(self._data_df.index[selected]).reset_index(
@@ -398,8 +463,9 @@ class Simpeg1DPanelApp(param.Parameterized):
             y_axis_type="log",
             tools="pan,wheel_zoom,box_zoom,reset,save,tap,box_select,lasso_select",
             active_scroll="wheel_zoom",
-            height=300,
-            sizing_mode="stretch_width",
+            height=380,
+            width=1000,
+            # sizing_mode="stretch_width",
         )
         res_fig.scatter("period", "res", source=self._source, size=7, color="#325ea8")
 
@@ -419,8 +485,9 @@ class Simpeg1DPanelApp(param.Parameterized):
             tools="pan,wheel_zoom,box_zoom,reset,save,tap,box_select,lasso_select",
             active_scroll="wheel_zoom",
             x_range=res_fig.x_range,
-            height=260,
-            sizing_mode="stretch_width",
+            height=340,
+            width=1000,
+            # sizing_mode="stretch_width",
         )
         phase_fig.scatter(
             "period", "phase_plot", source=self._source, size=7, color="#b24b3f"
@@ -467,11 +534,12 @@ class Simpeg1DPanelApp(param.Parameterized):
             y_axis_type="linear",
             tools="pan,wheel_zoom,box_zoom,reset,save",
             active_scroll="wheel_zoom",
-            height=320,
-            sizing_mode="stretch_width",
+            height=720,
+            width=200,
+            # sizing_mode="stretch_width",
         )
         fig.line(x_step, y_step, line_width=2, color="#111111")
-        fig.y_range.start = float(max(z))
+        fig.y_range.start = 30.0
         fig.y_range.end = 0.0
         fig.xaxis.axis_label = "Resistivity (ohm-m)"
         fig.yaxis.axis_label = "Depth (km)"
@@ -537,12 +605,15 @@ class Simpeg1DPanelApp(param.Parameterized):
             self._refresh_plots()
 
             final_iter = sorted(sim.output_dict.keys())[-1]
+            final_fit = sim.output_dict[final_iter].get("f", np.nan)
             phi_d = sim.output_dict[final_iter].get("phi_d", np.nan)
             phi_m = sim.output_dict[final_iter].get("phi_m", np.nan)
             beta = sim.output_dict[final_iter].get("beta", np.nan)
             self._output.object = (
                 f"**Inversion complete**  \n"
                 f"Final iteration: `{final_iter}`  \n"
+                f"Target misfit: `{sim.n_layers:.4g}`  \n"
+                f"Final misfit: `{final_fit:.4g}`  \n"
                 f"phi_d: `{phi_d:.4g}`  \n"
                 f"phi_m: `{phi_m:.4g}`  \n"
                 f"beta: `{beta:.4g}`"
@@ -563,7 +634,7 @@ class Simpeg1DPanelApp(param.Parameterized):
         return pn.Column(
             pn.pane.Markdown("### Simpeg1D Modeling"),
             pn.pane.Markdown(
-                "_Pick a station, choose mode, edit points/errors, configure inversion, and run._",
+                "_Pick a station, choose mode, configure inversion settings, and run._",
                 styles={"color": "#777", "font-size": "0.85em"},
             ),
             pn.Row(
@@ -577,6 +648,9 @@ class Simpeg1DPanelApp(param.Parameterized):
             pn.Row(
                 self._selected_res_error_widget,
                 self._selected_phase_error_widget,
+                align="end",
+            ),
+            pn.Row(
                 self._apply_error_button,
                 self._delete_selected_button,
                 align="end",
@@ -590,7 +664,7 @@ class Simpeg1DPanelApp(param.Parameterized):
                 self._z_factor_widget,
                 self._rho_initial_widget,
                 self._rho_reference_widget,
-                align="end",
+                align="start",
             ),
             pn.pane.Markdown("#### Inversion Parameters"),
             pn.Row(
@@ -600,18 +674,24 @@ class Simpeg1DPanelApp(param.Parameterized):
                 self._alpha_z_widget,
                 self._beta0_ratio_widget,
                 self._cooling_factor_widget,
+                align="start",
+            ),
+            pn.Row(
                 self._cooling_rate_widget,
                 self._chi_factor_widget,
                 self._use_irls_widget,
                 self._p_s_widget,
                 self._p_z_widget,
-                self._run_button,
-                align="end",
+                align="start",
             ),
+            self._run_button,
             self._status,
             self._output,
             pn.layout.Divider(),
-            self._response_plot,
-            self._model_plot,
+            pn.Row(
+                self._model_plot,
+                self._response_plot,
+                align="start",
+            ),
             sizing_mode=self.sizing_mode,
         )

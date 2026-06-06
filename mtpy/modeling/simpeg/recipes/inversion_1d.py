@@ -20,6 +20,7 @@ from matplotlib.figure import Figure
 from mtpy.core import MTDataFrame
 from mtpy.imaging.mtplot_tools.plotters import plot_errorbar
 
+
 try:
     from discretize import TensorMesh
     from simpeg import (
@@ -39,6 +40,7 @@ except ImportError:
 import matplotlib.gridspec as gridspec
 from matplotlib import pyplot as plt
 from matplotlib.ticker import LogLocator
+
 
 # =============================================================================
 
@@ -230,11 +232,21 @@ class Simpeg1D:
             z_obj = self.mt_dataframe.to_z_object()
 
             res_model_error = z_obj.res_det * self.resistivity_error / 100
-            res_model_error[
-                np.where(z_obj.res_model_error_det > res_model_error)[0]
-            ] = z_obj.res_model_error_det[
-                np.where(z_obj.res_model_error_det > res_model_error)[0]
-            ]
+            # Some legacy inputs carry missing error entries as None; coerce to
+            # float so comparisons are numeric and missing values become NaN.
+            res_model_error_det = np.asarray(z_obj.res_model_error_det, dtype=float)
+            if res_model_error_det.ndim == 0:
+                res_model_error_det = np.full(
+                    res_model_error.shape, float(res_model_error_det), dtype=float
+                )
+            elif res_model_error_det.shape != res_model_error.shape:
+                res_model_error_det = np.resize(
+                    res_model_error_det, res_model_error.shape
+                )
+            valid = np.isfinite(res_model_error_det) & (
+                res_model_error_det > res_model_error
+            )
+            res_model_error[valid] = res_model_error_det[valid]
 
             phase_model_error = np.ones_like(z_obj.phase_det) * self.phase_error
             # phase_model_error[

@@ -188,3 +188,43 @@ def test_run_clicked_updates_output_with_mocked_inversion(
 
     assert "Inversion complete" in app._output.object
     assert app._simpeg is not None
+
+
+@pytest.mark.plotting
+def test_load_station_sanitizes_none_error_values(sample_station_df, monkeypatch):
+    # Simulate legacy/object-dtype error values from station files.
+    bad_df = sample_station_df.copy()
+    bad_df.loc[0, "res_xy_error"] = None
+
+    captured = {}
+
+    class InspectSimpeg1D:
+        def __init__(self, mt_dataframe, mode, **kwargs):
+            captured["dtype"] = mt_dataframe["res_xy_error"].dtype
+            captured["first"] = mt_dataframe["res_xy_error"].iloc[0]
+            self._sub_df = pd.DataFrame(
+                {
+                    "frequency": mt_dataframe["frequency"].to_numpy(dtype=float),
+                    "res": mt_dataframe["res_xy"].to_numpy(dtype=float),
+                    "res_error": pd.to_numeric(
+                        mt_dataframe["res_xy_error"], errors="coerce"
+                    ).to_numpy(dtype=float),
+                    "phase": mt_dataframe["phase_xy"].to_numpy(dtype=float),
+                    "phase_error": mt_dataframe["phase_xy_error"].to_numpy(dtype=float),
+                }
+            )
+            self.output_dict = {}
+
+    monkeypatch.setattr(
+        "mtpy.imaging.bokeh_plots.panel_simpeg1d_app.Simpeg1D",
+        InspectSimpeg1D,
+    )
+
+    app = Simpeg1DPanelApp()
+    app.set_mt_data(_mock_mt_data(bad_df))
+    app._mode_widget.value = "xy"
+    app._on_load_station_clicked()
+
+    assert captured["dtype"] != object
+    assert np.isnan(captured["first"])
+    assert "Loaded station" in app._status.object
