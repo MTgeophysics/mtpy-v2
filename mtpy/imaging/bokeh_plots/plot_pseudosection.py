@@ -94,8 +94,8 @@ class PlotResPhasePseudoSection(BokehPlotBaseProfile):
             "phase_det": r"$\phi_{det}$",
         }
 
-        self.res_cmap = "turbo"
-        self.phase_cmap = "viridis"
+        self.res_cmap = "turbo_r"
+        self.phase_cmap = "turbo"
 
         self.fig = None
         self.layout = None

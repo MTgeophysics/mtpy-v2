@@ -987,12 +987,6 @@ class MTDataApp(param.Parameterized):
             sizing_mode=self.sizing_mode,
         )
 
-        penetration_depth_section = pn.Column(
-            pn.pane.Markdown("### Penetration Depth (1-D)"),
-            self._pen_depth_container,
-            sizing_mode=self.sizing_mode,
-        )
-
         save_section = pn.Column(
             pn.pane.Markdown("### Save Data"),
             pn.Row(
@@ -1009,8 +1003,6 @@ class MTDataApp(param.Parameterized):
             pn.layout.Divider(),
             status_row,
             station_section,
-            pn.layout.Divider(),
-            penetration_depth_section,
             pn.layout.Divider(),
             save_section,
             sizing_mode=self.sizing_mode,
