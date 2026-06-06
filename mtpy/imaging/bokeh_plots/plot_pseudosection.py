@@ -8,11 +8,8 @@ import numpy as np
 import pandas as pd
 from scipy import signal
 
-from mtpy.imaging.mtplot_tools import (
-    griddata_interpolate,
-    PlotBaseProfile,
-    triangulate_interpolation,
-)
+from mtpy.imaging.bokeh_plots.bokeh_plot_base_profile import BokehPlotBaseProfile
+from mtpy.imaging.mtplot_tools import griddata_interpolate, triangulate_interpolation
 
 
 try:
@@ -25,14 +22,6 @@ try:
         LinearColorMapper,
         Range1d,
     )
-    from bokeh.palettes import (
-        Cividis256,
-        Inferno256,
-        Magma256,
-        Plasma256,
-        Turbo256,
-        Viridis256,
-    )
     from bokeh.plotting import figure
 except ImportError:  # pragma: no cover - optional dependency
     bokeh_show = None
@@ -43,16 +32,10 @@ except ImportError:  # pragma: no cover - optional dependency
     FixedTicker = None
     LinearColorMapper = None
     Range1d = None
-    Cividis256 = None
-    Inferno256 = None
-    Magma256 = None
-    Plasma256 = None
-    Turbo256 = None
-    Viridis256 = None
     figure = None
 
 
-class PlotResPhasePseudoSection(PlotBaseProfile):
+class PlotResPhasePseudoSection(BokehPlotBaseProfile):
     """Plot resistivity and phase pseudosections using Bokeh."""
 
     def __init__(self, mt_data, **kwargs):
@@ -138,22 +121,6 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
             raise ImportError(
                 "Bokeh is required for PlotResPhasePseudoSection. Install with `pip install bokeh`."
             )
-
-    def _palette_from_name(self, name):
-        if name is None:
-            return Turbo256
-        lname = str(name).lower()
-        if "magma" in lname:
-            return Magma256
-        if "inferno" in lname:
-            return Inferno256
-        if "plasma" in lname:
-            return Plasma256
-        if "viridis" in lname:
-            return Viridis256
-        if "cividis" in lname:
-            return Cividis256
-        return Turbo256
 
     def _get_period_array(self, df):
         """Get the period array to interpolate on to."""
@@ -271,8 +238,8 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
 
     def _get_cmap(self, component):
         if "res" in component:
-            return self._palette_from_name(self.res_cmap)
-        return self._palette_from_name(self.phase_cmap)
+            return self.palette_from_name(self.res_cmap)
+        return self.palette_from_name(self.phase_cmap)
 
     def _add_colorbar(self, fig, mapper, component):
         cb = ColorBar(
@@ -477,7 +444,7 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
             inline=True,
         )
 
-        palette_options = ["turbo", "viridis", "magma", "inferno", "plasma", "cividis"]
+        palette_options = list(self.palette_options.keys())
         w_res_palette = pn.widgets.Select(
             name="Resistivity Palette",
             value=(self.res_cmap if self.res_cmap in palette_options else "turbo"),

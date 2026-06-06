@@ -6,7 +6,7 @@ import importlib
 
 import numpy as np
 
-from mtpy.imaging.mtplot_tools import PlotBaseProfile
+from mtpy.imaging.bokeh_plots.bokeh_plot_base_profile import BokehPlotBaseProfile
 
 
 try:
@@ -21,14 +21,6 @@ try:
         NormalHead,
         Range1d,
     )
-    from bokeh.palettes import (
-        Cividis256,
-        Inferno256,
-        Magma256,
-        Plasma256,
-        Turbo256,
-        Viridis256,
-    )
     from bokeh.plotting import figure
 except ImportError:  # pragma: no cover - optional dependency
     bokeh_show = None
@@ -40,16 +32,10 @@ except ImportError:  # pragma: no cover - optional dependency
     LinearColorMapper = None
     NormalHead = None
     Range1d = None
-    Cividis256 = None
-    Inferno256 = None
-    Magma256 = None
-    Plasma256 = None
-    Turbo256 = None
-    Viridis256 = None
     figure = None
 
 
-class PlotPhaseTensorPseudoSection(PlotBaseProfile):
+class PlotPhaseTensorPseudoSection(BokehPlotBaseProfile):
     """Plot phase tensor ellipses in pseudosection format using Bokeh."""
 
     _PLAIN_COLORBAR_LABELS = {
@@ -66,6 +52,20 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
         "geometric_mean": "sqrt(Phi_min * Phi_max)",
         "strike": "Azimuth (deg)",
         "azimuth": "Azimuth (deg)",
+    }
+
+    _TIPPER_LABEL_TO_CODE = {
+        "False": "n",
+        "Real/Imaginary": "yri",
+        "Real": "yr",
+        "Imaginary": "yi",
+    }
+
+    _TIPPER_CODE_TO_LABEL = {
+        "n": "False",
+        "yri": "Real/Imaginary",
+        "yr": "Real",
+        "yi": "Imaginary",
     }
 
     def __init__(self, mt_data, **kwargs):
@@ -87,7 +87,8 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
 
         self.ellipse_size = 20
         self.ellipse_alpha = 0.85
-        self.arrow_size = 4000
+        # Arrow size is a multiplier on ellipse_size (2 means ~2x ellipse size).
+        self.arrow_size = 2.0
         self.arrow_head_width = 250
         self.arrow_head_length = 400
 
@@ -118,20 +119,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
             )
 
     def _palette_from_name(self, name):
-        if name is None:
-            return Turbo256
-        lname = str(name).lower()
-        if "magma" in lname:
-            return Magma256
-        if "inferno" in lname:
-            return Inferno256
-        if "plasma" in lname:
-            return Plasma256
-        if "viridis" in lname:
-            return Viridis256
-        if "cividis" in lname:
-            return Cividis256
-        return Turbo256
+        return self.palette_from_name(name)
 
     def _scalar_to_color(self, value, value_min, value_max):
         palette = self._palette_from_name(self.ellipse_cmap)
@@ -150,6 +138,27 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
         alpha = float(np.clip(alpha, 0.0, 1.0))
         idx = int(alpha * (len(palette) - 1))
         return palette[idx]
+
+    @staticmethod
+    def _to_css_color(color):
+        """Convert common shorthand/tuple colors to CSS/hex for widget and Bokeh use."""
+
+        if isinstance(color, str):
+            short_map = {
+                "k": "#000000",
+                "w": "#ffffff",
+                "r": "#ff0000",
+                "g": "#008000",
+                "b": "#0000ff",
+                "c": "#00ffff",
+                "m": "#ff00ff",
+                "y": "#ffff00",
+            }
+            return short_map.get(color.lower(), color)
+        if isinstance(color, tuple) and len(color) == 3:
+            r, g, b = [int(np.clip(c, 0, 1) * 255) for c in color]
+            return f"#{r:02x}{g:02x}{b:02x}"
+        return "#000000"
 
     def _get_patch(self, tf):
         """Get and draw phase-tensor ellipses and optional tipper arrows."""
@@ -223,6 +232,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
                     )
 
             if has_tipper:
+                arrow_scale = float(self.arrow_size) * float(self.ellipse_size)
                 if (
                     "r" in self.plot_tipper
                     and t_obj.mag_real[index] <= self.arrow_threshold
@@ -230,7 +240,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
                     if self.y_scale == "period":
                         txr = (
                             t_mag_re[index]
-                            * self.arrow_size
+                            * arrow_scale
                             * np.sin(
                                 np.deg2rad(-t_ang_re[index] + 180)
                                 + self.arrow_direction * np.pi
@@ -238,7 +248,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
                         )
                         tyr = (
                             t_mag_re[index]
-                            * self.arrow_size
+                            * arrow_scale
                             * np.cos(
                                 np.deg2rad(-t_ang_re[index] + 180)
                                 + self.arrow_direction * np.pi
@@ -247,7 +257,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
                     else:
                         txr = (
                             t_mag_re[index]
-                            * self.arrow_size
+                            * arrow_scale
                             * np.sin(
                                 np.deg2rad(t_ang_re[index])
                                 + self.arrow_direction * np.pi
@@ -255,7 +265,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
                         )
                         tyr = (
                             t_mag_re[index]
-                            * self.arrow_size
+                            * arrow_scale
                             * np.cos(
                                 np.deg2rad(t_ang_re[index])
                                 + self.arrow_direction * np.pi
@@ -274,7 +284,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
                             x_end=float(plot_x + txr),
                             y_end=float(plot_y + tyr),
                             line_color=self.arrow_color_real,
-                            line_width=max(self.arrow_lw * 150, 1),
+                            line_width=max(self.arrow_lw, 1),
                         )
                     )
 
@@ -282,7 +292,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
                     if self.y_scale == "period":
                         txi = (
                             t_mag_im[index]
-                            * self.arrow_size
+                            * arrow_scale
                             * np.sin(
                                 np.deg2rad(-t_ang_im[index] + 180)
                                 + self.arrow_direction * np.pi
@@ -290,7 +300,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
                         )
                         tyi = (
                             t_mag_im[index]
-                            * self.arrow_size
+                            * arrow_scale
                             * np.cos(
                                 np.deg2rad(-t_ang_im[index] + 180)
                                 + self.arrow_direction * np.pi
@@ -299,7 +309,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
                     else:
                         txi = (
                             t_mag_im[index]
-                            * self.arrow_size
+                            * arrow_scale
                             * np.sin(
                                 np.deg2rad(t_ang_im[index])
                                 + self.arrow_direction * np.pi
@@ -307,7 +317,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
                         )
                         tyi = (
                             t_mag_im[index]
-                            * self.arrow_size
+                            * arrow_scale
                             * np.cos(
                                 np.deg2rad(t_ang_im[index])
                                 + self.arrow_direction * np.pi
@@ -326,7 +336,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
                             x_end=float(plot_x + txi),
                             y_end=float(plot_y + tyi),
                             line_color=self.arrow_color_imag,
-                            line_width=max(self.arrow_lw * 150, 1),
+                            line_width=max(self.arrow_lw, 1),
                             line_dash="dashed",
                         )
                     )
@@ -495,17 +505,15 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
                 "Install with `pip install panel`."
             ) from exc
 
-        palette_options = ["turbo", "viridis", "magma", "inferno", "plasma", "cividis"]
+        palette_options = list(self.palette_options.keys())
 
         w_plot_pt = pn.widgets.Checkbox(
             name="Plot Phase Tensor", value=bool(self.plot_pt)
         )
         w_plot_tipper = pn.widgets.Select(
             name="Tipper",
-            options=["n", "ri", "r", "i"],
-            value=(
-                self.plot_tipper if self.plot_tipper in {"n", "ri", "r", "i"} else "n"
-            ),
+            options=["False", "Real/Imaginary", "Real", "Imaginary"],
+            value=self._TIPPER_CODE_TO_LABEL.get(str(self.plot_tipper), "False"),
             width=140,
         )
         w_y_scale = pn.widgets.Select(
@@ -583,6 +591,34 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
             step=100.0,
             width=120,
         )
+        w_arrow_size = pn.widgets.FloatInput(
+            name="Arrow size (x ellipse)",
+            value=float(self.arrow_size),
+            step=0.1,
+            width=120,
+        )
+        w_arrow_head_width = pn.widgets.FloatInput(
+            name="Arrow head width",
+            value=float(self.arrow_head_width),
+            step=1.0,
+            width=140,
+        )
+        w_arrow_head_length = pn.widgets.FloatInput(
+            name="Arrow head length",
+            value=float(self.arrow_head_length),
+            step=1.0,
+            width=140,
+        )
+        w_arrow_color_real = pn.widgets.ColorPicker(
+            name="Arrow color (Real)",
+            value=self._to_css_color(self.arrow_color_real),
+            width=170,
+        )
+        w_arrow_color_imag = pn.widgets.ColorPicker(
+            name="Arrow color (Imaginary)",
+            value=self._to_css_color(self.arrow_color_imag),
+            width=170,
+        )
 
         refresh_btn = pn.widgets.Button(
             name="Refresh", button_type="success", width=120
@@ -595,7 +631,9 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
 
         def _refresh(_event=None):
             self.plot_pt = bool(w_plot_pt.value)
-            self.plot_tipper = str(w_plot_tipper.value)
+            self.plot_tipper = self._TIPPER_LABEL_TO_CODE.get(
+                str(w_plot_tipper.value), "n"
+            )
             self.y_scale = str(w_y_scale.value)
             self.ellipse_colorby = str(w_ellipse_colorby.value)
             self.ellipse_cmap = str(w_ellipse_palette.value)
@@ -604,6 +642,11 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
             self.station_step = int(w_station_step.value)
             self.x_stretch = float(w_x_stretch.value)
             self.y_stretch = float(w_y_stretch.value)
+            self.arrow_size = float(w_arrow_size.value)
+            self.arrow_head_width = float(w_arrow_head_width.value)
+            self.arrow_head_length = float(w_arrow_head_length.value)
+            self.arrow_color_real = self._to_css_color(w_arrow_color_real.value)
+            self.arrow_color_imag = self._to_css_color(w_arrow_color_imag.value)
 
             layout = self.plot(show=False)
             plot_pane.object = layout
@@ -634,6 +677,8 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
                 w_ellipse_range,
                 w_ellipse_size,
                 pn.Row(w_station_step, w_x_stretch, w_y_stretch),
+                pn.Row(w_arrow_size, w_arrow_head_width, w_arrow_head_length),
+                pn.Row(w_arrow_color_real, w_arrow_color_imag),
                 refresh_btn,
                 width=420,
             ),

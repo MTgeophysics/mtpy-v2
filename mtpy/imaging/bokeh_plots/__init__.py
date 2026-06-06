@@ -1,6 +1,7 @@
 """Bokeh-based plotting utilities for MT response visualization."""
 
 from .bokeh_plot_base import BokehPlotBase
+from .bokeh_plot_base_profile import BokehPlotBaseProfile
 from .bokeh_plot_base_maps import BokehPlotBaseMaps
 from .plot_mt_response import PlotMTResponse
 from .plot_mt_responses import PlotMultipleResponses
@@ -16,6 +17,7 @@ from .plot_strike import PlotStrike
 
 __all__ = [
     "BokehPlotBase",
+    "BokehPlotBaseProfile",
     "BokehPlotBaseMaps",
     "PlotMTResponse",
     "PlotMultipleResponses",

@@ -9,6 +9,8 @@ classes should inherit from ``BokehPlotBase`` rather than ``PlotBase``.
 from __future__ import annotations
 
 import numpy as np
+from matplotlib import colormaps
+from matplotlib.colors import to_hex
 
 
 try:
@@ -41,6 +43,42 @@ _ELLIPSE_COLORBY_OPTIONS = [
 ]
 
 _MARKER_OPTIONS = ["o", "s", "v", "d", "^", "*", "+", "x"]
+
+try:
+    from bokeh.palettes import (
+        Cividis256,
+        Inferno256,
+        Magma256,
+        Plasma256,
+        Turbo256,
+        Viridis256,
+    )
+except ImportError:  # pragma: no cover
+    Cividis256 = []
+    Inferno256 = []
+    Magma256 = []
+    Plasma256 = []
+    Turbo256 = []
+    Viridis256 = []
+
+BOKEH_RAINBOW_PALETTE = [to_hex(colormaps["rainbow"](ii / 255)) for ii in range(256)]
+BOKEH_PALETTE_OPTIONS = {
+    "turbo": Turbo256,
+    "turbo_r": list(reversed(Turbo256)),
+    "magma": Magma256,
+    "magma_r": list(reversed(Magma256)),
+    "inferno": Inferno256,
+    "inferno_r": list(reversed(Inferno256)),
+    "plasma": Plasma256,
+    "plasma_r": list(reversed(Plasma256)),
+    "viridis": Viridis256,
+    "viridis_r": list(reversed(Viridis256)),
+    "cividis": Cividis256,
+    "cividis_r": list(reversed(Cividis256)),
+    "rainbow": BOKEH_RAINBOW_PALETTE,
+    "rainbow_r": list(reversed(BOKEH_RAINBOW_PALETTE)),
+}
+BOKEH_PALETTE_NAMES = list(BOKEH_PALETTE_OPTIONS.keys())
 
 
 class BokehPlotBase(param.Parameterized):
@@ -212,11 +250,17 @@ class BokehPlotBase(param.Parameterized):
         objects=_ELLIPSE_COLORBY_OPTIONS,
         doc="PT property used to color ellipses",
     )
+    ellipse_cmap = param.ObjectSelector(
+        default="turbo",
+        objects=BOKEH_PALETTE_NAMES,
+        doc="Color palette for phase-tensor ellipse rendering",
+    )
 
     # ── lifecycle ─────────────────────────────────────────────────────────────
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.logger = _loguru_logger
+        self.palette_options = BOKEH_PALETTE_OPTIONS
 
     # ── colorbar label dictionary ─────────────────────────────────────────────
     @property
@@ -225,20 +269,26 @@ class BokehPlotBase(param.Parameterized):
         # Use Unicode Φ with plain underscores for subscripts — renders correctly
         # in all browsers without MathJax.
         return {
-            "phiminang": "\u03A6_min (deg)",
-            "phimin": "\u03A6_min (deg)",
-            "phimaxang": "\u03A6_max (deg)",
-            "phimax": "\u03A6_max (deg)",
-            "phidet": "det(\u03A6) (deg)",
+            "phiminang": "\u03a6_min (deg)",
+            "phimin": "\u03a6_min (deg)",
+            "phimaxang": "\u03a6_max (deg)",
+            "phimax": "\u03a6_max (deg)",
+            "phidet": "det(\u03a6) (deg)",
             "skew": "Skew (deg)",
             "normalized_skew": "Normalized Skew (deg)",
             "ellipticity": "Ellipticity",
             "skew_seg": "Skew (deg)",
             "normalized_skew_seg": "Normalized Skew (deg)",
-            "geometric_mean": "\u221A(\u03A6_min \u00B7 \u03A6_max)",
+            "geometric_mean": "\u221a(\u03a6_min \u00b7 \u03a6_max)",
             "strike": "Azimuth (deg)",
             "azimuth": "Azimuth (deg)",
         }
+
+    @property
+    def period_label_dict(self) -> dict[int, str]:
+        """Get log10 period labels used by profile-style plots."""
+
+        return dict((ii, f"10^{ii}") for ii in range(-20, 21))
 
     # ── utility methods ───────────────────────────────────────────────────────
     def set_period_limits(self, period: np.ndarray) -> tuple:
@@ -329,6 +379,14 @@ class BokehPlotBase(param.Parameterized):
             except (ValueError, TypeError):
                 return [-180, 180]
         return [0, 90]
+
+    def palette_from_name(self, name: str | None):
+        """Resolve a palette name from the shared Bokeh palette registry."""
+
+        if not name:
+            return self.palette_options.get("turbo", [])
+        key = str(name).lower()
+        return self.palette_options.get(key, self.palette_options.get("turbo", []))
 
     def get_pt_color_array(self, pt_object) -> np.ndarray:
         """Extract the phase-tensor property array used to color ellipses."""

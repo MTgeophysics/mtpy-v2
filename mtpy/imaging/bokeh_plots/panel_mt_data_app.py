@@ -226,24 +226,6 @@ class MTDataApp(param.Parameterized):
         self._selected_station_paths: list[str] = []
         self._mt_data_subset = None
 
-        # # ── Directory path input (lets users type/paste any path) ────────
-        # self._directory_input = pn.widgets.TextInput(
-        #     name="Browse directory",
-        #     value=str(Path(self.data_directory).expanduser().resolve()),
-        #     placeholder="Paste or type an absolute directory path…",
-        #     sizing_mode="stretch_width",
-        # )
-        # self._directory_go_button = pn.widgets.Button(
-        #     name="Go",
-        #     button_type="default",
-        #     width=60,
-        # )
-        # self._directory_go_button.on_click(self._on_directory_go_clicked)
-        # # Navigate when the user presses Enter in the text box
-        # self._directory_input.param.watch(
-        #     self._on_directory_input_enter, "enter_pressed"
-        # )
-
         # ── File type filter ──────────────────────────────────────────────
         self._file_pattern_widget = pn.widgets.Select(
             name="File Type Filter",
@@ -323,16 +305,6 @@ class MTDataApp(param.Parameterized):
         self._station_table.param.watch(self._on_table_selection_changed, "selection")
         self._edit_table_toggle.param.watch(self._on_edit_toggle_changed, "value")
         self._update_table_button.on_click(self._on_update_table_clicked)
-
-        # ── Penetration depth viewer ──────────────────────────────────────
-        self._pen_depth_container = pn.Column(
-            pn.pane.Markdown(
-                "_Select a single station in the table above to view its "
-                "1-D penetration depth._",
-                styles={"color": "#777"},
-            ),
-            sizing_mode=self.sizing_mode,
-        )
 
         # ── Save-to-MTH5 controls ─────────────────────────────────────────
         self._save_filename_widget = pn.widgets.TextInput(

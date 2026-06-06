@@ -192,6 +192,7 @@ class TestPlotPhaseTensorPseudoSectionBokehMTData:
         assert plotter.ellipse_size == 20
         assert plotter.x_stretch == 1000
         assert plotter.y_stretch == 10
+        assert plotter.arrow_size == pytest.approx(2.0)
 
     def test_plot_pads_explicit_x_limits_by_half_ellipse_size(
         self,
@@ -278,6 +279,51 @@ class TestPlotPhaseTensorPseudoSectionBokehMTData:
         assert ellipse_size_widget is not None
         assert ellipse_size_widget.start == 1
         assert ellipse_size_widget.end == 1000
+
+    def test_panel_arrow_widgets_exist(
+        self,
+        bokeh_plot_phase_tensor_pseudosection_class,
+        mt_data_tree,
+        monkeypatch,
+    ):
+        pytest.importorskip("panel")
+
+        plotter = bokeh_plot_phase_tensor_pseudosection_class(
+            mt_data_tree, show_plot=False
+        )
+        monkeypatch.setattr(plotter, "plot", lambda show=False: None)
+
+        panel_view = plotter.panel()
+
+        assert (
+            self._find_widget_by_name(panel_view, "Arrow size (x ellipse)") is not None
+        )
+        assert self._find_widget_by_name(panel_view, "Arrow head width") is not None
+        assert self._find_widget_by_name(panel_view, "Arrow head length") is not None
+        assert self._find_widget_by_name(panel_view, "Arrow color (Real)") is not None
+        assert (
+            self._find_widget_by_name(panel_view, "Arrow color (Imaginary)") is not None
+        )
+
+    def test_tipper_label_mapping_roundtrip(
+        self,
+        bokeh_plot_phase_tensor_pseudosection_class,
+        mt_data_tree,
+    ):
+        plotter = bokeh_plot_phase_tensor_pseudosection_class(
+            mt_data_tree,
+            show_plot=False,
+        )
+
+        assert plotter._TIPPER_LABEL_TO_CODE["False"] == "n"
+        assert plotter._TIPPER_LABEL_TO_CODE["Real/Imaginary"] == "yri"
+        assert plotter._TIPPER_LABEL_TO_CODE["Real"] == "yr"
+        assert plotter._TIPPER_LABEL_TO_CODE["Imaginary"] == "yi"
+
+        assert plotter._TIPPER_CODE_TO_LABEL["n"] == "False"
+        assert plotter._TIPPER_CODE_TO_LABEL["yri"] == "Real/Imaginary"
+        assert plotter._TIPPER_CODE_TO_LABEL["yr"] == "Real"
+        assert plotter._TIPPER_CODE_TO_LABEL["yi"] == "Imaginary"
 
     def test_plot_uses_plain_text_bokeh_labels(
         self,
