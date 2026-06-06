@@ -960,6 +960,33 @@ def test_generate_phase_tensor_plot_uses_panel_and_station_key():
 
 
 @pytest.mark.plotting
+def test_generate_phase_tensor_pseudosection_uses_panel_app():
+    """Phase Tensor Pseudosection should embed plot_obj.panel()."""
+    app = _make_app()
+
+    mock_panel_app = pn.Column()
+    mock_plot_obj = MagicMock()
+    mock_plot_obj.panel = MagicMock(return_value=mock_panel_app)
+
+    mock_mt = MagicMock(spec=MTData)
+    mock_mt._iter_station_paths = MagicMock(return_value=iter([]))
+    mock_mt.plot_phase_tensor_pseudosection.return_value = mock_plot_obj
+
+    app._mt_data = mock_mt
+    app.mt_data_loaded = True
+    app._plot_backend_widget.value = "bokeh"
+    app._plot_type_widget.value = "Phase Tensor Pseudosection"
+
+    app._on_generate_plot_clicked(None)
+
+    mock_mt.plot_phase_tensor_pseudosection.assert_called_once()
+    _, kwargs = mock_mt.plot_phase_tensor_pseudosection.call_args
+    assert kwargs.get("backend") == "bokeh"
+    mock_plot_obj.panel.assert_called_once()
+    assert mock_panel_app in app._plot_display.objects
+
+
+@pytest.mark.plotting
 def test_generate_res_phase_maps_uses_panel_app():
     """Resistivity / Phase Maps should embed plot_obj.panel() in the Plots tab."""
     app = _make_app()
@@ -981,6 +1008,33 @@ def test_generate_res_phase_maps_uses_panel_app():
 
     mock_mt.plot_resistivity_phase_maps.assert_called_once()
     _, kwargs = mock_mt.plot_resistivity_phase_maps.call_args
+    assert kwargs.get("backend") == "bokeh"
+    mock_plot_obj.panel.assert_called_once()
+    assert mock_panel_app in app._plot_display.objects
+
+
+@pytest.mark.plotting
+def test_generate_res_phase_pseudosection_uses_panel_app():
+    """Resistivity / Phase Pseudosection should embed plot_obj.panel()."""
+    app = _make_app()
+
+    mock_panel_app = pn.Column()
+    mock_plot_obj = MagicMock()
+    mock_plot_obj.panel = MagicMock(return_value=mock_panel_app)
+
+    mock_mt = MagicMock(spec=MTData)
+    mock_mt._iter_station_paths = MagicMock(return_value=iter([]))
+    mock_mt.plot_resistivity_phase_pseudosections.return_value = mock_plot_obj
+
+    app._mt_data = mock_mt
+    app.mt_data_loaded = True
+    app._plot_backend_widget.value = "bokeh"
+    app._plot_type_widget.value = "Resistivity / Phase Pseudosection"
+
+    app._on_generate_plot_clicked(None)
+
+    mock_mt.plot_resistivity_phase_pseudosections.assert_called_once()
+    _, kwargs = mock_mt.plot_resistivity_phase_pseudosections.call_args
     assert kwargs.get("backend") == "bokeh"
     mock_plot_obj.panel.assert_called_once()
     assert mock_panel_app in app._plot_display.objects

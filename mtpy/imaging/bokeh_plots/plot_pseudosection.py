@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import importlib
+
 import numpy as np
 import pandas as pd
 from scipy import signal
@@ -440,3 +442,193 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
             bokeh_show(self.layout)
 
         return self.layout
+
+    def panel(self):
+        """Return an interactive, embeddable Panel app for pseudosection controls."""
+
+        try:
+            pn = importlib.import_module("panel")
+        except ImportError as exc:  # pragma: no cover
+            raise ImportError(
+                "panel is required for PlotResPhasePseudoSection.panel(). "
+                "Install with `pip install panel`."
+            ) from exc
+
+        active_components = [
+            comp
+            for comp in ["xx", "xy", "yx", "yy", "det"]
+            if getattr(self, f"plot_{comp}")
+        ]
+        active_rows = []
+        if self.plot_resistivity:
+            active_rows.append("Resistivity")
+        if self.plot_phase:
+            active_rows.append("Phase")
+
+        w_components = pn.widgets.CheckButtonGroup(
+            name="Components",
+            options=["xx", "xy", "yx", "yy", "det"],
+            value=active_components,
+        )
+        w_rows = pn.widgets.CheckBoxGroup(
+            name="Rows",
+            options=["Resistivity", "Phase"],
+            value=active_rows,
+            inline=True,
+        )
+
+        palette_options = ["turbo", "viridis", "magma", "inferno", "plasma", "cividis"]
+        w_res_palette = pn.widgets.Select(
+            name="Resistivity Palette",
+            value=(self.res_cmap if self.res_cmap in palette_options else "turbo"),
+            options=palette_options,
+            width=170,
+        )
+        w_phase_palette = pn.widgets.Select(
+            name="Phase Palette",
+            value=(
+                self.phase_cmap if self.phase_cmap in palette_options else "viridis"
+            ),
+            options=palette_options,
+            width=170,
+        )
+        w_res_limits = pn.widgets.RangeSlider(
+            name="Resistivity Limits",
+            start=-2.0,
+            end=4.0,
+            value=tuple(self.cmap_limits.get("res_xy", (0.0, 3.0))),
+            step=0.1,
+            width=240,
+        )
+        w_phase_limits = pn.widgets.RangeSlider(
+            name="Phase Limits",
+            start=-180.0,
+            end=180.0,
+            value=tuple(self.cmap_limits.get("phase_xy", (0.0, 100.0))),
+            step=1.0,
+            width=240,
+        )
+
+        w_interp = pn.widgets.Select(
+            name="Interpolation",
+            options=["nearest", "linear", "cubic", "delaunay"],
+            value=(
+                self.interpolation_method
+                if self.interpolation_method
+                in ["nearest", "linear", "cubic", "delaunay"]
+                else "nearest"
+            ),
+            width=140,
+        )
+        w_n_periods = pn.widgets.IntInput(
+            name="N periods",
+            value=int(self.n_periods),
+            step=1,
+            start=10,
+            end=400,
+            width=120,
+        )
+        w_station_step = pn.widgets.IntInput(
+            name="Station label step",
+            value=int(self.station_step),
+            step=1,
+            start=1,
+            end=50,
+            width=140,
+        )
+        w_x_stretch = pn.widgets.FloatInput(
+            name="X stretch",
+            value=float(self.x_stretch),
+            step=0.1,
+            width=120,
+        )
+        w_y_stretch = pn.widgets.FloatInput(
+            name="Y stretch",
+            value=float(self.y_stretch),
+            step=0.1,
+            width=120,
+        )
+
+        refresh_btn = pn.widgets.Button(
+            name="Refresh", button_type="success", width=120
+        )
+        status = pn.pane.Markdown(
+            "_Adjust controls and click **Refresh** to update the pseudosection._",
+            styles={"color": "#555"},
+        )
+        plot_pane = pn.pane.Bokeh(sizing_mode="stretch_width")
+
+        def _refresh(_event=None):
+            self.plot_resistivity = "Resistivity" in list(w_rows.value)
+            self.plot_phase = "Phase" in list(w_rows.value)
+
+            selected_components = set(w_components.value)
+            for comp in ["xx", "xy", "yx", "yy", "det"]:
+                setattr(self, f"plot_{comp}", comp in selected_components)
+
+            self.res_cmap = str(w_res_palette.value)
+            self.phase_cmap = str(w_phase_palette.value)
+            self.interpolation_method = str(w_interp.value)
+            self.n_periods = int(w_n_periods.value)
+            self.station_step = int(w_station_step.value)
+
+            old_x_stretch = float(self.x_stretch)
+            self.x_stretch = float(w_x_stretch.value)
+            self.y_stretch = float(w_y_stretch.value)
+
+            if not np.isclose(old_x_stretch, self.x_stretch):
+                # Offsets are computed with x_stretch in _get_data_df/_get_offset.
+                self.data_df = None
+
+            res_limits = tuple(float(value) for value in w_res_limits.value)
+            phase_limits = tuple(float(value) for value in w_phase_limits.value)
+            for comp in ["res_xx", "res_xy", "res_yx", "res_yy", "res_det"]:
+                self.cmap_limits[comp] = res_limits
+            for comp in ["phase_xx", "phase_xy", "phase_yx", "phase_yy", "phase_det"]:
+                self.cmap_limits[comp] = phase_limits
+
+            layout = self.plot(show=False)
+            plot_pane.object = layout
+
+            if layout is None:
+                status.object = (
+                    "⚠️ No pseudosection data for the current control selection."
+                )
+                status.styles = {"color": "#7a5200"}
+            else:
+                status.object = "✅ Pseudosection rendered."
+                status.styles = {"color": "#1a6600"}
+
+        refresh_btn.on_click(_refresh)
+        _refresh()
+
+        controls = pn.Row(
+            pn.Column(
+                w_rows,
+                w_components,
+                w_interp,
+                pn.Row(w_n_periods, w_station_step),
+                pn.Row(w_x_stretch, w_y_stretch),
+                width=360,
+                margin=(0, 20, 0, 0),
+            ),
+            pn.Column(
+                w_res_palette,
+                w_phase_palette,
+                w_res_limits,
+                w_phase_limits,
+                refresh_btn,
+                width=280,
+            ),
+            sizing_mode="fixed",
+        )
+
+        return pn.Column(controls, status, plot_pane, sizing_mode="stretch_width")
+
+    def servable(self, title: str | None = None):
+        """Return a standalone servable Panel view of this plot app."""
+
+        app = self.panel()
+        if title is None:
+            return app.servable()
+        return app.servable(title=title)

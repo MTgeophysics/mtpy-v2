@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import importlib
+
 import numpy as np
 
-from mtpy.imaging.mtplot_tools import period_label_dict, PlotBaseProfile
+from mtpy.imaging.mtplot_tools import PlotBaseProfile
 
 
 try:
@@ -50,15 +52,31 @@ except ImportError:  # pragma: no cover - optional dependency
 class PlotPhaseTensorPseudoSection(PlotBaseProfile):
     """Plot phase tensor ellipses in pseudosection format using Bokeh."""
 
+    _PLAIN_COLORBAR_LABELS = {
+        "phiminang": "Phi_min (deg)",
+        "phimin": "Phi_min (deg)",
+        "phimaxang": "Phi_max (deg)",
+        "phimax": "Phi_max (deg)",
+        "phidet": "Det(Phi) (deg)",
+        "skew": "Skew (deg)",
+        "normalized_skew": "Normalized Skew (deg)",
+        "ellipticity": "Ellipticity",
+        "skew_seg": "Skew (deg)",
+        "normalized_skew_seg": "Normalized Skew (deg)",
+        "geometric_mean": "sqrt(Phi_min * Phi_max)",
+        "strike": "Azimuth (deg)",
+        "azimuth": "Azimuth (deg)",
+    }
+
     def __init__(self, mt_data, **kwargs):
         super().__init__(mt_data, **kwargs)
 
         self._rotation_angle = 0
         self.plot_pt = True
-        self.aspect = kwargs.pop("aspect", getattr(self, "aspect", "equal"))
+        self.aspect = kwargs.pop("aspect", "equal")
 
-        self.x_stretch = 1
-        self.y_stretch = 10000
+        self.x_stretch = 1000
+        self.y_stretch = 10
         self.y_scale = "period"
 
         self.station_id = [0, None]
@@ -67,7 +85,8 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
         self.profile_line = None
         self.profile_reverse = False
 
-        self.ellipse_size = 2000
+        self.ellipse_size = 20
+        self.ellipse_alpha = 0.85
         self.arrow_size = 4000
         self.arrow_head_width = 250
         self.arrow_head_length = 400
@@ -321,12 +340,16 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
             low=self.ellipse_range[0],
             high=self.ellipse_range[1],
         )
+        colorbar_title = self._PLAIN_COLORBAR_LABELS.get(
+            self.ellipse_colorby,
+            str(self.ellipse_colorby),
+        )
         self.fig.add_layout(
             ColorBar(
                 color_mapper=mapper,
                 ticker=BasicTicker(),
                 label_standoff=8,
-                title=self.cb_label_dict[self.ellipse_colorby],
+                title=colorbar_title,
             ),
             "right",
         )
@@ -409,7 +432,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
         y_overrides = {}
         for tk in y_ticks:
             key = int(tk / self.y_stretch)
-            y_overrides[float(tk)] = period_label_dict.get(key, "")
+            y_overrides[float(tk)] = f"10^{key}"
         self.fig.yaxis.ticker = FixedTicker(ticks=[float(v) for v in y_ticks])
         self.fig.yaxis.major_label_overrides = y_overrides
 
@@ -424,18 +447,16 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
         self.fig.xaxis.major_label_overrides = x_overrides
         self.fig.xaxis.axis_label = "Station"
 
+        x_padding = float(self.ellipse_size) / 2.0
         if self.x_limits is None:
             self.fig.x_range = Range1d(
-                start=float(
-                    np.floor(self.station_list["offset"].min()) - self.ellipse_size / 2
-                ),
-                end=float(
-                    np.ceil(self.station_list["offset"].max()) + self.ellipse_size / 2
-                ),
+                start=float(np.floor(self.station_list["offset"].min()) - x_padding),
+                end=float(np.ceil(self.station_list["offset"].max()) + x_padding),
             )
         else:
             self.fig.x_range = Range1d(
-                start=float(self.x_limits[0]), end=float(self.x_limits[1])
+                start=float(self.x_limits[0]) - x_padding,
+                end=float(self.x_limits[1]) + x_padding,
             )
 
         if self.y_limits is None:
@@ -462,3 +483,169 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
             bokeh_show(self.layout)
 
         return self.layout
+
+    def panel(self):
+        """Return an interactive, embeddable Panel app for pseudosection controls."""
+
+        try:
+            pn = importlib.import_module("panel")
+        except ImportError as exc:  # pragma: no cover
+            raise ImportError(
+                "panel is required for PlotPhaseTensorPseudoSection.panel(). "
+                "Install with `pip install panel`."
+            ) from exc
+
+        palette_options = ["turbo", "viridis", "magma", "inferno", "plasma", "cividis"]
+
+        w_plot_pt = pn.widgets.Checkbox(
+            name="Plot Phase Tensor", value=bool(self.plot_pt)
+        )
+        w_plot_tipper = pn.widgets.Select(
+            name="Tipper",
+            options=["n", "ri", "r", "i"],
+            value=(
+                self.plot_tipper if self.plot_tipper in {"n", "ri", "r", "i"} else "n"
+            ),
+            width=140,
+        )
+        w_y_scale = pn.widgets.Select(
+            name="Y scale",
+            options=["period", "frequency"],
+            value=(
+                self.y_scale if self.y_scale in {"period", "frequency"} else "period"
+            ),
+            width=140,
+        )
+        colorby_options = [
+            "phimin",
+            "phiminang",
+            "phimax",
+            "phimaxang",
+            "phidet",
+            "skew",
+            "skew_seg",
+            "ellipticity",
+            "strike",
+            "azimuth",
+        ]
+
+        w_ellipse_colorby = pn.widgets.Select(
+            name="Ellipse color by",
+            options=colorby_options,
+            value=(
+                self.ellipse_colorby
+                if self.ellipse_colorby in colorby_options
+                else "phimin"
+            ),
+            width=220,
+        )
+        w_ellipse_palette = pn.widgets.Select(
+            name="Ellipse palette",
+            options=palette_options,
+            value=(
+                self.ellipse_cmap if self.ellipse_cmap in palette_options else "turbo"
+            ),
+            width=170,
+        )
+        w_ellipse_range = pn.widgets.RangeSlider(
+            name="Ellipse limits",
+            start=-180.0,
+            end=180.0,
+            value=(float(self.ellipse_range[0]), float(self.ellipse_range[1])),
+            step=1.0,
+            width=240,
+        )
+        w_ellipse_size = pn.widgets.IntInput(
+            name="Ellipse size",
+            value=int(self.ellipse_size),
+            step=1,
+            start=1,
+            end=1000,
+            width=140,
+        )
+        w_station_step = pn.widgets.IntInput(
+            name="Station label step",
+            value=int(getattr(self, "station_step", 1)),
+            step=1,
+            start=1,
+            end=50,
+            width=140,
+        )
+        w_x_stretch = pn.widgets.FloatInput(
+            name="X stretch",
+            value=float(self.x_stretch),
+            step=0.1,
+            width=120,
+        )
+        w_y_stretch = pn.widgets.FloatInput(
+            name="Y stretch",
+            value=float(self.y_stretch),
+            step=100.0,
+            width=120,
+        )
+
+        refresh_btn = pn.widgets.Button(
+            name="Refresh", button_type="success", width=120
+        )
+        status = pn.pane.Markdown(
+            "_Adjust controls and click **Refresh** to update the pseudosection._",
+            styles={"color": "#555"},
+        )
+        plot_pane = pn.pane.Bokeh(sizing_mode="stretch_width")
+
+        def _refresh(_event=None):
+            self.plot_pt = bool(w_plot_pt.value)
+            self.plot_tipper = str(w_plot_tipper.value)
+            self.y_scale = str(w_y_scale.value)
+            self.ellipse_colorby = str(w_ellipse_colorby.value)
+            self.ellipse_cmap = str(w_ellipse_palette.value)
+            self.ellipse_range = tuple(float(v) for v in w_ellipse_range.value)
+            self.ellipse_size = int(w_ellipse_size.value)
+            self.station_step = int(w_station_step.value)
+            self.x_stretch = float(w_x_stretch.value)
+            self.y_stretch = float(w_y_stretch.value)
+
+            layout = self.plot(show=False)
+            plot_pane.object = layout
+
+            if layout is None:
+                status.object = (
+                    "⚠️ No pseudosection data for the current control selection."
+                )
+                status.styles = {"color": "#7a5200"}
+            else:
+                status.object = "✅ Pseudosection rendered."
+                status.styles = {"color": "#1a6600"}
+
+        refresh_btn.on_click(_refresh)
+        _refresh()
+
+        controls = pn.Row(
+            pn.Column(
+                w_plot_pt,
+                w_plot_tipper,
+                w_y_scale,
+                w_ellipse_colorby,
+                width=320,
+                margin=(0, 20, 0, 0),
+            ),
+            pn.Column(
+                w_ellipse_palette,
+                w_ellipse_range,
+                w_ellipse_size,
+                pn.Row(w_station_step, w_x_stretch, w_y_stretch),
+                refresh_btn,
+                width=420,
+            ),
+            sizing_mode="fixed",
+        )
+
+        return pn.Column(controls, status, plot_pane, sizing_mode="stretch_width")
+
+    def servable(self, title: str | None = None):
+        """Return a standalone servable Panel view of this plot app."""
+
+        app = self.panel()
+        if title is None:
+            return app.servable()
+        return app.servable(title=title)

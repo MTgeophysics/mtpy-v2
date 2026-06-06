@@ -232,3 +232,18 @@ class TestPlotResPhasePseudoSectionBokehMTData:
 
         first_fig = next(iter(plotter.figures.values()))
         assert first_fig.match_aspect is False
+
+    def test_panel_returns_embeddable_panel_layout(
+        self, bokeh_plot_pseudosection_class, mt_data_tree, monkeypatch
+    ):
+        pytest.importorskip("panel")
+        import panel as pn
+
+        plotter = bokeh_plot_pseudosection_class(mt_data_tree, show_plot=False)
+
+        monkeypatch.setattr(plotter, "plot", lambda show=False: None)
+
+        panel_view = plotter.panel()
+
+        assert isinstance(panel_view, pn.Column)
+        assert len(panel_view.objects) == 3
