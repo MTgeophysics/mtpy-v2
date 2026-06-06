@@ -34,7 +34,6 @@ import param
 from mtpy import MT
 from mtpy.imaging.bokeh_plots import PlotMTResponse, PlotMultipleResponses
 
-
 pn.extension()
 
 

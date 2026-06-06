@@ -12,7 +12,6 @@ import numpy as np
 from matplotlib import colormaps
 from matplotlib.colors import to_hex
 
-
 try:
     import param
 except ImportError:  # pragma: no cover

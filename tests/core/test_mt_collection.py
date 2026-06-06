@@ -40,7 +40,6 @@ from mth5.helpers import close_open_files, validate_name
 from mtpy import MT, MTCollection
 from mtpy.core import MTData
 
-
 # =============================================================================
 # Test MTCollection basic functionality
 # =============================================================================

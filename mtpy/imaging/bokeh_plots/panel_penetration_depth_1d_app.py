@@ -34,7 +34,6 @@ import param
 from mtpy import MT
 from mtpy.imaging.bokeh_plots import PlotPenetrationDepth1D
 
-
 pn.extension("bokeh")
 
 

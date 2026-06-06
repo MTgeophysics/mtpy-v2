@@ -11,7 +11,6 @@ from scipy import signal
 from mtpy.imaging.bokeh_plots.bokeh_plot_base_profile import BokehPlotBaseProfile
 from mtpy.imaging.mtplot_tools import griddata_interpolate, triangulate_interpolation
 
-
 try:
     from bokeh.io import show as bokeh_show
     from bokeh.layouts import Column, gridplot

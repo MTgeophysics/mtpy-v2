@@ -7,7 +7,6 @@ import numpy as np
 from mtpy.core import Z
 from mtpy.imaging.bokeh_plots.bokeh_plot_base_maps import BokehPlotBaseMaps
 
-
 try:
     from bokeh.io import show
     from bokeh.layouts import Column, Row

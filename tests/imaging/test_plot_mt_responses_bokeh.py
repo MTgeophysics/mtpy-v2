@@ -6,7 +6,6 @@ from mt_metadata import TF_EDI_CGG, TF_EDI_NO_ERROR
 
 from mtpy import MT
 
-
 pytestmark = pytest.mark.plotting
 
 

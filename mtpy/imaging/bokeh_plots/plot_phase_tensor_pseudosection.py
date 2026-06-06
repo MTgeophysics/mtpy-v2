@@ -8,7 +8,6 @@ import numpy as np
 
 from mtpy.imaging.bokeh_plots.bokeh_plot_base_profile import BokehPlotBaseProfile
 
-
 try:
     from bokeh.io import show as bokeh_show
     from bokeh.layouts import Column
