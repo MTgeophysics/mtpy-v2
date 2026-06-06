@@ -34,7 +34,6 @@ from mtpy.imaging.bokeh_plots.bokeh_plot_base import (
     BokehPlotBase,
 )
 
-
 _PALETTE_OPTIONS = ["turbo", "viridis", "magma", "inferno", "plasma", "cividis"]
 
 

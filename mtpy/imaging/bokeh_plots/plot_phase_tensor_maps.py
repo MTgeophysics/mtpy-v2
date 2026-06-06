@@ -30,7 +30,6 @@ from mtpy.core.transfer_function import PhaseTensor
 from mtpy.imaging.bokeh_plots.bokeh_plot_base import _ELLIPSE_COLORBY_OPTIONS
 from mtpy.imaging.bokeh_plots.bokeh_plot_base_maps import BokehPlotBaseMaps
 
-
 _PALETTE_OPTIONS = ["turbo", "viridis", "magma", "inferno", "plasma", "cividis"]
 
 _TILE_PROVIDERS = [

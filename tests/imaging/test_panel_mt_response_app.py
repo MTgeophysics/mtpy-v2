@@ -2,12 +2,10 @@
 
 import pytest
 
-
 panel = pytest.importorskip("panel")
 
 from mtpy import MT
 from mtpy.imaging.bokeh_plots.panel_mt_response_app import MTResponseApp
-
 
 pytest.importorskip("scipy")  # Required for interpolation
 

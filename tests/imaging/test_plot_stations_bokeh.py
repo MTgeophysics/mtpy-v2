@@ -11,7 +11,6 @@ from shapely.geometry import Point
 
 import mtpy.utils.exceptions as mtex
 
-
 pytestmark = pytest.mark.plotting
 
 

@@ -63,7 +63,6 @@ from mtpy.core.mt_data import MTData
 from mtpy.imaging.bokeh_plots.panel_simpeg1d_app import Simpeg1DPanelApp
 from mtpy.imaging.bokeh_plots.plot_penetration_depth_1d import PlotPenetrationDepth1D
 
-
 pn.extension("tabulator")
 
 
