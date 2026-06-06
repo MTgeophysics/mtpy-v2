@@ -15,7 +15,6 @@ from bokeh.plotting import figure
 
 from mtpy.modeling.simpeg.recipes.inversion_1d import Simpeg1D
 
-
 _MODE_MAP: dict[str, str] = {
     "xy": "te",
     "yx": "tm",
@@ -366,9 +365,7 @@ class Simpeg1DPanelApp(param.Parameterized):
             self._refresh_plots()
 
             self._output.object = ""
-            self._status.object = (
-                f"✅ Loaded station `{station_key}` in mode `{self._mode_widget.value}`."
-            )
+            self._status.object = f"✅ Loaded station `{station_key}` in mode `{self._mode_widget.value}`."
             self._status.styles = {"color": "#1a6600"}
         except Exception as exc:
             self._status.object = (
