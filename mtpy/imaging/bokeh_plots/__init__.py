@@ -14,6 +14,7 @@ from .plot_phase_tensor_pseudosection import PlotPhaseTensorPseudoSection
 from .plot_pseudosection import PlotResPhasePseudoSection
 from .plot_resphase_maps import PlotResPhaseMaps
 from .plot_strike import PlotStrike
+from .panel_simpeg1d_app import Simpeg1DPanelApp
 
 __all__ = [
     "BokehPlotBase",
@@ -30,4 +31,5 @@ __all__ = [
     "PlotResPhasePseudoSection",
     "PlotResPhaseMaps",
     "PlotStrike",
+    "Simpeg1DPanelApp",
 ]

@@ -60,6 +60,7 @@ import param
 
 from mtpy.core.mt_collection import MTCollection
 from mtpy.core.mt_data import MTData
+from mtpy.imaging.bokeh_plots.panel_simpeg1d_app import Simpeg1DPanelApp
 from mtpy.imaging.bokeh_plots.plot_penetration_depth_1d import PlotPenetrationDepth1D
 
 
@@ -361,6 +362,9 @@ class MTDataApp(param.Parameterized):
         self._plot_generate_button.on_click(self._on_generate_plot_clicked)
         self.param.watch(self._on_mt_data_loaded_changed, "mt_data_loaded")
 
+        # ── Modeling tab app ─────────────────────────────────────────────
+        self._modeling_app = Simpeg1DPanelApp(sizing_mode=self.sizing_mode)
+
     # ── Public API ────────────────────────────────────────────────────────
 
     @property
@@ -448,6 +452,7 @@ class MTDataApp(param.Parameterized):
     def _on_reset_clicked(self, event: param.parameterized.Event) -> None:
         """Clear all loaded data and reset the app to its initial state."""
         self._mt_data = None
+        self._modeling_app.set_mt_data(None)
         self.mt_data_loaded = False
         self._save_button.disabled = True
         self._reset_button.disabled = True
@@ -686,11 +691,13 @@ class MTDataApp(param.Parameterized):
         self._plot_generate_button.disabled = not event.new
         if event.new and self._mt_data is not None:
             self._refresh_plot_station_picker()
+            self._modeling_app.set_mt_data(self._mt_data)
             self._plot_status.object = (
                 "_Select a plot type and click **Generate Plot**._"
             )
             self._plot_status.styles = {"color": "#555"}
         else:
+            self._modeling_app.set_mt_data(None)
             self._plot_station_widget.options = []
             self._plot_status.object = (
                 "_Load data first, then select a plot type and click "
@@ -1045,6 +1052,7 @@ class MTDataApp(param.Parameterized):
             pn.Tabs(
                 ("📂 Data", data_tab),
                 ("📊 Plots", plots_tab),
+                ("🧪 Modeling", self._modeling_app.view),
                 sizing_mode=self.sizing_mode,
             ),
             sizing_mode=self.sizing_mode,

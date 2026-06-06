@@ -678,7 +678,7 @@ def test_load_real_edi_file():
 
 @pytest.mark.plotting
 def test_view_has_tabs():
-    """view() should return a Column containing a pn.Tabs with two tabs."""
+    """view() should return a Column containing a pn.Tabs with three tabs."""
     app = _make_app()
     v = app.view
     assert isinstance(v, pn.Column)
@@ -687,6 +687,7 @@ def test_view_has_tabs():
     tab_names = tabs[0]._names
     assert "📂 Data" in tab_names
     assert "📊 Plots" in tab_names
+    assert "🧪 Modeling" in tab_names
 
 
 @pytest.mark.plotting
