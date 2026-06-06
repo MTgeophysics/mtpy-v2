@@ -189,6 +189,36 @@ class TestMTDataFrameZObject:
         assert new_z.frequency.size == mt_object.Z.frequency.size
         assert np.allclose(new_z.z, mt_object.Z.z)
 
+    def test_z_object_round_trip_ohm_units(self, mt_dataframe_ro, mt_object):
+        """Test Z conversion round-trip when dataframe uses ohm units."""
+        new_df = MTDataFrame(n_entries=mt_dataframe_ro.size)
+        new_df.from_z_object(mt_object.Z, units="ohm")
+
+        new_z = new_df.to_z_object(units="ohm")
+
+        expected_z = mt_object.Z.copy()
+        expected_z.output_units = "ohm"
+
+        assert new_z.input_units == "ohm"
+        assert new_z.output_units == "ohm"
+        assert np.allclose(new_z.z, expected_z.z)
+        assert np.allclose(
+            new_z._dataset.transfer_function.values,
+            mt_object.Z._dataset.transfer_function.values,
+        )
+
+    def test_from_z_object_does_not_mutate_output_units(
+        self, mt_dataframe_ro, mt_object
+    ):
+        """Test exporting with units does not mutate the input Z object."""
+        z_obj = mt_object.Z.copy()
+        z_obj.output_units = "mt"
+
+        new_df = MTDataFrame(n_entries=mt_dataframe_ro.size)
+        new_df.from_z_object(z_obj, units="ohm")
+
+        assert z_obj.output_units == "mt"
+
 
 class TestMTDataFrameTipperObject:
     """Test Tipper object conversion methods."""

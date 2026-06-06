@@ -986,7 +986,8 @@ class MT(TF, MTLocation):
         cols : list of str, optional
             Column names to include, by default None
         impedance_units : str, optional
-            Impedance units, "mt" [mV/km/nT] or "ohm" [Ohms], by default "mt"
+            Impedance output units in the dataframe,
+            "mt" [mV/km/nT] or "ohm" [Ohms], by default "mt"
 
         Returns
         -------
@@ -1017,8 +1018,10 @@ class MT(TF, MTLocation):
         mt_df.dataframe.loc[:, "period"] = self.period
         if self.has_impedance():
             z_object = self.Z
-            z_object.units = impedance_units
-            mt_df.from_z_object(z_object)
+            # Keep Z internal storage in mt units while exposing dataframe values
+            # in requested output units.
+            z_object.output_units = impedance_units
+            mt_df.from_z_object(z_object, units=impedance_units)
         if self.has_tipper():
             mt_df.from_t_object(self.Tipper)
 
@@ -1035,7 +1038,8 @@ class MT(TF, MTLocation):
         mt_df : MTDataFrame or DataFrame-like
             Dataframe containing MT data for a single station
         impedance_units : str, optional
-            Impedance units, "mt" [mV/km/nT] or "ohm" [Ohms], by default "mt"
+            Impedance units represented in the dataframe,
+            "mt" [mV/km/nT] or "ohm" [Ohms], by default "mt"
 
         Raises
         ------
@@ -1077,8 +1081,9 @@ class MT(TF, MTLocation):
 
         self.tf_id = self.station
 
-        z_obj = mt_df.to_z_object()
-        z_obj.units = impedance_units
+        # Construct with dataframe units so incoming arrays are interpreted
+        # correctly, and keep output units aligned with MT impedance units.
+        z_obj = mt_df.to_z_object(units=impedance_units)
         self.Z = z_obj
         self.Tipper = mt_df.to_t_object()
 
@@ -1542,7 +1547,9 @@ class MT(TF, MTLocation):
 
         return occam_data
 
-    def to_simpeg_1d(self, mode: str = "det", **kwargs: Any) -> Simpeg1D:
+    def to_simpeg_1d(
+        self, mode: str = "det", resistivity_error=10, phase_error=2.5, **kwargs: Any
+    ) -> Simpeg1D:
         """
         Run a 1D inversion using SimPEG.
 
@@ -1577,7 +1584,13 @@ class MT(TF, MTLocation):
         if not self.Z._has_tf_model_error():
             self.compute_model_z_errors()
             self.logger.info("Using default errors for impedance")
-        simpeg_1d = Simpeg1D(self.to_dataframe(), mode=mode, **kwargs)
+        simpeg_1d = Simpeg1D(
+            self.to_dataframe(impedance_units="mt"),
+            mode=mode,
+            resistivity_error=resistivity_error,
+            phase_error=phase_error,
+            **kwargs,
+        )
         simpeg_1d.run_fixed_layer_inversion(**kwargs)
         simpeg_1d.plot_model_fitting(fig_num=1)
         simpeg_1d.plot_response(fig_num=2, **kwargs)

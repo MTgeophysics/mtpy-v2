@@ -77,7 +77,9 @@ class Z(TFBase):
         z_error: np.ndarray | None = None,
         frequency: np.ndarray | None = None,
         z_model_error: np.ndarray | None = None,
-        units: str = "mt",
+        units: str | None = None,
+        input_units: str | None = None,
+        output_units: str | None = None,
     ) -> None:
         """
         Initialize an instance of the Z class.
@@ -96,24 +98,44 @@ class Z(TFBase):
         z_model_error : np.ndarray, optional
             Array containing model error values (n_frequency, 2, 2),
             by default None
-        units : str, optional
-            Units for impedance: 'mt' [mV/km/nT] or 'ohm' [Ohms],
-            by default 'mt'
+        units : str or None, optional
+            Backward-compatible alias for both input and output units,
+            by default None.
+        input_units : str or None, optional
+            Units of incoming impedance arrays (z, z_error, z_model_error),
+            by default None.
+        output_units : str or None, optional
+            Units for returned impedance arrays, by default None.
 
         """
 
         self._ohm_factor = MT_TO_OHM_FACTOR
         self._unit_factors = IMPEDANCE_UNITS
-        self.units = units
 
-        # if units input is ohms, then we want to scale them to mt units that
-        # way the underlying data is consistent in [mV/km/nT]
+        # Backward compatibility: if only `units` is provided, treat it as
+        # both input and output units.
+        if units is not None:
+            if input_units is None:
+                input_units = units
+            if output_units is None:
+                output_units = units
+
+        if input_units is None:
+            input_units = "mt"
+        if output_units is None:
+            output_units = "mt"
+
+        self.input_units = input_units
+        self.output_units = output_units
+
+        # Convert incoming values to internal mt units so storage is consistent
+        # in [mV/km/nT].
         if z is not None:
-            z = z * self._scale_factor
+            z = z * self._input_scale_factor
         if z_error is not None:
-            z_error = z_error * self._scale_factor
+            z_error = z_error * self._input_scale_factor
         if z_model_error is not None:
-            z_model_error = z_model_error * self._scale_factor
+            z_model_error = z_model_error * self._input_scale_factor
 
         super().__init__(
             tf=z,
@@ -124,30 +146,62 @@ class Z(TFBase):
         )
 
     @property
+    def input_units(self) -> str:
+        """Units for incoming impedance arrays."""
+        return self._input_units
+
+    @input_units.setter
+    def input_units(self, value: str) -> None:
+        self._input_units = self._validate_units(value)
+
+    @property
+    def output_units(self) -> str:
+        """Units for returned impedance arrays."""
+        return self._output_units
+
+    @output_units.setter
+    def output_units(self, value: str) -> None:
+        self._output_units = self._validate_units(value)
+
+    @property
     def units(self) -> str:
-        """Impedance units."""
-        return self._units
+        """Backward-compatible alias of output_units."""
+        return self.output_units
 
     @units.setter
     def units(self, value: str) -> None:
-        """Set impedance units (options: 'mt' or 'ohm')."""
+        """Set output units (backward-compatible alias)."""
+        self.output_units = value
+
+    def _validate_units(self, value: str) -> str:
+        """Validate impedance units (options: 'mt' or 'ohm')."""
         if not isinstance(value, str):
             raise TypeError("Units input must be a string.")
         if value.lower() not in self._unit_factors.keys():
             raise ValueError(f"{value} is not an acceptable unit for impedance.")
 
-        self._units = value
+        return value.lower()
+
+    @property
+    def _input_scale_factor(self) -> float:
+        """Unit scale factor for incoming arrays."""
+        return self._unit_factors[self.input_units]
+
+    @property
+    def _output_scale_factor(self) -> float:
+        """Unit scale factor for returned arrays."""
+        return self._unit_factors[self.output_units]
 
     @property
     def _scale_factor(self) -> float:
-        """Unit scale factor."""
-        return self._unit_factors[self._units]
+        """Backward-compatible alias of output scale factor."""
+        return self._output_scale_factor
 
     @property
     def z(self) -> np.ndarray | None:
         """Impedance tensor array (nfrequency, 2, 2)."""
         if self._has_tf():
-            return self._dataset.transfer_function.values / self._scale_factor
+            return self._dataset.transfer_function.values / self._output_scale_factor
 
     @z.setter
     def z(self, z: np.ndarray | None) -> None:
@@ -174,6 +228,8 @@ class Z(TFBase):
         if z is None:
             return
 
+        z = z * self._input_scale_factor
+
         if self._is_empty():
             self._dataset = self._initialize(tf=z)
         else:
@@ -184,7 +240,9 @@ class Z(TFBase):
     def z_error(self) -> np.ndarray | None:
         """Error of impedance tensor array as standard deviation."""
         if self._has_tf_error():
-            return self._dataset.transfer_function_error.values / self._scale_factor
+            return (
+                self._dataset.transfer_function_error.values / self._output_scale_factor
+            )
 
     @z_error.setter
     def z_error(self, z_error: np.ndarray | None) -> None:
@@ -211,6 +269,8 @@ class Z(TFBase):
         if z_error is None:
             return
 
+        z_error = z_error * self._input_scale_factor
+
         if self._is_empty():
             self._dataset = self._initialize(tf_error=z_error)
         else:
@@ -222,7 +282,8 @@ class Z(TFBase):
         """Model error of impedance tensor array as standard deviation."""
         if self._has_tf_model_error():
             return (
-                self._dataset.transfer_function_model_error.values / self._scale_factor
+                self._dataset.transfer_function_model_error.values
+                / self._output_scale_factor
             )
 
     @z_model_error.setter
@@ -253,6 +314,8 @@ class Z(TFBase):
 
         if z_model_error is None:
             return
+
+        z_model_error = z_model_error * self._input_scale_factor
 
         if self._is_empty():
             self._dataset = self._initialize(tf_error=z_model_error)
@@ -344,7 +407,7 @@ class Z(TFBase):
                 z_error=self.z_error,
                 frequency=self.frequency,
                 z_model_error=self.z_model_error,
-                units=self.units,
+                units=self.output_units,
             )
 
     def remove_distortion(
@@ -412,21 +475,24 @@ class Z(TFBase):
                 z_error=z_corrected_error,
                 frequency=self.frequency,
                 z_model_error=self.z_model_error,
+                input_units="mt",
+                output_units=self.output_units,
             )
-            z_object.units = self.units
             return z_object
 
     @property
     def resistivity(self) -> np.ndarray | None:
         """Resistivity of impedance."""
-        if self.z is not None:
-            return compute_resistivity(self.z * self._scale_factor, self.frequency)
+        if self._has_tf():
+            return compute_resistivity(
+                self._dataset.transfer_function.values, self.frequency
+            )
 
     @property
     def phase(self) -> np.ndarray | None:
         """Phase of impedance."""
-        if self.z is not None:
-            return compute_phase(self.z * self._scale_factor)
+        if self._has_tf():
+            return compute_phase(self._dataset.transfer_function.values)
 
     @property
     def resistivity_error(self) -> np.ndarray | None:
@@ -437,10 +503,10 @@ class Z(TFBase):
         2 * relative error in z amplitude.
 
         """
-        if self.z is not None and self.z_error is not None:
+        if self._has_tf() and self._has_tf_error():
             return compute_resistivity_error(
-                self.z * self._scale_factor,
-                self.z_error * self._scale_factor,
+                self._dataset.transfer_function.values,
+                self._dataset.transfer_function_error.values,
                 self.frequency,
             )
 
@@ -455,24 +521,30 @@ class Z(TFBase):
         tangent to the circle.
 
         """
-        if self.z is not None and self.z_error is not None:
-            return compute_phase_error(self.z, self.z_error)
+        if self._has_tf() and self._has_tf_error():
+            return compute_phase_error(
+                self._dataset.transfer_function.values,
+                self._dataset.transfer_function_error.values,
+            )
 
     @property
     def resistivity_model_error(self) -> np.ndarray | None:
         """Resistivity model error of impedance."""
-        if self.z is not None and self.z_model_error is not None:
+        if self._has_tf() and self._has_tf_model_error():
             return compute_resistivity_error(
-                self.z * self._scale_factor,
-                self.z_model_error * self._scale_factor,
+                self._dataset.transfer_function.values,
+                self._dataset.transfer_function_model_error.values,
                 self.frequency,
             )
 
     @property
     def phase_model_error(self) -> np.ndarray | None:
         """Phase model error of impedance."""
-        if self.z is not None and self.z_model_error is not None:
-            return compute_phase_error(self.z, self.z_model_error)
+        if self._has_tf() and self._has_tf_model_error():
+            return compute_phase_error(
+                self._dataset.transfer_function.values,
+                self._dataset.transfer_function_model_error.values,
+            )
 
     def _compute_z_error(
         self, res_error: np.ndarray | None, phase_error: np.ndarray | None
@@ -627,14 +699,18 @@ class Z(TFBase):
     def res_det(self) -> np.ndarray | None:
         """Resistivity determinant."""
         if self.det is not None:
-            return 0.2 * (1.0 / self.frequency) * abs(self.det) ** 2
+            return (
+                0.2 * (1.0 / self.frequency) * abs(self.det / self._scale_factor) ** 2
+            )
 
     @property
     def res_error_det(self) -> np.ndarray | None:
         """Resistivity error determinant."""
         if self.det_error is not None:
             return (
-                0.2 * (1.0 / self.frequency) * np.abs(self.det + self.det_error) ** 2
+                0.2
+                * (1.0 / self.frequency)
+                * np.abs((self.det + self.det_error) / self._scale_factor) ** 2
                 - self.res_det
             )
 
@@ -645,7 +721,7 @@ class Z(TFBase):
             return (
                 0.2
                 * (1.0 / self.frequency)
-                * np.abs(self.det + self.det_model_error) ** 2
+                * np.abs((self.det + self.det_model_error) / self._scale_factor) ** 2
                 - self.res_det
             )
 

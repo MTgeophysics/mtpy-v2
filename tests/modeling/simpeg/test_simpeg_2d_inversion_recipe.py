@@ -176,6 +176,12 @@ class TestSimpeg2DRecipeRun(unittest.TestCase):
             len(self.simpeg_inversion.iterations.keys()), self.n_iterations
         )
 
+    # def test_fit(self):
+    #     final_misfit = self.simpeg_inversion.iterations[self.n_iterations - 1][
+    #         "data_misfit"
+    #     ]
+    #     self.assertLess(final_misfit, self.simpeg_inversion.target_misfit._chifact)
+
 
 # =============================================================================
 # run
