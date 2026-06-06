@@ -104,7 +104,7 @@ _PLOT_TYPES: dict[str, tuple[str, bool]] = {
     "MT Responses (multiple stations)": ("plot_mt_responses", False),
     "Phase Tensor (single station)": ("plot_phase_tensor", True),
     "Phase Tensor Map": ("plot_phase_tensor_map", False),
-    "Tipper Map": ("plot_tipper_map", False),
+    # "Tipper Map": ("plot_tipper_map", False),
     "Phase Tensor Pseudosection": ("plot_phase_tensor_pseudosection", False),
     "Penetration Depth 1D (single station)": ("plot_penetration_depth_1d", True),
     "Penetration Depth Map": ("plot_penetration_depth_map", False),
