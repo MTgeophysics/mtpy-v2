@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-
 panel = pytest.importorskip("panel")
 
 import panel as pn
@@ -22,7 +21,6 @@ from mtpy.imaging.bokeh_plots.panel_mt_data_app import (
     MTDataApp,
     SUPPORTED_TF_SUFFIXES,
 )
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

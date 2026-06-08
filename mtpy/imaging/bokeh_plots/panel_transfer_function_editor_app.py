@@ -20,7 +20,6 @@ from bokeh.layouts import column as bk_column
 from bokeh.models import BoxSelectTool, ColumnDataSource, Whisker
 from bokeh.plotting import figure
 
-
 try:
     from mtpy.modeling.simpeg.recipes.inversion_1d import Simpeg1D as _Simpeg1D
 except ImportError:  # pragma: no cover
@@ -54,9 +53,9 @@ class TransferFunctionSeriesEditor(param.Parameterized):
         self.y_axis_type = y_axis_type
         self._default_color = color
         self._default_marker = "circle"
-        self._frame_builder: Callable[
-            [str | None, str | None], _FrameBundle
-        ] | None = None
+        self._frame_builder: Callable[[str | None, str | None], _FrameBundle] | None = (
+            None
+        )
         self._working_frames: dict[tuple[str | None, str | None], pd.DataFrame] = {}
         self._original_frames: dict[tuple[str | None, str | None], pd.DataFrame] = {}
         self._active_key: tuple[str | None, str | None] | None = None

@@ -66,7 +66,6 @@ from mtpy.imaging.bokeh_plots.panel_transfer_function_editor_app import (
 )
 from mtpy.imaging.bokeh_plots.plot_penetration_depth_1d import PlotPenetrationDepth1D
 
-
 pn.extension("tabulator")
 
 
