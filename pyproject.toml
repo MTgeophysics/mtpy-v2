@@ -45,6 +45,8 @@ dependencies = [
     "pyevtk",
     "simpeg",
     "aurora",
+    "bokeh",
+    "panel",
 ]
 
 [project.optional-dependencies]

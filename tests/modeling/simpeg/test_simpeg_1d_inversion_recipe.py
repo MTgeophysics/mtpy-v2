@@ -88,6 +88,19 @@ def test_phase_for_plotting_conversion(simpeg_1d_factory):
     assert np.allclose(phase_out, np.array([0.0, 45.0, 90.0, 20.0]))
 
 
+@pytest.mark.unit
+def test_det_mode_tolerates_none_model_error_values(mt_dataframe):
+    """det mode should handle None-valued error entries without TypeError."""
+    bad_df = mt_dataframe.copy(deep=True)
+    for col in ["z_xx_error", "z_xy_error", "z_yx_error", "z_yy_error"]:
+        if col in bad_df.columns and len(bad_df) > 0:
+            bad_df.loc[bad_df.index[0], col] = None
+
+    simpeg_1d = Simpeg1D(mt_dataframe=bad_df, mode="det")
+
+    assert not simpeg_1d._sub_df.empty
+
+
 @pytest.mark.integration
 @pytest.mark.skipif(
     sys.platform.startswith("win"),

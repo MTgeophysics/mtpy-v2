@@ -2356,7 +2356,9 @@ class TestMTDataPlottingCompatibility:
 
         monkeypatch.setattr(tree, "get_station", _fake_get_station)
 
-        out = tree.plot_phase_tensor(station_key=station_path, color="k")
+        out = tree.plot_phase_tensor(
+            station_key=station_path, color="k", backend="matplotlib"
+        )
 
         assert out == "phase_tensor_plot"
         assert called["station_key"] == station_path
@@ -2383,7 +2385,9 @@ class TestMTDataPlottingCompatibility:
             mt_data_module, "PlotPhaseTensorPseudoSection", _fake_plotter
         )
 
-        out = tree.plot_phase_tensor_pseudosection(mt_data=other, foo=1)
+        out = tree.plot_phase_tensor_pseudosection(
+            mt_data=other, foo=1, backend="matplotlib"
+        )
 
         assert out == "pseudo"
         assert captured["mt_data"] is other
@@ -2415,7 +2419,9 @@ class TestMTDataPlottingCompatibility:
         monkeypatch.setattr(tree, "apply_bounding_box", _fake_apply_bounding_box)
         monkeypatch.setattr(mt_data_module, "PlotStations", _fake_plot_stations)
 
-        out = tree.plot_stations(map_epsg=3857, bounding_box=(0, 1, 2, 3))
+        out = tree.plot_stations(
+            map_epsg=3857, bounding_box=(0, 1, 2, 3), backend="matplotlib"
+        )
 
         assert out == "stations_plot"
         assert captured["bbox"] == (0, 1, 2, 3)
@@ -2439,7 +2445,9 @@ class TestMTDataPlottingCompatibility:
 
         monkeypatch.setattr(mt_data_module, "PlotPhaseTensorMaps", _fake_plotter)
 
-        out = tree.plot_tipper_map(plot_pt=True, plot_tipper="abc")
+        out = tree.plot_tipper_map(
+            plot_pt=True, plot_tipper="abc", backend="matplotlib"
+        )
 
         assert out == "tipper"
         assert captured["mt_data"] is tree
@@ -2467,8 +2475,8 @@ class TestMTDataPlottingCompatibility:
         monkeypatch.setattr(mt_data_module, "PlotResPhaseMaps", _fake_maps)
         monkeypatch.setattr(mt_data_module, "PlotResPhasePseudoSection", _fake_ps)
 
-        out_maps = tree.plot_resistivity_phase_maps(a=1)
-        out_ps = tree.plot_resistivity_phase_pseudosections(b=2)
+        out_maps = tree.plot_resistivity_phase_maps(a=1, backend="matplotlib")
+        out_ps = tree.plot_resistivity_phase_pseudosections(b=2, backend="matplotlib")
 
         assert out_maps == "maps"
         assert out_ps == "ps"
@@ -2494,7 +2502,7 @@ class TestMTDataPlottingCompatibility:
 
         monkeypatch.setattr(mt_data_module, "PlotPenetrationDepthMap", _fake_plotter)
 
-        out = tree.plot_penetration_depth_map(plot_period=10)
+        out = tree.plot_penetration_depth_map(plot_period=10, backend="matplotlib")
 
         assert out == "depth_map"
         assert captured["mt_data"] is tree
