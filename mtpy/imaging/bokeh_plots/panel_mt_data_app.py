@@ -61,7 +61,11 @@ import param
 from mtpy.core.mt_collection import MTCollection
 from mtpy.core.mt_data import MTData
 from mtpy.imaging.bokeh_plots.panel_simpeg1d_app import Simpeg1DPanelApp
+from mtpy.imaging.bokeh_plots.panel_transfer_function_editor_app import (
+    TransferFunctionEditorPanelApp,
+)
 from mtpy.imaging.bokeh_plots.plot_penetration_depth_1d import PlotPenetrationDepth1D
+
 
 pn.extension("tabulator")
 
@@ -363,6 +367,9 @@ class MTDataApp(param.Parameterized):
 
         # ── Modeling tab app ─────────────────────────────────────────────
         self._modeling_app = Simpeg1DPanelApp(sizing_mode=self.sizing_mode)
+        self._tf_editor_app = TransferFunctionEditorPanelApp(
+            sizing_mode=self.sizing_mode
+        )
 
     # ── Public API ────────────────────────────────────────────────────────
 
@@ -452,6 +459,7 @@ class MTDataApp(param.Parameterized):
         """Clear all loaded data and reset the app to its initial state."""
         self._mt_data = None
         self._modeling_app.set_mt_data(None)
+        self._tf_editor_app.set_mt_data(None)
         self.mt_data_loaded = False
         self._save_button.disabled = True
         self._reset_button.disabled = True
@@ -691,12 +699,14 @@ class MTDataApp(param.Parameterized):
         if event.new and self._mt_data is not None:
             self._refresh_plot_station_picker()
             self._modeling_app.set_mt_data(self._mt_data)
+            self._tf_editor_app.set_mt_data(self._mt_data)
             self._plot_status.object = (
                 "_Select a plot type and click **Generate Plot**._"
             )
             self._plot_status.styles = {"color": "#555"}
         else:
             self._modeling_app.set_mt_data(None)
+            self._tf_editor_app.set_mt_data(None)
             self._plot_station_widget.options = []
             self._plot_status.object = (
                 "_Load data first, then select a plot type and click "
@@ -1051,6 +1061,7 @@ class MTDataApp(param.Parameterized):
             pn.Tabs(
                 ("📂 Data", data_tab),
                 ("📊 Plots", plots_tab),
+                ("✏️ TF Editor", self._tf_editor_app.view),
                 ("🧪 Modeling", self._modeling_app.view),
                 sizing_mode=self.sizing_mode,
             ),

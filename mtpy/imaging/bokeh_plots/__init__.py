@@ -15,6 +15,7 @@ from .plot_pseudosection import PlotResPhasePseudoSection
 from .plot_resphase_maps import PlotResPhaseMaps
 from .plot_strike import PlotStrike
 from .panel_simpeg1d_app import Simpeg1DPanelApp
+from .panel_transfer_function_editor_app import TransferFunctionEditorPanelApp
 
 __all__ = [
     "BokehPlotBase",
@@ -32,4 +33,5 @@ __all__ = [
     "PlotResPhaseMaps",
     "PlotStrike",
     "Simpeg1DPanelApp",
+    "TransferFunctionEditorPanelApp",
 ]

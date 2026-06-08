@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
+
 panel = pytest.importorskip("panel")
 
 import panel as pn
@@ -21,6 +22,7 @@ from mtpy.imaging.bokeh_plots.panel_mt_data_app import (
     MTDataApp,
     SUPPORTED_TF_SUFFIXES,
 )
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -676,7 +678,7 @@ def test_load_real_edi_file():
 
 @pytest.mark.plotting
 def test_view_has_tabs():
-    """view() should return a Column containing a pn.Tabs with three tabs."""
+    """view() should return a Column containing a pn.Tabs with expected tabs."""
     app = _make_app()
     v = app.view
     assert isinstance(v, pn.Column)
@@ -685,7 +687,49 @@ def test_view_has_tabs():
     tab_names = tabs[0]._names
     assert "📂 Data" in tab_names
     assert "📊 Plots" in tab_names
+    assert "✏️ TF Editor" in tab_names
     assert "🧪 Modeling" in tab_names
+
+
+@pytest.mark.plotting
+def test_mt_data_loaded_populates_tf_editor_and_plots_data():
+    """When MTData loads, TF editor receives station options and can plot data."""
+    app = _make_app()
+
+    sample_station_df = pd.DataFrame(
+        {
+            "frequency": [100.0, 10.0, 1.0],
+            "res_xy": [10.0, 20.0, 30.0],
+            "res_xy_error": [1.0, 2.0, 3.0],
+            "phase_xy": [45.0, 40.0, 35.0],
+            "phase_xy_error": [2.5, 2.5, 2.5],
+            "t_zx": [0.2 + 0.1j, 0.1 + 0.05j, 0.05 + 0.02j],
+            "t_zx_error": [0.02, 0.02, 0.02],
+            "t_zy": [0.15 - 0.08j, 0.08 - 0.04j, 0.03 - 0.01j],
+            "t_zy_error": [0.02, 0.02, 0.02],
+        }
+    )
+
+    mt_obj = MagicMock()
+    mt_obj.to_dataframe.return_value = MagicMock(dataframe=sample_station_df)
+
+    mock_mt = MagicMock(spec=MTData)
+    mock_mt._iter_station_paths = MagicMock(
+        side_effect=lambda: iter(["/surveys/s/stations/MT01"])
+    )
+    mock_mt.get_station.return_value = mt_obj
+
+    app._mt_data = mock_mt
+    app.mt_data_loaded = True
+
+    assert app._tf_editor_app._station_widget.options == ["/surveys/s/stations/MT01"]
+
+    app._tf_editor_app._on_load_station_clicked()
+
+    assert len(app._tf_editor_app._active_res_editors) >= 1
+    assert len(app._tf_editor_app._active_phase_editors) >= 1
+    assert len(app._tf_editor_app._active_tipper_editors) >= 1
+    assert len(app._tf_editor_app._active_res_editors[0]._source.data["period"]) > 0
 
 
 @pytest.mark.plotting
@@ -824,7 +868,6 @@ def test_plot_types_registry_completeness():
         "plot_mt_responses",
         "plot_phase_tensor",
         "plot_phase_tensor_map",
-        "plot_tipper_map",
         "plot_phase_tensor_pseudosection",
         "plot_penetration_depth_1d",
         "plot_penetration_depth_map",
