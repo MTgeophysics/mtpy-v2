@@ -126,6 +126,7 @@ class TransferFunctionSeriesEditor(param.Parameterized):
                 "error": [],
                 "value_upper": [],
                 "value_lower": [],
+                "tf_index": [],
                 "use": [],
                 "marker": [],
                 "color": [],
@@ -266,6 +267,7 @@ class TransferFunctionSeriesEditor(param.Parameterized):
                 "error": [],
                 "value_upper": [],
                 "value_lower": [],
+                "tf_index": [],
                 "use": [],
                 "marker": [],
                 "color": [],
@@ -276,6 +278,11 @@ class TransferFunctionSeriesEditor(param.Parameterized):
         values = frame["value"].to_numpy(dtype=float)
         errors = frame["error"].to_numpy(dtype=float)
         use = frame["use"].to_numpy(dtype=bool)
+        tf_index = (
+            frame["tf_index"].to_numpy(dtype=int)
+            if "tf_index" in frame.columns
+            else np.arange(len(frame), dtype=int)
+        )
 
         # Keep the source free of invalid points for log axes.
         valid = np.isfinite(periods) & np.isfinite(values) & np.isfinite(errors)
@@ -288,6 +295,7 @@ class TransferFunctionSeriesEditor(param.Parameterized):
         values = values[valid]
         errors = errors[valid]
         use = use[valid]
+        tf_index = tf_index[valid]
 
         marked = np.zeros(len(values), dtype=bool)
         for idx in self._marked_for_deletion:
@@ -314,6 +322,7 @@ class TransferFunctionSeriesEditor(param.Parameterized):
             "error": list(errors),
             "value_upper": list(value_upper),
             "value_lower": list(value_lower),
+            "tf_index": list(tf_index),
             "use": list(use),
             "marker": list(markers),
             "color": list(colors),
@@ -467,6 +476,7 @@ class TransferFunctionEditorPanelApp(param.Parameterized):
         super().__init__(**params)
 
         self._mt_data = mt_data
+        self._mt_obj = None
         self._station_df_full: pd.DataFrame | None = None
         self._series_editors: dict[
             tuple[str, str, str | None], TransferFunctionSeriesEditor
@@ -511,6 +521,41 @@ class TransferFunctionEditorPanelApp(param.Parameterized):
         self._res_row_container = pn.Row(sizing_mode="stretch_width")
         self._phase_row_container = pn.Row(sizing_mode="stretch_width")
         self._tipper_row_container = pn.Row(sizing_mode="stretch_width")
+        self._combined_plot_pane = pn.pane.Bokeh(
+            sizing_mode="stretch_width", min_height=1020
+        )
+        self._source_meta: dict[int, tuple[str, str, str | None]] = {}
+
+        self._edit_action_widget = pn.widgets.Select(
+            name="Edit action",
+            options=["Delete selected", "Add impedance error", "Add tipper error"],
+            value="Delete selected",
+            width=180,
+        )
+        self._res_error_add_widget = pn.widgets.FloatInput(
+            name="Res error add (%)",
+            value=10.0,
+            step=0.5,
+            width=150,
+        )
+        self._phase_error_add_widget = pn.widgets.FloatInput(
+            name="Phase error add (deg)",
+            value=2.5,
+            step=0.1,
+            width=170,
+        )
+        self._tipper_error_add_widget = pn.widgets.FloatInput(
+            name="Tipper error add (%)",
+            value=10.0,
+            step=0.5,
+            width=160,
+        )
+        self._apply_selected_button = pn.widgets.Button(
+            name="Apply to Selected",
+            button_type="warning",
+            width=150,
+        )
+        self._apply_selected_button.on_click(self._on_apply_selected_clicked)
 
         self._res_placeholder = pn.pane.Markdown(
             "_Load a station to display apparent resistivity editors._",
@@ -829,6 +874,7 @@ class TransferFunctionEditorPanelApp(param.Parameterized):
             )
 
         period = 1.0 / pd.to_numeric(frequency, errors="coerce")
+        tf_index = np.arange(len(df), dtype=int)
         use = np.ones(len(df), dtype=bool)
 
         if prefix in {"res", "phase"}:
@@ -852,6 +898,7 @@ class TransferFunctionEditorPanelApp(param.Parameterized):
             frame = pd.DataFrame(
                 {
                     "period": period,
+                    "tf_index": tf_index,
                     "value": value,
                     "error": error,
                     "use": use,
@@ -892,6 +939,7 @@ class TransferFunctionEditorPanelApp(param.Parameterized):
         frame = pd.DataFrame(
             {
                 "period": period,
+                "tf_index": tf_index,
                 "value": values,
                 "error": error,
                 "use": use,
@@ -1055,6 +1103,315 @@ class TransferFunctionEditorPanelApp(param.Parameterized):
             else [pn.pane.Markdown("_No tipper data for this selection._")]
         )
 
+    def _build_combined_edit_figure(self):
+        """Build a single Bokeh layout containing resistivity/phase/tipper subplots."""
+
+        if self._station_df_full is None:
+            return None
+
+        self._source_meta = {}
+        color_i = 0
+        palette = [
+            "#1f77b4",
+            "#2ca02c",
+            "#ff7f0e",
+            "#9467bd",
+            "#d62728",
+            "#17becf",
+            "#8c564b",
+            "#e377c2",
+        ]
+
+        res_fig = figure(
+            title="Apparent Resistivity",
+            x_axis_type="log",
+            y_axis_type="log",
+            tools="pan,wheel_zoom,box_zoom,reset,save,tap,box_select,lasso_select",
+            active_scroll="wheel_zoom",
+            height=330,
+            width=1200,
+        )
+        phase_fig = figure(
+            title="Phase",
+            x_axis_type="log",
+            x_range=res_fig.x_range,
+            tools="pan,wheel_zoom,box_zoom,reset,save,tap,box_select,lasso_select",
+            active_scroll="wheel_zoom",
+            height=300,
+            width=1200,
+        )
+        tip_fig = figure(
+            title="Tipper",
+            x_axis_type="log",
+            x_range=res_fig.x_range,
+            tools="pan,wheel_zoom,box_zoom,reset,save,tap,box_select,lasso_select",
+            active_scroll="wheel_zoom",
+            height=300,
+            width=1200,
+        )
+
+        for editor in self._active_res_editors:
+            source = editor._source
+            color = palette[color_i % len(palette)]
+            color_i += 1
+            self._source_meta[id(source)] = ("res", editor._current_key()[0], None)
+            res_fig.scatter(
+                "period",
+                "value",
+                source=source,
+                color=color,
+                size=7,
+                legend_label=str(editor._current_key()[0]),
+            )
+            res_fig.add_layout(
+                Whisker(
+                    source=source,
+                    base="period",
+                    upper="value_upper",
+                    lower="value_lower",
+                    line_color=color,
+                )
+            )
+
+        for editor in self._active_phase_editors:
+            source = editor._source
+            color = palette[color_i % len(palette)]
+            color_i += 1
+            self._source_meta[id(source)] = ("phase", editor._current_key()[0], None)
+            phase_fig.scatter(
+                "period",
+                "value",
+                source=source,
+                color=color,
+                size=7,
+                legend_label=str(editor._current_key()[0]),
+            )
+            phase_fig.add_layout(
+                Whisker(
+                    source=source,
+                    base="period",
+                    upper="value_upper",
+                    lower="value_lower",
+                    line_color=color,
+                )
+            )
+
+        for editor in self._active_tipper_editors:
+            source = editor._source
+            comp, view = editor._current_key()[0], editor._current_key()[1]
+            color = palette[color_i % len(palette)]
+            color_i += 1
+            self._source_meta[id(source)] = ("tipper", comp, view)
+            tip_fig.scatter(
+                "period",
+                "value",
+                source=source,
+                color=color,
+                size=7,
+                legend_label=f"{comp}:{view}",
+            )
+            tip_fig.add_layout(
+                Whisker(
+                    source=source,
+                    base="period",
+                    upper="value_upper",
+                    lower="value_lower",
+                    line_color=color,
+                )
+            )
+
+        res_fig.legend.click_policy = "hide"
+        phase_fig.legend.click_policy = "hide"
+        tip_fig.legend.click_policy = "hide"
+        phase_fig.xaxis.axis_label = "Period (s)"
+        tip_fig.xaxis.axis_label = "Period (s)"
+        res_fig.yaxis.axis_label = "Resistivity (ohm-m)"
+        phase_fig.yaxis.axis_label = "Phase (deg)"
+        tip_fig.yaxis.axis_label = "Tipper"
+
+        return bk_column(res_fig, phase_fig, tip_fig, sizing_mode="stretch_width")
+
+    def _refresh_combined_plot(self) -> None:
+        self._combined_plot_pane.object = self._build_combined_edit_figure()
+
+    @staticmethod
+    def _z_component_targets(component: str) -> list[tuple[int, int]]:
+        if component == "xx":
+            return [(0, 0)]
+        if component == "xy":
+            return [(0, 1)]
+        if component == "yx":
+            return [(1, 0)]
+        if component == "yy":
+            return [(1, 1)]
+        # determinant affects all tensor components
+        return [(0, 0), (0, 1), (1, 0), (1, 1)]
+
+    def _collect_selected_points(self) -> list[tuple[str, str, str | None, int]]:
+        selected: list[tuple[str, str, str | None, int]] = []
+        editors = (
+            self._active_res_editors
+            + self._active_phase_editors
+            + self._active_tipper_editors
+        )
+        for editor in editors:
+            source = editor._source
+            meta = self._source_meta.get(id(source))
+            if meta is None:
+                continue
+            kind, comp, view = meta
+            tf_indices = source.data.get("tf_index", [])
+            for idx in source.selected.indices:
+                if idx < len(tf_indices):
+                    selected.append((kind, comp, view, int(tf_indices[idx])))
+        return selected
+
+    def _capture_use_state(self) -> dict[tuple[str, str, str | None], dict[int, bool]]:
+        state: dict[tuple[str, str, str | None], dict[int, bool]] = {}
+        for key, editor in self._series_editors.items():
+            comp, view = key[1], key[2]
+            frame = editor.get_frame(component=comp, view=view)
+            if frame.empty or "tf_index" not in frame.columns:
+                continue
+            state[key] = {
+                int(i): bool(u)
+                for i, u in zip(frame["tf_index"].to_numpy(), frame["use"].to_numpy())
+            }
+        return state
+
+    def _restore_use_state(
+        self, state: dict[tuple[str, str, str | None], dict[int, bool]]
+    ) -> None:
+        for key, mapping in state.items():
+            editor = self._series_editors.get(key)
+            if editor is None:
+                continue
+            comp, view = key[1], key[2]
+            frame = editor.get_frame(component=comp, view=view)
+            if frame.empty or "tf_index" not in frame.columns:
+                continue
+            frame["use"] = (
+                frame["tf_index"].map(mapping).fillna(frame["use"]).astype(bool)
+            )
+            editor._working_frames[(comp, view)] = frame.copy()
+            if editor._active_key == (comp, view):
+                editor._working_frame = frame.copy()
+                editor._refresh_source()
+
+    def _increase_impedance_error_from_selection(
+        self, selected: list[tuple[str, str, str | None, int]]
+    ) -> None:
+        if self._mt_obj is None or getattr(self._mt_obj, "Z", None) is None:
+            return
+
+        z_obj = self._mt_obj.Z
+        if z_obj.resistivity is None or z_obj.phase is None:
+            return
+
+        res_err = z_obj.resistivity_error
+        phase_err = z_obj.phase_error
+        if res_err is None:
+            res_err = np.zeros_like(z_obj.resistivity, dtype=float)
+        if phase_err is None:
+            phase_err = np.zeros_like(z_obj.phase, dtype=float)
+
+        res_pct = float(self._res_error_add_widget.value)
+        phase_abs = float(self._phase_error_add_widget.value)
+
+        for kind, comp, _view, tf_idx in selected:
+            if kind not in {"res", "phase"}:
+                continue
+            for ii, jj in self._z_component_targets(comp):
+                res_err[tf_idx, ii, jj] = np.maximum(
+                    float(res_err[tf_idx, ii, jj]),
+                    abs(float(z_obj.resistivity[tf_idx, ii, jj])) * res_pct / 100.0,
+                )
+                phase_err[tf_idx, ii, jj] = np.maximum(
+                    float(phase_err[tf_idx, ii, jj]), phase_abs
+                )
+
+        z_obj.z_error = z_obj._compute_z_error(res_err, phase_err)
+
+    def _increase_tipper_error_from_selection(
+        self, selected: list[tuple[str, str, str | None, int]]
+    ) -> None:
+        if self._mt_obj is None or getattr(self._mt_obj, "Tipper", None) is None:
+            return
+
+        t_obj = self._mt_obj.Tipper
+        if t_obj.tipper is None:
+            return
+        t_err = t_obj.tipper_error
+        if t_err is None:
+            t_err = np.zeros_like(np.abs(t_obj.tipper), dtype=float)
+
+        tip_pct = float(self._tipper_error_add_widget.value)
+        for kind, comp, _view, tf_idx in selected:
+            if kind != "tipper":
+                continue
+            jj = 0 if comp == "zx" else 1
+            base_val = abs(t_obj.tipper[tf_idx, 0, jj]) * tip_pct / 100.0
+            t_err[tf_idx, 0, jj] = np.maximum(float(t_err[tf_idx, 0, jj]), base_val)
+        t_obj.tipper_error = t_err
+
+    def _delete_selected_points(
+        self, selected: list[tuple[str, str, str | None, int]]
+    ) -> None:
+        by_key: dict[tuple[str, str, str | None], set[int]] = {}
+        for kind, comp, view, tf_idx in selected:
+            prefix = "t" if kind == "tipper" else kind
+            key = (prefix, comp, view)
+            by_key.setdefault(key, set()).add(tf_idx)
+
+        for key, idxs in by_key.items():
+            editor = self._series_editors.get(key)
+            if editor is None:
+                continue
+            comp, view = key[1], key[2]
+            frame = editor.get_frame(component=comp, view=view)
+            if frame.empty or "tf_index" not in frame.columns:
+                continue
+            frame.loc[frame["tf_index"].isin(idxs), "use"] = False
+            editor._working_frames[(comp, view)] = frame.copy()
+            if editor._active_key == (comp, view):
+                editor._working_frame = frame.copy()
+                editor._refresh_source()
+
+    def _on_apply_selected_clicked(self, _event=None) -> None:
+        selected = self._collect_selected_points()
+        if not selected:
+            self._status.object = "⚠️ Select one or more points first."
+            self._status.styles = {"color": "#7a5200"}
+            return
+
+        action = str(self._edit_action_widget.value)
+        preserved = self._capture_use_state()
+
+        if action == "Delete selected":
+            self._delete_selected_points(selected)
+        elif action == "Add impedance error":
+            self._increase_impedance_error_from_selection(selected)
+            if self._mt_obj is not None:
+                self._station_df_full = self._sanitize_station_dataframe(
+                    self._mt_obj.to_dataframe().dataframe
+                )
+                self._load_station_into_editors()
+                self._restore_use_state(preserved)
+        elif action == "Add tipper error":
+            self._increase_tipper_error_from_selection(selected)
+            if self._mt_obj is not None:
+                self._station_df_full = self._sanitize_station_dataframe(
+                    self._mt_obj.to_dataframe().dataframe
+                )
+                self._load_station_into_editors()
+                self._restore_use_state(preserved)
+
+        self._refresh_combined_plot()
+        self._status.object = (
+            f"✅ Applied '{action}' to {len(selected)} selected point(s)."
+        )
+        self._status.styles = {"color": "#1a6600"}
+
     def _on_dimension_changed(self, _event=None) -> None:
         dimensionality = str(self._edit_dimension_widget.value)
         if dimensionality == "1D":
@@ -1073,6 +1430,7 @@ class TransferFunctionEditorPanelApp(param.Parameterized):
             self._edit_mode_widget.disabled = True
 
         self._refresh_editor_rows()
+        self._refresh_combined_plot()
 
     def _load_station_into_editors(self) -> None:
         self._refresh_editor_rows()
@@ -1101,11 +1459,13 @@ class TransferFunctionEditorPanelApp(param.Parameterized):
 
         try:
             mt_obj = self._mt_data.get_station(station_key, as_mt=True)
+            self._mt_obj = mt_obj
             station_df = self._sanitize_station_dataframe(
                 mt_obj.to_dataframe().dataframe
             )
             self._station_df_full = station_df
             self._load_station_into_editors()
+            self._refresh_combined_plot()
             self._output.object = ""
             self._status.object = (
                 f"✅ Loaded station `{station_key}` for transfer-function editing."
@@ -1387,13 +1747,16 @@ class TransferFunctionEditorPanelApp(param.Parameterized):
             ),
             pn.Row(self._station_widget, self._load_button, align="end"),
             pn.Row(self._edit_dimension_widget, self._edit_mode_widget, align="end"),
+            pn.Row(
+                self._edit_action_widget,
+                self._res_error_add_widget,
+                self._phase_error_add_widget,
+                self._tipper_error_add_widget,
+                self._apply_selected_button,
+                align="end",
+            ),
             self._future_tools,
-            pn.pane.Markdown("#### Apparent Resistivity"),
-            self._res_row_container,
-            pn.pane.Markdown("#### Phase"),
-            self._phase_row_container,
-            pn.pane.Markdown("#### Tipper"),
-            self._tipper_row_container,
+            self._combined_plot_pane,
             pn.layout.Divider(),
             pn.pane.Markdown("### 1D Inversion"),
             pn.pane.Markdown(

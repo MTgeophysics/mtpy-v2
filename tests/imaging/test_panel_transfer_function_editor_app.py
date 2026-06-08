@@ -88,6 +88,7 @@ def test_load_station_populates_default_1d_plot_data(sample_station_df):
     assert len(app._active_res_editors[0]._source.data["period"]) > 0
     assert len(app._active_phase_editors[0]._source.data["period"]) > 0
     assert len(app._active_tipper_editors[0]._source.data["period"]) > 0
+    assert app._combined_plot_pane.object is not None
 
 
 @pytest.mark.plotting
@@ -103,6 +104,7 @@ def test_dimension_2d_xyyx_shows_two_res_and_phase_plots(sample_station_df):
     assert len(app._active_phase_editors) == 2
     assert len(app._active_tipper_editors) == 2
     assert all(len(ed._source.data["period"]) > 0 for ed in app._active_res_editors)
+    assert app._combined_plot_pane.object is not None
 
 
 @pytest.mark.plotting
@@ -117,3 +119,4 @@ def test_dimension_3d_shows_tensor_and_tipper_real_imag(sample_station_df):
     assert len(app._active_phase_editors) == 4
     assert len(app._active_tipper_editors) == 4
     assert all(len(ed._source.data["period"]) > 0 for ed in app._active_tipper_editors)
+    assert app._combined_plot_pane.object is not None
