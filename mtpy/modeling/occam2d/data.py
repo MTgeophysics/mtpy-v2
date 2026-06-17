@@ -503,6 +503,9 @@ class Occam2DData:
         data_list = dlines
 
         entries = []
+        
+        # initialise at zero
+        self.dataframe['t_zy'] = 0. + 0*1j
 
         for line in data_list:
             res_log = False
@@ -555,36 +558,72 @@ class Occam2DData:
         for key in ["res_xy", "res_yx", "phase_xy", "phase_yx", "t_zy"]:
             self.dataframe[key + "_model_error"] = 0.0
 
+
     def _group_df(self):
+        
         df = self.dataframe
-        for station in np.unique(df["station"]):
-            for period in np.unique(df["period"]):
-                filt = np.all(
-                    [
-                        df["station"] == station,
-                        df["period"] == period,
-                    ],
-                    axis=0,
-                )
-                if np.any(filt):
-                    for key in ["res_xy", "res_yx", "phase_xy", "phase_yx"]:
-                        df.loc[filt, key] = np.unique(df.loc[filt, key])[0]
-                        df.loc[filt, key + "_model_error"] = np.unique(
-                            df.loc[filt, key + "_model_error"]
-                        )[0]
-                    tx_real_vals = np.unique(np.real(df.loc[filt, "t_zy"]))
-                    tx_imag_vals = np.unique(np.imag(df.loc[filt, "t_zy"]))
+        
+        # 1. Helper function for the complex number logic
+        def process_t_zy(series):
+            # Drop NaNs and convert to a standard Python list
+            vals = series.dropna().tolist()
+            
+            reals = []
+            imags = []
+            
+            for v in vals:
+                try:
+                    # Force the value into a standard complex type safely
+                    c = complex(v)
+                    if c.real != 0.0:
+                        reals.append(c.real)
+                    if c.imag != 0.0:
+                        imags.append(c.imag)
+                except (TypeError, ValueError):
+                    # Safely ignore any weird strings or corrupted data
+                    continue
+            
+            # sort the values, so [0] grabs the minimum.
+            r = sorted(set(reals))[0] if reals else 0.0
+            i = sorted(set(imags))[0] if imags else 0.0
+            
+            return complex(r, i)
+    
+        # 2. Identify the specific columns
+        keys = ["res_xy", "res_yx", "phase_xy", "phase_yx"]
+        error_keys = [f"{k}_model_error" for k in keys]
+        special_cols = keys + error_keys
+        
+        # 3. Build the aggregation dictionary with Python Lambdas
+        agg_funcs = {}
+        for col in df.columns:
+            if col in ["station", "period"]:
+                continue
+            elif col == "t_zy":
+                agg_funcs[col] = process_t_zy
+            elif col in special_cols:
+                # Bypass Cython by using a lambda for minimum
+                agg_funcs[col] = lambda x: x.min()
+            else:
+                # Bypass Cython by explicitly asking for the first index
+                agg_funcs[col] = lambda x: x.iloc[0]
+                
+        # 4. Perform the GroupBy operation
+        self.dataframe = df.groupby(['station', 'period'], as_index=False).agg(agg_funcs)
+    
 
-                    if np.any(tx_real_vals != 0) or np.any(tx_imag_vals != 0):
-                        tx_real_val, tx_imag_val = 0.0, 0.0
-                        if len(tx_real_vals[tx_real_vals != 0]) > 0:
-                            tx_real_val = tx_real_vals[tx_real_vals != 0][0]
-                        if len(tx_imag_vals[tx_imag_vals != 0]) > 0:
-                            tx_imag_val = tx_imag_vals[tx_imag_vals != 0][0]
 
-                        df.loc[filt, "t_zy"] = tx_real_val + 1j * tx_imag_val
-
-                    df.drop(df.index[filt][1:], inplace=True)
+    # def _group_df(self):
+    #     print("grouping df")
+        
+    #     # A custom Python function that does exactly what .first() does:
+    #     # It drops NaNs, and grabs the first available value.
+    #     def get_first_valid(series):
+    #         valid_data = series.dropna()
+    #         return valid_data.iloc[0] if not valid_data.empty else np.nan
+    
+    #     # .agg() with a custom lambda forces pandas to stay in Python space
+    #     self.dataframe = self.dataframe.groupby(['station', 'period'], as_index=False).agg(get_first_valid)
 
     def _get_model_mode_from_data(self, res_log):
         """Get inversion mode from the data.
