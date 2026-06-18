@@ -503,9 +503,9 @@ class Occam2DData:
         data_list = dlines
 
         entries = []
-        
+
         # initialise at zero
-        self.dataframe['t_zy'] = 0. + 0*1j
+        self.dataframe["t_zy"] = 0.0 + 0 * 1j
 
         for line in data_list:
             res_log = False
@@ -558,19 +558,18 @@ class Occam2DData:
         for key in ["res_xy", "res_yx", "phase_xy", "phase_yx", "t_zy"]:
             self.dataframe[key + "_model_error"] = 0.0
 
-
     def _group_df(self):
-        
+
         df = self.dataframe
-        
+
         # 1. Helper function for the complex number logic
         def process_t_zy(series):
             # Drop NaNs and convert to a standard Python list
             vals = series.dropna().tolist()
-            
+
             reals = []
             imags = []
-            
+
             for v in vals:
                 try:
                     # Force the value into a standard complex type safely
@@ -582,18 +581,18 @@ class Occam2DData:
                 except (TypeError, ValueError):
                     # Safely ignore any weird strings or corrupted data
                     continue
-            
+
             # sort the values, so [0] grabs the minimum.
             r = sorted(set(reals))[0] if reals else 0.0
             i = sorted(set(imags))[0] if imags else 0.0
-            
+
             return complex(r, i)
-    
+
         # 2. Identify the specific columns
         keys = ["res_xy", "res_yx", "phase_xy", "phase_yx"]
         error_keys = [f"{k}_model_error" for k in keys]
         special_cols = keys + error_keys
-        
+
         # 3. Build the aggregation dictionary with Python Lambdas
         agg_funcs = {}
         for col in df.columns:
@@ -607,21 +606,21 @@ class Occam2DData:
             else:
                 # Bypass Cython by explicitly asking for the first index
                 agg_funcs[col] = lambda x: x.iloc[0]
-                
-        # 4. Perform the GroupBy operation
-        self.dataframe = df.groupby(['station', 'period'], as_index=False).agg(agg_funcs)
-    
 
+        # 4. Perform the GroupBy operation
+        self.dataframe = df.groupby(["station", "period"], as_index=False).agg(
+            agg_funcs
+        )
 
     # def _group_df(self):
     #     print("grouping df")
-        
+
     #     # A custom Python function that does exactly what .first() does:
     #     # It drops NaNs, and grabs the first available value.
     #     def get_first_valid(series):
     #         valid_data = series.dropna()
     #         return valid_data.iloc[0] if not valid_data.empty else np.nan
-    
+
     #     # .agg() with a custom lambda forces pandas to stay in Python space
     #     self.dataframe = self.dataframe.groupby(['station', 'period'], as_index=False).agg(get_first_valid)
 
