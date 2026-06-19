@@ -405,7 +405,7 @@ class Simpeg2D:
                 cooling_rate=self.beta_cooling_rate,
                 cooling_factor=self.beta_cooling_factor,
                 chifact_start=self.irls_chifact_start,
-                chifact_target=self.irls_chifact_target
+                chifact_target=self.irls_chifact_target,
             )
             return [
                 IRLS,
