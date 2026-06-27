@@ -35,6 +35,8 @@ try:
     from simpeg.electromagnetics import natural_source as nsem
 except ImportError:
     logger.warning("Could not import Simpeg.")
+except Exception as e:
+    logger.error(f"Error importing Simpeg: {e}")
 
 import matplotlib.gridspec as gridspec
 from matplotlib import pyplot as plt
