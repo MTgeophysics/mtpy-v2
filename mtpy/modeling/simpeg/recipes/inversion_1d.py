@@ -586,9 +586,7 @@ class Simpeg1D:
         if use_irls:
             reg.norms = [p_s, p_z]
             # Reach target misfit for L2 solution, then use IRLS until model stops changing.
-            IRLS = directives.UpdateIRLS(
-                max_irls_iterations=maxIter, f_min_change=1e-5
-            )
+            IRLS = directives.UpdateIRLS(max_irls_iterations=maxIter, f_min_change=1e-5)
 
             # The directives are defined as a list.
             directives_list = [
