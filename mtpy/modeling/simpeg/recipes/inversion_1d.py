@@ -586,8 +586,8 @@ class Simpeg1D:
         if use_irls:
             reg.norms = [p_s, p_z]
             # Reach target misfit for L2 solution, then use IRLS until model stops changing.
-            IRLS = directives.Update_IRLS(
-                max_irls_iterations=maxIter, minGNiter=1, f_min_change=1e-5
+            IRLS = directives.UpdateIRLS(
+                max_irls_iterations=maxIter, f_min_change=1e-5
             )
 
             # The directives are defined as a list.
@@ -684,6 +684,7 @@ class Simpeg1D:
         numpy.ndarray
             Depths in kilometers.
         """
+        # z_grid = np.r_[0.0, np.cumsum(self.thicknesses[::-1])]
         z_grid = np.r_[0.0, np.cumsum(self.thicknesses[::-1])]
         return z_grid / 1000
 
