@@ -684,8 +684,7 @@ class Simpeg1D:
         numpy.ndarray
             Depths in kilometers.
         """
-        # z_grid = np.r_[0.0, np.cumsum(self.thicknesses[::-1])]
-        z_grid = np.r_[0.0, np.cumsum(self.thicknesses)]
+        z_grid = np.r_[0.0, np.cumsum(self.thicknesses[::-1])]
         return z_grid / 1000
 
     def plot_response(
@@ -732,7 +731,7 @@ class Simpeg1D:
 
         ax_model = fig.add_subplot(gs[:, 0])
         ax_model.step(
-            (1.0 / (np.exp(m))),
+            (1.0 / (np.exp(m[::-1]))),
             self._plot_z,
             color="k",
             **{"linestyle": "-"},
