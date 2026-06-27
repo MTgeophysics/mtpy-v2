@@ -685,7 +685,7 @@ class Simpeg1D:
             Depths in kilometers.
         """
         # z_grid = np.r_[0.0, np.cumsum(self.thicknesses[::-1])]
-        z_grid = np.r_[0.0, np.cumsum(self.thicknesses[::-1])]
+        z_grid = np.r_[0.0, np.cumsum(self.thicknesses)]
         return z_grid / 1000
 
     def plot_response(
