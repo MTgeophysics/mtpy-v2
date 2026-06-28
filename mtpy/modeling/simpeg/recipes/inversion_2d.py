@@ -491,6 +491,7 @@ class Simpeg2D:
                 s=30,
                 color="k",
             )
+        return fig
 
     def plot_tikhonov_curve(self):
         """
@@ -540,6 +541,7 @@ class Simpeg2D:
         ax.set_xlim(xlim)
         plt.tight_layout()
         plt.show()
+        return fig
 
     def plot_responses(self, iteration_number, **kwargs):
         """
@@ -724,3 +726,4 @@ class Simpeg2D:
                 label="predicted",
             )
             ax3.legend()
+        return fig
