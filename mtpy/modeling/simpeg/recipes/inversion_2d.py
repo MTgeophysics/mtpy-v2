@@ -586,10 +586,7 @@ class Simpeg2D:
 
             # plot TE Resistivity
             ax1.semilogy(
-                te_obs[:, 0, :].flatten(),
-                obs_marker,
-                color=obs_color,
-                label="observed"
+                te_obs[:, 0, :].flatten(), obs_marker, color=obs_color, label="observed"
             )
             ax1.semilogy(
                 te_pred[:, 0, :].flatten(),
