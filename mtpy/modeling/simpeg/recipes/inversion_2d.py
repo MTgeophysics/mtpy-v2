@@ -570,8 +570,8 @@ class Simpeg2D:
 
         obs_color = kwargs.get("obs_color", (0, 118 / 255, 1))
         pred_color = kwargs.get("pred_color", (1, 110 / 255, 0))
-        obs_marker = "."
-        pred_maker = "."
+        obs_marker = "o"
+        pred_maker = "x"
 
         ## With these plot frequency goes from high on the left to low on the right.
         ## Moving shallow to deep from left to right.
@@ -587,13 +587,13 @@ class Simpeg2D:
             # plot TE Resistivity
             ax1.semilogy(
                 te_obs[:, 0, :].flatten(),
-                ".",
+                obs_marker,
                 color=obs_color,
-                label="observed",
+                label="observed"
             )
             ax1.semilogy(
                 te_pred[:, 0, :].flatten(),
-                ".",
+                pred_maker,
                 color=pred_color,
                 label="predicted",
             )
@@ -664,13 +664,13 @@ class Simpeg2D:
             # plot TE Resistivity
             ax1.semilogy(
                 np.abs(te_obs[:, 0, :].flatten()),
-                ".",
+                obs_marker,
                 color=obs_color,
                 label="observed",
             )
             ax1.semilogy(
                 np.abs(te_pred[:, 0, :].flatten()),
-                ".",
+                pred_maker,
                 color=pred_color,
                 label="predicted",
             )
