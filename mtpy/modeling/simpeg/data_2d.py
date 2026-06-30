@@ -287,7 +287,7 @@ class Simpeg2DData:
             standard_deviation=self.tm_data_errors,
         )
 
-    def plot_response(self, **kwargs):
+    def plot_response(self, response=None,**kwargs):
         """
 
         :param **kwargs: DESCRIPTION
@@ -308,111 +308,116 @@ class Simpeg2DData:
             (self.n_frequencies, 2, self.n_stations)
         )
 
-        if not self.invert_impedance:
-            ax_xy_res = fig.add_subplot(2, 2, 1)
-            ax_yx_res = fig.add_subplot(2, 2, 2, sharex=ax_xy_res)
-            ax_xy_phase = fig.add_subplot(2, 2, 3, sharex=ax_xy_res)
-            ax_yx_phase = fig.add_subplot(2, 2, 4, sharex=ax_xy_res)
-            for ii in range(self.n_stations):
-                ax_xy_res.loglog(
-                    1.0 / self.frequencies,
-                    te_data[:, 0, ii],
-                    color=(0.5, 0.5, ii / self.n_stations),
-                )
-                ax_xy_phase.semilogx(
-                    1.0 / self.frequencies,
-                    te_data[:, 1, ii],
-                    color=(0.25, 0.25, ii / self.n_stations),
-                )
-                ax_yx_res.loglog(
-                    1.0 / self.frequencies,
-                    tm_data[:, 0, ii],
-                    color=(0.5, ii / self.n_stations, 0.75),
-                )
-                ax_yx_phase.semilogx(
-                    1.0 / self.frequencies,
-                    tm_data[:, 1, ii],
-                    color=(0.25, ii / self.n_stations, 0.75),
-                )
+        if response is not None:
+            te_pred = response.reshape((2, self.data.n_frequencies, 2, self.data.n_stations))[
+                0, :, :, :
+            ]
+            tm_pred = response.reshape((2, self.data.n_frequencies, 2, self.data.n_stations))[
+                1, :, :, :
+            ]
 
-            ax_xy_phase.set_xlabel("Period (s)")
-            ax_yx_phase.set_xlabel("Period (s)")
-            ax_xy_res.set_ylabel("Apparent Resistivity")
-            ax_xy_phase.set_ylabel("Phase")
-
-            ax_xy_res.set_title("TE")
-            ax_yx_res.set_title("TM")
-        else:
-            ax_xy_res = fig.add_subplot(2, 2, 1)
-            ax_yx_res = fig.add_subplot(2, 2, 2, sharex=ax_xy_res, sharey=ax_xy_res)
-            ax_xy_phase = fig.add_subplot(
-                2,
-                2,
-                3,
-                sharex=ax_xy_res,
+        ax_xy_res = fig.add_subplot(2, 2, 1)
+        ax_yx_res = fig.add_subplot(2, 2, 2, sharex=ax_xy_res, sharey=ax_xy_res)
+        ax_xy_phase = fig.add_subplot(2, 2, 3, sharex=ax_xy_res)
+        ax_yx_phase = fig.add_subplot(2, 2, 4, sharex=ax_xy_res)
+        props = {"ls": None, "marker": "."}
+        for ii in range(self.n_stations):
+            plot_resistivity(
+                ax_xy_res,
+                1.0 / self.frequencies,
+                te_data[:, 0, ii],
+                color=(0.5, 0.5, ii / self.n_stations),
+                label=self.dataframe.station.unique()[ii],
+                error=te_data_errors[:, 0, ii],
+                ecolor=(0.5, 0.5, ii / self.n_stations),
+                **props
             )
-            ax_yx_phase = fig.add_subplot(2, 2, 4, sharex=ax_xy_res, sharey=ax_xy_phase)
-            for ii in range(self.n_stations):
+            plot_phase(
+                ax_xy_phase,
+                1.0 / self.frequencies,
+                te_data[:, 1, ii],
+                color=(0.25, 0.25, ii / self.n_stations),
+                label=self.dataframe.station.unique()[ii],
+                error=te_data_errors[:, 1, ii],
+                ecolor=(0.25, 0.25, ii / self.n_stations),
+                **props
+            )
+            plot_resistivity(
+                ax_yx_res,
+                1.0 / self.frequencies,
+                tm_data[:, 0, ii],
+                color=(0.5, ii / self.n_stations, 0.75),
+                label=self.dataframe.station.unique()[ii],
+                error=tm_data_errors[:, 0, ii],
+                ecolor=(0.5, ii / self.n_stations, 0.75),
+                **props
+            )
+            plot_phase(
+                ax_yx_phase,
+                1.0 / self.frequencies,
+                tm_data[:, 1, ii],
+                color=(0.25, ii / self.n_stations, 0.75),
+                label=self.dataframe.station.unique()[ii],
+                error=tm_data_errors[:, 1, ii],
+                ecolor=(0.25, ii / self.n_stations, 0.75),
+                **props
+            )
+
+            if response is not None:
+                r_props = {"ls": "--", "marker": "+"} 
                 plot_resistivity(
                     ax_xy_res,
                     1.0 / self.frequencies,
-                    te_data[:, 0, ii],
-                    color=(0.5, 0.5, ii / self.n_stations),
-                    label=self.dataframe.station.unique()[ii],
-                    error=te_data_errors[:, 0, ii],
+                    te_pred[:, 0, ii],
+                    color=(.5, .5, .5),
+                    label="predicted",
+                    **r_props,
                 )
                 plot_phase(
                     ax_xy_phase,
                     1.0 / self.frequencies,
-                    te_data[:, 1, ii],
-                    color=(0.25, 0.25, ii / self.n_stations),
-                    label=self.dataframe.station.unique()[ii],
-                    error=te_data_errors[:, 1, ii],
+                    te_pred[:, 1, ii],
+                    color=(.5, .5, .5),
+                    label="predicted",
+                    **r_props,
                 )
                 plot_resistivity(
                     ax_yx_res,
                     1.0 / self.frequencies,
-                    tm_data[:, 0, ii],
-                    color=(0.5, ii / self.n_stations, 0.75),
-                    label=self.dataframe.station.unique()[ii],
-                    error=tm_data_errors[:, 0, ii],
+                    tm_pred[:, 0, ii],
+                    color=(.5, .5, .5),
+                    label="predicted",
+                    **r_props,
                 )
                 plot_phase(
                     ax_yx_phase,
                     1.0 / self.frequencies,
-                    tm_data[:, 1, ii],
-                    color=(0.25, ii / self.n_stations, 0.75),
-                    label=self.dataframe.station.unique()[ii],
-                    error=tm_data_errors[:, 1, ii],
+                    tm_pred[:, 1, ii],
+                    color=(.5, .5, .5),
+                    label="predicted",
+                    **r_props
                 )
-                # ax_xy_res.loglog(
-                #     1.0 / self.frequencies,
-                #     np.abs(te_data[:, 0, ii]),
-                #     color=(0.5, 0.5, ii / self.n_stations),
-                # )
-                # ax_xy_phase.loglog(
-                #     1.0 / self.frequencies,
-                #     np.abs(te_data[:, 1, ii]),
-                #     color=(0.25, 0.25, ii / self.n_stations),
-                # )
-                # ax_yx_res.loglog(
-                #     1.0 / self.frequencies,
-                #     np.abs(tm_data[:, 0, ii]),
-                #     color=(0.5, ii / self.n_stations, 0.75),
-                # )
-                # ax_yx_phase.loglog(
-                #     1.0 / self.frequencies,
-                #     np.abs(tm_data[:, 1, ii]),
-                #     color=(0.25, ii / self.n_stations, 0.75),
-                # )
 
-            ax_xy_phase.set_xlabel("Period (s)")
-            ax_yx_phase.set_xlabel("Period (s)")
+        ax_xy_phase.set_xlabel("Period (s)")
+        ax_yx_phase.set_xlabel("Period (s)")
+        for ax in [ax_xy_res, ax_yx_res, ax_xy_phase, ax_yx_phase]:
+                ax.set_xscale("log")
+        if not self.invert_impedance:
+            ax_xy_res.set_ylabel("Apparent Resistivity [Ohm-m]")
+            ax_xy_phase.set_ylabel("Phase [deg]")
+            ax_xy_phase.set_ylim([0, 90])
+            ax_yx_phase.set_ylim([-90, -180])
+            ax_yx_res.set_ylabel("Apparent Resistivity [Ohm-m]")
+            ax_yx_phase.set_ylabel("Phase [deg]")
+            ax_xy_res.set_yscale("log")
+            ax_yx_res.set_yscale("log")
+            
+        else:
             ax_xy_res.set_ylabel("Real Impedance [Ohms]")
             ax_xy_phase.set_ylabel("Imag Impedance [Ohms]")
 
-            ax_xy_res.set_title("Zxy (TE)")
-            ax_yx_res.set_title("Zyx (TM)")
+        ax_xy_res.set_title("Zxy (TE)")
+        ax_yx_res.set_title("Zyx (TM)")
 
         for ax in [ax_xy_res, ax_xy_phase, ax_yx_res, ax_yx_phase]:
             ax.grid(
@@ -423,4 +428,7 @@ class Simpeg2DData:
                 lw=0.25,
             )
 
+        fig.tight_layout()
+
         plt.show()
+        return fig
