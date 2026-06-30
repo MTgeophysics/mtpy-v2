@@ -309,10 +309,10 @@ class Simpeg2DData:
         )
 
         if response is not None:
-            te_pred = response.reshape((2, self.data.n_frequencies, 2, self.data.n_stations))[
+            te_pred = response.reshape((2, self.n_frequencies, 2, self.n_stations))[
                 0, :, :, :
             ]
-            tm_pred = response.reshape((2, self.data.n_frequencies, 2, self.data.n_stations))[
+            tm_pred = response.reshape((2, self.n_frequencies, 2, self.n_stations))[
                 1, :, :, :
             ]
 
