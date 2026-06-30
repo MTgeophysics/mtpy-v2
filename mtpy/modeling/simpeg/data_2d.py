@@ -287,7 +287,7 @@ class Simpeg2DData:
             standard_deviation=self.tm_data_errors,
         )
 
-    def plot_response(self, response=None,**kwargs):
+    def plot_response(self, response=None, **kwargs):
         """
 
         :param **kwargs: DESCRIPTION
@@ -309,12 +309,12 @@ class Simpeg2DData:
         )
 
         if response is not None:
-            te_pred = response.reshape((2, self.data.n_frequencies, 2, self.data.n_stations))[
-                0, :, :, :
-            ]
-            tm_pred = response.reshape((2, self.data.n_frequencies, 2, self.data.n_stations))[
-                1, :, :, :
-            ]
+            te_pred = response.reshape(
+                (2, self.data.n_frequencies, 2, self.data.n_stations)
+            )[0, :, :, :]
+            tm_pred = response.reshape(
+                (2, self.data.n_frequencies, 2, self.data.n_stations)
+            )[1, :, :, :]
 
         ax_xy_res = fig.add_subplot(2, 2, 1)
         ax_yx_res = fig.add_subplot(2, 2, 2, sharex=ax_xy_res, sharey=ax_xy_res)
@@ -330,7 +330,7 @@ class Simpeg2DData:
                 label=self.dataframe.station.unique()[ii],
                 error=te_data_errors[:, 0, ii],
                 ecolor=(0.5, 0.5, ii / self.n_stations),
-                **props
+                **props,
             )
             plot_phase(
                 ax_xy_phase,
@@ -340,7 +340,7 @@ class Simpeg2DData:
                 label=self.dataframe.station.unique()[ii],
                 error=te_data_errors[:, 1, ii],
                 ecolor=(0.25, 0.25, ii / self.n_stations),
-                **props
+                **props,
             )
             plot_resistivity(
                 ax_yx_res,
@@ -350,7 +350,7 @@ class Simpeg2DData:
                 label=self.dataframe.station.unique()[ii],
                 error=tm_data_errors[:, 0, ii],
                 ecolor=(0.5, ii / self.n_stations, 0.75),
-                **props
+                **props,
             )
             plot_phase(
                 ax_yx_phase,
@@ -360,16 +360,16 @@ class Simpeg2DData:
                 label=self.dataframe.station.unique()[ii],
                 error=tm_data_errors[:, 1, ii],
                 ecolor=(0.25, ii / self.n_stations, 0.75),
-                **props
+                **props,
             )
 
             if response is not None:
-                r_props = {"ls": "--", "marker": "+"} 
+                r_props = {"ls": "--", "marker": "+"}
                 plot_resistivity(
                     ax_xy_res,
                     1.0 / self.frequencies,
                     te_pred[:, 0, ii],
-                    color=(.5, .5, .5),
+                    color=(0.5, 0.5, 0.5),
                     label="predicted",
                     **r_props,
                 )
@@ -377,7 +377,7 @@ class Simpeg2DData:
                     ax_xy_phase,
                     1.0 / self.frequencies,
                     te_pred[:, 1, ii],
-                    color=(.5, .5, .5),
+                    color=(0.5, 0.5, 0.5),
                     label="predicted",
                     **r_props,
                 )
@@ -385,7 +385,7 @@ class Simpeg2DData:
                     ax_yx_res,
                     1.0 / self.frequencies,
                     tm_pred[:, 0, ii],
-                    color=(.5, .5, .5),
+                    color=(0.5, 0.5, 0.5),
                     label="predicted",
                     **r_props,
                 )
@@ -393,15 +393,15 @@ class Simpeg2DData:
                     ax_yx_phase,
                     1.0 / self.frequencies,
                     tm_pred[:, 1, ii],
-                    color=(.5, .5, .5),
+                    color=(0.5, 0.5, 0.5),
                     label="predicted",
-                    **r_props
+                    **r_props,
                 )
 
         ax_xy_phase.set_xlabel("Period (s)")
         ax_yx_phase.set_xlabel("Period (s)")
         for ax in [ax_xy_res, ax_yx_res, ax_xy_phase, ax_yx_phase]:
-                ax.set_xscale("log")
+            ax.set_xscale("log")
         if not self.invert_impedance:
             ax_xy_res.set_ylabel("Apparent Resistivity [Ohm-m]")
             ax_xy_phase.set_ylabel("Phase [deg]")
@@ -411,7 +411,7 @@ class Simpeg2DData:
             ax_yx_phase.set_ylabel("Phase [deg]")
             ax_xy_res.set_yscale("log")
             ax_yx_res.set_yscale("log")
-            
+
         else:
             ax_xy_res.set_ylabel("Real Impedance [Ohms]")
             ax_xy_phase.set_ylabel("Imag Impedance [Ohms]")
