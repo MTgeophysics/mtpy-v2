@@ -248,7 +248,6 @@ class InteractivePointEditor:
 # --- Example usage with log-spaced test data ---
 import numpy as np
 
-
 # Create some example data
 x_vals = np.logspace(-3, 3, 20)  # from 0.001 to 1000
 y_vals = np.logspace(-3, 3, 20)  # same range

@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-
 panel = pytest.importorskip("panel")
 
 from mtpy.imaging.bokeh_plots.panel_transfer_function_editor_app import (

@@ -586,9 +586,7 @@ class Simpeg1D:
         if use_irls:
             reg.norms = [p_s, p_z]
             # Reach target misfit for L2 solution, then use IRLS until model stops changing.
-            IRLS = directives.Update_IRLS(
-                max_irls_iterations=maxIter, minGNiter=1, f_min_change=1e-5
-            )
+            IRLS = directives.UpdateIRLS(max_irls_iterations=maxIter, f_min_change=1e-5)
 
             # The directives are defined as a list.
             directives_list = [
@@ -731,7 +729,7 @@ class Simpeg1D:
 
         ax_model = fig.add_subplot(gs[:, 0])
         ax_model.step(
-            (1.0 / (np.exp(m))),
+            (1.0 / (np.exp(m[::-1]))),
             self._plot_z,
             color="k",
             **{"linestyle": "-"},
