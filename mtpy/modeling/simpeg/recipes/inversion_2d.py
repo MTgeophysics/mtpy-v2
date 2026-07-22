@@ -120,6 +120,9 @@ class Simpeg2D:
         self.beta_cooling_rate = 1
 
         self.target_misfit_chi_factor = 1
+        self.irls_chifact_start = 2.0
+        self.irls_chifact_target = 1.0
+        self.irls_cooling_factor = 1.5
 
         self.saved_model_outputs = directives.SaveOutputDictEveryIteration()
         self.saved_model_outputs.outDict = {}
@@ -314,7 +317,7 @@ class Simpeg2D:
         )
 
         if self.use_irls:
-            reg.norms = np.c_[self.p_s, self.p_y, self.p_z]
+            reg.norms = [self.p_s, self.p_y, self.p_z]
 
         return reg
 
@@ -395,10 +398,14 @@ class Simpeg2D:
         """
 
         if self.use_irls:
-            IRLS = directives.Update_IRLS(
-                max_irls_iterations=self.max_iteration_irls,
-                minGNiter=self.minimum_gauss_newton_iterations,
+            IRLS = directives.UpdateIRLS(
+                max_irls_iterations=self.max_iterations_irls,
+                irls_cooling_factor=self.irls_cooling_factor,
                 f_min_change=self.f_min_change,
+                cooling_rate=self.beta_cooling_rate,
+                cooling_factor=self.beta_cooling_factor,
+                chifact_start=self.irls_chifact_start,
+                chifact_target=self.irls_chifact_target,
             )
             return [
                 IRLS,
@@ -410,7 +417,7 @@ class Simpeg2D:
                 self.starting_beta,
                 self.beta_schedule,
                 self.saved_model_outputs,
-                # self.target_misfit,
+                self.target_misfit,
             ]
 
     def run_inversion(self):
