@@ -46,7 +46,7 @@ jobs:
         git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
 
         git clone https://github.com/IAGA-DVI-DataStandards/mt-metadata.git
-        cd mt_metadata
+        cd mt-metadata
         pip install -e .
         cd ..
 
@@ -73,7 +73,7 @@ jobs:
         set -euxo pipefail
         source activate mtpy-v2-test
 
-        cd mt_metadata/tests/
+        cd mt-metadata/tests/
         pytest -v .
 
         cd ../../mth5/tests/
