@@ -45,7 +45,7 @@ jobs:
         export GIT_TERMINAL_PROMPT=0
         git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
 
-        git clone https://github.com/IAGA-DVI-DataStandards/mt_metadata.git
+        git clone https://github.com/IAGA-DVI-DataStandards/mt-metadata.git
         cd mt_metadata
         pip install -e .
         cd ..
