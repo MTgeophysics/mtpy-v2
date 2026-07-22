@@ -13,6 +13,7 @@ import unittest
 import numpy as np
 import pytest
 
+
 PROFILE_LIST = pytest.importorskip("mtpy_data").PROFILE_LIST
 from simpeg import (
     data_misfit,
@@ -25,6 +26,7 @@ from simpeg.electromagnetics import natural_source as nsem
 
 from mtpy import MTData
 from mtpy.modeling.simpeg.recipes.inversion_2d import Simpeg2D
+
 
 # =============================================================================
 
@@ -129,7 +131,7 @@ class TestSimpeg2DRecipe(unittest.TestCase):
             self.simpeg_inversion.beta_schedule, directives.BetaSchedule
         )
 
-    def target_misfit(self):
+    def test_target_misfit(self):
         with self.subTest("Is Instance"):
             self.assertIsInstance(
                 self.simpeg_inversion.target_misfit, directives.TargetMisfit
@@ -141,7 +143,12 @@ class TestSimpeg2DRecipe(unittest.TestCase):
             )
 
     def test_directives(self):
-        self.assertEqual(3, len(self.simpeg_inversion.directives))
+        d = self.simpeg_inversion.directives
+        self.assertEqual(4, len(d))
+        self.assertIsInstance(d[0], directives.BetaEstimate_ByEig)
+        self.assertIsInstance(d[1], directives.BetaSchedule)
+        self.assertIsInstance(d[2], directives.SaveOutputDictEveryIteration)
+        self.assertIsInstance(d[3], directives.TargetMisfit)
 
 
 class TestSimpeg2DRecipeRun(unittest.TestCase):

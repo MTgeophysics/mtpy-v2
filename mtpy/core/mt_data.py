@@ -47,6 +47,7 @@ from . import mt_data_accessor as _mt_data_accessor  # noqa: F401
 from .mt_data_tree_index import MTDataTreeIndexStore
 from .mt_dataframe import MTDataFrame
 
+
 COORDINATE_REFERENCE_FRAME_OPTIONS = {
     "+": "ned",
     "-": "enu",
@@ -769,9 +770,9 @@ class MTData:
 
         for station_path in self._iter_station_paths():
             station_ds = self.get_station(station_path)
-            station_ds.attrs["coordinate_reference_frame"] = (
-                self.coordinate_reference_frame
-            )
+            station_ds.attrs[
+                "coordinate_reference_frame"
+            ] = self.coordinate_reference_frame
 
     @property
     def impedance_units(self) -> str:
@@ -1172,9 +1173,9 @@ class MTData:
         for station_path in target_paths:
             station_ds = tree_obj.get_station(station_path).copy(deep=False)
             if lazy:
-                tree_obj._lazy_station_transforms[station_path] = (
-                    lambda ds=station_ds, op=transform: op(ds)
-                )
+                tree_obj._lazy_station_transforms[
+                    station_path
+                ] = lambda ds=station_ds, op=transform: op(ds)
         if not lazy:
 
             def _validated_transform(ds: xr.Dataset) -> xr.Dataset:
@@ -1249,9 +1250,9 @@ class MTData:
         )
 
         for station_path, transform in list(lazy_tree._lazy_station_transforms.items()):
-            lazy_tree._lazy_station_transforms[station_path] = (
-                lambda fn=transform: delayed(fn)()
-            )
+            lazy_tree._lazy_station_transforms[
+                station_path
+            ] = lambda fn=transform: delayed(fn)()
 
         if compute:
             lazy_tree.compute(scheduler=scheduler)
@@ -1321,9 +1322,9 @@ class MTData:
         )
 
         for station_path, transform in list(lazy_tree._lazy_station_transforms.items()):
-            lazy_tree._lazy_station_transforms[station_path] = (
-                lambda fn=transform: delayed(fn)()
-            )
+            lazy_tree._lazy_station_transforms[
+                station_path
+            ] = lambda fn=transform: delayed(fn)()
 
         if compute:
             lazy_tree.compute(scheduler=scheduler)
@@ -3959,7 +3960,7 @@ class MTData:
         station_key: str | list[str] | None = None,
         station_id: str | list[str] | None = None,
         survey_id: str | list[str] | None = None,
-        backend: Literal["bokeh", "matplotlib"] = "bokeh",
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
         **kwargs: Any,
     ) -> PlotMultipleResponses | Any:
         """
@@ -3976,7 +3977,7 @@ class MTData:
             Survey ID(s) used with *station_id*. If list-valued, must align
             one-to-one with *station_id*.
         backend : {"bokeh", "matplotlib"}, optional
-            Plotting backend to use. Defaults to ``"bokeh"``.
+            Plotting backend to use. Defaults to ``"matplotlib"``.
         **kwargs : dict
             Additional plotting keyword arguments.
 
@@ -4062,7 +4063,7 @@ class MTData:
 
     def plot_mt_responses(
         self,
-        backend: Literal["bokeh", "matplotlib"] = "bokeh",
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
         **kwargs: Any,
     ) -> PlotMultipleResponses | Any:
         """
@@ -4100,7 +4101,7 @@ class MTData:
         map_epsg: int = 4326,
         bounding_box: tuple[float, float, float, float] | None = None,
         model_locations: bool = False,
-        backend: Literal["bokeh", "matplotlib"] = "bokeh",
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
         **kwargs: Any,
     ) -> PlotStations:
         """
@@ -4160,7 +4161,7 @@ class MTData:
 
     def plot_strike(
         self,
-        backend: Literal["bokeh", "matplotlib"] = "bokeh",
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
         **kwargs: Any,
     ) -> PlotStrike:
         """
@@ -4201,7 +4202,7 @@ class MTData:
         station_key: str | None = None,
         station_id: str | None = None,
         survey_id: str | None = None,
-        backend: Literal["bokeh", "matplotlib"] = "bokeh",
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
         **kwargs: Any,
     ) -> Any:
         """
@@ -4258,7 +4259,7 @@ class MTData:
 
     def plot_phase_tensor_map(
         self,
-        backend: Literal["bokeh", "matplotlib"] = "bokeh",
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
         **kwargs: Any,
     ) -> PlotPhaseTensorMaps:
         """
@@ -4267,7 +4268,7 @@ class MTData:
         Parameters
         ----------
         backend : {"bokeh", "matplotlib"}, optional
-            Plotting backend to use. Defaults to ``"bokeh"``.
+            Plotting backend to use. Defaults to ``"matplotlib"``.
         **kwargs : dict
             Additional plotting keyword arguments.
 
@@ -4296,7 +4297,7 @@ class MTData:
 
     def plot_tipper_map(
         self,
-        backend: Literal["bokeh", "matplotlib"] = "bokeh",
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
         **kwargs: Any,
     ) -> PlotPhaseTensorMaps:
         """
@@ -4305,7 +4306,7 @@ class MTData:
         Parameters
         ----------
         backend : {"bokeh", "matplotlib"}, optional
-            Plotting backend to use. Defaults to ``"bokeh"``.
+            Plotting backend to use. Defaults to ``"matplotlib"``.
         **kwargs : dict
             Additional plotting keyword arguments. Defaults are
             ``plot_pt=False`` and ``plot_tipper='yri'`` when not explicitly
@@ -4339,7 +4340,7 @@ class MTData:
     def plot_phase_tensor_pseudosection(
         self,
         mt_data: "MTData" | None = None,
-        backend: Literal["bokeh", "matplotlib"] = "bokeh",
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
         **kwargs: Any,
     ) -> PlotPhaseTensorPseudoSection:
         """
@@ -4350,7 +4351,7 @@ class MTData:
         mt_data : MTData, optional
             MTData object to plot. Defaults to ``self``.
         backend : {"bokeh", "matplotlib"}, optional
-            Plotting backend to use. Defaults to ``"bokeh"``.
+            Plotting backend to use. Defaults to ``"matplotlib"``.
         **kwargs : dict
             Additional plotting keyword arguments.
 
@@ -4389,7 +4390,7 @@ class MTData:
         station_key: str | None = None,
         station_id: str | None = None,
         survey_id: str | None = None,
-        backend: Literal["bokeh", "matplotlib"] = "bokeh",
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
         **kwargs: Any,
     ) -> Any:
         """
@@ -4404,7 +4405,7 @@ class MTData:
         survey_id : str, optional
             Survey ID used to disambiguate duplicate station IDs.
         backend : {"bokeh", "matplotlib"}, optional
-            Plotting backend to use. Defaults to ``"bokeh"``.
+            Plotting backend to use. Defaults to ``"matplotlib"``.
         **kwargs : dict
             Additional plotting keyword arguments.
 
@@ -4450,7 +4451,7 @@ class MTData:
 
     def plot_penetration_depth_map(
         self,
-        backend: Literal["bokeh", "matplotlib"] = "bokeh",
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
         **kwargs: Any,
     ) -> PlotPenetrationDepthMap:
         """
@@ -4459,7 +4460,7 @@ class MTData:
         Parameters
         ----------
         backend : {"bokeh", "matplotlib"}, optional
-            Plotting backend to use. Defaults to ``"bokeh"``.
+            Plotting backend to use. Defaults to ``"matplotlib"``.
         **kwargs : dict
             Additional plotting keyword arguments.
 
@@ -4492,7 +4493,7 @@ class MTData:
 
     def plot_resistivity_phase_maps(
         self,
-        backend: Literal["bokeh", "matplotlib"] = "bokeh",
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
         **kwargs: Any,
     ) -> PlotResPhaseMaps:
         """
@@ -4501,7 +4502,7 @@ class MTData:
         Parameters
         ----------
         backend : {"bokeh", "matplotlib"}, optional
-            Plotting backend to use. Defaults to ``"bokeh"``.
+            Plotting backend to use. Defaults to ``"matplotlib"``.
         **kwargs : dict
             Additional plotting keyword arguments.
 
@@ -4530,7 +4531,7 @@ class MTData:
 
     def plot_resistivity_phase_pseudosections(
         self,
-        backend: Literal["bokeh", "matplotlib"] = "bokeh",
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
         **kwargs: Any,
     ) -> PlotResPhasePseudoSection:
         """
@@ -4539,7 +4540,7 @@ class MTData:
         Parameters
         ----------
         backend : {"bokeh", "matplotlib"}, optional
-            Plotting backend to use. Defaults to ``"bokeh"``.
+            Plotting backend to use. Defaults to ``"matplotlib"``.
         **kwargs : dict
             Additional plotting keyword arguments.
 
