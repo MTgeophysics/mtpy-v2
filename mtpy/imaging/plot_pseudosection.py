@@ -5,11 +5,12 @@ Created on Thu May 30 18:39:58 2013
 @author: jpeacock-pr
 """
 
-import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 # =============================================================================
 # Imports
 # =============================================================================
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib import ticker
@@ -92,8 +93,8 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
         }
 
         # --> set colormaps Note only mtcolors is supported
-        self.res_cmap = plt.get_cmap("mt_rd2gr2bl")
-        self.phase_cmap = plt.get_cmap("mt_bl2gr2rd")
+        self.res_cmap = mpl.colormaps.get_cmap("mt_rd2gr2bl")
+        self.phase_cmap = mpl.colormaps.get_cmap("mt_bl2gr2rd")
 
         for key, value in kwargs.items():
             setattr(self, key, value)

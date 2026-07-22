@@ -646,7 +646,11 @@ class MTCollection:
         ref = find_df.hdf5_reference
 
         mt_object = MT()
-        tf_object = self.mth5_collection.from_reference(ref)
+        tf_result = self.mth5_collection.from_reference(ref)
+        if hasattr(tf_result, "to_tf_object"):
+            tf_object = tf_result.to_tf_object()
+        else:
+            tf_object = tf_result
 
         mt_object.__dict__.update(tf_object.__dict__)
         mt_object.station_metadata.update_time_period()

@@ -35,6 +35,8 @@ try:
     from simpeg.electromagnetics import natural_source as nsem
 except ImportError:
     logger.warning("Could not import Simpeg.")
+except Exception as e:
+    logger.error(f"Error importing Simpeg: {e}")
 
 import matplotlib.gridspec as gridspec
 from matplotlib import pyplot as plt
@@ -230,11 +232,21 @@ class Simpeg1D:
             z_obj = self.mt_dataframe.to_z_object()
 
             res_model_error = z_obj.res_det * self.resistivity_error / 100
-            res_model_error[
-                np.where(z_obj.res_model_error_det > res_model_error)[0]
-            ] = z_obj.res_model_error_det[
-                np.where(z_obj.res_model_error_det > res_model_error)[0]
-            ]
+            # Some legacy inputs carry missing error entries as None; coerce to
+            # float so comparisons are numeric and missing values become NaN.
+            res_model_error_det = np.asarray(z_obj.res_model_error_det, dtype=float)
+            if res_model_error_det.ndim == 0:
+                res_model_error_det = np.full(
+                    res_model_error.shape, float(res_model_error_det), dtype=float
+                )
+            elif res_model_error_det.shape != res_model_error.shape:
+                res_model_error_det = np.resize(
+                    res_model_error_det, res_model_error.shape
+                )
+            valid = np.isfinite(res_model_error_det) & (
+                res_model_error_det > res_model_error
+            )
+            res_model_error[valid] = res_model_error_det[valid]
 
             phase_model_error = np.ones_like(z_obj.phase_det) * self.phase_error
             # phase_model_error[
@@ -576,9 +588,7 @@ class Simpeg1D:
         if use_irls:
             reg.norms = [p_s, p_z]
             # Reach target misfit for L2 solution, then use IRLS until model stops changing.
-            IRLS = directives.Update_IRLS(
-                max_irls_iterations=maxIter, minGNiter=1, f_min_change=1e-5
-            )
+            IRLS = directives.UpdateIRLS(max_irls_iterations=maxIter, f_min_change=1e-5)
 
             # The directives are defined as a list.
             directives_list = [
@@ -721,7 +731,7 @@ class Simpeg1D:
 
         ax_model = fig.add_subplot(gs[:, 0])
         ax_model.step(
-            (1.0 / (np.exp(m))),
+            (1.0 / (np.exp(m[::-1]))),
             self._plot_z,
             color="k",
             **{"linestyle": "-"},

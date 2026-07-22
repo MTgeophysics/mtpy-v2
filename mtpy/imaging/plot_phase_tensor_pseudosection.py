@@ -7,6 +7,7 @@ Created on Thu May 30 18:10:55 2013
 
 # ==============================================================================
 
+import matplotlib as mpl
 import matplotlib.colorbar as mcb
 import matplotlib.colors as colors
 import matplotlib.patches as patches
@@ -295,7 +296,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
             self.ax2 = self.fig.add_axes(self.cb_position)
 
         # make the colorbar
-        cmap_input = plt.get_cmap(self.ellipse_cmap)
+        cmap_input = mpl.colormaps.get_cmap(self.ellipse_cmap)
 
         if "seg" in self.ellipse_cmap:
             norms = colors.BoundaryNorm(self.ellipse_cmap_bounds, cmap_input.N)
