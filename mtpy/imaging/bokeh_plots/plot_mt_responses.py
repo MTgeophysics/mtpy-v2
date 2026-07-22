@@ -11,7 +11,6 @@ import numpy as np
 from mtpy.imaging.bokeh_plots.bokeh_plot_base import BokehPlotBase
 from mtpy.imaging.bokeh_plots.plot_mt_response import PlotMTResponse
 
-
 try:
     from bokeh.io import show
     from bokeh.layouts import Column, Row
