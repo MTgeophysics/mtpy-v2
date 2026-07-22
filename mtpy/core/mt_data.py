@@ -11,7 +11,7 @@ from __future__ import annotations
 import importlib
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, TYPE_CHECKING
+from typing import Any, Callable, Literal, TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -20,15 +20,26 @@ from loguru import logger
 
 from mtpy.core.transfer_function import IMPEDANCE_UNITS
 from mtpy.imaging import (
+    PlotMTResponseBokeh,
     PlotMultipleResponses,
+    PlotMultipleResponsesBokeh,
+    PlotPenetrationDepth1DBokeh,
     PlotPenetrationDepthMap,
+    PlotPenetrationDepthMapBokeh,
+    PlotPhaseTensorBokeh,
     PlotPhaseTensorMaps,
+    PlotPhaseTensorMapsBokeh,
     PlotPhaseTensorPseudoSection,
+    PlotPhaseTensorPseudoSectionBokeh,
     PlotResidualPTMaps,
     PlotResPhaseMaps,
+    PlotResPhaseMapsBokeh,
     PlotResPhasePseudoSection,
+    PlotResPhasePseudoSectionBokeh,
     PlotStations,
+    PlotStationsBokeh,
     PlotStrike,
+    PlotStrikeBokeh,
 )
 from mtpy.modeling.errors import ModelErrors
 
@@ -612,15 +623,19 @@ class MTData:
         mt_obj: "MT | str | Path",
         dataset_copy_mode: str | None = None,
         precomputed_attrs: dict[str, Any] | None = None,
+        survey_id: str = None,
     ) -> tuple[str, str, xr.Dataset, dict[str, Any]]:
         """Coerce station input and build station path/dataset payload."""
         mt_obj = self._coerce_mt_object(mt_obj)
 
-        survey = self._clean_name(
-            getattr(mt_obj, "survey", None)
-            or getattr(getattr(mt_obj, "survey_metadata", None), "id", None),
-            "default",
-        )
+        if survey_id is None:
+            survey = self._clean_name(
+                getattr(mt_obj, "survey", None)
+                or getattr(getattr(mt_obj, "survey_metadata", None), "id", None),
+                "default",
+            )
+        else:
+            survey = survey_id.strip() or "default"
         station = self._clean_name(
             getattr(mt_obj, "station", None)
             or getattr(getattr(mt_obj, "station_metadata", None), "id", None),
@@ -633,6 +648,8 @@ class MTData:
         )
 
         survey_metadata_obj = getattr(mt_obj, "survey_metadata", None)
+        if survey_metadata_obj is not None and survey_id is not None:
+            setattr(survey_metadata_obj, "id", survey_id)
         station_metadata_obj = getattr(mt_obj, "station_metadata", None)
         survey_metadata_ref = self._metadata_ref(station_path, survey_metadata_obj)
         station_metadata_ref = self._metadata_ref(station_path, station_metadata_obj)
@@ -2957,6 +2974,7 @@ class MTData:
         mt_obj: "MT | str | Path | list[MT | str | Path]",
         overwrite: bool = True,
         dataset_copy_mode: str | None = None,
+        survey_id: str | None = None,
     ) -> str | list[str]:
         """
         Add an MT object as a station node in the tree.
@@ -2973,6 +2991,8 @@ class MTData:
             If False, raise if station path already exists.
         dataset_copy_mode : {'deep', 'shallow', 'none'}, optional
             Dataset copy behavior for station transfer-function storage.
+        survey_id : str, optional
+            Survey ID to assign to the station.  When ``None`` (default) the survey ID is inferred from the MT object or filename.
 
         Returns
         -------
@@ -2990,6 +3010,7 @@ class MTData:
                 mt_obj,
                 overwrite=overwrite,
                 dataset_copy_mode=dataset_copy_mode,
+                survey_id=survey_id,
             )
 
         (
@@ -3000,6 +3021,7 @@ class MTData:
         ) = self._coerce_and_prepare_station(
             mt_obj,
             dataset_copy_mode=dataset_copy_mode,
+            survey_id=survey_id,
         )
 
         if self._path_exists(station_path) and not overwrite:
@@ -3035,6 +3057,7 @@ class MTData:
         overwrite: bool = True,
         dataset_copy_mode: str | None = None,
         precomputed_attrs: list[dict[str, Any] | None] | None = None,
+        survey_id: str | None = None,
     ) -> list[str]:
         """
         Bulk-add MT stations with optional precomputed attrs for fast ingest.
@@ -3051,6 +3074,9 @@ class MTData:
             Optional attrs payload aligned by index with mt_objects. When
             provided, these attrs are used directly and only canonical keys are
             enforced (survey/station and metadata refs).
+        survey_id : str, optional
+            Survey ID to assign to all stations.  When ``None`` (default) the survey ID is
+            inferred from each MT object or filename.
 
         Returns
         -------
@@ -3090,6 +3116,7 @@ class MTData:
                 mt_obj,
                 dataset_copy_mode=dataset_copy_mode,
                 precomputed_attrs=attrs,
+                survey_id=survey_id,
             )
             if station_path in seen_paths and not overwrite:
                 raise KeyError(f"Station path already exists: {station_path}")
@@ -3932,6 +3959,7 @@ class MTData:
         station_key: str | list[str] | None = None,
         station_id: str | list[str] | None = None,
         survey_id: str | list[str] | None = None,
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
         **kwargs: Any,
     ) -> PlotMultipleResponses | Any:
         """
@@ -3947,6 +3975,8 @@ class MTData:
         survey_id : str, list of str, optional
             Survey ID(s) used with *station_id*. If list-valued, must align
             one-to-one with *station_id*.
+        backend : {"bokeh", "matplotlib"}, optional
+            Plotting backend to use. Defaults to ``"matplotlib"``.
         **kwargs : dict
             Additional plotting keyword arguments.
 
@@ -3960,7 +3990,8 @@ class MTData:
         ------
         ValueError
             If list-valued *survey_id* does not match list-valued
-            *station_id*, or if station selection is ambiguous.
+            *station_id*, if station selection is ambiguous, or if an
+            unknown *backend* is specified.
         KeyError
             If a requested station cannot be resolved.
 
@@ -3975,9 +4006,19 @@ class MTData:
 
         """
 
+        if backend not in ("bokeh", "matplotlib"):
+            raise ValueError(
+                f"Unknown backend {backend!r}. Choose 'bokeh' or 'matplotlib'."
+            )
+
         if isinstance(station_key, (list, tuple)):
             station_keys = [self._resolve_station_path(sk) for sk in station_key]
-            return PlotMultipleResponses(self.get_subset(station_keys), **kwargs)
+            cls = (
+                PlotMultipleResponsesBokeh
+                if backend == "bokeh"
+                else PlotMultipleResponses
+            )
+            return cls(self.get_subset(station_keys), **kwargs)
 
         elif isinstance(station_id, (list, tuple)):
             station_ids = list(station_id)
@@ -3995,7 +4036,12 @@ class MTData:
                 )
                 for survey, station in zip(survey_ids, station_ids)
             ]
-            return PlotMultipleResponses(self.get_subset(station_keys), **kwargs)
+            cls = (
+                PlotMultipleResponsesBokeh
+                if backend == "bokeh"
+                else PlotMultipleResponses
+            )
+            return cls(self.get_subset(station_keys), **kwargs)
 
         else:
             station_path = self._resolve_plot_station_key(
@@ -4004,13 +4050,57 @@ class MTData:
                 station_key=station_key,
             )
             mt_object = self.get_station(station_path, as_mt=True)
+            if backend == "bokeh":
+                return PlotMTResponseBokeh(
+                    z_object=mt_object.Z,
+                    t_object=mt_object.Tipper,
+                    pt_obj=mt_object.pt,
+                    station=mt_object.station,
+                    **kwargs,
+                )
             return mt_object.plot_mt_response(**kwargs)
+
+    def plot_mt_responses(
+        self,
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
+        **kwargs: Any,
+    ) -> PlotMultipleResponses | Any:
+        """
+        Plot MT responses for all stations in the collection.
+
+        Unlike :meth:`plot_mt_response`, which targets a single station (or a
+        caller-specified subset), this method constructs a multi-station
+        response plot object for the *entire* collection.  When ``backend``
+        is ``"bokeh"`` the returned object exposes a :meth:`panel` method
+        that provides an interactive Panel app with station selection,
+        plot-style (single / compare) controls and per-station styling.
+
+        Parameters
+        ----------
+        backend : {"bokeh", "matplotlib"}, optional
+            Plotting backend.  Defaults to ``"bokeh"``.
+        **kwargs : dict
+            Additional keyword arguments forwarded to the plot class.
+
+        Returns
+        -------
+        PlotMultipleResponsesBokeh or PlotMultipleResponses
+        """
+        if backend not in ("bokeh", "matplotlib"):
+            raise ValueError(
+                f"backend must be 'bokeh' or 'matplotlib', got '{backend}'"
+            )
+        cls = (
+            PlotMultipleResponsesBokeh if backend == "bokeh" else PlotMultipleResponses
+        )
+        return cls(mt_data=self, **kwargs)
 
     def plot_stations(
         self,
         map_epsg: int = 4326,
         bounding_box: tuple[float, float, float, float] | None = None,
         model_locations: bool = False,
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
         **kwargs: Any,
     ) -> PlotStations:
         """
@@ -4025,6 +4115,8 @@ class MTData:
             stations before plotting.
         model_locations : bool, optional
             Use model coordinates instead of geographic coordinates.
+        backend : {"bokeh", "matplotlib"}, optional
+            Plotting backend to use. Defaults to ``"bokeh"``.
         **kwargs : dict
             Additional plotting keyword arguments.
 
@@ -4036,7 +4128,8 @@ class MTData:
         Raises
         ------
         ValueError
-            If *bounding_box* is provided and does not contain four values.
+            If *bounding_box* is provided and does not contain four values,
+            or if an unknown *backend* is specified.
 
         Examples
         --------
@@ -4045,6 +4138,11 @@ class MTData:
         >>> tree.plot_stations(bounding_box=(-121.5, -120.0, 36.5, 38.0))
 
         """
+
+        if backend not in ("bokeh", "matplotlib"):
+            raise ValueError(
+                f"Unknown backend {backend!r}. Choose 'bokeh' or 'matplotlib'."
+            )
         mt_data = self
         if bounding_box is not None:
             if len(bounding_box) != 4:
@@ -4057,14 +4155,21 @@ class MTData:
         if model_locations:
             kwargs["plot_cx"] = False
         kwargs.setdefault("map_epsg", map_epsg)
-        return PlotStations(gdf, **kwargs)
+        cls = PlotStationsBokeh if backend == "bokeh" else PlotStations
+        return cls(gdf, **kwargs)
 
-    def plot_strike(self, **kwargs: Any) -> PlotStrike:
+    def plot_strike(
+        self,
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
+        **kwargs: Any,
+    ) -> PlotStrike:
         """
         Plot strike angle.
 
         Parameters
         ----------
+        backend : {"bokeh", "matplotlib"}, optional
+            Plotting backend to use. Defaults to ``"bokeh"``.
         **kwargs : dict
             Additional plotting keyword arguments.
 
@@ -4073,20 +4178,30 @@ class MTData:
         PlotStrike
             Strike plot object
 
+        Raises
+        ------
+        ValueError
+            If an unknown *backend* is specified.
+
         Examples
         --------
         >>> tree.plot_strike()
         >>> tree.plot_strike(show_plot=False)
 
         """
-
-        return PlotStrike(self, **kwargs)
+        if backend not in ("bokeh", "matplotlib"):
+            raise ValueError(
+                f"Unknown backend {backend!r}. Choose 'bokeh' or 'matplotlib'."
+            )
+        cls = PlotStrikeBokeh if backend == "bokeh" else PlotStrike
+        return cls(self, **kwargs)
 
     def plot_phase_tensor(
         self,
         station_key: str | None = None,
         station_id: str | None = None,
         survey_id: str | None = None,
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
         **kwargs: Any,
     ) -> Any:
         """
@@ -4100,6 +4215,8 @@ class MTData:
             Station ID.
         survey_id : str, optional
             Survey ID used to disambiguate duplicate station IDs.
+        backend : {"bokeh", "matplotlib"}, optional
+            Plotting backend to use. Defaults to ``"bokeh"``.
         **kwargs : dict
             Additional plotting keyword arguments.
 
@@ -4111,7 +4228,8 @@ class MTData:
         Raises
         ------
         ValueError
-            If station selection is ambiguous.
+            If station selection is ambiguous or an unknown *backend* is
+            specified.
         KeyError
             If the station cannot be resolved.
 
@@ -4121,21 +4239,35 @@ class MTData:
         >>> tree.plot_phase_tensor(station_id="st01", survey_id="survey_a")
 
         """
-
+        if backend not in ("bokeh", "matplotlib"):
+            raise ValueError(
+                f"Unknown backend {backend!r}. Choose 'bokeh' or 'matplotlib'."
+            )
         station_path = self._resolve_plot_station_key(
             station_id=station_id,
             survey_id=survey_id,
             station_key=station_key,
         )
         mt_object = self.get_station(station_path, as_mt=True)
+        if backend == "bokeh":
+            kwargs.setdefault("ellipse_size", 0.5)
+            return PlotPhaseTensorBokeh(
+                mt_object.pt, station=mt_object.station, **kwargs
+            )
         return mt_object.plot_phase_tensor(**kwargs)
 
-    def plot_phase_tensor_map(self, **kwargs: Any) -> PlotPhaseTensorMaps:
+    def plot_phase_tensor_map(
+        self,
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
+        **kwargs: Any,
+    ) -> PlotPhaseTensorMaps:
         """
         Plot phase tensor maps.
 
         Parameters
         ----------
+        backend : {"bokeh", "matplotlib"}, optional
+            Plotting backend to use. Defaults to ``"matplotlib"``.
         **kwargs : dict
             Additional plotting keyword arguments.
 
@@ -4144,21 +4276,36 @@ class MTData:
         PlotPhaseTensorMaps
             Phase tensor map plot object
 
+        Raises
+        ------
+        ValueError
+            If an unknown *backend* is specified.
+
         Examples
         --------
         >>> tree.plot_phase_tensor_map(plot_period=10)
         >>> tree.plot_phase_tensor_map(plot_station=True)
 
         """
+        if backend not in ("bokeh", "matplotlib"):
+            raise ValueError(
+                f"Unknown backend {backend!r}. Choose 'bokeh' or 'matplotlib'."
+            )
+        cls = PlotPhaseTensorMapsBokeh if backend == "bokeh" else PlotPhaseTensorMaps
+        return cls(mt_data=self, **kwargs)
 
-        return PlotPhaseTensorMaps(mt_data=self, **kwargs)
-
-    def plot_tipper_map(self, **kwargs: Any) -> PlotPhaseTensorMaps:
+    def plot_tipper_map(
+        self,
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
+        **kwargs: Any,
+    ) -> PlotPhaseTensorMaps:
         """
         Plot tipper (induction vector) maps.
 
         Parameters
         ----------
+        backend : {"bokeh", "matplotlib"}, optional
+            Plotting backend to use. Defaults to ``"matplotlib"``.
         **kwargs : dict
             Additional plotting keyword arguments. Defaults are
             ``plot_pt=False`` and ``plot_tipper='yri'`` when not explicitly
@@ -4169,18 +4316,31 @@ class MTData:
         PlotPhaseTensorMaps
             Tipper map plot object
 
+        Raises
+        ------
+        ValueError
+            If an unknown *backend* is specified.
+
         Examples
         --------
         >>> tree.plot_tipper_map()
         >>> tree.plot_tipper_map(plot_tipper="yri", plot_pt=False)
 
         """
+        if backend not in ("bokeh", "matplotlib"):
+            raise ValueError(
+                f"Unknown backend {backend!r}. Choose 'bokeh' or 'matplotlib'."
+            )
         kwargs.setdefault("plot_pt", False)
         kwargs.setdefault("plot_tipper", "yri")
-        return PlotPhaseTensorMaps(mt_data=self, **kwargs)
+        cls = PlotPhaseTensorMapsBokeh if backend == "bokeh" else PlotPhaseTensorMaps
+        return cls(mt_data=self, **kwargs)
 
     def plot_phase_tensor_pseudosection(
-        self, mt_data: "MTData" | None = None, **kwargs: Any
+        self,
+        mt_data: "MTData" | None = None,
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
+        **kwargs: Any,
     ) -> PlotPhaseTensorPseudoSection:
         """
         Plot phase tensor pseudosection.
@@ -4189,6 +4349,8 @@ class MTData:
         ----------
         mt_data : MTData, optional
             MTData object to plot. Defaults to ``self``.
+        backend : {"bokeh", "matplotlib"}, optional
+            Plotting backend to use. Defaults to ``"matplotlib"``.
         **kwargs : dict
             Additional plotting keyword arguments.
 
@@ -4197,6 +4359,11 @@ class MTData:
         PlotPhaseTensorPseudoSection
             Pseudosection plot object
 
+        Raises
+        ------
+        ValueError
+            If an unknown *backend* is specified.
+
         Examples
         --------
         >>> tree.plot_phase_tensor_pseudosection()
@@ -4204,16 +4371,25 @@ class MTData:
         >>> tree.plot_phase_tensor_pseudosection(mt_data=subset)
 
         """
-
+        if backend not in ("bokeh", "matplotlib"):
+            raise ValueError(
+                f"Unknown backend {backend!r}. Choose 'bokeh' or 'matplotlib'."
+            )
         if mt_data is None:
             mt_data = self
-        return PlotPhaseTensorPseudoSection(mt_data=mt_data, **kwargs)
+        cls = (
+            PlotPhaseTensorPseudoSectionBokeh
+            if backend == "bokeh"
+            else PlotPhaseTensorPseudoSection
+        )
+        return cls(mt_data=mt_data, **kwargs)
 
     def plot_penetration_depth_1d(
         self,
         station_key: str | None = None,
         station_id: str | None = None,
         survey_id: str | None = None,
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
         **kwargs: Any,
     ) -> Any:
         """
@@ -4227,6 +4403,8 @@ class MTData:
             Station ID.
         survey_id : str, optional
             Survey ID used to disambiguate duplicate station IDs.
+        backend : {"bokeh", "matplotlib"}, optional
+            Plotting backend to use. Defaults to ``"matplotlib"``.
         **kwargs : dict
             Additional plotting keyword arguments.
 
@@ -4238,7 +4416,8 @@ class MTData:
         Raises
         ------
         ValueError
-            If station selection is ambiguous.
+            If station selection is ambiguous or an unknown *backend* is
+            specified.
         KeyError
             If the station cannot be resolved.
 
@@ -4261,15 +4440,26 @@ class MTData:
             station_key=station_key,
         )
         mt_object = self.get_station(station_path, as_mt=True)
-
+        if backend not in ("bokeh", "matplotlib"):
+            raise ValueError(
+                f"Unknown backend {backend!r}. Choose 'bokeh' or 'matplotlib'."
+            )
+        if backend == "bokeh":
+            return PlotPenetrationDepth1DBokeh(mt_object, **kwargs)
         return mt_object.plot_depth_of_penetration(**kwargs)
 
-    def plot_penetration_depth_map(self, **kwargs: Any) -> PlotPenetrationDepthMap:
+    def plot_penetration_depth_map(
+        self,
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
+        **kwargs: Any,
+    ) -> PlotPenetrationDepthMap:
         """
         Plot penetration depth in map view.
 
         Parameters
         ----------
+        backend : {"bokeh", "matplotlib"}, optional
+            Plotting backend to use. Defaults to ``"matplotlib"``.
         **kwargs : dict
             Additional plotting keyword arguments.
 
@@ -4278,20 +4468,40 @@ class MTData:
         PlotPenetrationDepthMap
             Penetration depth map plot object
 
+        Raises
+        ------
+        ValueError
+            If an unknown *backend* is specified.
+
         Examples
         --------
         >>> tree.plot_penetration_depth_map(plot_period=10)
         >>> tree.plot_penetration_depth_map(depth_units="km")
 
         """
-        return PlotPenetrationDepthMap(mt_data=self, **kwargs)
+        if backend not in ("bokeh", "matplotlib"):
+            raise ValueError(
+                f"Unknown backend {backend!r}. Choose 'bokeh' or 'matplotlib'."
+            )
+        cls = (
+            PlotPenetrationDepthMapBokeh
+            if backend == "bokeh"
+            else PlotPenetrationDepthMap
+        )
+        return cls(mt_data=self, **kwargs)
 
-    def plot_resistivity_phase_maps(self, **kwargs: Any) -> PlotResPhaseMaps:
+    def plot_resistivity_phase_maps(
+        self,
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
+        **kwargs: Any,
+    ) -> PlotResPhaseMaps:
         """
         Plot apparent resistivity and/or phase maps.
 
         Parameters
         ----------
+        backend : {"bokeh", "matplotlib"}, optional
+            Plotting backend to use. Defaults to ``"matplotlib"``.
         **kwargs : dict
             Additional plotting keyword arguments.
 
@@ -4300,22 +4510,36 @@ class MTData:
         PlotResPhaseMaps
             Resistivity/phase map plot object
 
+        Raises
+        ------
+        ValueError
+            If an unknown *backend* is specified.
+
         Examples
         --------
         >>> tree.plot_resistivity_phase_maps(plot_period=10)
         >>> tree.plot_resistivity_phase_maps(plot_xy=True, plot_yx=False)
 
         """
-        return PlotResPhaseMaps(mt_data=self, **kwargs)
+        if backend not in ("bokeh", "matplotlib"):
+            raise ValueError(
+                f"Unknown backend {backend!r}. Choose 'bokeh' or 'matplotlib'."
+            )
+        cls = PlotResPhaseMapsBokeh if backend == "bokeh" else PlotResPhaseMaps
+        return cls(mt_data=self, **kwargs)
 
     def plot_resistivity_phase_pseudosections(
-        self, **kwargs: Any
+        self,
+        backend: Literal["bokeh", "matplotlib"] = "matplotlib",
+        **kwargs: Any,
     ) -> PlotResPhasePseudoSection:
         """
         Plot resistivity and phase pseudosections.
 
         Parameters
         ----------
+        backend : {"bokeh", "matplotlib"}, optional
+            Plotting backend to use. Defaults to ``"matplotlib"``.
         **kwargs : dict
             Additional plotting keyword arguments.
 
@@ -4324,13 +4548,27 @@ class MTData:
         PlotResPhasePseudoSection
             Pseudosection plot object
 
+        Raises
+        ------
+        ValueError
+            If an unknown *backend* is specified.
+
         Examples
         --------
         >>> tree.plot_resistivity_phase_pseudosections()
         >>> tree.plot_resistivity_phase_pseudosections(interpolation_method="nearest")
 
         """
-        return PlotResPhasePseudoSection(mt_data=self, **kwargs)
+        if backend not in ("bokeh", "matplotlib"):
+            raise ValueError(
+                f"Unknown backend {backend!r}. Choose 'bokeh' or 'matplotlib'."
+            )
+        cls = (
+            PlotResPhasePseudoSectionBokeh
+            if backend == "bokeh"
+            else PlotResPhasePseudoSection
+        )
+        return cls(mt_data=self, **kwargs)
 
     def plot_residual_phase_tensor_maps(
         self, survey_01: str, survey_02: str, **kwargs: Any

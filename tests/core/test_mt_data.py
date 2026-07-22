@@ -233,6 +233,22 @@ class TestMTDataAddStation:
         assert "survey_metadata" in ds.attrs
         assert "station_metadata" in ds.attrs
 
+    def test_add_station_survey_id_overrides_station_path_and_attrs(self):
+        mt = MT()
+        mt.survey = "original_survey"
+        mt.station = "station_01"
+
+        tree = MTData()
+        station_path = tree.add_station(mt, survey_id="renamed_survey")
+
+        assert station_path == "surveys/renamed_survey/stations/station_01"
+        assert set(tree.survey_ids) == {"renamed_survey"}
+
+        ds = tree.get_station(station_path)
+        assert ds.attrs["survey"] == "renamed_survey"
+        assert ds.attrs["station"] == "station_01"
+        assert mt.survey_metadata.id == "renamed_survey"
+
     def test_clean_name_replaces_path_separators(self):
         assert MTData._clean_name("survey/a", "default") == "survey_a"
         assert MTData._clean_name("station/01", "unknown_station") == "station_01"
@@ -302,6 +318,24 @@ class TestMTDataAddStation:
             f"surveys/{MTData._clean_name(loaded_profile_mt.survey, 'default')}"
             f"/stations/{MTData._clean_name(loaded_profile_mt.station, 'unknown_station')}"
         )
+
+    def test_add_station_list_honors_survey_id(self):
+        mt_1 = MT()
+        mt_1.survey = "survey_a"
+        mt_1.station = "station_01"
+
+        mt_2 = MT()
+        mt_2.survey = "survey_b"
+        mt_2.station = "station_02"
+
+        tree = MTData()
+        out_paths = tree.add_station([mt_1, mt_2], survey_id="override_survey")
+
+        assert out_paths == [
+            "surveys/override_survey/stations/station_01",
+            "surveys/override_survey/stations/station_02",
+        ]
+        assert set(tree.survey_ids) == {"override_survey"}
 
     def test_add_station_invalid_type_raises(self):
         tree = MTData()
@@ -420,6 +454,32 @@ class TestMTDataAddStation:
             "surveys/bulk_survey/stations/bulk_01",
             "surveys/bulk_survey/stations/bulk_02",
         ]
+
+    def test_add_stations_honors_survey_id(self):
+        mt_1 = MT()
+        mt_1.survey = "bulk_survey_a"
+        mt_1.station = "bulk_01"
+
+        mt_2 = MT()
+        mt_2.survey = "bulk_survey_b"
+        mt_2.station = "bulk_02"
+
+        tree = MTData()
+        out_paths = tree.add_stations(
+            [mt_1, mt_2],
+            survey_id="bulk_override",
+        )
+
+        assert out_paths == [
+            "surveys/bulk_override/stations/bulk_01",
+            "surveys/bulk_override/stations/bulk_02",
+        ]
+        assert set(tree.survey_ids) == {"bulk_override"}
+
+        ds_1 = tree.get_station(out_paths[0])
+        ds_2 = tree.get_station(out_paths[1])
+        assert ds_1.attrs["survey"] == "bulk_override"
+        assert ds_2.attrs["survey"] == "bulk_override"
 
     def test_add_stations_precomputed_attrs(self):
         mt_1 = MT()
@@ -2356,7 +2416,9 @@ class TestMTDataPlottingCompatibility:
 
         monkeypatch.setattr(tree, "get_station", _fake_get_station)
 
-        out = tree.plot_phase_tensor(station_key=station_path, color="k")
+        out = tree.plot_phase_tensor(
+            station_key=station_path, color="k", backend="matplotlib"
+        )
 
         assert out == "phase_tensor_plot"
         assert called["station_key"] == station_path
@@ -2383,7 +2445,9 @@ class TestMTDataPlottingCompatibility:
             mt_data_module, "PlotPhaseTensorPseudoSection", _fake_plotter
         )
 
-        out = tree.plot_phase_tensor_pseudosection(mt_data=other, foo=1)
+        out = tree.plot_phase_tensor_pseudosection(
+            mt_data=other, foo=1, backend="matplotlib"
+        )
 
         assert out == "pseudo"
         assert captured["mt_data"] is other
@@ -2415,7 +2479,9 @@ class TestMTDataPlottingCompatibility:
         monkeypatch.setattr(tree, "apply_bounding_box", _fake_apply_bounding_box)
         monkeypatch.setattr(mt_data_module, "PlotStations", _fake_plot_stations)
 
-        out = tree.plot_stations(map_epsg=3857, bounding_box=(0, 1, 2, 3))
+        out = tree.plot_stations(
+            map_epsg=3857, bounding_box=(0, 1, 2, 3), backend="matplotlib"
+        )
 
         assert out == "stations_plot"
         assert captured["bbox"] == (0, 1, 2, 3)
@@ -2439,7 +2505,9 @@ class TestMTDataPlottingCompatibility:
 
         monkeypatch.setattr(mt_data_module, "PlotPhaseTensorMaps", _fake_plotter)
 
-        out = tree.plot_tipper_map(plot_pt=True, plot_tipper="abc")
+        out = tree.plot_tipper_map(
+            plot_pt=True, plot_tipper="abc", backend="matplotlib"
+        )
 
         assert out == "tipper"
         assert captured["mt_data"] is tree
@@ -2467,8 +2535,8 @@ class TestMTDataPlottingCompatibility:
         monkeypatch.setattr(mt_data_module, "PlotResPhaseMaps", _fake_maps)
         monkeypatch.setattr(mt_data_module, "PlotResPhasePseudoSection", _fake_ps)
 
-        out_maps = tree.plot_resistivity_phase_maps(a=1)
-        out_ps = tree.plot_resistivity_phase_pseudosections(b=2)
+        out_maps = tree.plot_resistivity_phase_maps(a=1, backend="matplotlib")
+        out_ps = tree.plot_resistivity_phase_pseudosections(b=2, backend="matplotlib")
 
         assert out_maps == "maps"
         assert out_ps == "ps"
@@ -2494,7 +2562,7 @@ class TestMTDataPlottingCompatibility:
 
         monkeypatch.setattr(mt_data_module, "PlotPenetrationDepthMap", _fake_plotter)
 
-        out = tree.plot_penetration_depth_map(plot_period=10)
+        out = tree.plot_penetration_depth_map(plot_period=10, backend="matplotlib")
 
         assert out == "depth_map"
         assert captured["mt_data"] is tree
