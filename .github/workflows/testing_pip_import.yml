@@ -16,7 +16,10 @@ jobs:
         python-version: ["3.10"]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+
     - name: Setup Conda
       uses: s-weigand/setup-conda@v1
       with:
@@ -26,45 +29,62 @@ jobs:
 
     - name: Install Packages
       shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
       run: |
+        set -euxo pipefail
+
         python --version
         conda create -n mtpy-v2-test python=${{ matrix.python-version }}
         source activate mtpy-v2-test
+
         pip install mtpy-v2
-        conda install pytest
-        conda install pytest-subtests
-        conda install pytest-cov
+        conda install -y pytest pytest-subtests pytest-cov
+
+        # Prevent interactive git auth prompts and force token auth for github.com clones
+        export GIT_TERMINAL_PROMPT=0
+        git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
+
         git clone https://github.com/IAGA-DVI-DataStandards/mt_metadata.git
         cd mt_metadata
         pip install -e .
         cd ..
+
         git clone https://github.com/IAGA-DVI-DataStandards/mth5.git
         cd mth5
         pip install -e .
         cd ..
-        git clone https://github.com/simpeg/aurora
+
+        git clone https://github.com/simpeg/aurora.git
         cd aurora
         pip install -e .
         cd ..
+
         git clone https://github.com/MTgeophysics/mtpy_data.git
         cd mtpy_data
         pip install -e .
         cd ..
+
         conda list
-        
+
     - name: Run Tests
       shell: bash
       run: |
+        set -euxo pipefail
         source activate mtpy-v2-test
+
         cd mt_metadata/tests/
         pytest -v .
+
         cd ../../mth5/tests/
         pytest -v .
+
         cd ../../aurora/tests/
         pytest -v . -k "not test_doc_build.py"
+
         cd ../../tests/
         pytest -v . --ignore=perf
-        
+
     # - name: "Upload coverage to Codecov"
     #   uses: codecov/codecov-action@v3
     #   env:
@@ -73,4 +93,3 @@ jobs:
     #     fail_ci_if_error: false
     #     verbose: true
     #     flags: tests
-        
