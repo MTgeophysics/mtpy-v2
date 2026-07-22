@@ -13,7 +13,6 @@ import matplotlib as mpl
 import numpy as np
 from matplotlib import cm, colors
 
-
 # ==============================================================================
 # Make some color maps for plotting
 # ==============================================================================
