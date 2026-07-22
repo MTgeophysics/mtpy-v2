@@ -34,7 +34,7 @@ dependencies = [
     "numpy",
     "scipy",
     "xarray>=2024.10.0",
-    "matplotlib",
+    "matplotlib>=3.7",
     "pyproj",
     "configparser",
     "mt_metadata",
