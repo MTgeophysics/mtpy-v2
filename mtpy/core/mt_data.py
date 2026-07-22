@@ -47,6 +47,7 @@ from . import mt_data_accessor as _mt_data_accessor  # noqa: F401
 from .mt_data_tree_index import MTDataTreeIndexStore
 from .mt_dataframe import MTDataFrame
 
+
 COORDINATE_REFERENCE_FRAME_OPTIONS = {
     "+": "ned",
     "-": "enu",
@@ -623,15 +624,19 @@ class MTData:
         mt_obj: "MT | str | Path",
         dataset_copy_mode: str | None = None,
         precomputed_attrs: dict[str, Any] | None = None,
+        survey_id: str = None,
     ) -> tuple[str, str, xr.Dataset, dict[str, Any]]:
         """Coerce station input and build station path/dataset payload."""
         mt_obj = self._coerce_mt_object(mt_obj)
 
-        survey = self._clean_name(
-            getattr(mt_obj, "survey", None)
-            or getattr(getattr(mt_obj, "survey_metadata", None), "id", None),
-            "default",
-        )
+        if survey_id is None:
+            survey = self._clean_name(
+                getattr(mt_obj, "survey", None)
+                or getattr(getattr(mt_obj, "survey_metadata", None), "id", None),
+                "default",
+            )
+        else:
+            survey = survey_id.strip() or "default"
         station = self._clean_name(
             getattr(mt_obj, "station", None)
             or getattr(getattr(mt_obj, "station_metadata", None), "id", None),
@@ -644,6 +649,8 @@ class MTData:
         )
 
         survey_metadata_obj = getattr(mt_obj, "survey_metadata", None)
+        if survey_metadata_obj is not None and survey_id is not None:
+            setattr(survey_metadata_obj, "id", survey_id)
         station_metadata_obj = getattr(mt_obj, "station_metadata", None)
         survey_metadata_ref = self._metadata_ref(station_path, survey_metadata_obj)
         station_metadata_ref = self._metadata_ref(station_path, station_metadata_obj)
@@ -763,9 +770,9 @@ class MTData:
 
         for station_path in self._iter_station_paths():
             station_ds = self.get_station(station_path)
-            station_ds.attrs["coordinate_reference_frame"] = (
-                self.coordinate_reference_frame
-            )
+            station_ds.attrs[
+                "coordinate_reference_frame"
+            ] = self.coordinate_reference_frame
 
     @property
     def impedance_units(self) -> str:
@@ -1166,9 +1173,9 @@ class MTData:
         for station_path in target_paths:
             station_ds = tree_obj.get_station(station_path).copy(deep=False)
             if lazy:
-                tree_obj._lazy_station_transforms[station_path] = (
-                    lambda ds=station_ds, op=transform: op(ds)
-                )
+                tree_obj._lazy_station_transforms[
+                    station_path
+                ] = lambda ds=station_ds, op=transform: op(ds)
         if not lazy:
 
             def _validated_transform(ds: xr.Dataset) -> xr.Dataset:
@@ -1243,9 +1250,9 @@ class MTData:
         )
 
         for station_path, transform in list(lazy_tree._lazy_station_transforms.items()):
-            lazy_tree._lazy_station_transforms[station_path] = (
-                lambda fn=transform: delayed(fn)()
-            )
+            lazy_tree._lazy_station_transforms[
+                station_path
+            ] = lambda fn=transform: delayed(fn)()
 
         if compute:
             lazy_tree.compute(scheduler=scheduler)
@@ -1315,9 +1322,9 @@ class MTData:
         )
 
         for station_path, transform in list(lazy_tree._lazy_station_transforms.items()):
-            lazy_tree._lazy_station_transforms[station_path] = (
-                lambda fn=transform: delayed(fn)()
-            )
+            lazy_tree._lazy_station_transforms[
+                station_path
+            ] = lambda fn=transform: delayed(fn)()
 
         if compute:
             lazy_tree.compute(scheduler=scheduler)
@@ -2968,6 +2975,7 @@ class MTData:
         mt_obj: "MT | str | Path | list[MT | str | Path]",
         overwrite: bool = True,
         dataset_copy_mode: str | None = None,
+        survey_id: str | None = None,
     ) -> str | list[str]:
         """
         Add an MT object as a station node in the tree.
@@ -2984,6 +2992,8 @@ class MTData:
             If False, raise if station path already exists.
         dataset_copy_mode : {'deep', 'shallow', 'none'}, optional
             Dataset copy behavior for station transfer-function storage.
+        survey_id : str, optional
+            Survey ID to assign to the station.  When ``None`` (default) the survey ID is inferred from the MT object or filename.
 
         Returns
         -------
@@ -3001,6 +3011,7 @@ class MTData:
                 mt_obj,
                 overwrite=overwrite,
                 dataset_copy_mode=dataset_copy_mode,
+                survey_id=survey_id,
             )
 
         (
@@ -3011,6 +3022,7 @@ class MTData:
         ) = self._coerce_and_prepare_station(
             mt_obj,
             dataset_copy_mode=dataset_copy_mode,
+            survey_id=survey_id,
         )
 
         if self._path_exists(station_path) and not overwrite:
@@ -3046,6 +3058,7 @@ class MTData:
         overwrite: bool = True,
         dataset_copy_mode: str | None = None,
         precomputed_attrs: list[dict[str, Any] | None] | None = None,
+        survey_id: str | None = None,
     ) -> list[str]:
         """
         Bulk-add MT stations with optional precomputed attrs for fast ingest.
@@ -3062,6 +3075,9 @@ class MTData:
             Optional attrs payload aligned by index with mt_objects. When
             provided, these attrs are used directly and only canonical keys are
             enforced (survey/station and metadata refs).
+        survey_id : str, optional
+            Survey ID to assign to all stations.  When ``None`` (default) the survey ID is
+            inferred from each MT object or filename.
 
         Returns
         -------
@@ -3101,6 +3117,7 @@ class MTData:
                 mt_obj,
                 dataset_copy_mode=dataset_copy_mode,
                 precomputed_attrs=attrs,
+                survey_id=survey_id,
             )
             if station_path in seen_paths and not overwrite:
                 raise KeyError(f"Station path already exists: {station_path}")
