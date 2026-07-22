@@ -7,6 +7,7 @@ from mt_metadata import TF_EDI_CGG
 from mtpy import MT
 from mtpy.core import MTData
 
+
 pytestmark = pytest.mark.plotting
 
 
@@ -77,12 +78,11 @@ class TestPlotStrikeBackend:
         result = mt_data_tree.plot_strike(backend="matplotlib", show_plot=False)
         assert isinstance(result, MplPlotStrike)
 
-    def test_default_backend_is_bokeh(self, mt_data_tree):
-        pytest.importorskip("bokeh")
-        from mtpy.imaging.bokeh_plots.plot_strike import PlotStrike as BokehPlotStrike
+    def test_default_backend_is_matplotlib(self, mt_data_tree):
+        from mtpy.imaging.plot_strike import PlotStrike as MplPlotStrike
 
         result = mt_data_tree.plot_strike(show_plot=False)
-        assert isinstance(result, BokehPlotStrike)
+        assert isinstance(result, MplPlotStrike)
 
     def test_invalid_backend_raises_value_error(self, mt_data_tree):
         with pytest.raises(ValueError, match="Unknown backend"):
@@ -110,14 +110,11 @@ class TestPlotStationsBackend:
         result = mt_data_tree.plot_stations(backend="matplotlib", show_plot=False)
         assert isinstance(result, MplPlotStations)
 
-    def test_default_backend_is_bokeh(self, mt_data_tree):
-        pytest.importorskip("bokeh")
-        from mtpy.imaging.bokeh_plots.plot_stations import (
-            PlotStations as BokehPlotStations,
-        )
+    def test_default_backend_is_matplotlib(self, mt_data_tree):
+        from mtpy.imaging.plot_stations import PlotStations as MplPlotStations
 
         result = mt_data_tree.plot_stations(show_plot=False)
-        assert isinstance(result, BokehPlotStations)
+        assert isinstance(result, MplPlotStations)
 
     def test_invalid_backend_raises_value_error(self, mt_data_tree):
         with pytest.raises(ValueError, match="Unknown backend"):
@@ -180,16 +177,13 @@ class TestPlotMTResponseBackend:
         )
         assert isinstance(result, MplSingle)
 
-    def test_default_backend_is_bokeh(self, mt_data_tree, single_station_key):
-        pytest.importorskip("bokeh")
-        from mtpy.imaging.bokeh_plots.plot_mt_response import (
-            PlotMTResponse as BokehSingle,
-        )
+    def test_default_backend_is_matplotlib(self, mt_data_tree, single_station_key):
+        from mtpy.imaging.plot_mt_response import PlotMTResponse as MplSingle
 
         result = mt_data_tree.plot_mt_response(
             station_key=single_station_key, show_plot=False
         )
-        assert isinstance(result, BokehSingle)
+        assert isinstance(result, MplSingle)
 
     def test_invalid_backend_raises_value_error(self, mt_data_tree, single_station_key):
         with pytest.raises(ValueError, match="Unknown backend"):
@@ -221,14 +215,13 @@ class TestPlotPhaseTensorBackend:
         )
         assert isinstance(result, MplPT)
 
-    def test_default_backend_is_bokeh(self, mt_data_tree, single_station_key):
-        pytest.importorskip("bokeh")
-        from mtpy.imaging.bokeh_plots.plot_pt import PlotPhaseTensor as BokehPT
+    def test_default_backend_is_matplotlib(self, mt_data_tree, single_station_key):
+        from mtpy.imaging.plot_pt import PlotPhaseTensor as MplPT
 
         result = mt_data_tree.plot_phase_tensor(
             station_key=single_station_key, show_plot=False
         )
-        assert isinstance(result, BokehPT)
+        assert isinstance(result, MplPT)
 
     def test_invalid_backend_raises_value_error(self, mt_data_tree, single_station_key):
         with pytest.raises(ValueError, match="Unknown backend"):
@@ -354,16 +347,15 @@ class TestPlotPenetrationDepth1DBackend:
         )
         assert isinstance(result, MplPD1D)
 
-    def test_default_backend_is_bokeh(self, mt_data_tree, single_station_key):
-        pytest.importorskip("bokeh")
-        from mtpy.imaging.bokeh_plots.plot_penetration_depth_1d import (
-            PlotPenetrationDepth1D as BokehPD1D,
+    def test_default_backend_is_matplotlib(self, mt_data_tree, single_station_key):
+        from mtpy.imaging.plot_penetration_depth_1d import (
+            PlotPenetrationDepth1D as MplPD1D,
         )
 
         result = mt_data_tree.plot_penetration_depth_1d(
             station_key=single_station_key, show_plot=False
         )
-        assert isinstance(result, BokehPD1D)
+        assert isinstance(result, MplPD1D)
 
     def test_invalid_backend_raises_value_error(self, mt_data_tree, single_station_key):
         with pytest.raises(ValueError, match="Unknown backend"):
