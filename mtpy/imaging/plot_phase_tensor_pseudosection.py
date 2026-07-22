@@ -8,6 +8,7 @@ Created on Thu May 30 18:10:55 2013
 # ==============================================================================
 
 import matplotlib.colorbar as mcb
+import matplotlib.colormaps as colormaps
 import matplotlib.colors as colors
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
@@ -15,6 +16,7 @@ import numpy as np
 
 from mtpy.imaging.mtcolors import get_plot_color
 from mtpy.imaging.mtplot_tools import period_label_dict, PlotBaseProfile
+
 
 # ==============================================================================
 
@@ -295,7 +297,7 @@ class PlotPhaseTensorPseudoSection(PlotBaseProfile):
             self.ax2 = self.fig.add_axes(self.cb_position)
 
         # make the colorbar
-        cmap_input = plt.get_cmap(self.ellipse_cmap)
+        cmap_input = colormaps.get_cmap(self.ellipse_cmap)
 
         if "seg" in self.ellipse_cmap:
             norms = colors.BoundaryNorm(self.ellipse_cmap_bounds, cmap_input.N)
