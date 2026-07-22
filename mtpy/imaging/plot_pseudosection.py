@@ -5,13 +5,15 @@ Created on Thu May 30 18:39:58 2013
 @author: jpeacock-pr
 """
 
+import matplotlib as mpl
+
 # =============================================================================
 # Imports
 # =============================================================================
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib import colormaps, ticker
+from matplotlib import ticker
 from scipy import signal
 
 from mtpy.imaging.mtplot_tools import (
@@ -19,6 +21,7 @@ from mtpy.imaging.mtplot_tools import (
     PlotBaseProfile,
     triangulate_interpolation,
 )
+
 
 # ==============================================================================
 
@@ -91,8 +94,8 @@ class PlotResPhasePseudoSection(PlotBaseProfile):
         }
 
         # --> set colormaps Note only mtcolors is supported
-        self.res_cmap = colormaps.get_cmap("mt_rd2gr2bl")
-        self.phase_cmap = colormaps.get_cmap("mt_bl2gr2rd")
+        self.res_cmap = mpl.colormaps.get_cmap("mt_rd2gr2bl")
+        self.phase_cmap = mpl.colormaps.get_cmap("mt_bl2gr2rd")
 
         for key, value in kwargs.items():
             setattr(self, key, value)

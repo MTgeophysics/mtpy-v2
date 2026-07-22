@@ -5,13 +5,14 @@ Created on Tue May 14 18:05:59 2013
 @author: jpeacock-pr
 """
 
-import numpy as np
+import matplotlib as mpl
 
 # =============================================================================
 # Imports
 # =============================================================================
-from matplotlib import cm, colormaps, colors
-from matplotlib import pyplot as plt
+import numpy as np
+from matplotlib import cm, colors
+
 
 # ==============================================================================
 # Make some color maps for plotting
@@ -294,13 +295,13 @@ MT_CMAP_DICT = {
 def register_cmaps(cmap_dict):
     """Register cmaps."""
     for key, value in cmap_dict.items():
-        if key not in plt.colormaps.keys():
-            colormaps.register(value, name=key)
+        if key not in mpl.colormaps.keys():
+            mpl.colormaps.register(value, name=key)
 
 
 def get_color(cvar, cmap):
     """Gets the color to plot for the given color map."""
-    return plt.get_cmap(cmap)(cvar)
+    return mpl.colormaps.get_cmap(cmap)(cvar)
 
 
 def get_plot_color(colorx, comp, cmap, ckmin=None, ckmax=None, bounds=None):
@@ -331,7 +332,7 @@ def get_plot_color(colorx, comp, cmap, ckmin=None, ckmax=None, bounds=None):
         return get_color(cvar, cmap)
         """
         norm = colors.Normalize(ckmin, ckmax)
-        return plt.get_cmap(cmap)(norm(colorx))
+        return mpl.colormaps.get_cmap(cmap)(norm(colorx))
 
     elif comp == "skew" or comp == "normalized_skew":
         """
@@ -340,7 +341,7 @@ def get_plot_color(colorx, comp, cmap, ckmin=None, ckmax=None, bounds=None):
         """
 
         norm = colors.Normalize(ckmin, ckmax)
-        return plt.get_cmap(cmap)(norm(colorx))
+        return mpl.colormaps.get_cmap(cmap)(norm(colorx))
 
     elif comp == "skew_seg" or comp == "normalized_skew_seg":
         if bounds is None:
@@ -376,7 +377,7 @@ def get_plot_color(colorx, comp, cmap, ckmin=None, ckmax=None, bounds=None):
                 step
                 * round(float(colorx - np.sign(colorx) * (abs(colorx) % step)) / step)
             )
-        return plt.get_cmap(cmap)(norm(colorx))
+        return mpl.colormaps.get_cmap(cmap)(norm(colorx))
     else:
         raise NameError("color key " + comp + " not supported")
 
