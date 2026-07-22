@@ -34,11 +34,11 @@ jobs:
         conda install pytest
         conda install pytest-subtests
         conda install pytest-cov
-        git clone https://github.com/kujaku11/mt_metadata.git
+        git clone https://github.com/IAGA-DVI-DataStandards/mt_metadata.git
         cd mt_metadata
         pip install -e .
         cd ..
-        git clone https://github.com/kujaku11/mth5.git
+        git clone https://github.com/IAGA-DVI-DataStandards/mth5.git
         cd mth5
         pip install -e .
         cd ..
