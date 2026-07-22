@@ -265,11 +265,11 @@ class PlotMTResponse(BokehPlotBase):
             line_width=max(self.lw, 1),
             line_dash="dashed",
         )
-        scatter_method = getattr(fig, self._marker_name(marker), fig.circle)
-        scatter_renderer = scatter_method(
+        scatter_renderer = fig.scatter(
             x="period",
             y="value",
             source=source,
+            marker=self._marker_name(marker),
             size=max(int(self.marker_size), 4),
             color=glyph_color,
             line_color=glyph_color,

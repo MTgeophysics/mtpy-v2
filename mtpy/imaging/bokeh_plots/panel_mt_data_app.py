@@ -66,6 +66,7 @@ from mtpy.imaging.bokeh_plots.panel_transfer_function_editor_app import (
 )
 from mtpy.imaging.bokeh_plots.plot_penetration_depth_1d import PlotPenetrationDepth1D
 
+
 pn.extension("tabulator")
 
 
@@ -308,6 +309,16 @@ class MTDataApp(param.Parameterized):
         self._station_table.param.watch(self._on_table_selection_changed, "selection")
         self._edit_table_toggle.param.watch(self._on_edit_toggle_changed, "value")
         self._update_table_button.on_click(self._on_update_table_clicked)
+
+        # ── Penetration depth preview (single selected station) ──────────
+        self._pen_depth_container = pn.Column(
+            pn.pane.Markdown(
+                "_Select a single station in the table above to view its "
+                "1-D penetration depth._",
+                styles={"color": "#777"},
+            ),
+            sizing_mode=self.sizing_mode,
+        )
 
         # ── Save-to-MTH5 controls ─────────────────────────────────────────
         self._save_filename_widget = pn.widgets.TextInput(
@@ -1018,6 +1029,12 @@ class MTDataApp(param.Parameterized):
             pn.layout.Divider(),
             status_row,
             station_section,
+            pn.layout.Divider(),
+            pn.Column(
+                pn.pane.Markdown("### Penetration Depth"),
+                self._pen_depth_container,
+                sizing_mode=self.sizing_mode,
+            ),
             pn.layout.Divider(),
             save_section,
             sizing_mode=self.sizing_mode,

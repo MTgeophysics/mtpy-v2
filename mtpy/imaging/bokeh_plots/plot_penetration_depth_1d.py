@@ -159,11 +159,11 @@ class PlotPenetrationDepth1D(BokehPlotBase):
             line_dash=self._line_dash(ls),
         )
 
-        scatter_method = getattr(fig, self._marker_name(marker), fig.circle)
-        scatter_renderer = scatter_method(
+        scatter_renderer = fig.scatter(
             x="depth",
             y="period",
             source=source,
+            marker=self._marker_name(marker),
             size=max(int(self.marker_size * 2), 4),
             color=glyph_color,
             line_color=glyph_color,

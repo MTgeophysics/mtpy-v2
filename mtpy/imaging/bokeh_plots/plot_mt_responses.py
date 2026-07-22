@@ -11,6 +11,7 @@ import numpy as np
 from mtpy.imaging.bokeh_plots.bokeh_plot_base import BokehPlotBase
 from mtpy.imaging.bokeh_plots.plot_mt_response import PlotMTResponse
 
+
 try:
     from bokeh.io import show
     from bokeh.layouts import Column, Row
@@ -728,15 +729,11 @@ class PlotMultipleResponses(BokehPlotBase):
                             line_width=max(self.lw, 1),
                             line_dash="dashed",
                         )
-                        scatter_m = getattr(
-                            tip_real_fig,
-                            base._marker_name(station_marker),
-                            tip_real_fig.circle,
-                        )
-                        scatter_m(
+                        tip_real_fig.scatter(
                             x="period",
                             y="value",
                             source=src_real,
+                            marker=base._marker_name(station_marker),
                             size=max(int(self.marker_size), 4),
                             color=station_color,
                             line_color=station_color,
@@ -760,15 +757,11 @@ class PlotMultipleResponses(BokehPlotBase):
                             line_width=max(self.lw, 1),
                             line_dash="dashed",
                         )
-                        scatter_m = getattr(
-                            tip_imag_fig,
-                            base._marker_name(station_marker),
-                            tip_imag_fig.circle,
-                        )
-                        scatter_m(
+                        tip_imag_fig.scatter(
                             x="period",
                             y="value",
                             source=src_imag,
+                            marker=base._marker_name(station_marker),
                             size=max(int(self.marker_size), 4),
                             color=station_color,
                             line_color=station_color,
