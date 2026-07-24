@@ -30,7 +30,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FormatStrFormatter
 
-
 try:
     import contextily as cx
 
@@ -41,7 +40,6 @@ from mtpy.core import Tipper
 from mtpy.core.transfer_function import PhaseTensor
 from mtpy.imaging import mtcolors
 from mtpy.imaging.mtplot_tools import add_raster, PlotBaseMaps
-
 
 # ==============================================================================
 
