@@ -18,6 +18,7 @@ Revision History:
 
 """
 
+import matplotlib as mpl
 import matplotlib.colorbar as mcb
 import matplotlib.colors as colors
 import matplotlib.patches as patches
@@ -29,6 +30,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FormatStrFormatter
 
+
 try:
     import contextily as cx
 
@@ -39,6 +41,7 @@ from mtpy.core import Tipper
 from mtpy.core.transfer_function import PhaseTensor
 from mtpy.imaging import mtcolors
 from mtpy.imaging.mtplot_tools import add_raster, PlotBaseMaps
+
 
 # ==============================================================================
 
@@ -636,7 +639,7 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
         else:
             self.ax2 = self.fig.add_axes(self.cb_position)
         # make the colorbar
-        cmap_input = mtcolors.colormaps.get_cmap(self.ellipse_cmap)
+        cmap_input = mpl.colormaps.get_cmap(self.ellipse_cmap)
         if "seg" in self.ellipse_cmap:
             norms = colors.BoundaryNorm(self.ellipse_cmap_bounds, cmap_input.N)
             self.cb = mcb.ColorbarBase(
@@ -704,7 +707,7 @@ class PlotPhaseTensorMaps(PlotBaseMaps):
         for key, ax in zip(["ellipse", "skew"], [self.ax2, self.ax3]):
             dict_key = f"{key}_cmap"
             cmap = getattr(self, dict_key)
-            cmap_input = mtcolors.colormaps.get_cmap(cmap)
+            cmap_input = mpl.colormaps.get_cmap(cmap)
             if "seg" in cmap and "ellipse" in key:
                 norms = colors.BoundaryNorm(self.ellipse_cmap_bounds, cmap_input.N)
                 self.cb = mcb.ColorbarBase(

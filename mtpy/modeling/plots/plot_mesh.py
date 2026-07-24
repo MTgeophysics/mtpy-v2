@@ -5,6 +5,8 @@ Created on Fri Oct 14 08:37:48 2022
 @author: jpeacock
 """
 
+import matplotlib as mpl
+
 # =============================================================================
 # Imports
 # =============================================================================
@@ -14,6 +16,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from mtpy.imaging.mtcolors import FixPointNormalize
 from mtpy.imaging.mtplot_tools import PlotBase
+
 
 # =============================================================================
 
@@ -63,7 +66,7 @@ class PlotMesh(PlotBase):
             x,
             y,
             self.model_obj.surface_dict["topography"],
-            cmap=plt.get_cmap("cut_terrain"),
+            cmap=mpl.colormaps.get_cmap("cut_terrain"),
             norm=norm,
         )
         divider = make_axes_locatable(self.ax1)

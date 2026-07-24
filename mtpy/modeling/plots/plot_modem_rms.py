@@ -9,6 +9,7 @@ Created on Wed Feb 17 10:57:29 2021
 
 """
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 # =============================================================================
@@ -16,10 +17,10 @@ import matplotlib.pyplot as plt
 # =============================================================================
 import numpy as np
 import pandas as pd
-from matplotlib import cm
 from matplotlib import colorbar as mcb
 from matplotlib import colors as colors
 from matplotlib import gridspec
+
 
 try:
     import contextily as cx
@@ -30,6 +31,7 @@ except ModuleNotFoundError:
 
 from mtpy.core.mt_dataframe import MTDataFrame
 from mtpy.imaging.mtplot_tools import PlotBaseMaps
+
 
 # =============================================================================
 
@@ -138,13 +140,13 @@ class PlotRMS(PlotBaseMaps):
     def rms_cmap(self, value):
         """Rms cmap."""
         if isinstance(value, str):
-            self._rms_cmap = cm.get_cmap(value)
+            self._rms_cmap = mpl.colormaps.get_cmap(value)
 
         elif isinstance(value, colors.LinearSegmentedColormap):
             self._rms_cmap = value
 
         else:
-            self._rms_cmap = cm.get_cmap("jet")
+            self._rms_cmap = mpl.colormaps.get_cmap("jet")
 
     def _plot_rms_map(self):
         """Plot rms map.
