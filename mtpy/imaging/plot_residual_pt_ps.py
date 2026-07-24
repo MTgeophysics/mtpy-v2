@@ -11,6 +11,7 @@ Created on Wed Oct 16 14:56:04 2013
 @author: jpeacock-pr
 """
 
+import matplotlib as mpl
 import matplotlib.colorbar as mcb
 import matplotlib.colors as colors
 import matplotlib.patches as patches
@@ -478,7 +479,7 @@ read in and stored in 2 ways, one as a list ResidualPhaseTensor object for
             self.ax2 = self.fig.add_axes(self.cb_position)
 
         # make the colorbar
-        cmap_input = mtcolors.cm.get_cmap(self.ellipse_cmap)
+        cmap_input = mpl.colormaps.get_cmap(self.ellipse_cmap)
 
         if "seg" in self.ellipse_cmap:
             norms = colors.BoundaryNorm(self.ellipse_cmap_bounds, cmap_input.N)
