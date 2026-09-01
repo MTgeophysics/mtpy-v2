@@ -51,6 +51,10 @@ class PlotRMS(PlotBaseMaps):
         self.plot_per_period = True
         self.plot_per_station = True
         self.plot_map_components = True
+        self.plot_basemap = True
+        self.plot_model = False
+        self.model_obj = None
+        self.model_depth = 5000
 
         self.comp_list = [
             "rms_zxx",
@@ -189,41 +193,80 @@ class PlotRMS(PlotBaseMaps):
             for station in self.dataframe.station.unique():
                 sdf = self._mt_dataframe.get_station_df(station)
                 rms = sdf[self.comp_list].mean().mean()
-                self.ax1.scatter(
-                    sdf.longitude.iloc[0],
-                    sdf.latitude.iloc[0],
-                    c=rms,
-                    marker="s",
-                    s=self.box_size,
-                    edgecolors=(0, 0, 0),
-                    cmap=self.rms_cmap,
-                    norm=cb_norm,
-                )
-                if self.plot_station:
-                    self.ax1.text(
+                if self.plot_model and self.model_obj is not None:
+                    self.ax1.scatter(
+                        sdf.model_east.iloc[0],
+                        sdf.model_north.iloc[0],
+                        c=rms,
+                        marker="s",
+                        s=self.box_size,
+                        edgecolors=(0, 0, 0),
+                        cmap=self.rms_cmap,
+                        norm=cb_norm,
+                        zorder=100,
+                    )
+                else:
+                    self.ax1.scatter(
                         sdf.longitude.iloc[0],
-                        sdf.latitude.iloc[0] + self.dx,
-                        station,
-                        ha="center",
-                        va="baseline",
-                        clip_on=True,
+                        sdf.latitude.iloc[0],
+                        c=rms,
+                        marker="s",
+                        s=self.box_size,
+                        edgecolors=(0, 0, 0),
+                        cmap=self.rms_cmap,
+                        norm=cb_norm,
                     )
+                if self.plot_station:
+                    if self.plot_model and self.model_obj is not None:
+                        self.ax1.text(
+                            sdf.model_east.iloc[0],
+                            sdf.model_north.iloc[0] + self.dx*100,
+                            station,
+                            ha="center",
+                            va="baseline",
+                            clip_on=True,
+                            zorder=101,
+                        )
+                    else:
+                        self.ax1.text(
+                            sdf.longitude.iloc[0],
+                            sdf.latitude.iloc[0] + self.dx,
+                            station,
+                            ha="center",
+                            va="baseline",
+                            clip_on=True,
+                        )
 
-        if has_cx:
-            if has_cx:
-                try:
-                    cx_kwargs = {"source": self.cx_source, "crs": "EPSG:4326"}
-                    if self.cx_zoom is not None:
-                        cx_kwargs["zoom"] = self.cx_zoom
-                    cx.add_basemap(
-                        self.ax1,
-                        **cx_kwargs,
-                    )
-                except Exception as error:
-                    self.logger.warning(f"Could not add base map because {error}")
+        if self.plot_basemap and has_cx:
+            try:
+                cx_kwargs = {"source": self.cx_source, "crs": "EPSG:4326"}
+                if self.cx_zoom is not None:
+                    cx_kwargs["zoom"] = self.cx_zoom
+                cx.add_basemap(
+                    self.ax1,
+                    **cx_kwargs,
+                )
+            except Exception as error:
+                self.logger.warning(f"Could not add base map because {error}")
+        if self.plot_model and self.model_obj is not None:
+            x, y = np.meshgrid(self.model_obj.grid_east, self.model_obj.grid_north)
+            z_index = np.where(self.model_obj.grid_z >= self.model_depth)[0][0]
+            model_plot = self.ax1.pcolormesh(
+                x,
+                y,
+                np.log10(self.model_obj.res_model[:, :, z_index]),
+                cmap="jet_r",
+                vmin=.3,
+                vmax=3,
+                zorder=1
+            )
+            self.ax1.set_xlim((self.dataframe.model_east.min()*1.05, self.dataframe.model_east.max()*1.05))
+            self.ax1.set_ylim((self.dataframe.model_north.min()*1.05, self.dataframe.model_north.max()*1.05))
+            self.ax1.set_xlabel("Relative Easting (m)", fontdict={"size":14, "weight":"bold"})
+            self.ax1.set_ylabel("Relative Northing (m)", fontdict={"size":14, "weight":"bold"})
 
         cb_ax, _ = mcb.make_axes(self.ax1, shrink=0.5)
-        cb = mcb.ColorbarBase(cb_ax, cmap=self.rms_cmap, norm=cb_norm)
+        cb = mcb.ColorbarBase(cb_ax, cmap=self.rms_cmap, norm=cb_norm, label="nRMS")
 
     @property
     def rms_per_period_all(self):
