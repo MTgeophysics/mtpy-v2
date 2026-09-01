@@ -47,6 +47,10 @@ class PlotRMS(PlotBaseMaps):
         self.plot_station = True
         self.station_id = None
         self.stack_bottom = False
+        self.plot_map = True
+        self.plot_per_period = True
+        self.plot_per_station = True
+        self.plot_map_components = True
 
         self.comp_list = [
             "rms_zxx",
@@ -157,13 +161,37 @@ class PlotRMS(PlotBaseMaps):
             self.rms_cmap.N,
         )
 
-        for dm, comp in zip(self.distance_multiplier, self.comp_list):
+        if self.plot_map_components:
+            for dm, comp in zip(self.distance_multiplier, self.comp_list):
+                for station in self.dataframe.station.unique():
+                    sdf = self._mt_dataframe.get_station_df(station)
+                    rms = sdf[comp].mean()
+                    self.ax1.scatter(
+                        sdf.longitude.iloc[0] + (self.dx / 2) * dm[0],
+                        sdf.latitude.iloc[0] + (self.dx / 2) * dm[1],
+                        c=rms,
+                        marker="s",
+                        s=self.box_size,
+                        edgecolors=(0, 0, 0),
+                        cmap=self.rms_cmap,
+                        norm=cb_norm,
+                    )
+                    if self.plot_station:
+                        self.ax1.text(
+                            sdf.longitude.iloc[0],
+                            sdf.latitude.iloc[0] + self.dx,
+                            station,
+                            ha="center",
+                            va="baseline",
+                            clip_on=True,
+                        )
+        else:
             for station in self.dataframe.station.unique():
                 sdf = self._mt_dataframe.get_station_df(station)
-                rms = sdf[comp].mean()
+                rms = sdf[self.comp_list].mean().mean()
                 self.ax1.scatter(
-                    sdf.longitude.iloc[0] + (self.dx / 2) * dm[0],
-                    sdf.latitude.iloc[0] + (self.dx / 2) * dm[1],
+                    sdf.longitude.iloc[0],
+                    sdf.latitude.iloc[0],
                     c=rms,
                     marker="s",
                     s=self.box_size,
@@ -425,17 +453,43 @@ class PlotRMS(PlotBaseMaps):
         """Get subplots."""
 
         if self.stack_bottom:
-            gs1 = gridspec.GridSpec(2, 2, hspace=0.25, wspace=0.075)
-
-            self.ax1 = fig.add_subplot(gs1[0, :], aspect="equal")
-            self.ax2 = fig.add_subplot(gs1[1, 0])
-            self.ax3 = fig.add_subplot(gs1[1, 1])
+            n_rows = 1
+            n_columns = 2
         else:
-            gs1 = gridspec.GridSpec(2, 2, hspace=0.35, wspace=0.075)
+            n_rows = 2
+            n_columns = 1
 
-            self.ax1 = fig.add_subplot(gs1[:, 0], aspect="equal")
-            self.ax2 = fig.add_subplot(gs1[0, 1])
-            self.ax3 = fig.add_subplot(gs1[1, 1])
+        if self.plot_map:
+            if self.plot_per_period or self.plot_per_station:
+                if self.stack_bottom:
+                    n_rows += 1
+                else:
+                    n_columns += 1
+        else:
+            if self.plot_per_period or self.plot_per_station:
+                if self.stack_bottom:
+                    n_rows += 1
+                else:
+                    n_columns += 1
+
+        if self.stack_bottom:
+            gs1 = gridspec.GridSpec(n_rows, n_columns, hspace=0.25, wspace=0.075)
+
+            if self.plot_map:
+                self.ax1 = fig.add_subplot(gs1[0, :], aspect="equal")
+            if self.plot_per_period:
+                self.ax2 = fig.add_subplot(gs1[1, 0])
+            if self.plot_per_station:
+                self.ax3 = fig.add_subplot(gs1[1, 1])
+        else:
+            gs1 = gridspec.GridSpec(n_rows, n_columns, hspace=0.35, wspace=0.075)
+
+            if self.plot_map:
+                self.ax1 = fig.add_subplot(gs1[:, 0], aspect="equal")
+            if self.plot_per_period:
+                self.ax2 = fig.add_subplot(gs1[0, 1])
+            if self.plot_per_station:
+                self.ax3 = fig.add_subplot(gs1[1, 1])
 
     def plot(self, **kwargs):
         """Plot function.
@@ -452,6 +506,9 @@ class PlotRMS(PlotBaseMaps):
 
         self._get_subplots(self.fig)
 
-        self._plot_rms_map()
-        self._plot_by_period()
-        self._plot_by_station()
+        if self.plot_map:
+            self._plot_rms_map()
+        if self.plot_per_period:
+            self._plot_by_period()
+        if self.plot_per_station:
+            self._plot_by_station()
