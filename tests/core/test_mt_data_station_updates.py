@@ -32,6 +32,18 @@ def test_set_station_replaces_data_and_preserves_metadata():
     assert dict(tree.get_station(station_path).attrs) == original_attrs
 
 
+def test_set_station_preserves_indexed_station_without_periods():
+    """Retain an indexed station record when its replacement has no periods."""
+    tree = MTData(use_index=True)
+    station_path = tree.add_station(_loaded_mt())
+    replacement = MT()
+
+    tree.set_station(station_path, replacement)
+
+    assert tree.n_stations == 1
+    assert tree.query_station_paths() == [station_path]
+
+
 def test_update_station_saves_inplace_transform():
     """Persist a transform that modifies its station object in place."""
     tree = MTData()

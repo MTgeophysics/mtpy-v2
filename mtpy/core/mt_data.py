@@ -316,9 +316,9 @@ class MTData:
         """Apply a root UTM CRS/EPSG to all station attrs and recompute EN."""
         from .mt_location import MTLocation
 
+        self.compute()
         for station_path in self._iter_station_paths():
-            station = self.get_station(station_path)
-            attrs = station.attrs
+            attrs = self.tree[station_path].ds.attrs
             attrs["utm_crs"] = utm_crs
 
             latitude = attrs.get("latitude")
@@ -353,7 +353,13 @@ class MTData:
     def __repr__(self) -> str:
         """Return a concise constructor-like summary for debugging."""
         station_paths = self.station_paths
-        survey_names = self.survey_names
+        survey_names = sorted(
+            {
+                path.split("/")[1]
+                for path in station_paths
+                if isinstance(path, str) and path.count("/") >= 3
+            }
+        )
         index_enabled = self._index is not None or self._lazy_use_index
         return (
             "MTData("
@@ -369,7 +375,13 @@ class MTData:
     def __str__(self) -> str:
         """Return a human-readable summary of tree content and paths."""
         station_paths = self.station_paths
-        survey_names = self.survey_names
+        survey_names = sorted(
+            {
+                path.split("/")[1]
+                for path in station_paths
+                if isinstance(path, str) and path.count("/") >= 3
+            }
+        )
         preview_limit = 8
         preview_paths = station_paths[:preview_limit]
         index_enabled = self._index is not None or self._lazy_use_index
@@ -1163,7 +1175,8 @@ class MTData:
         """
         station_paths = self._normalize_station_paths(station_paths)
         tree_obj = self if inplace else self.get_subset(self._iter_station_paths())
-        tree_obj.compute()
+        if not lazy:
+            tree_obj.compute()
 
         target_paths = tree_obj._iter_station_paths()
         if station_paths is not None:
@@ -2100,7 +2113,7 @@ class MTData:
 
         key_to_path: dict[tuple[str, str], str] = {}
         for station_path in self._iter_station_paths():
-            attrs = self.get_station(station_path).attrs
+            attrs = self.tree[station_path].ds.attrs
             key = (
                 self._clean_name(attrs.get("survey"), "default"),
                 self._clean_name(attrs.get("station"), "unknown_station"),
@@ -2117,7 +2130,7 @@ class MTData:
             if station_path is None:
                 continue
 
-            attrs = self.get_station(station_path).attrs
+            attrs = self.tree[station_path].ds.attrs
             attrs["latitude"] = getattr(row, "latitude", attrs.get("latitude"))
             attrs["longitude"] = getattr(row, "longitude", attrs.get("longitude"))
             attrs["elevation"] = getattr(row, "elevation", attrs.get("elevation"))
@@ -3241,21 +3254,16 @@ class MTData:
             raise TypeError("mt_obj must be an MT instance")
 
         station_path = self._resolve_station_path(station_key)
+        self._set_station_from_resolved_path(station_path, mt_obj)
+
+    def _set_station_from_resolved_path(self, station_path: str, mt_obj: "MT") -> None:
+        """Replace a station when *station_path* is already canonical."""
         existing_ds = self.get_station(station_path)
         updated_ds = self._extract_station_dataset(mt_obj)
         updated_ds.attrs.update(existing_ds.attrs)
-        self._set_station_dataset(station_path, updated_ds)
-
-        if self._index is not None:
-            station_row, period_row = MTDataTreeIndexStore._extract_rows(
-                station_path, updated_ds
-            )
-            self._index.upsert_station(station_row)
-            if period_row is None:
-                self._index.delete_station_by_tree_path(station_path)
-            else:
-                self._index.replace_station_period_rows(period_row)
-            self._index.refresh_survey_aggregates(station_row.survey_name)
+        survey_name = self._commit_station_dataset(station_path, updated_ds)
+        if survey_name is not None:
+            self._index.refresh_survey_aggregates(survey_name)
 
     def update_station(
         self,
@@ -3302,13 +3310,14 @@ class MTData:
         if not callable(transform):
             raise TypeError("transform must be callable")
 
-        mt_obj = self.get_station(station_key, as_mt=True)
+        station_path = self._resolve_station_path(station_key)
+        mt_obj = self.get_station(station_path, as_mt=True)
         transformed_mt = transform(mt_obj)
         if transformed_mt is None:
             transformed_mt = mt_obj
         if not isinstance(transformed_mt, MT):
             raise TypeError("transform must return an MT instance or None")
-        self.set_station(station_key, transformed_mt)
+        self._set_station_from_resolved_path(station_path, transformed_mt)
 
     def remove_station(self, station_key: str) -> None:
         """Remove one station node and its cached/indexed metadata.
@@ -3351,6 +3360,9 @@ class MTData:
         ]
         subset = self.__class__(
             metadata_storage=self.metadata_storage,
+            dataset_copy_mode=self.dataset_copy_mode,
+            use_index=self._index is not None or self._lazy_use_index,
+            index_db_path=self._index_db_path,
             **dict(self.attrs),
         )
         for station_key in station_list:
@@ -3395,6 +3407,37 @@ class MTData:
             parent_node = self.tree[parent_path]
 
         parent_node[child_name] = xr.DataTree(name=child_name, dataset=station_ds)
+
+    def _commit_station_dataset(
+        self,
+        station_path: str,
+        station_ds: xr.Dataset,
+        source: "MTData | None" = None,
+    ) -> str | None:
+        """Store one station dataset and synchronize cache and index state."""
+        self._set_station_dataset(station_path, station_ds)
+
+        metadata_source = self if source is None else source
+        if self.metadata_storage == "cache":
+            for metadata_kind in ["survey", "station"]:
+                cached_md = metadata_source._metadata_cache[metadata_kind].get(
+                    station_path
+                )
+                if cached_md is not None:
+                    self._metadata_cache[metadata_kind][station_path] = cached_md
+
+        if self._index is None:
+            return None
+
+        station_row, period_row = MTDataTreeIndexStore._extract_rows(
+            station_path, station_ds
+        )
+        if period_row is None:
+            self._index.delete_station_by_tree_path(station_path)
+        self._index.upsert_station(station_row)
+        if period_row is not None:
+            self._index.replace_station_period_rows(period_row)
+        return station_row.survey_name
 
     @staticmethod
     def _interpolate_station_dataset(
@@ -3500,25 +3543,11 @@ class MTData:
                 rotation_angle,
                 coordinate_reference_frame=crf,
             )
-            tree_obj._set_station_dataset(station_path, rotated_ds)
-
-            if tree_obj.metadata_storage == "cache":
-                for metadata_kind in ["survey", "station"]:
-                    cached_md = self._metadata_cache[metadata_kind].get(station_path)
-                    if cached_md is not None:
-                        tree_obj._metadata_cache[metadata_kind][
-                            station_path
-                        ] = cached_md
-
-            if tree_obj._index is not None:
-                station_row, period_row = MTDataTreeIndexStore._extract_rows(
-                    station_path,
-                    rotated_ds,
-                )
-                tree_obj._index.upsert_station(station_row)
-                if period_row is not None:
-                    tree_obj._index.replace_station_period_rows(period_row)
-                updated_surveys.add(station_row.survey_name)
+            survey_name = tree_obj._commit_station_dataset(
+                station_path, rotated_ds, source=self
+            )
+            if survey_name is not None:
+                updated_surveys.add(survey_name)
 
         if tree_obj._index is not None:
             for survey_name in updated_surveys:
@@ -3603,27 +3632,11 @@ class MTData:
                 interp_periods,
                 **kwargs,
             )
-            tree_obj._set_station_dataset(station_path, interpolated_ds)
-
-            if tree_obj.metadata_storage == "cache":
-                for metadata_kind in ["survey", "station"]:
-                    cached_md = self._metadata_cache[metadata_kind].get(station_path)
-                    if cached_md is not None:
-                        tree_obj._metadata_cache[metadata_kind][
-                            station_path
-                        ] = cached_md
-
-            if tree_obj._index is not None:
-                station_row, period_row = MTDataTreeIndexStore._extract_rows(
-                    station_path,
-                    interpolated_ds,
-                )
-                if period_row is None:
-                    tree_obj._index.delete_station_by_tree_path(station_path)
-                tree_obj._index.upsert_station(station_row)
-                if period_row is not None:
-                    tree_obj._index.replace_station_period_rows(period_row)
-                updated_surveys.add(station_row.survey_name)
+            survey_name = tree_obj._commit_station_dataset(
+                station_path, interpolated_ds, source=self
+            )
+            if survey_name is not None:
+                updated_surveys.add(survey_name)
 
         if tree_obj._index is not None:
             for survey_name in updated_surveys:
@@ -3969,15 +3982,12 @@ class MTData:
         """
         self.compute()
         periods: list[np.ndarray] = []
-
-        def _walk(node: Any) -> None:
-            ds = getattr(node, "ds", None)
-            if isinstance(ds, xr.Dataset) and "period" in ds.coords:
-                periods.append(np.asarray(ds.coords["period"].values, dtype=float))
-            for child in getattr(node, "children", {}).values():
-                _walk(child)
-
-        _walk(self.tree)
+        for station_path in self._iter_station_paths():
+            station_ds = self.tree[station_path].ds
+            if "period" in station_ds.coords:
+                periods.append(
+                    np.asarray(station_ds.coords["period"].values, dtype=float)
+                )
 
         if not periods:
             return np.array([], dtype=float)
