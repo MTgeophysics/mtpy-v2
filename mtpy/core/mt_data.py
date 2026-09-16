@@ -47,6 +47,7 @@ from . import mt_data_accessor as _mt_data_accessor  # noqa: F401
 from .mt_data_tree_index import MTDataTreeIndexStore
 from .mt_dataframe import MTDataFrame
 
+
 COORDINATE_REFERENCE_FRAME_OPTIONS = {
     "+": "ned",
     "-": "enu",
@@ -769,9 +770,9 @@ class MTData:
 
         for station_path in self._iter_station_paths():
             station_ds = self.get_station(station_path)
-            station_ds.attrs["coordinate_reference_frame"] = (
-                self.coordinate_reference_frame
-            )
+            station_ds.attrs[
+                "coordinate_reference_frame"
+            ] = self.coordinate_reference_frame
 
     @property
     def impedance_units(self) -> str:
@@ -1172,9 +1173,9 @@ class MTData:
         for station_path in target_paths:
             station_ds = tree_obj.get_station(station_path).copy(deep=False)
             if lazy:
-                tree_obj._lazy_station_transforms[station_path] = (
-                    lambda ds=station_ds, op=transform: op(ds)
-                )
+                tree_obj._lazy_station_transforms[
+                    station_path
+                ] = lambda ds=station_ds, op=transform: op(ds)
         if not lazy:
 
             def _validated_transform(ds: xr.Dataset) -> xr.Dataset:
@@ -1249,9 +1250,9 @@ class MTData:
         )
 
         for station_path, transform in list(lazy_tree._lazy_station_transforms.items()):
-            lazy_tree._lazy_station_transforms[station_path] = (
-                lambda fn=transform: delayed(fn)()
-            )
+            lazy_tree._lazy_station_transforms[
+                station_path
+            ] = lambda fn=transform: delayed(fn)()
 
         if compute:
             lazy_tree.compute(scheduler=scheduler)
@@ -1321,9 +1322,9 @@ class MTData:
         )
 
         for station_path, transform in list(lazy_tree._lazy_station_transforms.items()):
-            lazy_tree._lazy_station_transforms[station_path] = (
-                lambda fn=transform: delayed(fn)()
-            )
+            lazy_tree._lazy_station_transforms[
+                station_path
+            ] = lambda fn=transform: delayed(fn)()
 
         if compute:
             lazy_tree.compute(scheduler=scheduler)
@@ -3205,6 +3206,109 @@ class MTData:
             self._hydrate_metadata_from_cache(mt_obj, station_ds)
             return mt_obj
         return station_ds
+
+    def set_station(self, station_key: str, mt_obj: "MT") -> None:
+        """Replace a station's transfer-function data with an MT object.
+
+        The existing station path and metadata are retained. Use this method
+        when a station was edited outside the container and needs to be saved
+        back into the collection.
+
+        Parameters
+        ----------
+        station_key : str
+            Station identifier in canonical tree-path, ``survey/station``, or
+            ``survey.station`` form.
+        mt_obj : MT
+            Replacement transfer-function object.
+
+        Raises
+        ------
+        TypeError
+            If *mt_obj* is not an :class:`MT` instance.
+
+        Examples
+        --------
+        Replace a station after editing it:
+
+        >>> station = tree.get_station("surveyA/st01", as_mt=True)
+        >>> station.flip_phase(zxy=True, inplace=True)
+        >>> tree.set_station("surveyA/st01", station)
+        """
+        from .mt import MT
+
+        if not isinstance(mt_obj, MT):
+            raise TypeError("mt_obj must be an MT instance")
+
+        station_path = self._resolve_station_path(station_key)
+        existing_ds = self.get_station(station_path)
+        updated_ds = self._extract_station_dataset(mt_obj)
+        updated_ds.attrs.update(existing_ds.attrs)
+        self._set_station_dataset(station_path, updated_ds)
+
+        if self._index is not None:
+            station_row, period_row = MTDataTreeIndexStore._extract_rows(
+                station_path, updated_ds
+            )
+            self._index.upsert_station(station_row)
+            if period_row is None:
+                self._index.delete_station_by_tree_path(station_path)
+            else:
+                self._index.replace_station_period_rows(period_row)
+            self._index.refresh_survey_aggregates(station_row.survey_name)
+
+    def update_station(
+        self,
+        station_key: str,
+        transform: Callable[["MT"], "MT | None"],
+    ) -> None:
+        """Transform a station MT object and save the result to the tree.
+
+        The transform may edit its input in place and return ``None``, or it
+        may return a replacement :class:`MT` object.  The destination station
+        path and metadata are preserved in either case.
+
+        Parameters
+        ----------
+        station_key : str
+            Station identifier in canonical tree-path, ``survey/station``, or
+            ``survey.station`` form.
+        transform : callable
+            Function accepting an :class:`MT` object. It must return ``None``
+            after an in-place edit or return a replacement ``MT`` object.
+
+        Raises
+        ------
+        TypeError
+            If *transform* is not callable or returns a non-MT value.
+
+        Examples
+        --------
+        Apply an in-place station edit:
+
+        >>> tree.update_station(
+        ...     "surveyA/st01",
+        ...     lambda station: station.flip_phase(zxy=True, inplace=True),
+        ... )
+
+        Return a replacement station instead:
+
+        >>> tree.update_station(
+        ...     "surveyA/st01", lambda station: station.interpolate(periods)
+        ... )
+        """
+        from .mt import MT
+
+        if not callable(transform):
+            raise TypeError("transform must be callable")
+
+        mt_obj = self.get_station(station_key, as_mt=True)
+        transformed_mt = transform(mt_obj)
+        if transformed_mt is None:
+            transformed_mt = mt_obj
+        if not isinstance(transformed_mt, MT):
+            raise TypeError("transform must return an MT instance or None")
+        self.set_station(station_key, transformed_mt)
 
     def remove_station(self, station_key: str) -> None:
         """Remove one station node and its cached/indexed metadata.
