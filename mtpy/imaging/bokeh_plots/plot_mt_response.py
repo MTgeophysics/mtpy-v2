@@ -67,6 +67,7 @@ class PlotMTResponse(BokehPlotBase):
         self._log_x_figure_keys = set()
         self._linear_x_figure_keys = set()
         self._pt_x_spacing = 1.0
+        self.masked_tf_indices: dict[str, set[int]] = {}
 
         # param.Parameterized raises TypeError for unknown kwargs; split them.
         param_names = set(type(self).param)
@@ -237,11 +238,18 @@ class PlotMTResponse(BokehPlotBase):
         else:
             valid = np.isfinite(x) & np.isfinite(y) & np.isfinite(err)
 
+        tf_index = np.arange(x.size, dtype=int)
+        masked = self.masked_tf_indices.get(comp, set())
+        if masked:
+            valid &= ~np.isin(tf_index, list(masked))
+
         data = {
             "period": x[valid],
             "value": y[valid],
             "low": low[valid],
             "high": high[valid],
+            "tf_index": tf_index[valid],
+            "component": [comp] * int(np.count_nonzero(valid)),
         }
         return ColumnDataSource(data=data)
 
@@ -306,7 +314,7 @@ class PlotMTResponse(BokehPlotBase):
             y_axis_type="log",
             height=320,
             width=width,
-            tools="pan,wheel_zoom,box_zoom,reset,save",
+            tools="pan,wheel_zoom,box_zoom,reset,save,tap,box_select,lasso_select",
             active_scroll="wheel_zoom",
             **kw,
         )
@@ -318,7 +326,7 @@ class PlotMTResponse(BokehPlotBase):
             x_range=x_range,
             height=250,
             width=width,
-            tools="pan,wheel_zoom,box_zoom,reset,save",
+            tools="pan,wheel_zoom,box_zoom,reset,save,tap,box_select,lasso_select",
             active_scroll="wheel_zoom",
         )
 
@@ -995,6 +1003,74 @@ class PlotMTResponse(BokehPlotBase):
                 sizing_mode=sizing_mode,
             )
 
+        selection_status = pn.pane.Markdown(
+            "_Select impedance points with tap, box, or lasso, then mask them._",
+            styles={"color": "#555"},
+        )
+        mask_selected_button = pn.widgets.Button(
+            name="Mask Selected",
+            button_type="warning",
+            width=130,
+        )
+        restore_masked_button = pn.widgets.Button(
+            name="Restore Masked",
+            button_type="default",
+            width=130,
+        )
+
+        def _selected_tf_indices() -> dict[str, set[int]]:
+            selected: dict[str, set[int]] = {}
+            seen_sources: set[int] = set()
+            for fig in self.figures.values():
+                for renderer in fig.renderers:
+                    source = getattr(renderer, "data_source", None)
+                    if source is None or id(source) in seen_sources:
+                        continue
+                    seen_sources.add(id(source))
+                    component = source.data.get("component", [])
+                    tf_index = source.data.get("tf_index", [])
+                    if len(component) == 0 or len(tf_index) == 0:
+                        continue
+                    for index in source.selected.indices:
+                        if index < len(tf_index):
+                            selected.setdefault(component[index], set()).add(
+                                int(tf_index[index])
+                            )
+            return selected
+
+        def _refresh_masked_plot() -> None:
+            self.plot()
+            bokeh_pane.object = self.layout
+            bokeh_pane.param.trigger("object")
+
+        def _mask_selected(_event) -> None:
+            selected = _selected_tf_indices()
+            if not selected:
+                selection_status.object = (
+                    "⚠️ Select one or more impedance points first."
+                )
+                selection_status.styles = {"color": "#7a5200"}
+                return
+
+            count = 0
+            for component, indices in selected.items():
+                self.masked_tf_indices.setdefault(component, set()).update(indices)
+                count += len(indices)
+            _refresh_masked_plot()
+            selection_status.object = f"Masked {count} selected point(s)."
+            selection_status.styles = {"color": "#7a5200"}
+
+        def _restore_masked(_event) -> None:
+            if not self.masked_tf_indices:
+                return
+            self.masked_tf_indices.clear()
+            _refresh_masked_plot()
+            selection_status.object = "Restored all masked points."
+            selection_status.styles = {"color": "#1a6600"}
+
+        mask_selected_button.on_click(_mask_selected)
+        restore_masked_button.on_click(_restore_masked)
+
         options = {
             "xy": "Zxy",
             "yx": "Zyx",
@@ -1188,11 +1264,18 @@ class PlotMTResponse(BokehPlotBase):
             pn.Column(pn.pane.Markdown("**Error Type**"), error_widget),
             pn.Column(pn.pane.Markdown("**Period Window**"), period_widget),
         )
+        edit_controls = pn.Row(
+            mask_selected_button,
+            restore_masked_button,
+            selection_status,
+            align="center",
+        )
 
         return pn.Column(
             pn.pane.Markdown(f"## {title}"),
             controls,
             style_card,
+            edit_controls,
             bokeh_pane,
             sizing_mode=sizing_mode,
         )

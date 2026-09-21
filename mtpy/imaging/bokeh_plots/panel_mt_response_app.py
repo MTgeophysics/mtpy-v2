@@ -34,6 +34,7 @@ import param
 from mtpy import MT
 from mtpy.imaging.bokeh_plots import PlotMTResponse, PlotMultipleResponses
 
+
 pn.extension()
 
 
@@ -326,7 +327,7 @@ class MTResponseApp(param.Parameterized):
                     plot_pt=self._pt_widget.value,
                 )
                 self._current_plotter = plotter
-                panel_plot = plotter.make_panel(
+                panel_plot = plotter.panel(
                     sizing_mode=self.sizing_mode,
                     interactive=True,
                 )
@@ -597,7 +598,7 @@ class MTResponseApp(param.Parameterized):
             )
             self._current_plotter = plotter
 
-            panel_plot = plotter.make_panel(
+            panel_plot = plotter.panel(
                 sizing_mode=self.sizing_mode,
                 interactive=True,
             )
@@ -683,7 +684,7 @@ class MTResponseApp(param.Parameterized):
                 plot_pt=self._pt_widget.value,
             )
             self._current_plotter = plotter
-            panel_plot = plotter.make_panel(
+            panel_plot = plotter.panel(
                 sizing_mode=self.sizing_mode,
                 interactive=True,
             )

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import traceback
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable
 
 import numpy as np
@@ -19,6 +20,7 @@ from bokeh.events import DoubleTap, Tap
 from bokeh.layouts import column as bk_column
 from bokeh.models import BoxSelectTool, ColumnDataSource, Whisker
 from bokeh.plotting import figure
+
 
 try:
     from mtpy.modeling.simpeg.recipes.inversion_1d import Simpeg1D as _Simpeg1D
@@ -53,9 +55,9 @@ class TransferFunctionSeriesEditor(param.Parameterized):
         self.y_axis_type = y_axis_type
         self._default_color = color
         self._default_marker = "circle"
-        self._frame_builder: Callable[[str | None, str | None], _FrameBundle] | None = (
-            None
-        )
+        self._frame_builder: Callable[
+            [str | None, str | None], _FrameBundle
+        ] | None = None
         self._working_frames: dict[tuple[str | None, str | None], pd.DataFrame] = {}
         self._original_frames: dict[tuple[str | None, str | None], pd.DataFrame] = {}
         self._active_key: tuple[str | None, str | None] | None = None
@@ -471,10 +473,16 @@ class TransferFunctionEditorPanelApp(param.Parameterized):
         doc="Panel sizing mode",
     )
 
-    def __init__(self, mt_data=None, **params: Any) -> None:
+    def __init__(
+        self,
+        mt_data=None,
+        show_file_loader: bool = False,
+        **params: Any,
+    ) -> None:
         super().__init__(**params)
 
         self._mt_data = mt_data
+        self._show_file_loader = show_file_loader
         self._mt_obj = None
         self._station_df_full: pd.DataFrame | None = None
         self._series_editors: dict[
@@ -493,8 +501,23 @@ class TransferFunctionEditorPanelApp(param.Parameterized):
             name="Load Station",
             button_type="primary",
             width=150,
+            disabled=mt_data is None,
         )
         self._load_button.on_click(self._on_load_station_clicked)
+
+        self._file_selector = pn.widgets.FileSelector(
+            directory=str(Path.cwd()),
+            root_directory=str(Path.cwd().anchor),
+            name="Transfer-function files",
+            file_pattern="*",
+            only_files=True,
+        )
+        self._load_files_button = pn.widgets.Button(
+            name="Load Selected Files",
+            button_type="primary",
+            width=170,
+        )
+        self._load_files_button.on_click(self._on_load_files_clicked)
 
         self._status = pn.pane.Markdown(
             "_Load a station to begin editing transfer-function data._",
@@ -814,11 +837,39 @@ class TransferFunctionEditorPanelApp(param.Parameterized):
         """Set the MTData reference and refresh the station picker."""
 
         self._mt_data = mt_data
+        self._load_button.disabled = mt_data is None
         self._refresh_station_options()
         if mt_data is None:
             self._station_df_full = None
             self._status.object = "_Load MT data in the Data tab first._"
             self._status.styles = {"color": "#777"}
+
+    def _on_load_files_clicked(self, _event=None) -> None:
+        """Load locally selected transfer-function files for standalone use."""
+
+        selected = list(self._file_selector.value or [])
+        if not selected:
+            self._status.object = "⚠️ Select one or more transfer-function files first."
+            self._status.styles = {"color": "#7a5200"}
+            return
+
+        self._load_files_button.disabled = True
+        try:
+            from mtpy.core.mt_data import MTData
+
+            mt_data = MTData()
+            mt_data.add_stations(selected)
+            self.set_mt_data(mt_data)
+            self._status.object = f"✅ Loaded {len(mt_data.station_paths)} station(s). Select one and click Load Station."
+            self._status.styles = {"color": "#1a6600"}
+        except Exception as exc:
+            self._status.object = (
+                f"❌ Error loading files: `{type(exc).__name__}: {exc}`"
+            )
+            self._status.styles = {"color": "#b00020"}
+            self._output.object = traceback.format_exc()
+        finally:
+            self._load_files_button.disabled = False
 
     def _refresh_station_options(self) -> None:
         if self._mt_data is None:
@@ -1738,12 +1789,22 @@ class TransferFunctionEditorPanelApp(param.Parameterized):
 
     @property
     def view(self):
+        file_loader = (
+            pn.Column(
+                pn.pane.Markdown("#### Load Transfer-Function Files"),
+                self._file_selector,
+                self._load_files_button,
+            )
+            if self._show_file_loader
+            else None
+        )
         return pn.Column(
             pn.pane.Markdown("### Transfer-Function Editor"),
             pn.pane.Markdown(
                 "_Edit apparent resistivity, phase, and tipper data before modeling._",
                 styles={"color": "#777", "font-size": "0.85em"},
             ),
+            file_loader,
             pn.Row(self._station_widget, self._load_button, align="end"),
             pn.Row(self._edit_dimension_widget, self._edit_mode_widget, align="end"),
             pn.Row(
@@ -1804,7 +1865,7 @@ class TransferFunctionEditorPanelApp(param.Parameterized):
         return self.view
 
 
-if __name__ == "__main__":
+if __name__.startswith("bokeh_app_"):
     pn.extension()
-    app = TransferFunctionEditorPanelApp()
+    app = TransferFunctionEditorPanelApp(show_file_loader=True)
     app.panel().servable()
