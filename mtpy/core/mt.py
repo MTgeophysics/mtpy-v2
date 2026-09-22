@@ -799,6 +799,7 @@ class MT(TF, MTLocation):
         new_period: np.ndarray,
         method: str = "slinear",
         bounds_error: bool = True,
+        extrapolate: bool = False,
         f_type: str = "period",
         **kwargs: Any,
     ) -> "MT":
@@ -879,7 +880,7 @@ class MT(TF, MTLocation):
                 new_period,
                 inplace=False,
                 method=method,
-                extrapolate=not bounds_error,
+                extrapolate=extrapolate,
                 **kwargs,
             )
 
