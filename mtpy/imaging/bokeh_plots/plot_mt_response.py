@@ -985,6 +985,7 @@ class PlotMTResponse(BokehPlotBase):
             # Row 2 of 3 in the edit grid; the tipper row below already
             # carries the "Period (s)" x-axis label.
             phase_fig.xaxis.axis_label = ""
+            phase_fig.xaxis.visible = False
             phase_figs[comp] = phase_fig
 
         res_limits = self.res_limits
@@ -1063,7 +1064,7 @@ class PlotMTResponse(BokehPlotBase):
             if len(fig.legend) == 0:
                 continue
             fig.legend.click_policy = "hide"
-            fig.legend.location = "bottom_left"
+            fig.legend.location = "top_left"
             fig.legend.label_text_font_size = f"{self.font_size + 2}px"
 
     def _set_component_visibility(self, selected_components):
