@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import numpy as np
 from bokeh.io import show
-from bokeh.layouts import Column, Row
+from bokeh.layouts import Column, gridplot, Row
 from bokeh.models import (
     Arrow,
     BasicTicker,
@@ -982,6 +982,9 @@ class PlotMTResponse(BokehPlotBase):
                 masked_source=masked_phase,
             )
             self._format_phase_axis(phase_fig)
+            # Row 2 of 3 in the edit grid; the tipper row below already
+            # carries the "Period (s)" x-axis label.
+            phase_fig.xaxis.axis_label = ""
             phase_figs[comp] = phase_fig
 
         res_limits = self.res_limits
@@ -1038,15 +1041,21 @@ class PlotMTResponse(BokehPlotBase):
             + list(tip_figs.keys())
         )
 
-        row1 = Row(*[res_figs[c] for c, *_ in comps])
-        row2 = Row(*[phase_figs[c] for c, *_ in comps])
-        row3 = Row(
+        row1 = [res_figs[c] for c, *_ in comps]
+        row2 = [phase_figs[c] for c, *_ in comps]
+        row3 = [
             tip_figs["tip_real_zx"],
             tip_figs["tip_imag_zx"],
             tip_figs["tip_real_zy"],
             tip_figs["tip_imag_zy"],
+        ]
+        # gridplot merges all 12 figures' toolbars into a single shared one so
+        # a tool (e.g. lasso/box select) only needs to be activated once.
+        self.layout = gridplot(
+            [row1, row2, row3],
+            toolbar_location="above",
+            merge_tools=True,
         )
-        self.layout = Column(row1, row2, row3)
         return self.layout
 
     def _set_legends(self, *figs):
