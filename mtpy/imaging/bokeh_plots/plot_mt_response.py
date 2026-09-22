@@ -207,7 +207,17 @@ class PlotMTResponse(BokehPlotBase):
         values = np.asarray(getattr(z_obj, f"{attr}_{comp}"), dtype=float)
         return values
 
-    def _component_source(self, period, z_obj, comp, kind="res", yx_shift=False):
+    def _component_source(
+        self, period, z_obj, comp, kind="res", yx_shift=False, masked=False
+    ):
+        """Build a ColumnDataSource for one component.
+
+        The underlying arrays always come straight from `z_obj`, i.e. the
+        original data is never mutated by masking. When `masked` is False
+        the source contains the currently active (non-masked) points; when
+        True it contains only the points a user has masked out, so callers
+        can render them separately (e.g. in gray).
+        """
         y_attr = "res" if kind == "res" else "phase"
         e_attr = f"{y_attr}_{self._error_str}"
 
@@ -239,9 +249,11 @@ class PlotMTResponse(BokehPlotBase):
             valid = np.isfinite(x) & np.isfinite(y) & np.isfinite(err)
 
         tf_index = np.arange(x.size, dtype=int)
-        masked = self.masked_tf_indices.get(comp, set())
-        if masked:
-            valid &= ~np.isin(tf_index, list(masked))
+        masked_set = self.masked_tf_indices.get(comp, set())
+        is_masked = (
+            np.isin(tf_index, list(masked_set)) if masked_set else np.zeros_like(valid)
+        )
+        valid &= is_masked if masked else ~is_masked
 
         data = {
             "period": x[valid],
@@ -262,8 +274,24 @@ class PlotMTResponse(BokehPlotBase):
         marker,
         comp_key,
         show_error=True,
+        masked_source=None,
     ):
         glyph_color = self._tuple_to_hex(color)
+
+        if masked_source is not None and len(masked_source.data["period"]) > 0:
+            gray_color = "#999999"
+            masked_renderer = fig.scatter(
+                x="period",
+                y="value",
+                source=masked_source,
+                marker=self._marker_name(marker),
+                size=max(int(self.marker_size), 4),
+                color=gray_color,
+                line_color=gray_color,
+                fill_alpha=0.5,
+                line_alpha=0.5,
+            )
+            self.renderers.setdefault(comp_key, []).append(masked_renderer)
 
         line_renderer = fig.line(
             x="period",
@@ -683,12 +711,24 @@ class PlotMTResponse(BokehPlotBase):
     def _plot_od_components(self, res_fig, phase_fig):
         xy_source_res = self._component_source(self.period, self.Z, "xy", kind="res")
         yx_source_res = self._component_source(self.period, self.Z, "yx", kind="res")
+        xy_masked_res = self._component_source(
+            self.period, self.Z, "xy", kind="res", masked=True
+        )
+        yx_masked_res = self._component_source(
+            self.period, self.Z, "yx", kind="res", masked=True
+        )
 
         xy_source_phase = self._component_source(
             self.period, self.Z, "xy", kind="phase"
         )
         yx_source_phase = self._component_source(
             self.period, self.Z, "yx", kind="phase", yx_shift=True
+        )
+        xy_masked_phase = self._component_source(
+            self.period, self.Z, "xy", kind="phase", masked=True
+        )
+        yx_masked_phase = self._component_source(
+            self.period, self.Z, "yx", kind="phase", yx_shift=True, masked=True
         )
 
         self._add_component(
@@ -698,6 +738,7 @@ class PlotMTResponse(BokehPlotBase):
             self.xy_color,
             self.xy_marker,
             "xy",
+            masked_source=xy_masked_res,
         )
         self._add_component(
             res_fig,
@@ -706,6 +747,7 @@ class PlotMTResponse(BokehPlotBase):
             self.yx_color,
             self.yx_marker,
             "yx",
+            masked_source=yx_masked_res,
         )
 
         self._add_component(
@@ -715,6 +757,7 @@ class PlotMTResponse(BokehPlotBase):
             self.xy_color,
             self.xy_marker,
             "xy",
+            masked_source=xy_masked_phase,
         )
         self._add_component(
             phase_fig,
@@ -723,11 +766,18 @@ class PlotMTResponse(BokehPlotBase):
             self.yx_color,
             self.yx_marker,
             "yx",
+            masked_source=yx_masked_phase,
         )
 
     def _plot_diag_components(self, res_fig, phase_fig):
         xx_source_res = self._component_source(self.period, self.Z, "xx", kind="res")
         yy_source_res = self._component_source(self.period, self.Z, "yy", kind="res")
+        xx_masked_res = self._component_source(
+            self.period, self.Z, "xx", kind="res", masked=True
+        )
+        yy_masked_res = self._component_source(
+            self.period, self.Z, "yy", kind="res", masked=True
+        )
 
         xx_source_phase = self._component_source(
             self.period, self.Z, "xx", kind="phase"
@@ -735,18 +785,48 @@ class PlotMTResponse(BokehPlotBase):
         yy_source_phase = self._component_source(
             self.period, self.Z, "yy", kind="phase"
         )
+        xx_masked_phase = self._component_source(
+            self.period, self.Z, "xx", kind="phase", masked=True
+        )
+        yy_masked_phase = self._component_source(
+            self.period, self.Z, "yy", kind="phase", masked=True
+        )
 
         self._add_component(
-            res_fig, xx_source_res, "Zxx", self.xx_color, self.xx_marker, "xx"
+            res_fig,
+            xx_source_res,
+            "Zxx",
+            self.xx_color,
+            self.xx_marker,
+            "xx",
+            masked_source=xx_masked_res,
         )
         self._add_component(
-            res_fig, yy_source_res, "Zyy", self.yy_color, self.yy_marker, "yy"
+            res_fig,
+            yy_source_res,
+            "Zyy",
+            self.yy_color,
+            self.yy_marker,
+            "yy",
+            masked_source=yy_masked_res,
         )
         self._add_component(
-            phase_fig, xx_source_phase, "Zxx", self.xx_color, self.xx_marker, "xx"
+            phase_fig,
+            xx_source_phase,
+            "Zxx",
+            self.xx_color,
+            self.xx_marker,
+            "xx",
+            masked_source=xx_masked_phase,
         )
         self._add_component(
-            phase_fig, yy_source_phase, "Zyy", self.yy_color, self.yy_marker, "yy"
+            phase_fig,
+            yy_source_phase,
+            "Zyy",
+            self.yy_color,
+            self.yy_marker,
+            "yy",
+            masked_source=yy_masked_phase,
         )
 
     def _plot_determinant(self, res_fig, phase_fig):
