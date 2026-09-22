@@ -882,11 +882,14 @@ class PlotMTResponse(BokehPlotBase):
             "det",
         )
 
-    def _tipper_component_source(self, comp_index, part):
+    def _tipper_component_source(self, comp_index, part, masked=False):
         """Build a period-indexed source for one tipper component (tzx/tzy).
 
         `comp_index` is 0 for tzx, 1 for tzy. `part` is "real" or "imag".
+        The component key used for masking ("tzx"/"tzy") covers both the
+        real and imaginary parts so masking one masks both together.
         """
+        comp = "tzx" if comp_index == 0 else "tzy"
         period = np.asarray(1.0 / self.Tipper.frequency, dtype=float)
         tf_values = self.Tipper.tipper[:, 0, comp_index]
         value = tf_values.real if part == "real" else tf_values.imag
@@ -906,11 +909,20 @@ class PlotMTResponse(BokehPlotBase):
         low = value - err
         high = value + err
 
+        tf_index = np.arange(period.size, dtype=int)
+        masked_set = self.masked_tf_indices.get(comp, set())
+        is_masked = (
+            np.isin(tf_index, list(masked_set)) if masked_set else np.zeros_like(valid)
+        )
+        valid &= is_masked if masked else ~is_masked
+
         data = {
             "period": period[valid],
             "value": value[valid],
             "low": low[valid],
             "high": high[valid],
+            "tf_index": tf_index[valid],
+            "component": [comp] * int(np.count_nonzero(valid)),
         }
         return ColumnDataSource(data=data)
 
@@ -999,8 +1011,16 @@ class PlotMTResponse(BokehPlotBase):
             tip_fig = self._make_phase_figure(shared_x_range, width=fig_w)
             tip_fig.height = 220
             source = self._tipper_component_source(comp_index, part)
+            masked_source = self._tipper_component_source(comp_index, part, masked=True)
             self._add_component(
-                tip_fig, source, label, color, "o", key, show_error=True
+                tip_fig,
+                source,
+                label,
+                color,
+                "o",
+                key,
+                show_error=True,
+                masked_source=masked_source,
             )
             tip_fig.yaxis.axis_label = label if key == "tip_real_zx" else ""
             tip_fig.xaxis.axis_label = "Period (s)"
