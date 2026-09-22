@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import numpy as np
 from bokeh.io import show
-from bokeh.layouts import Column, Row
+from bokeh.layouts import Column, gridplot, Row
 from bokeh.models import (
     Arrow,
     BasicTicker,
@@ -67,6 +67,8 @@ class PlotMTResponse(BokehPlotBase):
         self._log_x_figure_keys = set()
         self._linear_x_figure_keys = set()
         self._pt_x_spacing = 1.0
+        self.masked_tf_indices: dict[str, set[int]] = {}
+        self.edit_mode = False
 
         # param.Parameterized raises TypeError for unknown kwargs; split them.
         param_names = set(type(self).param)
@@ -206,7 +208,17 @@ class PlotMTResponse(BokehPlotBase):
         values = np.asarray(getattr(z_obj, f"{attr}_{comp}"), dtype=float)
         return values
 
-    def _component_source(self, period, z_obj, comp, kind="res", yx_shift=False):
+    def _component_source(
+        self, period, z_obj, comp, kind="res", yx_shift=False, masked=False
+    ):
+        """Build a ColumnDataSource for one component.
+
+        The underlying arrays always come straight from `z_obj`, i.e. the
+        original data is never mutated by masking. When `masked` is False
+        the source contains the currently active (non-masked) points; when
+        True it contains only the points a user has masked out, so callers
+        can render them separately (e.g. in gray).
+        """
         y_attr = "res" if kind == "res" else "phase"
         e_attr = f"{y_attr}_{self._error_str}"
 
@@ -237,11 +249,20 @@ class PlotMTResponse(BokehPlotBase):
         else:
             valid = np.isfinite(x) & np.isfinite(y) & np.isfinite(err)
 
+        tf_index = np.arange(x.size, dtype=int)
+        masked_set = self.masked_tf_indices.get(comp, set())
+        is_masked = (
+            np.isin(tf_index, list(masked_set)) if masked_set else np.zeros_like(valid)
+        )
+        valid &= is_masked if masked else ~is_masked
+
         data = {
             "period": x[valid],
             "value": y[valid],
             "low": low[valid],
             "high": high[valid],
+            "tf_index": tf_index[valid],
+            "component": [comp] * int(np.count_nonzero(valid)),
         }
         return ColumnDataSource(data=data)
 
@@ -254,8 +275,24 @@ class PlotMTResponse(BokehPlotBase):
         marker,
         comp_key,
         show_error=True,
+        masked_source=None,
     ):
         glyph_color = self._tuple_to_hex(color)
+
+        if masked_source is not None and len(masked_source.data["period"]) > 0:
+            gray_color = "#999999"
+            masked_renderer = fig.scatter(
+                x="period",
+                y="value",
+                source=masked_source,
+                marker=self._marker_name(marker),
+                size=max(int(self.marker_size), 4),
+                color=gray_color,
+                line_color=gray_color,
+                fill_alpha=0.5,
+                line_alpha=0.5,
+            )
+            self.renderers.setdefault(comp_key, []).append(masked_renderer)
 
         line_renderer = fig.line(
             x="period",
@@ -306,7 +343,7 @@ class PlotMTResponse(BokehPlotBase):
             y_axis_type="log",
             height=320,
             width=width,
-            tools="pan,wheel_zoom,box_zoom,reset,save",
+            tools="pan,wheel_zoom,box_zoom,reset,save,tap,box_select,lasso_select",
             active_scroll="wheel_zoom",
             **kw,
         )
@@ -318,7 +355,7 @@ class PlotMTResponse(BokehPlotBase):
             x_range=x_range,
             height=250,
             width=width,
-            tools="pan,wheel_zoom,box_zoom,reset,save",
+            tools="pan,wheel_zoom,box_zoom,reset,save,tap,box_select,lasso_select",
             active_scroll="wheel_zoom",
         )
 
@@ -675,12 +712,24 @@ class PlotMTResponse(BokehPlotBase):
     def _plot_od_components(self, res_fig, phase_fig):
         xy_source_res = self._component_source(self.period, self.Z, "xy", kind="res")
         yx_source_res = self._component_source(self.period, self.Z, "yx", kind="res")
+        xy_masked_res = self._component_source(
+            self.period, self.Z, "xy", kind="res", masked=True
+        )
+        yx_masked_res = self._component_source(
+            self.period, self.Z, "yx", kind="res", masked=True
+        )
 
         xy_source_phase = self._component_source(
             self.period, self.Z, "xy", kind="phase"
         )
         yx_source_phase = self._component_source(
             self.period, self.Z, "yx", kind="phase", yx_shift=True
+        )
+        xy_masked_phase = self._component_source(
+            self.period, self.Z, "xy", kind="phase", masked=True
+        )
+        yx_masked_phase = self._component_source(
+            self.period, self.Z, "yx", kind="phase", yx_shift=True, masked=True
         )
 
         self._add_component(
@@ -690,6 +739,7 @@ class PlotMTResponse(BokehPlotBase):
             self.xy_color,
             self.xy_marker,
             "xy",
+            masked_source=xy_masked_res,
         )
         self._add_component(
             res_fig,
@@ -698,6 +748,7 @@ class PlotMTResponse(BokehPlotBase):
             self.yx_color,
             self.yx_marker,
             "yx",
+            masked_source=yx_masked_res,
         )
 
         self._add_component(
@@ -707,6 +758,7 @@ class PlotMTResponse(BokehPlotBase):
             self.xy_color,
             self.xy_marker,
             "xy",
+            masked_source=xy_masked_phase,
         )
         self._add_component(
             phase_fig,
@@ -715,11 +767,18 @@ class PlotMTResponse(BokehPlotBase):
             self.yx_color,
             self.yx_marker,
             "yx",
+            masked_source=yx_masked_phase,
         )
 
     def _plot_diag_components(self, res_fig, phase_fig):
         xx_source_res = self._component_source(self.period, self.Z, "xx", kind="res")
         yy_source_res = self._component_source(self.period, self.Z, "yy", kind="res")
+        xx_masked_res = self._component_source(
+            self.period, self.Z, "xx", kind="res", masked=True
+        )
+        yy_masked_res = self._component_source(
+            self.period, self.Z, "yy", kind="res", masked=True
+        )
 
         xx_source_phase = self._component_source(
             self.period, self.Z, "xx", kind="phase"
@@ -727,18 +786,48 @@ class PlotMTResponse(BokehPlotBase):
         yy_source_phase = self._component_source(
             self.period, self.Z, "yy", kind="phase"
         )
+        xx_masked_phase = self._component_source(
+            self.period, self.Z, "xx", kind="phase", masked=True
+        )
+        yy_masked_phase = self._component_source(
+            self.period, self.Z, "yy", kind="phase", masked=True
+        )
 
         self._add_component(
-            res_fig, xx_source_res, "Zxx", self.xx_color, self.xx_marker, "xx"
+            res_fig,
+            xx_source_res,
+            "Zxx",
+            self.xx_color,
+            self.xx_marker,
+            "xx",
+            masked_source=xx_masked_res,
         )
         self._add_component(
-            res_fig, yy_source_res, "Zyy", self.yy_color, self.yy_marker, "yy"
+            res_fig,
+            yy_source_res,
+            "Zyy",
+            self.yy_color,
+            self.yy_marker,
+            "yy",
+            masked_source=yy_masked_res,
         )
         self._add_component(
-            phase_fig, xx_source_phase, "Zxx", self.xx_color, self.xx_marker, "xx"
+            phase_fig,
+            xx_source_phase,
+            "Zxx",
+            self.xx_color,
+            self.xx_marker,
+            "xx",
+            masked_source=xx_masked_phase,
         )
         self._add_component(
-            phase_fig, yy_source_phase, "Zyy", self.yy_color, self.yy_marker, "yy"
+            phase_fig,
+            yy_source_phase,
+            "Zyy",
+            self.yy_color,
+            self.yy_marker,
+            "yy",
+            masked_source=yy_masked_phase,
         )
 
     def _plot_determinant(self, res_fig, phase_fig):
@@ -793,12 +882,189 @@ class PlotMTResponse(BokehPlotBase):
             "det",
         )
 
+    def _tipper_component_source(self, comp_index, part, masked=False):
+        """Build a period-indexed source for one tipper component (tzx/tzy).
+
+        `comp_index` is 0 for tzx, 1 for tzy. `part` is "real" or "imag".
+        The component key used for masking ("tzx"/"tzy") covers both the
+        real and imaginary parts so masking one masks both together.
+        """
+        comp = "tzx" if comp_index == 0 else "tzy"
+        period = np.asarray(1.0 / self.Tipper.frequency, dtype=float)
+        tf_values = self.Tipper.tipper[:, 0, comp_index]
+        value = tf_values.real if part == "real" else tf_values.imag
+        value = np.asarray(value, dtype=float)
+
+        err_arr = getattr(self.Tipper, f"tipper_{self._error_str}", None)
+        if err_arr is not None:
+            err = np.asarray(err_arr[:, 0, comp_index], dtype=float)
+        else:
+            err = np.zeros_like(value)
+        if not np.any(np.isfinite(err)):
+            err = np.zeros_like(value)
+
+        valid = (
+            np.isfinite(period) & (period > 0) & np.isfinite(value) & np.isfinite(err)
+        )
+        low = value - err
+        high = value + err
+
+        tf_index = np.arange(period.size, dtype=int)
+        masked_set = self.masked_tf_indices.get(comp, set())
+        is_masked = (
+            np.isin(tf_index, list(masked_set)) if masked_set else np.zeros_like(valid)
+        )
+        valid &= is_masked if masked else ~is_masked
+
+        data = {
+            "period": period[valid],
+            "value": value[valid],
+            "low": low[valid],
+            "high": high[valid],
+            "tf_index": tf_index[valid],
+            "component": [comp] * int(np.count_nonzero(valid)),
+        }
+        return ColumnDataSource(data=data)
+
+    def _plot_edit_layout(self):
+        """Build the 4-column x 3-row edit-mode layout.
+
+        Columns are Zxx, Zxy, Zyx, Zyy; rows are apparent resistivity,
+        phase, and tipper (real tzx, imag tzx, real tzy, imag tzy).
+        """
+        fig_w = 300
+        comps = [
+            ("xx", "Zxx", self.xx_color, self.xx_marker),
+            ("xy", "Zxy", self.xy_color, self.xy_marker),
+            ("yx", "Zyx", self.yx_color, self.yx_marker),
+            ("yy", "Zyy", self.yy_color, self.yy_marker),
+        ]
+
+        res_figs = {}
+        phase_figs = {}
+        shared_x_range = None
+
+        for comp, label, color, marker in comps:
+            res_fig = self._make_resistivity_figure(x_range=shared_x_range, width=fig_w)
+            if shared_x_range is None:
+                shared_x_range = res_fig.x_range
+            source_res = self._component_source(self.period, self.Z, comp, kind="res")
+            masked_res = self._component_source(
+                self.period, self.Z, comp, kind="res", masked=True
+            )
+            self._add_component(
+                res_fig,
+                source_res,
+                label,
+                color,
+                marker,
+                comp,
+                masked_source=masked_res,
+            )
+            self._format_res_axis(res_fig)
+            res_figs[comp] = res_fig
+
+            phase_fig = self._make_phase_figure(shared_x_range, width=fig_w)
+            yx_shift = comp == "yx"
+            source_phase = self._component_source(
+                self.period, self.Z, comp, kind="phase", yx_shift=yx_shift
+            )
+            masked_phase = self._component_source(
+                self.period, self.Z, comp, kind="phase", yx_shift=yx_shift, masked=True
+            )
+            self._add_component(
+                phase_fig,
+                source_phase,
+                label,
+                color,
+                marker,
+                comp,
+                masked_source=masked_phase,
+            )
+            self._format_phase_axis(phase_fig)
+            # Row 2 of 3 in the edit grid; the tipper row below already
+            # carries the "Period (s)" x-axis label.
+            phase_fig.xaxis.axis_label = ""
+            phase_fig.xaxis.visible = False
+            phase_figs[comp] = phase_fig
+
+        res_limits = self.res_limits
+        phase_limits_od = self.set_phase_limits(self.Z.phase, mode="od")
+        phase_limits_diag = self.set_phase_limits(self.Z.phase, mode="d")
+        for comp, _label, _color, _marker in comps:
+            self._set_axis_limits(res_figs[comp], res_limits)
+            phase_limits = (
+                phase_limits_od if comp in ("xy", "yx") else phase_limits_diag
+            )
+            self._set_axis_limits(phase_figs[comp], phase_limits)
+            self._add_hover(res_figs[comp])
+            self._add_hover(phase_figs[comp])
+            self._set_legends(res_figs[comp], phase_figs[comp])
+            if comp != "xx":
+                res_figs[comp].yaxis.axis_label = ""
+                phase_figs[comp].yaxis.axis_label = ""
+
+        tip_defs = [
+            ("tip_real_zx", 0, "real", self.arrow_color_real, "Re(Tzx)"),
+            ("tip_imag_zx", 0, "imag", self.arrow_color_imag, "Im(Tzx)"),
+            ("tip_real_zy", 1, "real", self.arrow_color_real, "Re(Tzy)"),
+            ("tip_imag_zy", 1, "imag", self.arrow_color_imag, "Im(Tzy)"),
+        ]
+        tip_figs = {}
+        for key, comp_index, part, color, label in tip_defs:
+            tip_fig = self._make_phase_figure(shared_x_range, width=fig_w)
+            tip_fig.height = 220
+            source = self._tipper_component_source(comp_index, part)
+            masked_source = self._tipper_component_source(comp_index, part, masked=True)
+            self._add_component(
+                tip_fig,
+                source,
+                label,
+                color,
+                "o",
+                key,
+                show_error=True,
+                masked_source=masked_source,
+            )
+            tip_fig.yaxis.axis_label = label if key == "tip_real_zx" else ""
+            tip_fig.xaxis.axis_label = "Period (s)"
+            tip_fig.grid.grid_line_alpha = 0.25
+            self._add_hover(tip_fig)
+            self._set_legends(tip_fig)
+            tip_figs[key] = tip_fig
+
+        self.figures.update({f"res_{c}": res_figs[c] for c, *_ in comps})
+        self.figures.update({f"phase_{c}": phase_figs[c] for c, *_ in comps})
+        self.figures.update(tip_figs)
+        self._log_x_figure_keys.update(
+            [f"res_{c}" for c, *_ in comps]
+            + [f"phase_{c}" for c, *_ in comps]
+            + list(tip_figs.keys())
+        )
+
+        row1 = [res_figs[c] for c, *_ in comps]
+        row2 = [phase_figs[c] for c, *_ in comps]
+        row3 = [
+            tip_figs["tip_real_zx"],
+            tip_figs["tip_imag_zx"],
+            tip_figs["tip_real_zy"],
+            tip_figs["tip_imag_zy"],
+        ]
+        # gridplot merges all 12 figures' toolbars into a single shared one so
+        # a tool (e.g. lasso/box select) only needs to be activated once.
+        self.layout = gridplot(
+            [row1, row2, row3],
+            toolbar_location="above",
+            merge_tools=True,
+        )
+        return self.layout
+
     def _set_legends(self, *figs):
         for fig in figs:
             if len(fig.legend) == 0:
                 continue
             fig.legend.click_policy = "hide"
-            fig.legend.location = "bottom_left"
+            fig.legend.location = "top_left"
             fig.legend.label_text_font_size = f"{self.font_size + 2}px"
 
     def _set_component_visibility(self, selected_components):
@@ -854,6 +1120,16 @@ class PlotMTResponse(BokehPlotBase):
                 )
 
         self.figures = {}
+
+        if self.edit_mode:
+            if self.res_limits is None:
+                self.res_limits = self.set_resistivity_limits(
+                    self.Z.resistivity, mode="all"
+                )
+            self._plot_edit_layout()
+            if self.show_plot:
+                show(self.layout)
+            return self.layout
 
         # base_column_width is the total width of a single-column layout.
         # For plot_num=2, each impedance figure is set to half of the two-column
@@ -995,6 +1271,74 @@ class PlotMTResponse(BokehPlotBase):
                 sizing_mode=sizing_mode,
             )
 
+        selection_status = pn.pane.Markdown(
+            "_Select impedance points with tap, box, or lasso, then mask them._",
+            styles={"color": "#555"},
+        )
+        mask_selected_button = pn.widgets.Button(
+            name="Mask Selected",
+            button_type="warning",
+            width=130,
+        )
+        restore_masked_button = pn.widgets.Button(
+            name="Restore Masked",
+            button_type="default",
+            width=130,
+        )
+
+        def _selected_tf_indices() -> dict[str, set[int]]:
+            selected: dict[str, set[int]] = {}
+            seen_sources: set[int] = set()
+            for fig in self.figures.values():
+                for renderer in fig.renderers:
+                    source = getattr(renderer, "data_source", None)
+                    if source is None or id(source) in seen_sources:
+                        continue
+                    seen_sources.add(id(source))
+                    component = source.data.get("component", [])
+                    tf_index = source.data.get("tf_index", [])
+                    if len(component) == 0 or len(tf_index) == 0:
+                        continue
+                    for index in source.selected.indices:
+                        if index < len(tf_index):
+                            selected.setdefault(component[index], set()).add(
+                                int(tf_index[index])
+                            )
+            return selected
+
+        def _refresh_masked_plot() -> None:
+            self.plot()
+            bokeh_pane.object = self.layout
+            bokeh_pane.param.trigger("object")
+
+        def _mask_selected(_event) -> None:
+            selected = _selected_tf_indices()
+            if not selected:
+                selection_status.object = (
+                    "⚠️ Select one or more impedance points first."
+                )
+                selection_status.styles = {"color": "#7a5200"}
+                return
+
+            count = 0
+            for component, indices in selected.items():
+                self.masked_tf_indices.setdefault(component, set()).update(indices)
+                count += len(indices)
+            _refresh_masked_plot()
+            selection_status.object = f"Masked {count} selected point(s)."
+            selection_status.styles = {"color": "#7a5200"}
+
+        def _restore_masked(_event) -> None:
+            if not self.masked_tf_indices:
+                return
+            self.masked_tf_indices.clear()
+            _refresh_masked_plot()
+            selection_status.object = "Restored all masked points."
+            selection_status.styles = {"color": "#1a6600"}
+
+        mask_selected_button.on_click(_mask_selected)
+        restore_masked_button.on_click(_restore_masked)
+
         options = {
             "xy": "Zxy",
             "yx": "Zyx",
@@ -1049,6 +1393,7 @@ class PlotMTResponse(BokehPlotBase):
             name="Full tensor", button_type="warning", width=120
         )
         all_btn = pn.widgets.Button(name="All", button_type="warning", width=60)
+        edit_btn = pn.widgets.Button(name="Edit", button_type="warning", width=80)
 
         # ── per-component color / marker / size styling ───────────────────────
         _style_defs = [
@@ -1118,6 +1463,7 @@ class PlotMTResponse(BokehPlotBase):
 
         def _apply_preset_num(new_plot_num):
             """Re-render with new plot_num and update all dependent widgets."""
+            self.edit_mode = False
             self.plot_num = new_plot_num
             self.res_limits = None  # recalculate limits for new mode
             self.plot()
@@ -1132,12 +1478,22 @@ class PlotMTResponse(BokehPlotBase):
             self._set_period_window(period_widget.value)
             bokeh_pane.param.trigger("object")
 
+        def _apply_edit_mode(_event=None):
+            """Switch to the 4-column x 3-row per-component edit layout."""
+            self.edit_mode = True
+            self.res_limits = None
+            self.plot()
+            bokeh_pane.object = self.layout
+            self._set_period_window(period_widget.value)
+            bokeh_pane.param.trigger("object")
+
         def _refresh_from_error_mode(event):
             self.plot_model_error = event.new == "model"
             self.res_limits = None
             self.plot()
             bokeh_pane.object = self.layout
-            self._set_component_visibility(component_widget.value)
+            if not self.edit_mode:
+                self._set_component_visibility(component_widget.value)
             bokeh_pane.param.trigger("object")
             self._set_period_window(period_widget.value)
 
@@ -1157,13 +1513,15 @@ class PlotMTResponse(BokehPlotBase):
             self.res_limits = None
             self.plot()
             bokeh_pane.object = self.layout
-            self._set_component_visibility(component_widget.value)
+            if not self.edit_mode:
+                self._set_component_visibility(component_widget.value)
             bokeh_pane.param.trigger("object")
             self._set_period_window(period_widget.value)
 
         od_btn.on_click(lambda e: _apply_preset_num(1))
         full_btn.on_click(lambda e: _apply_preset_num(2))
         all_btn.on_click(lambda e: _apply_preset_num(3))
+        edit_btn.on_click(_apply_edit_mode)
 
         error_widget.param.watch(_refresh_from_error_mode, "value")
         component_widget.param.watch(_update_visibility, "value")
@@ -1182,17 +1540,24 @@ class PlotMTResponse(BokehPlotBase):
         controls = pn.Row(
             pn.Column(
                 pn.pane.Markdown("**Preset**"),
-                pn.Row(od_btn, full_btn, all_btn),
+                pn.Row(od_btn, full_btn, all_btn, edit_btn),
             ),
             pn.Column(pn.pane.Markdown("**Components**"), component_widget),
             pn.Column(pn.pane.Markdown("**Error Type**"), error_widget),
             pn.Column(pn.pane.Markdown("**Period Window**"), period_widget),
+        )
+        edit_controls = pn.Row(
+            mask_selected_button,
+            restore_masked_button,
+            selection_status,
+            align="center",
         )
 
         return pn.Column(
             pn.pane.Markdown(f"## {title}"),
             controls,
             style_card,
+            edit_controls,
             bokeh_pane,
             sizing_mode=sizing_mode,
         )
