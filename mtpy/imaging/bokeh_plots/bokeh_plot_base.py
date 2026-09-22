@@ -12,6 +12,7 @@ import numpy as np
 from matplotlib import colormaps
 from matplotlib.colors import to_hex
 
+
 try:
     import param
 except ImportError:  # pragma: no cover
@@ -202,7 +203,7 @@ class BokehPlotBase(param.Parameterized):
     xy_color = param.Color(default="#4059bf", doc="Zxy component color")
     yx_color = param.Color(default="#bf4040", doc="Zyx component color")
     xx_color = param.Color(default="#5599cc", doc="Zxx component color")
-    yy_color = param.Color(default="#cc5555", doc="Zyy component color")
+    yy_color = param.Color(default="#c56942", doc="Zyy component color")
     det_color = param.Color(default="#40bf40", doc="det(Z) component color")
     xy_marker = param.ObjectSelector(
         default="s", objects=_MARKER_OPTIONS, doc="Zxy marker"
