@@ -62,6 +62,15 @@ class PlotMTResponse(BokehPlotBase):
         "krogh",
     ]
 
+    _MODEL_ERROR_COMP_INDEX = {
+        "zxx": (0, 0),
+        "zxy": (0, 1),
+        "zyx": (1, 0),
+        "zyy": (1, 1),
+        "tzx": (0, 0),
+        "tzy": (0, 1),
+    }
+
     def __init__(
         self,
         z_object=None,
@@ -250,6 +259,69 @@ class PlotMTResponse(BokehPlotBase):
             if tzy:
                 tipper[:, 0, 1] *= -1
             self.Tipper.tipper = tipper
+
+    def add_model_error(self, comp, z_value=5.0, t_value=0.05, periods=None):
+        """Adjust the model error for the given components, in place.
+
+        Parameters
+        ----------
+        comp : str or list of str
+            Components to modify, any of "zxx", "zxy", "zyx", "zyy", "tzx", "tzy".
+        z_value : float, optional
+            Multiplier applied to impedance model error, by default 5.0.
+        t_value : float, optional
+            Value added to tipper model error, by default 0.05.
+        periods : tuple of float, optional
+            (min_period, max_period) to restrict the edit to, by default None
+            (applies to all periods).
+        """
+        if isinstance(comp, str):
+            comp = [comp]
+
+        if periods is not None:
+            if len(periods) != 2:
+                raise ValueError("Must enter a minimum and maximum period value")
+            p_min = np.where(self.period >= min(periods))[0][0]
+            p_max = np.where(self.period <= max(periods))[0][-1]
+        else:
+            p_min = 0
+            p_max = len(self.period) - 1
+
+        if self.Z is not None:
+            z_model_error = self.Z.z_model_error
+            if z_model_error is None:
+                base = self.Z.z_error
+                z_model_error = (
+                    base.copy()
+                    if base is not None
+                    else np.zeros(self.Z.z.shape, dtype=float)
+                )
+            else:
+                z_model_error = z_model_error.copy()
+            for cc in [c for c in comp if c.startswith("z")]:
+                if cc not in self._MODEL_ERROR_COMP_INDEX:
+                    continue
+                ii, jj = self._MODEL_ERROR_COMP_INDEX[cc]
+                z_model_error[p_min : p_max + 1, ii, jj] *= z_value
+            self.Z.z_model_error = z_model_error
+
+        if self.Tipper is not None:
+            t_model_error = self.Tipper.tipper_model_error
+            if t_model_error is None:
+                base = self.Tipper.tipper_error
+                t_model_error = (
+                    base.copy()
+                    if base is not None
+                    else np.zeros(self.Tipper.tipper.shape, dtype=float)
+                )
+            else:
+                t_model_error = t_model_error.copy()
+            for cc in [c for c in comp if c.startswith("t")]:
+                if cc not in self._MODEL_ERROR_COMP_INDEX:
+                    continue
+                ii, jj = self._MODEL_ERROR_COMP_INDEX[cc]
+                t_model_error[p_min : p_max + 1, ii, jj] += t_value
+            self.Tipper.tipper_model_error = t_model_error
 
     def _require_bokeh(self):
         if (
@@ -1688,6 +1760,91 @@ class PlotMTResponse(BokehPlotBase):
             collapsed=True,
         )
 
+        # ── add model error controls ────────────────────────────────────────
+        model_err_zxx_widget = pn.widgets.Checkbox(name="Zxx", value=False)
+        model_err_zxy_widget = pn.widgets.Checkbox(name="Zxy", value=False)
+        model_err_zyx_widget = pn.widgets.Checkbox(name="Zyx", value=False)
+        model_err_zyy_widget = pn.widgets.Checkbox(name="Zyy", value=False)
+        model_err_tzx_widget = pn.widgets.Checkbox(name="Tzx", value=False)
+        model_err_tzy_widget = pn.widgets.Checkbox(name="Tzy", value=False)
+        model_err_z_widget = pn.widgets.FloatInput(
+            name="Z multiplier", value=5.0, width=100
+        )
+        model_err_t_widget = pn.widgets.FloatInput(
+            name="T add (abs)", value=0.05, width=100
+        )
+        model_err_pmin_widget = pn.widgets.FloatInput(
+            name="Min period (s)", value=period_min, width=120
+        )
+        model_err_pmax_widget = pn.widgets.FloatInput(
+            name="Max period (s)", value=period_max, width=120
+        )
+        model_err_apply_button = pn.widgets.Button(
+            name="Apply Model Error", button_type="primary", width=160
+        )
+        model_err_status = pn.pane.Markdown("", styles={"color": "#555"})
+
+        def _apply_add_model_error(_event):
+            selected = {
+                "zxx": model_err_zxx_widget.value,
+                "zxy": model_err_zxy_widget.value,
+                "zyx": model_err_zyx_widget.value,
+                "zyy": model_err_zyy_widget.value,
+                "tzx": model_err_tzx_widget.value,
+                "tzy": model_err_tzy_widget.value,
+            }
+            comps = [key for key, value in selected.items() if value]
+            if not comps:
+                model_err_status.object = "⚠️ Select one or more components."
+                model_err_status.styles = {"color": "#7a5200"}
+                return
+
+            try:
+                pmin = float(model_err_pmin_widget.value)
+                pmax = float(model_err_pmax_widget.value)
+                self.add_model_error(
+                    comps,
+                    z_value=float(model_err_z_widget.value),
+                    t_value=float(model_err_t_widget.value),
+                    periods=(pmin, pmax),
+                )
+            except Exception as error:
+                model_err_status.object = f"⚠️ Add model error failed: {error}"
+                model_err_status.styles = {"color": "#7a0000"}
+                return
+
+            self.plot_model_error = True
+            error_widget.value = "model"
+            _refresh_plot_and_widgets()
+            model_err_status.object = (
+                f"Applied model error to: {', '.join(comps)} "
+                f"({pmin:.4g}s to {pmax:.4g}s)."
+            )
+            model_err_status.styles = {"color": "#1a6600"}
+
+        model_err_apply_button.on_click(_apply_add_model_error)
+
+        model_err_row = pn.Row(
+            model_err_zxx_widget,
+            model_err_zxy_widget,
+            model_err_zyx_widget,
+            model_err_zyy_widget,
+            model_err_tzx_widget,
+            model_err_tzy_widget,
+            model_err_z_widget,
+            model_err_t_widget,
+            model_err_pmin_widget,
+            model_err_pmax_widget,
+            model_err_apply_button,
+            model_err_status,
+            align="center",
+        )
+        model_err_card = pn.Card(
+            model_err_row,
+            title="Add Model Error",
+            collapsed=True,
+        )
+
         options = {
             "xy": "Zxy",
             "yx": "Zyx",
@@ -1910,6 +2067,7 @@ class PlotMTResponse(BokehPlotBase):
             ss_card,
             rotate_card,
             flip_card,
+            model_err_card,
             edit_controls,
             bokeh_pane,
             sizing_mode=sizing_mode,

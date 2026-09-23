@@ -6,6 +6,7 @@ from mt_metadata import TF_EDI_CGG
 
 from mtpy import MT
 
+
 pytestmark = pytest.mark.plotting
 
 
@@ -398,3 +399,123 @@ class TestPlotMTResponsePanel:
         plotter.plot()
         assert "det" in plotter.renderers
         assert "xy" in plotter.renderers
+
+
+class TestPlotMTResponseEditing:
+    """Tests for the editing methods (interpolate, static_shift, flip_phase,
+    add_model_error) and their panel() cards."""
+
+    def _make_plotter(self, bokeh_plot_mt_response_class, mt_object_bokeh):
+        return bokeh_plot_mt_response_class(
+            z_object=mt_object_bokeh.Z.copy(),
+            t_object=mt_object_bokeh.Tipper.copy(),
+            pt_obj=mt_object_bokeh.pt.copy(),
+            station=mt_object_bokeh.station,
+            show_plot=False,
+            plot_num=2,
+        )
+
+    def test_interpolate_changes_period_count(
+        self, bokeh_plot_mt_response_class, mt_object_bokeh
+    ):
+        import numpy as np
+
+        plotter = self._make_plotter(bokeh_plot_mt_response_class, mt_object_bokeh)
+        plotter.plot()
+        new_period = np.logspace(
+            np.log10(plotter.period.min()), np.log10(plotter.period.max()), 15
+        )
+        plotter.interpolate(new_period, method="pchip", extrapolate=False)
+        assert plotter.period.size == 15
+        assert plotter.plot() is not None
+
+    def test_static_shift_scales_resistivity(
+        self, bokeh_plot_mt_response_class, mt_object_bokeh
+    ):
+        import numpy as np
+
+        plotter = self._make_plotter(bokeh_plot_mt_response_class, mt_object_bokeh)
+        plotter.plot()
+        orig_res_xy = plotter.Z.resistivity[:, 0, 1].copy()
+        plotter.static_shift(ss_x=2.0, ss_y=1.0)
+        new_res_xy = plotter.Z.resistivity[:, 0, 1]
+        assert np.allclose(new_res_xy / orig_res_xy, 0.5, equal_nan=True)
+        assert plotter.plot() is not None
+
+    def test_flip_phase_negates_selected_components(
+        self, bokeh_plot_mt_response_class, mt_object_bokeh
+    ):
+        import numpy as np
+
+        plotter = self._make_plotter(bokeh_plot_mt_response_class, mt_object_bokeh)
+        plotter.plot()
+        orig_zxy = plotter.Z.z[:, 0, 1].copy()
+        orig_tzx = plotter.Tipper.tipper[:, 0, 0].copy()
+        plotter.flip_phase(zxy=True, tzx=True)
+        assert np.allclose(plotter.Z.z[:, 0, 1], -orig_zxy, equal_nan=True)
+        assert np.allclose(plotter.Tipper.tipper[:, 0, 0], -orig_tzx, equal_nan=True)
+        assert plotter.plot() is not None
+
+    def test_add_model_error_scales_z_and_offsets_tipper(
+        self, bokeh_plot_mt_response_class, mt_object_bokeh
+    ):
+        import numpy as np
+
+        plotter = self._make_plotter(bokeh_plot_mt_response_class, mt_object_bokeh)
+        plotter.plot()
+        orig_z_err_xy = plotter.Z.z_error[:, 0, 1].copy()
+        orig_t_err_zx = plotter.Tipper.tipper_error[:, 0, 0].copy()
+
+        plotter.add_model_error(["zxy", "tzx"], z_value=5.0, t_value=0.05)
+
+        assert np.allclose(
+            plotter.Z.z_model_error[:, 0, 1], orig_z_err_xy * 5.0, equal_nan=True
+        )
+        assert np.allclose(
+            plotter.Tipper.tipper_model_error[:, 0, 0],
+            orig_t_err_zx + 0.05,
+            equal_nan=True,
+        )
+        # unaffected component falls back to data error unmodified
+        assert np.allclose(
+            plotter.Z.z_model_error[:, 1, 0], plotter.Z.z_error[:, 1, 0], equal_nan=True
+        )
+
+        plotter.plot_model_error = True
+        assert plotter.plot() is not None
+
+    def test_add_model_error_respects_period_range(
+        self, bokeh_plot_mt_response_class, mt_object_bokeh
+    ):
+        import numpy as np
+
+        plotter = self._make_plotter(bokeh_plot_mt_response_class, mt_object_bokeh)
+        plotter.plot()
+        period = plotter.period
+        pmin, pmax = period.min(), period[len(period) // 2]
+        orig = plotter.Z.z_error[:, 0, 0].copy()
+
+        plotter.add_model_error(["zxx"], z_value=2.0, periods=(pmin, pmax))
+
+        new = plotter.Z.z_model_error[:, 0, 0]
+        in_range = (period >= pmin) & (period <= pmax)
+        assert np.allclose(new[in_range], orig[in_range] * 2.0, equal_nan=True)
+        assert np.allclose(new[~in_range], orig[~in_range], equal_nan=True)
+
+    def test_panel_includes_model_error_card(
+        self, bokeh_plot_mt_response_class, mt_object_bokeh
+    ):
+        """panel() should include a collapsed 'Add Model Error' card."""
+        import panel as pn
+
+        pytest.importorskip("panel")
+        plotter = self._make_plotter(bokeh_plot_mt_response_class, mt_object_bokeh)
+        result = plotter.panel()
+
+        def _find_card_with_title(obj, title):
+            if isinstance(obj, pn.Card) and obj.title == title:
+                return True
+            children = getattr(obj, "objects", []) or []
+            return any(_find_card_with_title(c, title) for c in children)
+
+        assert _find_card_with_title(result, "Add Model Error")
