@@ -45,6 +45,23 @@ class PlotMTResponse(BokehPlotBase):
         "^": "inverted_triangle",
     }
 
+    _INTERP_METHODS = [
+        "slinear",
+        "linear",
+        "nearest",
+        "zero",
+        "quadratic",
+        "cubic",
+        "previous",
+        "next",
+        "pchip",
+        "akima",
+        "spline",
+        "barycentric",
+        "polynomial",
+        "krogh",
+    ]
+
     def __init__(
         self,
         z_object=None,
@@ -139,6 +156,100 @@ class PlotMTResponse(BokehPlotBase):
             self.pt.rotation_angle = self.Z.rotation_angle
 
         self._rotation_angle += theta_r
+
+    def interpolate(
+        self,
+        new_period,
+        method="slinear",
+        extrapolate=False,
+    ):
+        """Interpolate Z, Tipper, and PT onto a new period array, in place.
+
+        Parameters
+        ----------
+        new_period : array_like
+            Periods (in seconds) to interpolate onto.
+        method : str, optional
+            Interpolation method, one of `_INTERP_METHODS`, by default "slinear".
+        extrapolate : bool, optional
+            Allow values outside the original period range, by default False.
+        """
+        new_period = np.asarray(new_period, dtype=float)
+
+        if self.Z is not None:
+            self.Z = self.Z.interpolate(
+                new_period, inplace=False, method=method, extrapolate=extrapolate
+            )
+            if self.pt is not None:
+                self.pt = self.Z.phase_tensor
+        if self.Tipper is not None:
+            self.Tipper = self.Tipper.interpolate(
+                new_period, inplace=False, method=method, extrapolate=extrapolate
+            )
+
+        # masked indices refer to the old period axis and no longer apply
+        self.masked_tf_indices = {}
+        self.x_limits = self.set_period_limits(self.period)
+        self.res_limits = None
+
+    def static_shift(self, ss_x=1.0, ss_y=1.0):
+        """Remove static shift from Z by the given correction factors, in place.
+
+        Parameters
+        ----------
+        ss_x : float, optional
+            Correction factor for x components (Z[:, 0, :]), by default 1.0
+        ss_y : float, optional
+            Correction factor for y components (Z[:, 1, :]), by default 1.0
+        """
+        if self.Z is None:
+            return
+
+        self.Z = self.Z.remove_ss(
+            reduce_res_factor_x=ss_x, reduce_res_factor_y=ss_y, inplace=False
+        )
+        if self.pt is not None:
+            self.pt = self.Z.phase_tensor
+
+    def flip_phase(
+        self,
+        zxx=False,
+        zxy=False,
+        zyx=False,
+        zyy=False,
+        tzx=False,
+        tzy=False,
+    ):
+        """Flip the sign of the transfer function for the given components, in place.
+
+        Parameters
+        ----------
+        zxx, zxy, zyx, zyy : bool, optional
+            Flip the corresponding impedance component, by default False.
+        tzx, tzy : bool, optional
+            Flip the corresponding tipper component, by default False.
+        """
+        if self.Z is not None and (zxx or zxy or zyx or zyy):
+            z = self.Z.z.copy()
+            if zxx:
+                z[:, 0, 0] *= -1
+            if zxy:
+                z[:, 0, 1] *= -1
+            if zyx:
+                z[:, 1, 0] *= -1
+            if zyy:
+                z[:, 1, 1] *= -1
+            self.Z.z = z
+            if self.pt is not None:
+                self.pt = self.Z.phase_tensor
+
+        if self.Tipper is not None and (tzx or tzy):
+            tipper = self.Tipper.tipper.copy()
+            if tzx:
+                tipper[:, 0, 0] *= -1
+            if tzy:
+                tipper[:, 0, 1] *= -1
+            self.Tipper.tipper = tipper
 
     def _require_bokeh(self):
         if (
@@ -333,7 +444,7 @@ class PlotMTResponse(BokehPlotBase):
             fig.add_layout(whisker)
             self.renderers.setdefault(comp_key, []).append(whisker)
 
-    def _make_resistivity_figure(self, x_range=None, width=800):
+    def _make_resistivity_figure(self, x_range=None, width=800, height=320):
         kw = {}
         if x_range is not None:
             kw["x_range"] = x_range
@@ -341,40 +452,44 @@ class PlotMTResponse(BokehPlotBase):
             title=None,
             x_axis_type="log",
             y_axis_type="log",
-            height=320,
+            height=height,
             width=width,
+            sizing_mode="stretch_width",
             tools="pan,wheel_zoom,box_zoom,reset,save,tap,box_select,lasso_select",
             active_scroll="wheel_zoom",
             **kw,
         )
 
-    def _make_phase_figure(self, x_range, width=800):
+    def _make_phase_figure(self, x_range, width=800, height=250):
         return figure(
             title=None,
             x_axis_type="log",
             x_range=x_range,
-            height=250,
+            height=height,
             width=width,
+            sizing_mode="stretch_width",
             tools="pan,wheel_zoom,box_zoom,reset,save,tap,box_select,lasso_select",
             active_scroll="wheel_zoom",
         )
 
-    def _make_tipper_figure(self, width=800):
+    def _make_tipper_figure(self, width=800, height=220):
         return figure(
             title="Tipper",
             x_axis_type="linear",
-            height=220,
+            height=height,
             width=width,
+            sizing_mode="stretch_width",
             tools="pan,wheel_zoom,box_zoom,reset,save",
             active_scroll="wheel_zoom",
         )
 
-    def _make_pt_figure(self, width=800):
+    def _make_pt_figure(self, width=800, height=240):
         return figure(
             title="Phase Tensor",
             x_axis_type="linear",
-            height=240,
+            height=height,
             width=width,
+            sizing_mode="stretch_width",
             tools="pan,wheel_zoom,box_zoom,reset,save",
             active_scroll="wheel_zoom",
         )
@@ -932,7 +1047,12 @@ class PlotMTResponse(BokehPlotBase):
         Columns are Zxx, Zxy, Zyx, Zyy; rows are apparent resistivity,
         phase, and tipper (real tzx, imag tzx, real tzy, imag tzy).
         """
+        # Smaller than the default figure heights so all 3 rows fit on one
+        # screen without scrolling.
         fig_w = 300
+        res_h = 210
+        phase_h = 170
+        tip_h = 150
         comps = [
             ("xx", "Zxx", self.xx_color, self.xx_marker),
             ("xy", "Zxy", self.xy_color, self.xy_marker),
@@ -945,7 +1065,9 @@ class PlotMTResponse(BokehPlotBase):
         shared_x_range = None
 
         for comp, label, color, marker in comps:
-            res_fig = self._make_resistivity_figure(x_range=shared_x_range, width=fig_w)
+            res_fig = self._make_resistivity_figure(
+                x_range=shared_x_range, width=fig_w, height=res_h
+            )
             if shared_x_range is None:
                 shared_x_range = res_fig.x_range
             source_res = self._component_source(self.period, self.Z, comp, kind="res")
@@ -964,7 +1086,9 @@ class PlotMTResponse(BokehPlotBase):
             self._format_res_axis(res_fig)
             res_figs[comp] = res_fig
 
-            phase_fig = self._make_phase_figure(shared_x_range, width=fig_w)
+            phase_fig = self._make_phase_figure(
+                shared_x_range, width=fig_w, height=phase_h
+            )
             yx_shift = comp == "yx"
             source_phase = self._component_source(
                 self.period, self.Z, comp, kind="phase", yx_shift=yx_shift
@@ -1012,8 +1136,7 @@ class PlotMTResponse(BokehPlotBase):
         ]
         tip_figs = {}
         for key, comp_index, part, color, label in tip_defs:
-            tip_fig = self._make_phase_figure(shared_x_range, width=fig_w)
-            tip_fig.height = 220
+            tip_fig = self._make_phase_figure(shared_x_range, width=fig_w, height=tip_h)
             source = self._tipper_component_source(comp_index, part)
             masked_source = self._tipper_component_source(comp_index, part, masked=True)
             self._add_component(
@@ -1052,10 +1175,13 @@ class PlotMTResponse(BokehPlotBase):
         ]
         # gridplot merges all 12 figures' toolbars into a single shared one so
         # a tool (e.g. lasso/box select) only needs to be activated once.
+        # sizing_mode lets the grid (and each stretch_width figure inside it)
+        # expand to fill the available screen width.
         self.layout = gridplot(
             [row1, row2, row3],
             toolbar_location="above",
             merge_tools=True,
+            sizing_mode="stretch_width",
         )
         return self.layout
 
@@ -1218,14 +1344,14 @@ class PlotMTResponse(BokehPlotBase):
             # gridplot was avoided because GridPlot does not reliably propagate
             # child figure widths to the container when used inside Panel.
             layout_rows = [
-                Row(res_fig, res_fig_diag),
-                Row(phase_fig, phase_fig_diag),
+                Row(res_fig, res_fig_diag, sizing_mode="stretch_width"),
+                Row(phase_fig, phase_fig_diag, sizing_mode="stretch_width"),
             ]
             if tip_fig is not None:
                 layout_rows.append(tip_fig)
             if pt_fig is not None:
                 layout_rows.append(pt_fig)
-            self.layout = Column(*layout_rows)
+            self.layout = Column(*layout_rows, sizing_mode="stretch_width")
         else:
             # Single column layout for plot_num == 1 or 3
             layout_rows = [res_fig, phase_fig]
@@ -1233,7 +1359,7 @@ class PlotMTResponse(BokehPlotBase):
                 layout_rows.append(tip_fig)
             if pt_fig is not None:
                 layout_rows.append(pt_fig)
-            self.layout = Column(*layout_rows)
+            self.layout = Column(*layout_rows, sizing_mode="stretch_width")
 
         if self.show_plot:
             show(self.layout)
@@ -1338,6 +1464,229 @@ class PlotMTResponse(BokehPlotBase):
 
         mask_selected_button.on_click(_mask_selected)
         restore_masked_button.on_click(_restore_masked)
+
+        def _refresh_plot_and_widgets():
+            """Replot after an in-place edit and resync period-dependent widgets."""
+            period_widget.start = float(np.floor(np.log10(self.x_limits[0])))
+            period_widget.end = float(np.ceil(np.log10(self.x_limits[1])))
+            period_widget.value = (period_widget.start, period_widget.end)
+            if self.edit_mode:
+                _apply_edit_mode()
+            else:
+                _apply_preset_num(self.plot_num)
+
+        # ── interpolation controls ─────────────────────────────────────────
+        period_min, period_max = float(self.period.min()), float(self.period.max())
+        interp_min_widget = pn.widgets.FloatInput(
+            name="Min period (s)", value=period_min, width=120
+        )
+        interp_max_widget = pn.widgets.FloatInput(
+            name="Max period (s)", value=period_max, width=120
+        )
+        interp_num_widget = pn.widgets.IntInput(
+            name="Num periods", value=int(self.period.size), start=2, width=100
+        )
+        interp_type_widget = pn.widgets.Select(
+            name="Interp. type",
+            options=self._INTERP_METHODS,
+            value="slinear",
+            width=120,
+        )
+        interp_extrapolate_widget = pn.widgets.Checkbox(name="Extrapolate", value=False)
+        interp_apply_button = pn.widgets.Button(
+            name="Apply Interpolation", button_type="primary", width=150
+        )
+        interp_status = pn.pane.Markdown("", styles={"color": "#555"})
+
+        def _apply_interpolation(_event):
+            try:
+                pmin = float(interp_min_widget.value)
+                pmax = float(interp_max_widget.value)
+                num = int(interp_num_widget.value)
+                if pmin <= 0 or pmax <= 0 or pmin >= pmax:
+                    raise ValueError(
+                        "Min period must be positive and less than max period."
+                    )
+                new_period = np.logspace(np.log10(pmin), np.log10(pmax), num=num)
+                self.interpolate(
+                    new_period,
+                    method=interp_type_widget.value,
+                    extrapolate=interp_extrapolate_widget.value,
+                )
+            except Exception as error:
+                interp_status.object = f"⚠️ Interpolation failed: {error}"
+                interp_status.styles = {"color": "#7a0000"}
+                return
+
+            _refresh_plot_and_widgets()
+            interp_status.object = (
+                f"Interpolated onto {num} periods "
+                f"({pmin:.4g}s to {pmax:.4g}s, method={interp_type_widget.value})."
+            )
+            interp_status.styles = {"color": "#1a6600"}
+
+        interp_apply_button.on_click(_apply_interpolation)
+
+        interp_row = pn.Row(
+            interp_min_widget,
+            interp_max_widget,
+            interp_num_widget,
+            interp_type_widget,
+            interp_extrapolate_widget,
+            interp_apply_button,
+            interp_status,
+            align="center",
+        )
+        interp_card = pn.Card(
+            interp_row,
+            title="Interpolate",
+            collapsed=True,
+        )
+
+        # ── static shift controls ───────────────────────────────────────────
+        ss_x_widget = pn.widgets.FloatInput(name="Shift X", value=1.0, width=100)
+        ss_y_widget = pn.widgets.FloatInput(name="Shift Y", value=1.0, width=100)
+        ss_apply_button = pn.widgets.Button(
+            name="Apply Static Shift", button_type="primary", width=150
+        )
+        ss_status = pn.pane.Markdown("", styles={"color": "#555"})
+
+        def _apply_static_shift(_event):
+            try:
+                ss_x = float(ss_x_widget.value)
+                ss_y = float(ss_y_widget.value)
+                self.static_shift(ss_x=ss_x, ss_y=ss_y)
+            except Exception as error:
+                ss_status.object = f"⚠️ Static shift failed: {error}"
+                ss_status.styles = {"color": "#7a0000"}
+                return
+
+            _refresh_plot_and_widgets()
+            ss_status.object = f"Applied static shift x={ss_x:.4g}, y={ss_y:.4g}."
+            ss_status.styles = {"color": "#1a6600"}
+
+        ss_apply_button.on_click(_apply_static_shift)
+
+        ss_row = pn.Row(
+            ss_x_widget,
+            ss_y_widget,
+            ss_apply_button,
+            ss_status,
+            align="center",
+        )
+        ss_card = pn.Card(
+            ss_row,
+            title="Static Shift",
+            collapsed=True,
+        )
+
+        # ── rotation controls ───────────────────────────────────────────────
+        rotate_angle_widget = pn.widgets.FloatInput(
+            name="Rotate by (deg)", value=0.0, width=120
+        )
+        rotate_apply_button = pn.widgets.Button(
+            name="Apply Rotation", button_type="primary", width=150
+        )
+        rotate_status = pn.pane.Markdown(
+            f"Current rotation angle: {self.rotation_angle:.4g} deg",
+            styles={"color": "#555"},
+        )
+
+        def _apply_rotation(_event):
+            try:
+                theta_r = float(rotate_angle_widget.value)
+                self.rotation_angle = theta_r
+            except Exception as error:
+                rotate_status.object = f"⚠️ Rotation failed: {error}"
+                rotate_status.styles = {"color": "#7a0000"}
+                return
+
+            _refresh_plot_and_widgets()
+            rotate_status.object = (
+                f"Rotated by {theta_r:.4g} deg. "
+                f"Current rotation angle: {self.rotation_angle:.4g} deg"
+            )
+            rotate_status.styles = {"color": "#1a6600"}
+
+        rotate_apply_button.on_click(_apply_rotation)
+
+        rotate_row = pn.Row(
+            rotate_angle_widget,
+            rotate_apply_button,
+            rotate_status,
+            align="center",
+        )
+        rotate_card = pn.Card(
+            rotate_row,
+            title="Rotate",
+            collapsed=True,
+        )
+
+        # ── flip phase controls ─────────────────────────────────────────────
+        flip_zxx_widget = pn.widgets.Checkbox(name="Zxx", value=False)
+        flip_zxy_widget = pn.widgets.Checkbox(name="Zxy", value=False)
+        flip_zyx_widget = pn.widgets.Checkbox(name="Zyx", value=False)
+        flip_zyy_widget = pn.widgets.Checkbox(name="Zyy", value=False)
+        flip_tzx_widget = pn.widgets.Checkbox(name="Tzx", value=False)
+        flip_tzy_widget = pn.widgets.Checkbox(name="Tzy", value=False)
+        flip_apply_button = pn.widgets.Button(
+            name="Apply Flip", button_type="primary", width=120
+        )
+        flip_status = pn.pane.Markdown("", styles={"color": "#555"})
+
+        def _apply_flip_phase(_event):
+            selected = {
+                "zxx": flip_zxx_widget.value,
+                "zxy": flip_zxy_widget.value,
+                "zyx": flip_zyx_widget.value,
+                "zyy": flip_zyy_widget.value,
+                "tzx": flip_tzx_widget.value,
+                "tzy": flip_tzy_widget.value,
+            }
+            if not any(selected.values()):
+                flip_status.object = "⚠️ Select one or more components to flip."
+                flip_status.styles = {"color": "#7a5200"}
+                return
+
+            try:
+                self.flip_phase(**selected)
+            except Exception as error:
+                flip_status.object = f"⚠️ Flip phase failed: {error}"
+                flip_status.styles = {"color": "#7a0000"}
+                return
+
+            _refresh_plot_and_widgets()
+            flipped = ", ".join(key for key, value in selected.items() if value)
+            flip_status.object = f"Flipped phase for: {flipped}."
+            flip_status.styles = {"color": "#1a6600"}
+            for widget in (
+                flip_zxx_widget,
+                flip_zxy_widget,
+                flip_zyx_widget,
+                flip_zyy_widget,
+                flip_tzx_widget,
+                flip_tzy_widget,
+            ):
+                widget.value = False
+
+        flip_apply_button.on_click(_apply_flip_phase)
+
+        flip_row = pn.Row(
+            flip_zxx_widget,
+            flip_zxy_widget,
+            flip_zyx_widget,
+            flip_zyy_widget,
+            flip_tzx_widget,
+            flip_tzy_widget,
+            flip_apply_button,
+            flip_status,
+            align="center",
+        )
+        flip_card = pn.Card(
+            flip_row,
+            title="Flip Phase",
+            collapsed=True,
+        )
 
         options = {
             "xy": "Zxy",
@@ -1557,6 +1906,10 @@ class PlotMTResponse(BokehPlotBase):
             pn.pane.Markdown(f"## {title}"),
             controls,
             style_card,
+            interp_card,
+            ss_card,
+            rotate_card,
+            flip_card,
             edit_controls,
             bokeh_pane,
             sizing_mode=sizing_mode,
