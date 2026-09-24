@@ -96,6 +96,13 @@ class PlotMTResponse(BokehPlotBase):
         self.masked_tf_indices: dict[str, set[int]] = {}
         self.edit_mode = False
 
+        # Pre-edit snapshots used to draw the original data in gray once the
+        # user applies interpolation, static shift, rotation, or phase flips.
+        self._original_Z = None
+        self._original_Tipper = None
+        self._original_pt = None
+        self._data_manipulated = False
+
         # param.Parameterized raises TypeError for unknown kwargs; split them.
         param_names = set(type(self).param)
         param_kwargs = {k: v for k, v in kwargs.items() if k in param_names}
@@ -156,6 +163,7 @@ class PlotMTResponse(BokehPlotBase):
             self._rotation_angle = theta_r
             return
 
+        self._snapshot_original_data()
         if self.Z is not None:
             self.Z.rotate(theta_r, inplace=True)
         if self.Tipper is not None:
@@ -165,6 +173,16 @@ class PlotMTResponse(BokehPlotBase):
             self.pt.rotation_angle = self.Z.rotation_angle
 
         self._rotation_angle += theta_r
+
+    def _snapshot_original_data(self):
+        """Capture pre-edit copies of Z/Tipper/pt once, before the first manipulation."""
+        if self._original_Z is None and self.Z is not None:
+            self._original_Z = self.Z.copy()
+        if self._original_Tipper is None and self.Tipper is not None:
+            self._original_Tipper = self.Tipper.copy()
+        if self._original_pt is None and self.pt is not None:
+            self._original_pt = self.pt.copy()
+        self._data_manipulated = True
 
     def interpolate(
         self,
@@ -183,6 +201,7 @@ class PlotMTResponse(BokehPlotBase):
         extrapolate : bool, optional
             Allow values outside the original period range, by default False.
         """
+        self._snapshot_original_data()
         new_period = np.asarray(new_period, dtype=float)
 
         if self.Z is not None:
@@ -214,6 +233,7 @@ class PlotMTResponse(BokehPlotBase):
         if self.Z is None:
             return
 
+        self._snapshot_original_data()
         self.Z = self.Z.remove_ss(
             reduce_res_factor_x=ss_x, reduce_res_factor_y=ss_y, inplace=False
         )
@@ -238,6 +258,9 @@ class PlotMTResponse(BokehPlotBase):
         tzx, tzy : bool, optional
             Flip the corresponding tipper component, by default False.
         """
+        if zxx or zxy or zyx or zyy or tzx or tzy:
+            self._snapshot_original_data()
+
         if self.Z is not None and (zxx or zxy or zyx or zyy):
             z = self.Z.z.copy()
             if zxx:
@@ -322,6 +345,55 @@ class PlotMTResponse(BokehPlotBase):
                 ii, jj = self._MODEL_ERROR_COMP_INDEX[cc]
                 t_model_error[p_min : p_max + 1, ii, jj] += t_value
             self.Tipper.tipper_model_error = t_model_error
+
+    def add_model_error_to_indices(self, selected, z_value=5.0, t_value=0.05):
+        """Adjust model error only at specific per-component tf_indices, in place.
+
+        Parameters
+        ----------
+        selected : dict[str, set[int]]
+            Mapping of component key ("xx", "xy", "yx", "yy", "tzx", "tzy") to
+            the set of tf_index values (as produced by `_selected_tf_indices`)
+            to apply the model error to. Other keys (e.g. "det") are ignored.
+        z_value : float, optional
+            Multiplier applied to impedance model error, by default 5.0.
+        t_value : float, optional
+            Value added to tipper model error, by default 0.05.
+        """
+        for comp, indices in selected.items():
+            if not indices:
+                continue
+            idx = np.asarray(sorted(indices), dtype=int)
+
+            if comp in ("xx", "xy", "yx", "yy") and self.Z is not None:
+                ii, jj = self._MODEL_ERROR_COMP_INDEX[f"z{comp}"]
+                z_model_error = self.Z.z_model_error
+                if z_model_error is None:
+                    base = self.Z.z_error
+                    z_model_error = (
+                        base.copy()
+                        if base is not None
+                        else np.zeros(self.Z.z.shape, dtype=float)
+                    )
+                else:
+                    z_model_error = z_model_error.copy()
+                z_model_error[idx, ii, jj] *= z_value
+                self.Z.z_model_error = z_model_error
+
+            elif comp in ("tzx", "tzy") and self.Tipper is not None:
+                ii, jj = self._MODEL_ERROR_COMP_INDEX[comp]
+                t_model_error = self.Tipper.tipper_model_error
+                if t_model_error is None:
+                    base = self.Tipper.tipper_error
+                    t_model_error = (
+                        base.copy()
+                        if base is not None
+                        else np.zeros(self.Tipper.tipper.shape, dtype=float)
+                    )
+                else:
+                    t_model_error = t_model_error.copy()
+                t_model_error[idx, ii, jj] += t_value
+                self.Tipper.tipper_model_error = t_model_error
 
     def _require_bokeh(self):
         if (
@@ -448,6 +520,49 @@ class PlotMTResponse(BokehPlotBase):
             "component": [comp] * int(np.count_nonzero(valid)),
         }
         return ColumnDataSource(data=data)
+
+    def _original_component_source(self, comp, kind="res", yx_shift=False):
+        """Build a ColumnDataSource for one component from the pre-edit Z snapshot."""
+        if self._original_Z is None:
+            return None
+        y_attr = "res" if kind == "res" else "phase"
+        y = self._get_values(self._original_Z, y_attr, comp)
+        if yx_shift:
+            y = y + 180
+        x = np.asarray(self._original_Z.period, dtype=float)
+
+        if kind == "res":
+            valid = self._valid_for_log(x, y)
+        else:
+            valid = np.isfinite(x) & np.isfinite(y)
+
+        return ColumnDataSource(data={"period": x[valid], "value": y[valid]})
+
+    def _add_gray_component(self, fig, source, marker="o"):
+        """Draw a lightweight gray underlay of pre-edit data beneath current renderers."""
+        if source is None or len(source.data.get("period", [])) == 0:
+            return
+        gray = "#aaaaaa"
+        fig.line(
+            x="period",
+            y="value",
+            source=source,
+            color=gray,
+            line_width=1,
+            line_alpha=0.5,
+            line_dash="dotted",
+        )
+        fig.scatter(
+            x="period",
+            y="value",
+            source=source,
+            marker=self._marker_name(marker),
+            size=max(int(self.marker_size) - 1, 3),
+            color=gray,
+            line_color=gray,
+            fill_alpha=0.4,
+            line_alpha=0.4,
+        )
 
     def _add_component(
         self,
@@ -628,34 +743,27 @@ class PlotMTResponse(BokehPlotBase):
             )
         )
 
-    def _tipper_vectors(self):
-        period = np.asarray(1.0 / self.Tipper.frequency, dtype=float)
+    def _tipper_vectors(self, tipper_obj=None):
+        tipper_obj = self.Tipper if tipper_obj is None else tipper_obj
+        period = np.asarray(1.0 / tipper_obj.frequency, dtype=float)
         txr = np.asarray(
-            self.Tipper.mag_real
-            * np.cos(
-                np.deg2rad(-self.Tipper.angle_real) + self.arrow_direction * np.pi
-            ),
+            tipper_obj.mag_real
+            * np.cos(np.deg2rad(-tipper_obj.angle_real) + self.arrow_direction * np.pi),
             dtype=float,
         )
         tyr = np.asarray(
-            self.Tipper.mag_real
-            * np.sin(
-                np.deg2rad(-self.Tipper.angle_real) + self.arrow_direction * np.pi
-            ),
+            tipper_obj.mag_real
+            * np.sin(np.deg2rad(-tipper_obj.angle_real) + self.arrow_direction * np.pi),
             dtype=float,
         )
         txi = np.asarray(
-            self.Tipper.mag_imag
-            * np.cos(
-                np.deg2rad(-self.Tipper.angle_imag) + self.arrow_direction * np.pi
-            ),
+            tipper_obj.mag_imag
+            * np.cos(np.deg2rad(-tipper_obj.angle_imag) + self.arrow_direction * np.pi),
             dtype=float,
         )
         tyi = np.asarray(
-            self.Tipper.mag_imag
-            * np.sin(
-                np.deg2rad(-self.Tipper.angle_imag) + self.arrow_direction * np.pi
-            ),
+            tipper_obj.mag_imag
+            * np.sin(np.deg2rad(-tipper_obj.angle_imag) + self.arrow_direction * np.pi),
             dtype=float,
         )
 
@@ -690,7 +798,58 @@ class PlotMTResponse(BokehPlotBase):
             "period": period,
         }
 
+    def _add_gray_tipper(self, tip_fig):
+        """Draw a gray underlay of the pre-edit tipper vectors."""
+        if self._original_Tipper is None:
+            return
+        vectors = self._tipper_vectors(self._original_Tipper)
+        if vectors["x0"].size == 0:
+            return
+        source = ColumnDataSource(
+            data={
+                "x0": vectors["x0"],
+                "y0": vectors["y0"],
+                "xr": vectors["xr"],
+                "yr": vectors["yr"],
+                "xi": vectors["xi"],
+                "yi": vectors["yi"],
+            }
+        )
+        gray = "#aaaaaa"
+        if "r" in self.plot_tipper:
+            tip_fig.add_layout(
+                Arrow(
+                    end=NormalHead(size=6, fill_color=gray, line_color=gray),
+                    source=source,
+                    x_start="x0",
+                    y_start="y0",
+                    x_end="xr",
+                    y_end="yr",
+                    line_color=gray,
+                    line_width=max(self.arrow_lw, 1),
+                    line_alpha=0.5,
+                )
+            )
+        if "i" in self.plot_tipper:
+            tip_fig.add_layout(
+                Arrow(
+                    end=NormalHead(size=6, fill_color=gray, line_color=gray),
+                    source=source,
+                    x_start="x0",
+                    y_start="y0",
+                    x_end="xi",
+                    y_end="yi",
+                    line_color=gray,
+                    line_width=max(self.arrow_lw, 1),
+                    line_dash="dashed",
+                    line_alpha=0.5,
+                )
+            )
+
     def _plot_tipper(self, tip_fig):
+        if self._data_manipulated:
+            self._add_gray_tipper(tip_fig)
+
         vectors = self._tipper_vectors()
         if vectors["x0"].size == 0:
             self.logger.info("No valid tipper vectors to plot.")
@@ -796,6 +955,53 @@ class PlotMTResponse(BokehPlotBase):
             )
         )
 
+    def _add_gray_phase_tensor(self, pt_fig, adjusted_spacing):
+        """Draw a gray underlay of the pre-edit phase tensor ellipses."""
+        if self._original_pt is None:
+            return
+        period = np.asarray(1.0 / self._original_pt.frequency, dtype=float)
+        x = np.log10(period) * adjusted_spacing
+        phimin = np.asarray(self._original_pt.phimin, dtype=float)
+        phimax = np.asarray(self._original_pt.phimax, dtype=float)
+        azimuth = np.asarray(self._original_pt.azimuth, dtype=float)
+
+        valid = (
+            np.isfinite(x) & np.isfinite(phimin) & np.isfinite(phimax) & (phimax > 0)
+        )
+        valid &= np.isfinite(azimuth)
+        if not np.any(valid):
+            return
+
+        phimax_station = np.nanmax(phimax[valid])
+        scaling = self.ellipse_size / phimax_station if phimax_station > 0 else 0.0
+
+        height = phimin[valid] * scaling
+        width = phimax[valid] * scaling
+        angle = np.deg2rad(90.0 - azimuth[valid])
+        n_valid = int(np.count_nonzero(valid))
+
+        source = ColumnDataSource(
+            data={
+                "x": x[valid],
+                "y": np.zeros(n_valid),
+                "width": width,
+                "height": height,
+                "angle": angle,
+            }
+        )
+        pt_fig.ellipse(
+            x="x",
+            y="y",
+            width="width",
+            height="height",
+            angle="angle",
+            source=source,
+            fill_color="#bbbbbb",
+            fill_alpha=0.35,
+            line_color="#888888",
+            line_width=0.4,
+        )
+
     def _plot_phase_tensor(self, pt_fig):
         period = np.asarray(1.0 / self.pt.frequency, dtype=float)
 
@@ -810,6 +1016,9 @@ class PlotMTResponse(BokehPlotBase):
         pt_ylim = 1.5 * self.ellipse_size
         adjusted_spacing = (2 * pt_ylim * fig_width) / (x_log_range * fig_height)
         self._pt_x_spacing = adjusted_spacing
+
+        if self._data_manipulated:
+            self._add_gray_phase_tensor(pt_fig, adjusted_spacing)
 
         x = np.log10(period) * adjusted_spacing
         phimin = np.asarray(self.pt.phimin, dtype=float)
@@ -897,6 +1106,28 @@ class PlotMTResponse(BokehPlotBase):
         self._apply_log_period_ticks(pt_fig, x_spacing=adjusted_spacing)
 
     def _plot_od_components(self, res_fig, phase_fig):
+        if self._data_manipulated:
+            self._add_gray_component(
+                res_fig,
+                self._original_component_source("xy", kind="res"),
+                self.xy_marker,
+            )
+            self._add_gray_component(
+                res_fig,
+                self._original_component_source("yx", kind="res"),
+                self.yx_marker,
+            )
+            self._add_gray_component(
+                phase_fig,
+                self._original_component_source("xy", kind="phase"),
+                self.xy_marker,
+            )
+            self._add_gray_component(
+                phase_fig,
+                self._original_component_source("yx", kind="phase", yx_shift=True),
+                self.yx_marker,
+            )
+
         xy_source_res = self._component_source(self.period, self.Z, "xy", kind="res")
         yx_source_res = self._component_source(self.period, self.Z, "yx", kind="res")
         xy_masked_res = self._component_source(
@@ -958,6 +1189,28 @@ class PlotMTResponse(BokehPlotBase):
         )
 
     def _plot_diag_components(self, res_fig, phase_fig):
+        if self._data_manipulated:
+            self._add_gray_component(
+                res_fig,
+                self._original_component_source("xx", kind="res"),
+                self.xx_marker,
+            )
+            self._add_gray_component(
+                res_fig,
+                self._original_component_source("yy", kind="res"),
+                self.yy_marker,
+            )
+            self._add_gray_component(
+                phase_fig,
+                self._original_component_source("xx", kind="phase"),
+                self.xx_marker,
+            )
+            self._add_gray_component(
+                phase_fig,
+                self._original_component_source("yy", kind="phase"),
+                self.yy_marker,
+            )
+
         xx_source_res = self._component_source(self.period, self.Z, "xx", kind="res")
         yy_source_res = self._component_source(self.period, self.Z, "yy", kind="res")
         xx_masked_res = self._component_source(
@@ -1018,6 +1271,29 @@ class PlotMTResponse(BokehPlotBase):
         )
 
     def _plot_determinant(self, res_fig, phase_fig):
+        if self._data_manipulated and self._original_Z is not None:
+            orig_period = np.asarray(self._original_Z.period, dtype=float)
+            self._add_gray_component(
+                res_fig,
+                ColumnDataSource(
+                    data={
+                        "period": orig_period,
+                        "value": np.asarray(self._original_Z.res_det, dtype=float),
+                    }
+                ),
+                self.det_marker,
+            )
+            self._add_gray_component(
+                phase_fig,
+                ColumnDataSource(
+                    data={
+                        "period": orig_period,
+                        "value": np.asarray(self._original_Z.phase_det, dtype=float),
+                    }
+                ),
+                self.det_marker,
+            )
+
         res_err_attr = f"res_{self._error_str}_det"
         phase_err_attr = f"phase_{self._error_str}_det"
 
@@ -1069,7 +1345,7 @@ class PlotMTResponse(BokehPlotBase):
             "det",
         )
 
-    def _tipper_component_source(self, comp_index, part, masked=False):
+    def _tipper_component_source(self, comp_index, part, masked=False, tipper_obj=None):
         """Build a period-indexed source for one tipper component (tzx/tzy).
 
         `comp_index` is 0 for tzx, 1 for tzy. `part` is "real" or "imag".
@@ -1077,12 +1353,13 @@ class PlotMTResponse(BokehPlotBase):
         real and imaginary parts so masking one masks both together.
         """
         comp = "tzx" if comp_index == 0 else "tzy"
-        period = np.asarray(1.0 / self.Tipper.frequency, dtype=float)
-        tf_values = self.Tipper.tipper[:, 0, comp_index]
+        tipper_obj = self.Tipper if tipper_obj is None else tipper_obj
+        period = np.asarray(1.0 / tipper_obj.frequency, dtype=float)
+        tf_values = tipper_obj.tipper[:, 0, comp_index]
         value = tf_values.real if part == "real" else tf_values.imag
         value = np.asarray(value, dtype=float)
 
-        err_arr = getattr(self.Tipper, f"tipper_{self._error_str}", None)
+        err_arr = getattr(tipper_obj, f"tipper_{self._error_str}", None)
         if err_arr is not None:
             err = np.asarray(err_arr[:, 0, comp_index], dtype=float)
         else:
@@ -1142,6 +1419,10 @@ class PlotMTResponse(BokehPlotBase):
             )
             if shared_x_range is None:
                 shared_x_range = res_fig.x_range
+            if self._data_manipulated:
+                self._add_gray_component(
+                    res_fig, self._original_component_source(comp, kind="res"), marker
+                )
             source_res = self._component_source(self.period, self.Z, comp, kind="res")
             masked_res = self._component_source(
                 self.period, self.Z, comp, kind="res", masked=True
@@ -1162,6 +1443,14 @@ class PlotMTResponse(BokehPlotBase):
                 shared_x_range, width=fig_w, height=phase_h
             )
             yx_shift = comp == "yx"
+            if self._data_manipulated:
+                self._add_gray_component(
+                    phase_fig,
+                    self._original_component_source(
+                        comp, kind="phase", yx_shift=yx_shift
+                    ),
+                    marker,
+                )
             source_phase = self._component_source(
                 self.period, self.Z, comp, kind="phase", yx_shift=yx_shift
             )
@@ -1209,6 +1498,11 @@ class PlotMTResponse(BokehPlotBase):
         tip_figs = {}
         for key, comp_index, part, color, label in tip_defs:
             tip_fig = self._make_phase_figure(shared_x_range, width=fig_w, height=tip_h)
+            if self._data_manipulated and self._original_Tipper is not None:
+                gray_source = self._tipper_component_source(
+                    comp_index, part, tipper_obj=self._original_Tipper
+                )
+                self._add_gray_component(tip_fig, gray_source, "o")
             source = self._tipper_component_source(comp_index, part)
             masked_source = self._tipper_component_source(comp_index, part, masked=True)
             self._add_component(
@@ -1478,8 +1772,13 @@ class PlotMTResponse(BokehPlotBase):
             button_type="warning",
             width=130,
         )
-        restore_masked_button = pn.widgets.Button(
-            name="Restore Masked",
+        add_model_error_selected_button = pn.widgets.Button(
+            name="Add Model Error",
+            button_type="warning",
+            width=150,
+        )
+        reset_button = pn.widgets.Button(
+            name="Reset",
             button_type="default",
             width=130,
         )
@@ -1526,16 +1825,62 @@ class PlotMTResponse(BokehPlotBase):
             selection_status.object = f"Masked {count} selected point(s)."
             selection_status.styles = {"color": "#7a5200"}
 
-        def _restore_masked(_event) -> None:
-            if not self.masked_tf_indices:
+        def _add_model_error_selected(_event) -> None:
+            selected = _selected_tf_indices()
+            if not selected:
+                selection_status.object = (
+                    "⚠️ Select one or more impedance points first."
+                )
+                selection_status.styles = {"color": "#7a5200"}
                 return
-            self.masked_tf_indices.clear()
+
+            self.add_model_error_to_indices(
+                selected,
+                z_value=float(model_err_z_widget.value),
+                t_value=float(model_err_t_widget.value),
+            )
+            self.plot_model_error = True
+            error_widget.value = "model"
+            count = sum(len(indices) for indices in selected.values())
             _refresh_masked_plot()
-            selection_status.object = "Restored all masked points."
+            selection_status.object = f"Added model error to {count} selected point(s)."
+            selection_status.styles = {"color": "#7a5200"}
+
+        def _reset_to_original(_event) -> None:
+            """Restore Z/Tipper/pt to their pre-edit state and clear all edits."""
+            if not self._data_manipulated and not self.masked_tf_indices:
+                selection_status.object = "Nothing to reset."
+                selection_status.styles = {"color": "#555"}
+                return
+
+            if self._original_Z is not None:
+                self.Z = self._original_Z.copy()
+            if self._original_Tipper is not None:
+                self.Tipper = self._original_Tipper.copy()
+            if self._original_pt is not None:
+                self.pt = self._original_pt.copy()
+
+            self.masked_tf_indices = {}
+            self._original_Z = None
+            self._original_Tipper = None
+            self._original_pt = None
+            self._data_manipulated = False
+            self._rotation_angle = 0
+            self.plot_model_error = False
+            error_widget.value = "data"
+            self.x_limits = self.set_period_limits(self.period)
+            self.res_limits = None
+
+            _refresh_plot_and_widgets()
+            rotate_status.object = (
+                f"Current rotation angle: {self.rotation_angle:.4g} deg"
+            )
+            selection_status.object = "Reset to original data."
             selection_status.styles = {"color": "#1a6600"}
 
         mask_selected_button.on_click(_mask_selected)
-        restore_masked_button.on_click(_restore_masked)
+        add_model_error_selected_button.on_click(_add_model_error_selected)
+        reset_button.on_click(_reset_to_original)
 
         def _refresh_plot_and_widgets():
             """Replot after an in-place edit and resync period-dependent widgets."""
@@ -2054,20 +2399,25 @@ class PlotMTResponse(BokehPlotBase):
         )
         edit_controls = pn.Row(
             mask_selected_button,
-            restore_masked_button,
+            add_model_error_selected_button,
+            reset_button,
             selection_status,
             align="center",
         )
 
-        return pn.Column(
-            pn.pane.Markdown(f"## {title}"),
-            controls,
+        cards = pn.Row(
             style_card,
             interp_card,
             ss_card,
             rotate_card,
             flip_card,
             model_err_card,
+        )
+
+        return pn.Column(
+            pn.pane.Markdown(f"## {title}"),
+            controls,
+            cards,
             edit_controls,
             bokeh_pane,
             sizing_mode=sizing_mode,
