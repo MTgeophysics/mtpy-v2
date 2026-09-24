@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
+
 panel = pytest.importorskip("panel")
 
 import panel as pn
@@ -21,6 +22,7 @@ from mtpy.imaging.bokeh_plots.panel_mt_data_app import (
     MTDataApp,
     SUPPORTED_TF_SUFFIXES,
 )
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -694,40 +696,98 @@ def test_mt_data_loaded_populates_tf_editor_and_plots_data():
     """When MTData loads, TF editor receives station options and can plot data."""
     app = _make_app()
 
-    sample_station_df = pd.DataFrame(
-        {
-            "frequency": [100.0, 10.0, 1.0],
-            "res_xy": [10.0, 20.0, 30.0],
-            "res_xy_error": [1.0, 2.0, 3.0],
-            "phase_xy": [45.0, 40.0, 35.0],
-            "phase_xy_error": [2.5, 2.5, 2.5],
-            "t_zx": [0.2 + 0.1j, 0.1 + 0.05j, 0.05 + 0.02j],
-            "t_zx_error": [0.02, 0.02, 0.02],
-            "t_zy": [0.15 - 0.08j, 0.08 - 0.04j, 0.03 - 0.01j],
-            "t_zy_error": [0.02, 0.02, 0.02],
-        }
-    )
-
-    mt_obj = MagicMock()
-    mt_obj.to_dataframe.return_value = MagicMock(dataframe=sample_station_df)
+    mock_mt_obj = MagicMock()
+    mock_mt_obj.station = "MT01"
 
     mock_mt = MagicMock(spec=MTData)
     mock_mt._iter_station_paths = MagicMock(
         side_effect=lambda: iter(["/surveys/s/stations/MT01"])
     )
-    mock_mt.get_station.return_value = mt_obj
+    mock_mt.get_station.return_value = mock_mt_obj
 
     app._mt_data = mock_mt
     app.mt_data_loaded = True
 
     assert app._tf_editor_app._station_widget.options == ["/surveys/s/stations/MT01"]
+    assert app._tf_editor_app._load_button.disabled is False
 
-    app._tf_editor_app._on_load_station_clicked()
+    mock_plot_obj = MagicMock()
+    mock_plot_obj.panel.return_value = pn.pane.Markdown("mock response editor")
 
-    assert len(app._tf_editor_app._active_res_editors) >= 1
-    assert len(app._tf_editor_app._active_phase_editors) >= 1
-    assert len(app._tf_editor_app._active_tipper_editors) >= 1
-    assert len(app._tf_editor_app._active_res_editors[0]._source.data["period"]) > 0
+    with patch(
+        "mtpy.imaging.bokeh_plots.panel_mt_data_app.EditMTResponse",
+        return_value=mock_plot_obj,
+    ) as mock_edit_cls:
+        app._tf_editor_app._on_load_clicked(None)
+
+    mock_edit_cls.assert_called_once_with(
+        z_object=mock_mt_obj.Z,
+        t_object=mock_mt_obj.Tipper,
+        z_response=None,
+        t_response=None,
+        station=mock_mt_obj.station,
+        show_plot=False,
+    )
+    assert app._tf_editor_app._display.objects == [mock_plot_obj.panel.return_value]
+
+
+@pytest.mark.plotting
+def test_tf_editor_plot_response_checkbox_and_response_loading():
+    """'Plot Response' appears only for data/model pairs and loads both objects."""
+    app = _make_app()
+
+    data_mt_obj = MagicMock()
+    data_mt_obj.station = "MT01"
+    model_mt_obj = MagicMock()
+    model_mt_obj.station = "MT01"
+
+    mock_mt = MagicMock(spec=MTData)
+    mock_mt._iter_station_paths = MagicMock(
+        side_effect=lambda: iter(
+            [
+                "/surveys/data/stations/MT01",
+                "/surveys/model/stations/MT01",
+            ]
+        )
+    )
+
+    def _get_station(path, as_mt=True):
+        return model_mt_obj if path == "/surveys/model/stations/MT01" else data_mt_obj
+
+    mock_mt.get_station.side_effect = _get_station
+
+    app._mt_data = mock_mt
+    app.mt_data_loaded = True
+
+    tf_tab = app._tf_editor_app
+    tf_tab._station_widget.value = "/surveys/data/stations/MT01"
+    assert tf_tab._plot_response_widget.visible is True
+
+    tf_tab._plot_response_widget.value = True
+    mock_plot_obj = MagicMock()
+    mock_plot_obj.panel.return_value = pn.pane.Markdown("mock response editor")
+
+    with patch(
+        "mtpy.imaging.bokeh_plots.panel_mt_data_app.EditMTResponse",
+        return_value=mock_plot_obj,
+    ) as mock_edit_cls:
+        tf_tab._on_load_clicked(None)
+
+    mock_edit_cls.assert_called_once_with(
+        z_object=data_mt_obj.Z,
+        t_object=data_mt_obj.Tipper,
+        z_response=model_mt_obj.Z,
+        t_response=model_mt_obj.Tipper,
+        station=data_mt_obj.station,
+        show_plot=False,
+    )
+
+    # No sibling station in the other survey -> checkbox stays hidden
+    mock_mt._iter_station_paths = MagicMock(
+        side_effect=lambda: iter(["/surveys/data/stations/MT02"])
+    )
+    tf_tab.set_mt_data(mock_mt)
+    assert tf_tab._plot_response_widget.visible is False
 
 
 @pytest.mark.plotting

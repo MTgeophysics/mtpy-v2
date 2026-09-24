@@ -1,40 +1,37 @@
-"""Bokeh implementation of MT response plotting.
+"""Bokeh implementation of a transfer-function-only MT response editor.
 
-This module provides a first-pass Bokeh translation of the matplotlib
-PlotMTResponse class for use in Panel dashboards.
+This module is a trimmed-down copy of
+:class:`~mtpy.imaging.bokeh_plots.plot_mt_response.PlotMTResponse` intended
+for embedding as a lightweight "TF Editor" widget in Panel dashboards. Unlike
+``PlotMTResponse``, ``EditMTResponse`` only supports the per-component "edit"
+layout (mask points, add model error, interpolate, static shift, rotate, and
+flip phase for a single station) and never plots the phase tensor.
 """
 
 from __future__ import annotations
 
 import numpy as np
 from bokeh.io import show
-from bokeh.layouts import Column, gridplot, Row
+from bokeh.layouts import gridplot
 from bokeh.models import (
-    Arrow,
-    BasicTicker,
-    ColorBar,
     ColumnDataSource,
     CustomJSTickFormatter,
     FixedTicker,
     HoverTool,
-    LinearColorMapper,
-    NormalHead,
-    Range1d,
     Whisker,
 )
-from bokeh.palettes import Turbo256
 from bokeh.plotting import figure
-from bokeh.transform import linear_cmap
 
 from .bokeh_plot_base import BokehPlotBase
 
 
-class PlotMTResponse(BokehPlotBase):
-    """Plot MT apparent resistivity and phase using Bokeh.
+class EditMTResponse(BokehPlotBase):
+    """Edit-mode-only MT response editor using Bokeh.
 
-    The class mirrors core inputs and plotting modes from
-    mtpy.imaging.plot_mt_response.PlotMTResponse but returns a Bokeh layout
-    object for integration in Panel applications.
+    Plots apparent resistivity, phase, and tipper (real/imag) for each of
+    Zxx, Zxy, Zyx, Zyy in a 4-column x 3-row grid, with tools to mask points,
+    add model error to selected points, interpolate, remove static shift,
+    rotate, and flip phase. The phase tensor is not plotted.
     """
 
     _MARKER_MAP = {
@@ -75,32 +72,33 @@ class PlotMTResponse(BokehPlotBase):
         self,
         z_object=None,
         t_object=None,
-        pt_obj=None,
+        z_response=None,
+        t_response=None,
         station="MT Response",
         **kwargs,
     ):
         self.Z = z_object
         self.Tipper = t_object
-        self.pt = pt_obj
+        # Optional forward-model response (e.g. from a "model" survey),
+        # always plotted without error bars alongside the data.
+        self.Z_response = z_response
+        self.Tipper_response = t_response
         self.station = station
         self._basename = f"{self.station}_mt_response_bokeh"
-        self.plot_num = 2
         self.rotation_angle = 0
 
         self.layout = None
         self.figures = {}
         self.renderers = {}
         self._log_x_figure_keys = set()
-        self._linear_x_figure_keys = set()
-        self._pt_x_spacing = 1.0
         self.masked_tf_indices: dict[str, set[int]] = {}
-        self.edit_mode = False
+        # Only the per-component edit layout is supported.
+        self.edit_mode = True
 
         # Pre-edit snapshots used to draw the original data in gray once the
         # user applies interpolation, static shift, rotation, or phase flips.
         self._original_Z = None
         self._original_Tipper = None
-        self._original_pt = None
         self._data_manipulated = False
 
         # param.Parameterized raises TypeError for unknown kwargs; split them.
@@ -116,8 +114,6 @@ class PlotMTResponse(BokehPlotBase):
 
         if self.Tipper is not None:
             self.plot_tipper = "yri"
-        if self.pt is not None and self.plot_z:
-            self.plot_pt = True
 
         self.plot_model_error = False
 
@@ -147,8 +143,6 @@ class PlotMTResponse(BokehPlotBase):
             return self.Z.period
         if self.Tipper is not None and not (self.Tipper.period == np.array([1])).all():
             return self.Tipper.period
-        if self.pt is not None and not (self.pt.period == np.array([1])).all():
-            return self.pt.period
         raise ValueError("No transfer function data to plot. Check data.")
 
     @property
@@ -168,20 +162,15 @@ class PlotMTResponse(BokehPlotBase):
             self.Z.rotate(theta_r, inplace=True)
         if self.Tipper is not None:
             self.Tipper.rotate(theta_r, inplace=True)
-        if self.Z is not None:
-            self.pt = self.Z.phase_tensor
-            self.pt.rotation_angle = self.Z.rotation_angle
 
         self._rotation_angle += theta_r
 
     def _snapshot_original_data(self):
-        """Capture pre-edit copies of Z/Tipper/pt once, before the first manipulation."""
+        """Capture pre-edit copies of Z/Tipper once, before the first manipulation."""
         if self._original_Z is None and self.Z is not None:
             self._original_Z = self.Z.copy()
         if self._original_Tipper is None and self.Tipper is not None:
             self._original_Tipper = self.Tipper.copy()
-        if self._original_pt is None and self.pt is not None:
-            self._original_pt = self.pt.copy()
         self._data_manipulated = True
 
     def interpolate(
@@ -190,7 +179,7 @@ class PlotMTResponse(BokehPlotBase):
         method="slinear",
         extrapolate=False,
     ):
-        """Interpolate Z, Tipper, and PT onto a new period array, in place.
+        """Interpolate Z and Tipper onto a new period array, in place.
 
         Parameters
         ----------
@@ -208,8 +197,6 @@ class PlotMTResponse(BokehPlotBase):
             self.Z = self.Z.interpolate(
                 new_period, inplace=False, method=method, extrapolate=extrapolate
             )
-            if self.pt is not None:
-                self.pt = self.Z.phase_tensor
         if self.Tipper is not None:
             self.Tipper = self.Tipper.interpolate(
                 new_period, inplace=False, method=method, extrapolate=extrapolate
@@ -237,8 +224,6 @@ class PlotMTResponse(BokehPlotBase):
         self.Z = self.Z.remove_ss(
             reduce_res_factor_x=ss_x, reduce_res_factor_y=ss_y, inplace=False
         )
-        if self.pt is not None:
-            self.pt = self.Z.phase_tensor
 
     def flip_phase(
         self,
@@ -272,8 +257,6 @@ class PlotMTResponse(BokehPlotBase):
             if zyy:
                 z[:, 1, 1] *= -1
             self.Z.z = z
-            if self.pt is not None:
-                self.pt = self.Z.phase_tensor
 
         if self.Tipper is not None and (tzx or tzy):
             tipper = self.Tipper.tipper.copy()
@@ -354,7 +337,7 @@ class PlotMTResponse(BokehPlotBase):
         selected : dict[str, set[int]]
             Mapping of component key ("xx", "xy", "yx", "yy", "tzx", "tzy") to
             the set of tf_index values (as produced by `_selected_tf_indices`)
-            to apply the model error to. Other keys (e.g. "det") are ignored.
+            to apply the model error to.
         z_value : float, optional
             Multiplier applied to impedance model error, by default 5.0.
         t_value : float, optional
@@ -396,16 +379,9 @@ class PlotMTResponse(BokehPlotBase):
                 self.Tipper.tipper_model_error = t_model_error
 
     def _require_bokeh(self):
-        if (
-            figure is None
-            or ColumnDataSource is None
-            or Whisker is None
-            or LinearColorMapper is None
-            or Arrow is None
-            or NormalHead is None
-        ):
+        if figure is None or ColumnDataSource is None or Whisker is None:
             raise ImportError(
-                "Bokeh is required for PlotMTResponse bokeh plots. "
+                "Bokeh is required for EditMTResponse plots. "
                 "Install with `pip install bokeh`"
             )
 
@@ -426,13 +402,6 @@ class PlotMTResponse(BokehPlotBase):
                 self.logger.info(f"No Tipper data for station {self.station}")
                 return "n"
         return self.plot_tipper
-
-    def _has_pt(self):
-        if self.plot_pt:
-            if self.pt is None or self.pt.pt is None:
-                self.logger.info(f"No PT data for station {self.station}")
-                return False
-        return self.plot_pt
 
     @staticmethod
     def _tuple_to_hex(color):
@@ -564,6 +533,60 @@ class PlotMTResponse(BokehPlotBase):
             line_alpha=0.4,
         )
 
+    def _response_component_source(self, comp, kind="res", yx_shift=False):
+        """Build a ColumnDataSource for one component from the model response Z."""
+        if self.Z_response is None:
+            return None
+        y_attr = "res" if kind == "res" else "phase"
+        y = self._get_values(self.Z_response, y_attr, comp)
+        if yx_shift:
+            y = y + 180
+        x = np.asarray(self.Z_response.period, dtype=float)
+
+        if kind == "res":
+            valid = self._valid_for_log(x, y)
+        else:
+            valid = np.isfinite(x) & np.isfinite(y)
+
+        return ColumnDataSource(data={"period": x[valid], "value": y[valid]})
+
+    def _response_tipper_component_source(self, comp_index, part):
+        """Build a ColumnDataSource for one tipper component from the model response."""
+        if self.Tipper_response is None:
+            return None
+        period = np.asarray(1.0 / self.Tipper_response.frequency, dtype=float)
+        tf_values = self.Tipper_response.tipper[:, 0, comp_index]
+        value = tf_values.real if part == "real" else tf_values.imag
+        value = np.asarray(value, dtype=float)
+        valid = np.isfinite(period) & (period > 0) & np.isfinite(value)
+        return ColumnDataSource(data={"period": period[valid], "value": value[valid]})
+
+    def _add_response_component(self, fig, source, color, comp_key):
+        """Draw the model response as a solid line with 'x' markers, no error bars."""
+        if source is None or len(source.data.get("period", [])) == 0:
+            return
+        glyph_color = self._tuple_to_hex(color)
+        line_renderer = fig.line(
+            x="period",
+            y="value",
+            source=source,
+            color=glyph_color,
+            line_width=max(self.lw, 1.5),
+            line_dash="solid",
+        )
+        scatter_renderer = fig.scatter(
+            x="period",
+            y="value",
+            source=source,
+            marker="x",
+            size=max(int(self.marker_size) + 2, 6),
+            color=glyph_color,
+            line_color=glyph_color,
+        )
+        self.renderers.setdefault(comp_key, []).extend(
+            [line_renderer, scatter_renderer]
+        )
+
     def _add_component(
         self,
         fig,
@@ -659,38 +682,8 @@ class PlotMTResponse(BokehPlotBase):
             active_scroll="wheel_zoom",
         )
 
-    def _make_tipper_figure(self, width=800, height=220):
-        return figure(
-            title="Tipper",
-            x_axis_type="linear",
-            height=height,
-            width=width,
-            sizing_mode="stretch_width",
-            tools="pan,wheel_zoom,box_zoom,reset,save",
-            active_scroll="wheel_zoom",
-        )
-
-    def _make_pt_figure(self, width=800, height=240):
-        return figure(
-            title="Phase Tensor",
-            x_axis_type="linear",
-            height=height,
-            width=width,
-            sizing_mode="stretch_width",
-            tools="pan,wheel_zoom,box_zoom,reset,save",
-            active_scroll="wheel_zoom",
-        )
-
     def _apply_log_period_ticks(self, fig, x_spacing=1.0):
-        """Replace a linear-x axis with 10^n period labels.
-
-        Parameters
-        ----------
-        x_spacing : float
-            Multiplier applied to log10(period) positions. Use the same value
-            that was used to compute ellipse x-coordinates so tick positions
-            align with plotted data.
-        """
+        """Replace a linear-x axis with 10^n period labels."""
         pmin_log = np.log10(float(self.x_limits[0]))
         pmax_log = np.log10(float(self.x_limits[1]))
         ticks = [
@@ -741,608 +734,6 @@ class PlotMTResponse(BokehPlotBase):
                     ("High", "@high{0.000}"),
                 ]
             )
-        )
-
-    def _tipper_vectors(self, tipper_obj=None):
-        tipper_obj = self.Tipper if tipper_obj is None else tipper_obj
-        period = np.asarray(1.0 / tipper_obj.frequency, dtype=float)
-        txr = np.asarray(
-            tipper_obj.mag_real
-            * np.cos(np.deg2rad(-tipper_obj.angle_real) + self.arrow_direction * np.pi),
-            dtype=float,
-        )
-        tyr = np.asarray(
-            tipper_obj.mag_real
-            * np.sin(np.deg2rad(-tipper_obj.angle_real) + self.arrow_direction * np.pi),
-            dtype=float,
-        )
-        txi = np.asarray(
-            tipper_obj.mag_imag
-            * np.cos(np.deg2rad(-tipper_obj.angle_imag) + self.arrow_direction * np.pi),
-            dtype=float,
-        )
-        tyi = np.asarray(
-            tipper_obj.mag_imag
-            * np.sin(np.deg2rad(-tipper_obj.angle_imag) + self.arrow_direction * np.pi),
-            dtype=float,
-        )
-
-        valid = (
-            np.isfinite(period)
-            & (period > 0)
-            & np.isfinite(txr)
-            & np.isfinite(tyr)
-            & np.isfinite(txi)
-            & np.isfinite(tyi)
-        )
-        period = period[valid]
-        txr = txr[valid]
-        tyr = tyr[valid]
-        txi = txi[valid]
-        tyi = tyi[valid]
-
-        log_period = np.log10(period)
-
-        x_end_real = log_period + txr * log_period
-        x_end_imag = log_period + txi * log_period
-
-        return {
-            "x0": log_period,
-            "y0": np.zeros_like(log_period),
-            "xr": x_end_real,
-            "yr": tyr,
-            "xi": x_end_imag,
-            "yi": tyi,
-            "tyr": tyr,
-            "tyi": tyi,
-            "period": period,
-        }
-
-    def _add_gray_tipper(self, tip_fig):
-        """Draw a gray underlay of the pre-edit tipper vectors."""
-        if self._original_Tipper is None:
-            return
-        vectors = self._tipper_vectors(self._original_Tipper)
-        if vectors["x0"].size == 0:
-            return
-        source = ColumnDataSource(
-            data={
-                "x0": vectors["x0"],
-                "y0": vectors["y0"],
-                "xr": vectors["xr"],
-                "yr": vectors["yr"],
-                "xi": vectors["xi"],
-                "yi": vectors["yi"],
-            }
-        )
-        gray = "#aaaaaa"
-        if "r" in self.plot_tipper:
-            tip_fig.add_layout(
-                Arrow(
-                    end=NormalHead(size=6, fill_color=gray, line_color=gray),
-                    source=source,
-                    x_start="x0",
-                    y_start="y0",
-                    x_end="xr",
-                    y_end="yr",
-                    line_color=gray,
-                    line_width=max(self.arrow_lw, 1),
-                    line_alpha=0.5,
-                )
-            )
-        if "i" in self.plot_tipper:
-            tip_fig.add_layout(
-                Arrow(
-                    end=NormalHead(size=6, fill_color=gray, line_color=gray),
-                    source=source,
-                    x_start="x0",
-                    y_start="y0",
-                    x_end="xi",
-                    y_end="yi",
-                    line_color=gray,
-                    line_width=max(self.arrow_lw, 1),
-                    line_dash="dashed",
-                    line_alpha=0.5,
-                )
-            )
-
-    def _plot_tipper(self, tip_fig):
-        if self._data_manipulated:
-            self._add_gray_tipper(tip_fig)
-
-        vectors = self._tipper_vectors()
-        if vectors["x0"].size == 0:
-            self.logger.info("No valid tipper vectors to plot.")
-            return
-        period_labels = [f"{pp:.3g}" for pp in vectors["period"]]
-
-        source = ColumnDataSource(
-            data={
-                "x0": vectors["x0"],
-                "y0": vectors["y0"],
-                "xr": vectors["xr"],
-                "yr": vectors["yr"],
-                "xi": vectors["xi"],
-                "yi": vectors["yi"],
-                "period": period_labels,
-            }
-        )
-
-        real_color = self._tuple_to_hex(self.arrow_color_real)
-        imag_color = self._tuple_to_hex(self.arrow_color_imag)
-
-        if "r" in self.plot_tipper:
-            real_arrow = Arrow(
-                end=NormalHead(
-                    size=8,
-                    fill_color=real_color,
-                    line_color=real_color,
-                ),
-                source=source,
-                x_start="x0",
-                y_start="y0",
-                x_end="xr",
-                y_end="yr",
-                line_color=real_color,
-                line_width=max(self.arrow_lw * 2, 1),
-            )
-            tip_fig.add_layout(real_arrow)
-            real_legend = tip_fig.line(
-                x=[np.nan],
-                y=[np.nan],
-                color=real_color,
-                line_width=max(self.arrow_lw * 2, 1),
-                legend_label="tip real",
-            )
-            self.renderers.setdefault("tip_real", []).extend([real_arrow, real_legend])
-
-        if "i" in self.plot_tipper:
-            imag_arrow = Arrow(
-                end=NormalHead(
-                    size=8,
-                    fill_color=imag_color,
-                    line_color=imag_color,
-                ),
-                source=source,
-                x_start="x0",
-                y_start="y0",
-                x_end="xi",
-                y_end="yi",
-                line_color=imag_color,
-                line_width=max(self.arrow_lw * 2, 1),
-                line_dash="dashed",
-            )
-            tip_fig.add_layout(imag_arrow)
-            imag_legend = tip_fig.line(
-                x=[np.nan],
-                y=[np.nan],
-                color=imag_color,
-                line_dash="dashed",
-                line_width=max(self.arrow_lw * 2, 1),
-                legend_label="tip imag",
-            )
-            self.renderers.setdefault("tip_imag", []).extend([imag_arrow, imag_legend])
-
-        tip_fig.line(
-            x=[np.log10(self.x_limits[0]), np.log10(self.x_limits[1])],
-            y=[0, 0],
-            color="#444444",
-            line_width=1,
-            line_alpha=0.5,
-        )
-
-        tmax = min(max(np.nanmax(vectors["tyr"]), np.nanmax(vectors["tyi"])), 0.9)
-        tmin = max(min(np.nanmin(vectors["tyr"]), np.nanmin(vectors["tyi"])), -0.9)
-        tip_limits = (tmin - 0.1, tmax + 0.1)
-
-        tip_fig.x_range.start = np.log10(self.x_limits[0])
-        tip_fig.x_range.end = np.log10(self.x_limits[1])
-        tip_fig.y_range.start = tip_limits[0]
-        tip_fig.y_range.end = tip_limits[1]
-        tip_fig.yaxis.axis_label = "Tipper"
-        tip_fig.grid.grid_line_alpha = 0.25
-        self._apply_log_period_ticks(tip_fig)
-
-        tip_fig.add_tools(
-            HoverTool(
-                tooltips=[
-                    ("Period (s)", "@period"),
-                    ("Real x", "@xr{0.000}"),
-                    ("Real y", "@yr{0.000}"),
-                    ("Imag x", "@xi{0.000}"),
-                    ("Imag y", "@yi{0.000}"),
-                ]
-            )
-        )
-
-    def _add_gray_phase_tensor(self, pt_fig, adjusted_spacing):
-        """Draw a gray underlay of the pre-edit phase tensor ellipses."""
-        if self._original_pt is None:
-            return
-        period = np.asarray(1.0 / self._original_pt.frequency, dtype=float)
-        x = np.log10(period) * adjusted_spacing
-        phimin = np.asarray(self._original_pt.phimin, dtype=float)
-        phimax = np.asarray(self._original_pt.phimax, dtype=float)
-        azimuth = np.asarray(self._original_pt.azimuth, dtype=float)
-
-        valid = (
-            np.isfinite(x) & np.isfinite(phimin) & np.isfinite(phimax) & (phimax > 0)
-        )
-        valid &= np.isfinite(azimuth)
-        if not np.any(valid):
-            return
-
-        phimax_station = np.nanmax(phimax[valid])
-        scaling = self.ellipse_size / phimax_station if phimax_station > 0 else 0.0
-
-        height = phimin[valid] * scaling
-        width = phimax[valid] * scaling
-        angle = np.deg2rad(90.0 - azimuth[valid])
-        n_valid = int(np.count_nonzero(valid))
-
-        source = ColumnDataSource(
-            data={
-                "x": x[valid],
-                "y": np.zeros(n_valid),
-                "width": width,
-                "height": height,
-                "angle": angle,
-            }
-        )
-        pt_fig.ellipse(
-            x="x",
-            y="y",
-            width="width",
-            height="height",
-            angle="angle",
-            source=source,
-            fill_color="#bbbbbb",
-            fill_alpha=0.35,
-            line_color="#888888",
-            line_width=0.4,
-        )
-
-    def _plot_phase_tensor(self, pt_fig):
-        period = np.asarray(1.0 / self.pt.frequency, dtype=float)
-
-        # Compute adjusted x-spacing so ellipses have equal visual aspect ratio.
-        # With tight y-limits at ±pt_ylim = ±1.5*ellipse_size, equal aspect means:
-        #   x_data_range / fig_width = y_data_range / fig_height
-        #   (x_log_range * spacing) / fig_width = (3 * ellipse_size) / fig_height
-        #   spacing = (3 * ellipse_size * fig_width) / (x_log_range * fig_height)
-        fig_width = pt_fig.width if pt_fig.width else 800
-        fig_height = pt_fig.height if pt_fig.height else 240
-        x_log_range = np.log10(self.x_limits[1]) - np.log10(self.x_limits[0])
-        pt_ylim = 1.5 * self.ellipse_size
-        adjusted_spacing = (2 * pt_ylim * fig_width) / (x_log_range * fig_height)
-        self._pt_x_spacing = adjusted_spacing
-
-        if self._data_manipulated:
-            self._add_gray_phase_tensor(pt_fig, adjusted_spacing)
-
-        x = np.log10(period) * adjusted_spacing
-        phimin = np.asarray(self.pt.phimin, dtype=float)
-        phimax = np.asarray(self.pt.phimax, dtype=float)
-        azimuth = np.asarray(self.pt.azimuth, dtype=float)
-        color_array = np.asarray(self.get_pt_color_array(self.pt), dtype=float)
-
-        valid = (
-            np.isfinite(x) & np.isfinite(phimin) & np.isfinite(phimax) & (phimax > 0)
-        )
-        valid &= np.isfinite(azimuth) & np.isfinite(color_array)
-
-        phimax_station = np.nanmax(phimax[valid]) if np.any(valid) else np.nan
-        if np.isfinite(phimax_station) and phimax_station > 0:
-            scaling = self.ellipse_size / phimax_station
-        else:
-            scaling = 0.0
-
-        height = phimin[valid] * scaling
-        width = phimax[valid] * scaling
-        angle = np.deg2rad(90.0 - azimuth[valid])
-
-        n_valid = int(np.count_nonzero(valid))
-        source = ColumnDataSource(
-            data={
-                "x": x[valid],
-                "y": np.zeros(n_valid),
-                "width": width,
-                "height": height,
-                "angle": angle,
-                "color_value": color_array[valid],
-                "phimin": phimin[valid],
-                "phimax": phimax[valid],
-                "azimuth": azimuth[valid],
-                "period": period[valid],
-            }
-        )
-
-        cmin, cmax = self.ellipse_range[0], self.ellipse_range[1]
-        mapper = LinearColorMapper(palette=Turbo256, low=cmin, high=cmax)
-
-        pt_renderer = pt_fig.ellipse(
-            x="x",
-            y="y",
-            width="width",
-            height="height",
-            angle="angle",
-            source=source,
-            fill_color=linear_cmap("color_value", Turbo256, cmin, cmax),
-            fill_alpha=0.9,
-            line_color="#222222",
-            line_width=0.6,
-        )
-        self.renderers.setdefault("pt", []).append(pt_renderer)
-
-        cb = ColorBar(
-            color_mapper=mapper,
-            ticker=BasicTicker(),
-            label_standoff=8,
-            title=self.cb_label_dict[self.ellipse_colorby],
-        )
-        pt_fig.add_layout(cb, "right")
-
-        pt_fig.add_tools(
-            HoverTool(
-                renderers=[pt_renderer],
-                tooltips=[
-                    ("Period (s)", "@period{0.000}"),
-                    (f"{self.ellipse_colorby}", "@color_value{0.0}"),
-                    ("phimin (deg)", "@phimin{0.0}"),
-                    ("phimax (deg)", "@phimax{0.0}"),
-                    ("azimuth (deg)", "@azimuth{0.0}"),
-                ],
-            )
-        )
-
-        # Expand x by half an ellipse width on each side so edge ellipses
-        # are not clipped.
-        x_pad = 0.5 * self.ellipse_size
-        pt_fig.x_range.start = np.log10(self.x_limits[0]) * adjusted_spacing - x_pad
-        pt_fig.x_range.end = np.log10(self.x_limits[1]) * adjusted_spacing + x_pad
-        pt_fig.y_range = Range1d(-pt_ylim, pt_ylim)
-        pt_fig.yaxis.visible = False
-        pt_fig.grid.grid_line_alpha = 0.25
-        self._apply_log_period_ticks(pt_fig, x_spacing=adjusted_spacing)
-
-    def _plot_od_components(self, res_fig, phase_fig):
-        if self._data_manipulated:
-            self._add_gray_component(
-                res_fig,
-                self._original_component_source("xy", kind="res"),
-                self.xy_marker,
-            )
-            self._add_gray_component(
-                res_fig,
-                self._original_component_source("yx", kind="res"),
-                self.yx_marker,
-            )
-            self._add_gray_component(
-                phase_fig,
-                self._original_component_source("xy", kind="phase"),
-                self.xy_marker,
-            )
-            self._add_gray_component(
-                phase_fig,
-                self._original_component_source("yx", kind="phase", yx_shift=True),
-                self.yx_marker,
-            )
-
-        xy_source_res = self._component_source(self.period, self.Z, "xy", kind="res")
-        yx_source_res = self._component_source(self.period, self.Z, "yx", kind="res")
-        xy_masked_res = self._component_source(
-            self.period, self.Z, "xy", kind="res", masked=True
-        )
-        yx_masked_res = self._component_source(
-            self.period, self.Z, "yx", kind="res", masked=True
-        )
-
-        xy_source_phase = self._component_source(
-            self.period, self.Z, "xy", kind="phase"
-        )
-        yx_source_phase = self._component_source(
-            self.period, self.Z, "yx", kind="phase", yx_shift=True
-        )
-        xy_masked_phase = self._component_source(
-            self.period, self.Z, "xy", kind="phase", masked=True
-        )
-        yx_masked_phase = self._component_source(
-            self.period, self.Z, "yx", kind="phase", yx_shift=True, masked=True
-        )
-
-        self._add_component(
-            res_fig,
-            xy_source_res,
-            "Zxy",
-            self.xy_color,
-            self.xy_marker,
-            "xy",
-            masked_source=xy_masked_res,
-        )
-        self._add_component(
-            res_fig,
-            yx_source_res,
-            "Zyx",
-            self.yx_color,
-            self.yx_marker,
-            "yx",
-            masked_source=yx_masked_res,
-        )
-
-        self._add_component(
-            phase_fig,
-            xy_source_phase,
-            "Zxy",
-            self.xy_color,
-            self.xy_marker,
-            "xy",
-            masked_source=xy_masked_phase,
-        )
-        self._add_component(
-            phase_fig,
-            yx_source_phase,
-            "Zyx",
-            self.yx_color,
-            self.yx_marker,
-            "yx",
-            masked_source=yx_masked_phase,
-        )
-
-    def _plot_diag_components(self, res_fig, phase_fig):
-        if self._data_manipulated:
-            self._add_gray_component(
-                res_fig,
-                self._original_component_source("xx", kind="res"),
-                self.xx_marker,
-            )
-            self._add_gray_component(
-                res_fig,
-                self._original_component_source("yy", kind="res"),
-                self.yy_marker,
-            )
-            self._add_gray_component(
-                phase_fig,
-                self._original_component_source("xx", kind="phase"),
-                self.xx_marker,
-            )
-            self._add_gray_component(
-                phase_fig,
-                self._original_component_source("yy", kind="phase"),
-                self.yy_marker,
-            )
-
-        xx_source_res = self._component_source(self.period, self.Z, "xx", kind="res")
-        yy_source_res = self._component_source(self.period, self.Z, "yy", kind="res")
-        xx_masked_res = self._component_source(
-            self.period, self.Z, "xx", kind="res", masked=True
-        )
-        yy_masked_res = self._component_source(
-            self.period, self.Z, "yy", kind="res", masked=True
-        )
-
-        xx_source_phase = self._component_source(
-            self.period, self.Z, "xx", kind="phase"
-        )
-        yy_source_phase = self._component_source(
-            self.period, self.Z, "yy", kind="phase"
-        )
-        xx_masked_phase = self._component_source(
-            self.period, self.Z, "xx", kind="phase", masked=True
-        )
-        yy_masked_phase = self._component_source(
-            self.period, self.Z, "yy", kind="phase", masked=True
-        )
-
-        self._add_component(
-            res_fig,
-            xx_source_res,
-            "Zxx",
-            self.xx_color,
-            self.xx_marker,
-            "xx",
-            masked_source=xx_masked_res,
-        )
-        self._add_component(
-            res_fig,
-            yy_source_res,
-            "Zyy",
-            self.yy_color,
-            self.yy_marker,
-            "yy",
-            masked_source=yy_masked_res,
-        )
-        self._add_component(
-            phase_fig,
-            xx_source_phase,
-            "Zxx",
-            self.xx_color,
-            self.xx_marker,
-            "xx",
-            masked_source=xx_masked_phase,
-        )
-        self._add_component(
-            phase_fig,
-            yy_source_phase,
-            "Zyy",
-            self.yy_color,
-            self.yy_marker,
-            "yy",
-            masked_source=yy_masked_phase,
-        )
-
-    def _plot_determinant(self, res_fig, phase_fig):
-        if self._data_manipulated and self._original_Z is not None:
-            orig_period = np.asarray(self._original_Z.period, dtype=float)
-            self._add_gray_component(
-                res_fig,
-                ColumnDataSource(
-                    data={
-                        "period": orig_period,
-                        "value": np.asarray(self._original_Z.res_det, dtype=float),
-                    }
-                ),
-                self.det_marker,
-            )
-            self._add_gray_component(
-                phase_fig,
-                ColumnDataSource(
-                    data={
-                        "period": orig_period,
-                        "value": np.asarray(self._original_Z.phase_det, dtype=float),
-                    }
-                ),
-                self.det_marker,
-            )
-
-        res_err_attr = f"res_{self._error_str}_det"
-        phase_err_attr = f"phase_{self._error_str}_det"
-
-        try:
-            res_err = np.asarray(getattr(self.Z, res_err_attr), dtype=float)
-        except AttributeError:
-            res_err = np.asarray(self.Z.res_error_det, dtype=float)
-        if not np.any(np.isfinite(res_err)):
-            res_err = np.zeros(len(self.period), dtype=float)
-
-        try:
-            phase_err = np.asarray(getattr(self.Z, phase_err_attr), dtype=float)
-        except AttributeError:
-            phase_err = np.asarray(self.Z.phase_error_det, dtype=float)
-        if not np.any(np.isfinite(phase_err)):
-            phase_err = np.zeros(len(self.period), dtype=float)
-
-        source_res = ColumnDataSource(
-            data={
-                "period": np.asarray(self.period, dtype=float),
-                "value": np.asarray(self.Z.res_det, dtype=float),
-                "low": np.asarray(self.Z.res_det - res_err, dtype=float),
-                "high": np.asarray(self.Z.res_det + res_err, dtype=float),
-            }
-        )
-        source_phase = ColumnDataSource(
-            data={
-                "period": np.asarray(self.period, dtype=float),
-                "value": np.asarray(self.Z.phase_det, dtype=float),
-                "low": np.asarray(self.Z.phase_det - phase_err, dtype=float),
-                "high": np.asarray(self.Z.phase_det + phase_err, dtype=float),
-            }
-        )
-
-        self._add_component(
-            res_fig,
-            source_res,
-            "det(Z)",
-            self.det_color,
-            self.det_marker,
-            "det",
-        )
-        self._add_component(
-            phase_fig,
-            source_phase,
-            "det(Z)",
-            self.det_color,
-            self.det_marker,
-            "det",
         )
 
     def _tipper_component_source(self, comp_index, part, masked=False, tipper_obj=None):
@@ -1436,6 +827,13 @@ class PlotMTResponse(BokehPlotBase):
                 comp,
                 masked_source=masked_res,
             )
+            if self.Z_response is not None:
+                self._add_response_component(
+                    res_fig,
+                    self._response_component_source(comp, kind="res"),
+                    color,
+                    comp,
+                )
             self._format_res_axis(res_fig)
             res_figs[comp] = res_fig
 
@@ -1466,6 +864,15 @@ class PlotMTResponse(BokehPlotBase):
                 comp,
                 masked_source=masked_phase,
             )
+            if self.Z_response is not None:
+                self._add_response_component(
+                    phase_fig,
+                    self._response_component_source(
+                        comp, kind="phase", yx_shift=yx_shift
+                    ),
+                    color,
+                    comp,
+                )
             self._format_phase_axis(phase_fig)
             # Row 2 of 3 in the edit grid; the tipper row below already
             # carries the "Period (s)" x-axis label.
@@ -1515,6 +922,13 @@ class PlotMTResponse(BokehPlotBase):
                 show_error=True,
                 masked_source=masked_source,
             )
+            if self.Tipper_response is not None:
+                self._add_response_component(
+                    tip_fig,
+                    self._response_tipper_component_source(comp_index, part),
+                    color,
+                    key,
+                )
             tip_fig.yaxis.axis_label = label if key == "tip_real_zx" else ""
             tip_fig.xaxis.axis_label = "Period (s)"
             tip_fig.grid.grid_line_alpha = 0.25
@@ -1560,176 +974,50 @@ class PlotMTResponse(BokehPlotBase):
             fig.legend.label_text_font_size = f"{self.font_size + 2}px"
 
     def _set_component_visibility(self, selected_components):
+        """Show/hide only the Zxx/Zxy/Zyx/Zyy renderers; tipper stays visible.
+
+        Only "xx"/"xy"/"yx"/"yy" are ever passed through the Components
+        widget, so limiting the toggle to those keys avoids incidentally
+        hiding the tipper (tip_real_zx/tip_imag_zx/tip_real_zy/tip_imag_zy)
+        renderers, which should always remain visible.
+        """
         selected = set(selected_components)
-        for key, items in self.renderers.items():
-            visible = key in selected
-            for item in items:
-                item.visible = visible
+        for key in ("xx", "xy", "yx", "yy"):
+            for item in self.renderers.get(key, []):
+                item.visible = key in selected
 
     def _set_period_window(self, log_period_limits):
         pmin_log, pmax_log = log_period_limits
-
         for key in self._log_x_figure_keys:
             fig = self.figures[key]
             fig.x_range.start = 10**pmin_log
             fig.x_range.end = 10**pmax_log
 
-        for key in self._linear_x_figure_keys:
-            fig = self.figures[key]
-            if key == "pt":
-                # PT uses adjusted x-spacing for equal aspect ratio
-                spacing = self._pt_x_spacing
-                fig.x_range.start = pmin_log * spacing
-                fig.x_range.end = pmax_log * spacing
-            else:
-                fig.x_range.start = pmin_log
-                fig.x_range.end = pmax_log
-
     def plot(self):
-        """Create and optionally show a Bokeh MT response layout."""
+        """Create and optionally show the Bokeh edit-mode layout."""
         self._require_bokeh()
 
         self.plot_z = self._has_z()
         self.plot_tipper = self._has_tipper()
-        self.plot_pt = self._has_pt()
 
         if not self.plot_z:
-            raise ValueError("Bokeh PlotMTResponse currently requires impedance data.")
+            raise ValueError("Bokeh EditMTResponse currently requires impedance data.")
 
         if self.x_limits is None:
             self.x_limits = self.set_period_limits(self.period)
 
         self.renderers = {}
         self._log_x_figure_keys = set()
-        self._linear_x_figure_keys = set()
 
         if self.res_limits is None:
-            if self.plot_num == 1:
-                self.res_limits = self.set_resistivity_limits(self.Z.resistivity)
-            elif self.plot_num in [2, 3]:
-                self.res_limits = self.set_resistivity_limits(
-                    self.Z.resistivity, mode="all"
-                )
+            self.res_limits = self.set_resistivity_limits(
+                self.Z.resistivity, mode="all"
+            )
 
         self.figures = {}
-
-        if self.edit_mode:
-            if self.res_limits is None:
-                self.res_limits = self.set_resistivity_limits(
-                    self.Z.resistivity, mode="all"
-                )
-            self._plot_edit_layout()
-            if self.show_plot:
-                show(self.layout)
-            return self.layout
-
-        # base_column_width is the total width of a single-column layout.
-        # For plot_num=2, each impedance figure is set to half of the two-column
-        # total width (2 * fig_w_2col). Tipper/PT are set to 2 * fig_w_2col so
-        # they align exactly with the gridplot below them.
-        # 600px per column gives 1200px total — readable with axis labels/legends
-        # and fits comfortably on a 1366px-wide screen.
-        base_column_width = 800
-        if self.plot_num == 2:
-            fig_w = 600  # per impedance column; gridplot total = 2 * 600 = 1200px
-            aux_width = fig_w * 2  # tipper/PT span both columns
-        else:
-            fig_w = base_column_width
-            aux_width = base_column_width
-
-        res_fig = self._make_resistivity_figure(width=fig_w)
-        phase_fig = self._make_phase_figure(res_fig.x_range, width=fig_w)
-
-        self._plot_od_components(res_fig, phase_fig)
-
-        if self.plot_num == 3:
-            self._plot_determinant(res_fig, phase_fig)
-
-        self._format_res_axis(res_fig)
-        self._format_phase_axis(phase_fig)
-
-        phase_limits = self.set_phase_limits(self.Z.phase, mode="od")
-        self._set_axis_limits(res_fig, self.res_limits)
-        self._set_axis_limits(phase_fig, phase_limits)
-
-        self._add_hover(res_fig)
-        self._add_hover(phase_fig)
-        self._set_legends(res_fig, phase_fig)
-
-        self.figures["res"] = res_fig
-        self.figures["phase"] = phase_fig
-        self._log_x_figure_keys.update(["res", "phase"])
-
-        tip_fig = None
-        pt_fig = None
-        # Tipper and PT always use the full base_column_width so they align
-        # correctly below both single-column and two-column impedance grids.
-
-        if self.plot_tipper.find("y") >= 0:
-            tip_fig = self._make_tipper_figure(width=aux_width)
-            self._plot_tipper(tip_fig)
-            self._set_legends(tip_fig)
-            self.figures["tip"] = tip_fig
-            self._linear_x_figure_keys.add("tip")
-
-        if self.plot_pt:
-            pt_fig = self._make_pt_figure(width=aux_width)
-            self._plot_phase_tensor(pt_fig)
-            # PT uses an adjusted x-spacing for equal visual aspect ratio so
-            # it cannot share the tipper's raw log10(period) x-range.
-            self.figures["pt"] = pt_fig
-            self._linear_x_figure_keys.add("pt")
-
-        if self.plot_num == 2:
-            res_fig_diag = self._make_resistivity_figure(
-                x_range=res_fig.x_range, width=fig_w
-            )
-            phase_fig_diag = self._make_phase_figure(res_fig.x_range, width=fig_w)
-            self._plot_diag_components(res_fig_diag, phase_fig_diag)
-            self._format_res_axis(res_fig_diag)
-            self._format_phase_axis(phase_fig_diag)
-
-            # Remove y-axis labels from diagonal components
-            res_fig_diag.yaxis.axis_label = ""
-            phase_fig_diag.yaxis.axis_label = ""
-
-            phase_limits_diag = self.set_phase_limits(self.Z.phase, mode="d")
-            self._set_axis_limits(res_fig_diag, self.res_limits)
-            self._set_axis_limits(phase_fig_diag, phase_limits_diag)
-
-            self._add_hover(res_fig_diag)
-            self._add_hover(phase_fig_diag)
-            self._set_legends(res_fig_diag, phase_fig_diag)
-
-            self.figures["res_diag"] = res_fig_diag
-            self.figures["phase_diag"] = phase_fig_diag
-            self._log_x_figure_keys.update(["res_diag", "phase_diag"])
-
-            # Row-based two-column layout: each figure is fig_w pixels wide so
-            # the combined row (2 * fig_w) matches tipper/PT width exactly.
-            # gridplot was avoided because GridPlot does not reliably propagate
-            # child figure widths to the container when used inside Panel.
-            layout_rows = [
-                Row(res_fig, res_fig_diag, sizing_mode="stretch_width"),
-                Row(phase_fig, phase_fig_diag, sizing_mode="stretch_width"),
-            ]
-            if tip_fig is not None:
-                layout_rows.append(tip_fig)
-            if pt_fig is not None:
-                layout_rows.append(pt_fig)
-            self.layout = Column(*layout_rows, sizing_mode="stretch_width")
-        else:
-            # Single column layout for plot_num == 1 or 3
-            layout_rows = [res_fig, phase_fig]
-            if tip_fig is not None:
-                layout_rows.append(tip_fig)
-            if pt_fig is not None:
-                layout_rows.append(pt_fig)
-            self.layout = Column(*layout_rows, sizing_mode="stretch_width")
-
+        self._plot_edit_layout()
         if self.show_plot:
             show(self.layout)
-
         return self.layout
 
     def panel(self, sizing_mode="stretch_width", interactive=True):
@@ -1740,8 +1028,8 @@ class PlotMTResponse(BokehPlotBase):
         sizing_mode : str
             Panel sizing mode
         interactive : bool
-            If True, include first-pass controls for component visibility,
-            period window, and data/model errors.
+            If True, include controls for masking, model error, interpolation,
+            static shift, rotation, phase flips, and period window.
         """
         try:
             import panel as pn
@@ -1847,7 +1135,7 @@ class PlotMTResponse(BokehPlotBase):
             selection_status.styles = {"color": "#7a5200"}
 
         def _reset_to_original(_event) -> None:
-            """Restore Z/Tipper/pt to their pre-edit state and clear all edits."""
+            """Restore Z/Tipper to their pre-edit state and clear all edits."""
             if not self._data_manipulated and not self.masked_tf_indices:
                 selection_status.object = "Nothing to reset."
                 selection_status.styles = {"color": "#555"}
@@ -1857,13 +1145,10 @@ class PlotMTResponse(BokehPlotBase):
                 self.Z = self._original_Z.copy()
             if self._original_Tipper is not None:
                 self.Tipper = self._original_Tipper.copy()
-            if self._original_pt is not None:
-                self.pt = self._original_pt.copy()
 
             self.masked_tf_indices = {}
             self._original_Z = None
             self._original_Tipper = None
-            self._original_pt = None
             self._data_manipulated = False
             self._rotation_angle = 0
             self.plot_model_error = False
@@ -1887,10 +1172,7 @@ class PlotMTResponse(BokehPlotBase):
             period_widget.start = float(np.floor(np.log10(self.x_limits[0])))
             period_widget.end = float(np.ceil(np.log10(self.x_limits[1])))
             period_widget.value = (period_widget.start, period_widget.end)
-            if self.edit_mode:
-                _apply_edit_mode()
-            else:
-                _apply_preset_num(self.plot_num)
+            _apply_edit_mode()
 
         # ── interpolation controls ─────────────────────────────────────────
         period_min, period_max = float(self.period.min()), float(self.period.max())
@@ -2195,19 +1477,6 @@ class PlotMTResponse(BokehPlotBase):
             "yx": "Zyx",
             "xx": "Zxx",
             "yy": "Zyy",
-            "det": "det(Z)",
-            "tip_real": "Tipper Real",
-            "tip_imag": "Tipper Imag",
-            "pt": "Phase Tensor",
-        }
-
-        # Default visible keys per plot_num:
-        #   1 → off-diagonal only   2 → full tensor (incl. diagonals)
-        #   3 → all (incl. det)
-        _preset_visible = {
-            1: ["xy", "yx", "tip_real", "tip_imag", "pt"],
-            2: ["xy", "yx", "xx", "yy", "tip_real", "tip_imag", "pt"],
-            3: ["xy", "yx", "det", "xx", "yy", "tip_real", "tip_imag", "pt"],
         }
 
         def _available():
@@ -2237,22 +1506,12 @@ class PlotMTResponse(BokehPlotBase):
             step=0.1,
         )
 
-        od_btn = pn.widgets.Button(
-            name="Off-diagonal", button_type="warning", width=120
-        )
-        full_btn = pn.widgets.Button(
-            name="Full tensor", button_type="warning", width=120
-        )
-        all_btn = pn.widgets.Button(name="All", button_type="warning", width=60)
-        edit_btn = pn.widgets.Button(name="Edit", button_type="warning", width=80)
-
         # ── per-component color / marker / size styling ───────────────────────
         _style_defs = [
             ("xy", "Zxy", "xy_color", "xy_marker"),
             ("yx", "Zyx", "yx_color", "yx_marker"),
             ("xx", "Zxx", "xx_color", "xx_marker"),
             ("yy", "Zyy", "yy_color", "yy_marker"),
-            ("det", "det(Z)", "det_color", "det_marker"),
         ]
         _marker_options = ["o", "s", "v", "d", "^"]
         _style_widgets = {}
@@ -2312,41 +1571,22 @@ class PlotMTResponse(BokehPlotBase):
             new_cols.append(pn.Column(pn.pane.Markdown("**Line width**"), lw_widget))
             style_row.objects = new_cols
 
-        def _apply_preset_num(new_plot_num):
-            """Re-render with new plot_num and update all dependent widgets."""
-            self.edit_mode = False
-            self.plot_num = new_plot_num
-            self.res_limits = None  # recalculate limits for new mode
-            self.plot()
-            bokeh_pane.object = self.layout
-            avail = _available()
-            visible = [k for k in _preset_visible[new_plot_num] if k in avail]
-            # Rebuild component widget options to reflect new renderer set
-            component_widget.options = {options[k]: k for k in avail}
-            component_widget.value = visible
-            self._set_component_visibility(visible)
-            _build_style_row(avail)
-            self._set_period_window(period_widget.value)
-            bokeh_pane.param.trigger("object")
-
         def _apply_edit_mode(_event=None):
-            """Switch to the 4-column x 3-row per-component edit layout."""
-            self.edit_mode = True
+            """Render the (only) edit-mode layout and refresh dependent widgets."""
             self.res_limits = None
             self.plot()
             bokeh_pane.object = self.layout
+            avail = _available()
+            component_widget.options = {options[k]: k for k in avail}
+            component_widget.value = avail
+            self._set_component_visibility(avail)
+            _build_style_row(avail)
             self._set_period_window(period_widget.value)
             bokeh_pane.param.trigger("object")
 
         def _refresh_from_error_mode(event):
             self.plot_model_error = event.new == "model"
-            self.res_limits = None
-            self.plot()
-            bokeh_pane.object = self.layout
-            if not self.edit_mode:
-                self._set_component_visibility(component_widget.value)
-            bokeh_pane.param.trigger("object")
-            self._set_period_window(period_widget.value)
+            _apply_edit_mode()
 
         def _update_visibility(event):
             self._set_component_visibility(event.new)
@@ -2361,26 +1601,15 @@ class PlotMTResponse(BokehPlotBase):
                 setattr(self, _ma, _mw.value)
             self.marker_size = marker_size_widget.value
             self.lw = lw_widget.value
-            self.res_limits = None
-            self.plot()
-            bokeh_pane.object = self.layout
-            if not self.edit_mode:
-                self._set_component_visibility(component_widget.value)
-            bokeh_pane.param.trigger("object")
-            self._set_period_window(period_widget.value)
-
-        od_btn.on_click(lambda e: _apply_preset_num(1))
-        full_btn.on_click(lambda e: _apply_preset_num(2))
-        all_btn.on_click(lambda e: _apply_preset_num(3))
-        edit_btn.on_click(_apply_edit_mode)
+            _apply_edit_mode()
 
         error_widget.param.watch(_refresh_from_error_mode, "value")
         component_widget.param.watch(_update_visibility, "value")
         period_widget.param.watch(_update_period, "value")
         marker_size_widget.param.watch(_refresh_after_style_change, "value")
         lw_widget.param.watch(_refresh_after_style_change, "value")
-        # Initialise: render off-diagonal (plot_num=1) on first display
-        _apply_preset_num(self.plot_num)
+        # Initialise: only edit mode is supported
+        _apply_edit_mode()
 
         style_card = pn.Card(
             style_row,
@@ -2389,10 +1618,6 @@ class PlotMTResponse(BokehPlotBase):
         )
 
         controls = pn.Row(
-            pn.Column(
-                pn.pane.Markdown("**Preset**"),
-                pn.Row(od_btn, full_btn, all_btn, edit_btn),
-            ),
             pn.Column(pn.pane.Markdown("**Components**"), component_widget),
             pn.Column(pn.pane.Markdown("**Error Type**"), error_widget),
             pn.Column(pn.pane.Markdown("**Period Window**"), period_widget),
@@ -2405,15 +1630,19 @@ class PlotMTResponse(BokehPlotBase):
             align="center",
         )
 
-        return pn.Column(
-            pn.pane.Markdown(f"## {title}"),
-            controls,
+        cards = pn.Row(
             style_card,
             interp_card,
             ss_card,
             rotate_card,
             flip_card,
             model_err_card,
+        )
+
+        return pn.Column(
+            pn.pane.Markdown(f"## {title}"),
+            controls,
+            cards,
             edit_controls,
             bokeh_pane,
             sizing_mode=sizing_mode,

@@ -60,11 +60,10 @@ import param
 
 from mtpy.core.mt_collection import MTCollection
 from mtpy.core.mt_data import MTData
+from mtpy.imaging.bokeh_plots.edit_mt_response import EditMTResponse
 from mtpy.imaging.bokeh_plots.panel_simpeg1d_app import Simpeg1DPanelApp
-from mtpy.imaging.bokeh_plots.panel_transfer_function_editor_app import (
-    TransferFunctionEditorPanelApp,
-)
 from mtpy.imaging.bokeh_plots.plot_penetration_depth_1d import PlotPenetrationDepth1D
+
 
 pn.extension("tabulator")
 
@@ -77,6 +76,10 @@ SUPPORTED_DAT_SUFFIXES: frozenset[str] = frozenset({".dat", ".data"})
 
 DAT_FORMAT_MODEM: str = "ModEM"
 DAT_FORMAT_OCCAM2D: str = "Occam2D"
+
+DAT_SURVEY_DATA: str = "data"
+DAT_SURVEY_MODEL: str = "model"
+DAT_SURVEY_CUSTOM: str = "Custom…"
 
 SUPPORTED_FILE_PATTERNS: dict[str, str] = {
     "All MT Files (*.edi *.xml *.avg *.z* *.h5 *.dat *.data)": "*.*",
@@ -178,6 +181,199 @@ def _build_station_summary(mt_data: "MTData") -> pd.DataFrame:
     return pd.DataFrame(rows, columns=_STATION_TABLE_COLUMNS)
 
 
+def _relabel_survey(mt_data: "MTData", new_survey: str) -> None:
+    """Rename every station's survey label in place to *new_survey*."""
+    for station_path in list(mt_data._iter_station_paths()):
+        mt_obj = mt_data.get_station(station_path, as_mt=True)
+        if mt_obj.survey == new_survey:
+            continue
+        mt_data.remove_station(station_path)
+        mt_obj.survey = new_survey
+        mt_data.add_station(mt_obj, overwrite=True)
+
+
+class MTResponseEditorTab(param.Parameterized):
+    """Panel tab for editing a single station's transfer function.
+
+    Wraps :class:`~mtpy.imaging.bokeh_plots.edit_mt_response.EditMTResponse`,
+    which only exposes an edit-mode layout (mask points, add model error,
+    interpolate, static shift, rotation, and phase flips) for one station at
+    a time, without plotting the phase tensor.
+    """
+
+    sizing_mode: str = param.Selector(
+        default="stretch_width",
+        objects=["stretch_width", "fixed", "stretch_both", "stretch_height"],
+        doc="Panel sizing mode for this tab's layout.",
+    )
+
+    def __init__(self, **params: Any) -> None:
+        super().__init__(**params)
+        self._mt_data = None
+
+        self._station_widget = pn.widgets.Select(name="Station", options=[], width=320)
+        self._plot_response_widget = pn.widgets.Checkbox(
+            name="Plot Response",
+            value=False,
+            visible=False,
+        )
+        self._station_widget.param.watch(self._on_station_selected, "value")
+        self._load_button = pn.widgets.Button(
+            name="Load Station",
+            button_type="primary",
+            width=160,
+            disabled=True,
+        )
+        self._load_button.on_click(self._on_load_clicked)
+        self._status = pn.pane.Markdown(
+            "_Load data in the **Data** tab, select a station, then click "
+            "**Load Station**._",
+            styles={"color": "#555"},
+        )
+        self._display = pn.Column(sizing_mode=self.sizing_mode)
+
+    def _paired_station_path(self, station_key: str, target_survey: str) -> str | None:
+        """Return the sibling path with the same station name in *target_survey*.
+
+        Station paths are ``/{SURVEYS_NODE}/{survey}/{STATIONS_NODE}/{station}``;
+        returns ``None`` if the sibling path isn't among the known stations.
+        """
+        parts = station_key.strip("/").split("/")
+        if len(parts) != 4:
+            return None
+        surveys_node, _survey, stations_node, station = parts
+        candidate = f"/{surveys_node}/{target_survey}/{stations_node}/{station}"
+        options = self._station_widget.options or []
+        return candidate if candidate in options else None
+
+    def _on_station_selected(self, event: param.parameterized.Event) -> None:
+        """Show 'Plot Response' only when a data/model pair exists for this station."""
+        self._update_response_visibility(event.new)
+
+    def _update_response_visibility(self, station_key: str | None) -> None:
+        """Show/hide the 'Plot Response' checkbox based on data/model pairing."""
+        has_pair = False
+        if station_key:
+            parts = station_key.strip("/").split("/")
+            if len(parts) == 4:
+                survey = parts[1]
+                other_survey = "data" if survey == "model" else "model"
+                has_pair = (
+                    self._paired_station_path(station_key, other_survey) is not None
+                )
+        self._plot_response_widget.visible = has_pair
+        if not has_pair:
+            self._plot_response_widget.value = False
+
+    def set_mt_data(self, mt_data: MTData | None) -> None:
+        """Refresh the station picker for a newly loaded (or cleared) MTData."""
+        self._mt_data = mt_data
+        self._display.objects = []
+
+        if mt_data is None:
+            self._station_widget.options = []
+            self._load_button.disabled = True
+            self._plot_response_widget.visible = False
+            self._plot_response_widget.value = False
+            self._status.object = (
+                "_Load data in the **Data** tab, select a station, then click "
+                "**Load Station**._"
+            )
+            self._status.styles = {"color": "#555"}
+            return
+
+        paths = list(mt_data._iter_station_paths())
+        self._station_widget.options = paths
+        if paths:
+            self._station_widget.value = paths[0]
+        self._update_response_visibility(self._station_widget.value)
+        self._load_button.disabled = not bool(paths)
+        self._status.object = "_Select a station and click **Load Station**._"
+        self._status.styles = {"color": "#555"}
+
+    def _on_load_clicked(self, event: param.parameterized.Event) -> None:
+        if self._mt_data is None:
+            self._status.object = "⚠️ No data loaded."
+            self._status.styles = {"color": "#7a5200"}
+            return
+
+        station_key = self._station_widget.value
+        if not station_key:
+            self._status.object = "⚠️ No station selected."
+            self._status.styles = {"color": "#7a5200"}
+            return
+
+        self._load_button.disabled = True
+        self._status.object = f"⏳ Loading **{station_key}**…"
+        self._status.styles = {"color": "#555"}
+
+        try:
+            # Prefer the "data" survey as the editable primary object; if the
+            # selected station is the "model" one, swap so the response is
+            # always overlaid on the data rather than the reverse.
+            primary_key = station_key
+            response_key = None
+            if self._plot_response_widget.visible and self._plot_response_widget.value:
+                parts = station_key.strip("/").split("/")
+                survey = parts[1] if len(parts) == 4 else None
+                if survey == "model":
+                    data_key = self._paired_station_path(station_key, "data")
+                    if data_key is not None:
+                        primary_key = data_key
+                        response_key = station_key
+                else:
+                    response_key = self._paired_station_path(station_key, "model")
+
+            mt_obj = self._mt_data.get_station(primary_key, as_mt=True)
+            z_response = t_response = None
+            if response_key is not None:
+                response_obj = self._mt_data.get_station(response_key, as_mt=True)
+                z_response = response_obj.Z
+                t_response = response_obj.Tipper
+
+            plot_obj = EditMTResponse(
+                z_object=mt_obj.Z,
+                t_object=mt_obj.Tipper,
+                z_response=z_response,
+                t_response=t_response,
+                station=mt_obj.station,
+                show_plot=False,
+            )
+            self._display.objects = [plot_obj.panel(sizing_mode=self.sizing_mode)]
+            self._status.object = f"✅ Loaded **{station_key}**."
+            self._status.styles = {"color": "#1a6600"}
+        except Exception as exc:
+            self._display.objects = []
+            self._status.object = f"❌ Error: `{type(exc).__name__}: {exc}`"
+            self._status.styles = {"color": "#b00020"}
+        finally:
+            self._load_button.disabled = False
+
+    @property
+    def view(self) -> pn.viewable.Viewable:
+        """Return the complete Panel layout for this tab."""
+        return pn.Column(
+            pn.pane.Markdown("### MT Response Editor"),
+            pn.pane.Markdown(
+                "_Edit mode only: mask points, add model error, interpolate, "
+                "static shift, rotate, and flip phase for a single station._",
+                styles={"color": "#777", "font-size": "0.85em"},
+            ),
+            pn.Row(
+                self._station_widget,
+                pn.Spacer(width=10),
+                self._plot_response_widget,
+                pn.Spacer(width=10),
+                self._load_button,
+                align="end",
+            ),
+            self._status,
+            pn.layout.Divider(),
+            self._display,
+            sizing_mode=self.sizing_mode,
+        )
+
+
 class MTDataApp(param.Parameterized):
     """Interactive Panel application for loading MT data into an MTData object.
 
@@ -274,6 +470,24 @@ class MTDataApp(param.Parameterized):
             value=DAT_FORMAT_MODEM,
             button_type="default",
             visible=False,
+        )
+
+        # ── .dat/.data survey label (data/model preset or custom name) ─────
+        self._dat_survey_preset_widget = pn.widgets.Select(
+            name="Survey label",
+            options=[DAT_SURVEY_DATA, DAT_SURVEY_MODEL, DAT_SURVEY_CUSTOM],
+            value=DAT_SURVEY_DATA,
+            width=160,
+            visible=False,
+        )
+        self._dat_survey_custom_widget = pn.widgets.TextInput(
+            name="Custom survey name",
+            placeholder="e.g. line1",
+            width=160,
+            visible=False,
+        )
+        self._dat_survey_preset_widget.param.watch(
+            self._on_dat_survey_preset_changed, "value"
         )
         self._file_selector.param.watch(self._on_file_selection_changed, "value")
 
@@ -376,9 +590,7 @@ class MTDataApp(param.Parameterized):
 
         # ── Modeling tab app ─────────────────────────────────────────────
         self._modeling_app = Simpeg1DPanelApp(sizing_mode=self.sizing_mode)
-        self._tf_editor_app = TransferFunctionEditorPanelApp(
-            sizing_mode=self.sizing_mode
-        )
+        self._tf_editor_app = MTResponseEditorTab(sizing_mode=self.sizing_mode)
 
     # ── Public API ────────────────────────────────────────────────────────
 
@@ -422,11 +634,29 @@ class MTDataApp(param.Parameterized):
         self._file_selector.file_pattern = event.new
 
     def _on_file_selection_changed(self, event: param.parameterized.Event) -> None:
-        """Show the .dat format picker only when .dat/.data files are selected."""
+        """Show the .dat format/survey pickers only when .dat/.data files are selected."""
         has_dat = any(
             Path(f).suffix.lower() in SUPPORTED_DAT_SUFFIXES for f in (event.new or [])
         )
         self._dat_format_widget.visible = has_dat
+        self._dat_survey_preset_widget.visible = has_dat
+        self._dat_survey_custom_widget.visible = (
+            has_dat and self._dat_survey_preset_widget.value == DAT_SURVEY_CUSTOM
+        )
+
+    def _on_dat_survey_preset_changed(self, event: param.parameterized.Event) -> None:
+        """Reveal the custom survey name field only when 'Custom…' is selected."""
+        self._dat_survey_custom_widget.visible = (
+            self._dat_survey_preset_widget.visible and event.new == DAT_SURVEY_CUSTOM
+        )
+
+    def _current_dat_survey_name(self) -> str:
+        """Resolve the survey label to apply to stations loaded from .dat/.data files."""
+        preset = self._dat_survey_preset_widget.value
+        if preset == DAT_SURVEY_CUSTOM:
+            custom = self._dat_survey_custom_widget.value.strip()
+            return custom if custom else DAT_SURVEY_DATA
+        return preset
 
     def _on_load_clicked(self, event: param.parameterized.Event) -> None:
         """Load selected files into MTData."""
@@ -917,14 +1147,22 @@ class MTDataApp(param.Parameterized):
 
         if dat_files:
             dat_format = self._dat_format_widget.value
+            survey_name = self._current_dat_survey_name()
             for dat_fn in dat_files:
                 if not dat_fn.is_file():
                     raise ValueError(f"Data file not found: `{dat_fn}`")
                 chunk = MTData()
                 if dat_format == DAT_FORMAT_MODEM:
-                    chunk.from_modem(dat_fn)
+                    chunk.from_modem(dat_fn, survey=survey_name)
                 else:
-                    chunk.from_occam2d(dat_fn)
+                    # Occam2D only labels rows "data"/"model" internally; a
+                    # custom name is applied afterward via a rename pass.
+                    file_type = (
+                        "response" if survey_name == DAT_SURVEY_MODEL else "data"
+                    )
+                    chunk.from_occam2d(dat_fn, file_type=file_type)
+                    if survey_name not in (DAT_SURVEY_DATA, DAT_SURVEY_MODEL):
+                        _relabel_survey(chunk, survey_name)
                 mt_data += chunk
 
         return mt_data
@@ -982,6 +1220,10 @@ class MTDataApp(param.Parameterized):
                     visible=self._dat_format_widget.param.visible,
                 ),
                 self._dat_format_widget,
+                pn.Row(
+                    self._dat_survey_preset_widget,
+                    self._dat_survey_custom_widget,
+                ),
             ),
             self._append_toggle,
             pn.Row(
@@ -1028,12 +1270,12 @@ class MTDataApp(param.Parameterized):
             pn.layout.Divider(),
             status_row,
             station_section,
-            pn.layout.Divider(),
-            pn.Column(
-                pn.pane.Markdown("### Penetration Depth"),
-                self._pen_depth_container,
-                sizing_mode=self.sizing_mode,
-            ),
+            # pn.layout.Divider(),
+            # pn.Column(
+            #     pn.pane.Markdown("### Penetration Depth"),
+            #     self._pen_depth_container,
+            #     sizing_mode=self.sizing_mode,
+            # ),
             pn.layout.Divider(),
             save_section,
             sizing_mode=self.sizing_mode,
