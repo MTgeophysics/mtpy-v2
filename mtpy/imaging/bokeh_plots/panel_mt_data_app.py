@@ -77,9 +77,10 @@ SUPPORTED_DAT_SUFFIXES: frozenset[str] = frozenset({".dat", ".data"})
 DAT_FORMAT_MODEM: str = "ModEM"
 DAT_FORMAT_OCCAM2D: str = "Occam2D"
 
-DAT_SURVEY_DATA: str = "data"
-DAT_SURVEY_MODEL: str = "model"
-DAT_SURVEY_CUSTOM: str = "Custom…"
+SURVEY_LABEL_KEEP: str = "Keep Original"
+SURVEY_LABEL_DATA: str = "data"
+SURVEY_LABEL_MODEL: str = "model"
+SURVEY_LABEL_CUSTOM: str = "Custom…"
 
 SUPPORTED_FILE_PATTERNS: dict[str, str] = {
     "All MT Files (*.edi *.xml *.avg *.z* *.h5 *.dat *.data)": "*.*",
@@ -472,23 +473,25 @@ class MTDataApp(param.Parameterized):
             visible=False,
         )
 
-        # ── .dat/.data survey label (data/model preset or custom name) ─────
-        self._dat_survey_preset_widget = pn.widgets.Select(
+        # ── Survey label override (applies to any selected file type) ─────
+        self._survey_preset_widget = pn.widgets.Select(
             name="Survey label",
-            options=[DAT_SURVEY_DATA, DAT_SURVEY_MODEL, DAT_SURVEY_CUSTOM],
-            value=DAT_SURVEY_DATA,
+            options=[
+                SURVEY_LABEL_KEEP,
+                SURVEY_LABEL_DATA,
+                SURVEY_LABEL_MODEL,
+                SURVEY_LABEL_CUSTOM,
+            ],
+            value=SURVEY_LABEL_KEEP,
             width=160,
-            visible=False,
         )
-        self._dat_survey_custom_widget = pn.widgets.TextInput(
+        self._survey_custom_widget = pn.widgets.TextInput(
             name="Custom survey name",
             placeholder="e.g. line1",
             width=160,
             visible=False,
         )
-        self._dat_survey_preset_widget.param.watch(
-            self._on_dat_survey_preset_changed, "value"
-        )
+        self._survey_preset_widget.param.watch(self._on_survey_preset_changed, "value")
         self._file_selector.param.watch(self._on_file_selection_changed, "value")
 
         # ── Status display ────────────────────────────────────────────────
@@ -634,28 +637,28 @@ class MTDataApp(param.Parameterized):
         self._file_selector.file_pattern = event.new
 
     def _on_file_selection_changed(self, event: param.parameterized.Event) -> None:
-        """Show the .dat format/survey pickers only when .dat/.data files are selected."""
+        """Show the .dat/.data format picker only when such files are selected."""
         has_dat = any(
             Path(f).suffix.lower() in SUPPORTED_DAT_SUFFIXES for f in (event.new or [])
         )
         self._dat_format_widget.visible = has_dat
-        self._dat_survey_preset_widget.visible = has_dat
-        self._dat_survey_custom_widget.visible = (
-            has_dat and self._dat_survey_preset_widget.value == DAT_SURVEY_CUSTOM
-        )
 
-    def _on_dat_survey_preset_changed(self, event: param.parameterized.Event) -> None:
+    def _on_survey_preset_changed(self, event: param.parameterized.Event) -> None:
         """Reveal the custom survey name field only when 'Custom…' is selected."""
-        self._dat_survey_custom_widget.visible = (
-            self._dat_survey_preset_widget.visible and event.new == DAT_SURVEY_CUSTOM
-        )
+        self._survey_custom_widget.visible = event.new == SURVEY_LABEL_CUSTOM
 
-    def _current_dat_survey_name(self) -> str:
-        """Resolve the survey label to apply to stations loaded from .dat/.data files."""
-        preset = self._dat_survey_preset_widget.value
-        if preset == DAT_SURVEY_CUSTOM:
-            custom = self._dat_survey_custom_widget.value.strip()
-            return custom if custom else DAT_SURVEY_DATA
+    def _current_survey_override(self) -> str | None:
+        """Resolve the survey label override to apply to all newly loaded stations.
+
+        Returns ``None`` when the user chose to keep each file's own survey
+        label (e.g. ModEM default "data", an EDI's own survey attribute).
+        """
+        preset = self._survey_preset_widget.value
+        if preset == SURVEY_LABEL_KEEP:
+            return None
+        if preset == SURVEY_LABEL_CUSTOM:
+            custom = self._survey_custom_widget.value.strip()
+            return custom if custom else SURVEY_LABEL_DATA
         return preset
 
     def _on_load_clicked(self, event: param.parameterized.Event) -> None:
@@ -677,12 +680,18 @@ class MTDataApp(param.Parameterized):
             else:
                 self._mt_data = new_data
                 mt_data = new_data
+            # `mt_data_loaded` may already be True (e.g. on a second append),
+            # in which case param.watch won't re-fire; refresh dependents here
+            # directly rather than relying solely on the watcher.
             self.mt_data_loaded = True
             self._save_button.disabled = False
             self._reset_button.disabled = False
             if self._edit_table_toggle.value:
                 self._update_table_button.disabled = False
             self._update_station_table(mt_data)
+            self._refresh_plot_station_picker()
+            self._modeling_app.set_mt_data(mt_data)
+            self._tf_editor_app.set_mt_data(mt_data)
             n = len(mt_data.station_paths)
             self._set_status(f"✅ Loaded **{n}** station(s).")
         except Exception as exc:
@@ -1147,23 +1156,19 @@ class MTDataApp(param.Parameterized):
 
         if dat_files:
             dat_format = self._dat_format_widget.value
-            survey_name = self._current_dat_survey_name()
             for dat_fn in dat_files:
                 if not dat_fn.is_file():
                     raise ValueError(f"Data file not found: `{dat_fn}`")
                 chunk = MTData()
                 if dat_format == DAT_FORMAT_MODEM:
-                    chunk.from_modem(dat_fn, survey=survey_name)
+                    chunk.from_modem(dat_fn, survey=SURVEY_LABEL_DATA)
                 else:
-                    # Occam2D only labels rows "data"/"model" internally; a
-                    # custom name is applied afterward via a rename pass.
-                    file_type = (
-                        "response" if survey_name == DAT_SURVEY_MODEL else "data"
-                    )
-                    chunk.from_occam2d(dat_fn, file_type=file_type)
-                    if survey_name not in (DAT_SURVEY_DATA, DAT_SURVEY_MODEL):
-                        _relabel_survey(chunk, survey_name)
+                    chunk.from_occam2d(dat_fn, file_type=SURVEY_LABEL_DATA)
                 mt_data += chunk
+
+        survey_override = self._current_survey_override()
+        if survey_override is not None:
+            _relabel_survey(mt_data, survey_override)
 
         return mt_data
 
@@ -1220,10 +1225,10 @@ class MTDataApp(param.Parameterized):
                     visible=self._dat_format_widget.param.visible,
                 ),
                 self._dat_format_widget,
-                pn.Row(
-                    self._dat_survey_preset_widget,
-                    self._dat_survey_custom_widget,
-                ),
+            ),
+            pn.Row(
+                self._survey_preset_widget,
+                self._survey_custom_widget,
             ),
             self._append_toggle,
             pn.Row(
