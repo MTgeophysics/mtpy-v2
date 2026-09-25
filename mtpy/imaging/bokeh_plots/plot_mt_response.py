@@ -2405,15 +2405,20 @@ class PlotMTResponse(BokehPlotBase):
             align="center",
         )
 
-        return pn.Column(
-            pn.pane.Markdown(f"## {title}"),
-            controls,
+        manipulate_layout = pn.Row(
             style_card,
             interp_card,
             ss_card,
             rotate_card,
             flip_card,
             model_err_card,
+            sizing_mode=sizing_mode,
+        )
+
+        return pn.Column(
+            pn.pane.Markdown(f"## {title}"),
+            controls,
+            manipulate_layout,
             edit_controls,
             bokeh_pane,
             sizing_mode=sizing_mode,
