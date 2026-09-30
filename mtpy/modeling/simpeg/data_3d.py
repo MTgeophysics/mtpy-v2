@@ -276,8 +276,16 @@ class Simpeg3DData:
         return df.to_records(index=False, column_dtypes=dict(self._rec_dtype_to_invert))
 
     def standard_deviations(self):
-        """get model errors for the data"""
-        df = self.dataframe[[f"{comp}_model_error" for comp in self.component_map]]
+        """get model errors for the data
+
+        :return: one ``<component>_model_error`` column per mtpy component
+            (``z_xx`` ... ``t_zy``), in mtpy's names and axes. Each is the
+            standard deviation of a complex element, so it applies to its
+            real and imaginary parts alike, and it is unaffected by the
+            tipper's sign change in SimPEG axes.
+        :rtype: pandas.DataFrame
+        """
+        return self.dataframe[[f"{comp}_model_error" for comp in self.component_map]]
 
     def get_simpeg_data_object(self) -> nsem.Data:
         """create a data object"""

@@ -147,3 +147,15 @@ def test_tipper_sign_matches_simpeg_physics():
     d = simulation.dpred(sigma)
     mtpy_t_zy_real = -d[0]
     assert mtpy_t_zy_real < -0.01
+
+
+def test_standard_deviations_returns_the_model_errors():
+    df = _dataframe(stations=((0.0, 0.0), (100.0, 0.0)))
+    for k, comp in enumerate(COMPONENTS):
+        df[f"{comp}_model_error"] = 0.1 * (k + 1)
+
+    errors = Simpeg3DData(df).standard_deviations()
+
+    assert list(errors.columns) == [f"{comp}_model_error" for comp in COMPONENTS]
+    assert len(errors) == len(df)
+    np.testing.assert_allclose(errors["t_zy_model_error"], 0.6)
