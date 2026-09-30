@@ -16,7 +16,11 @@ class Simpeg3DData:
     """ """
 
     def __init__(self, dataframe, **kwargs):
-        # nez+ as keys then enz- as values
+        # mtpy (EDI) components as keys, x = north, y = east, z = down, and
+        # the SimPEG component each becomes, x = east, y = north, z = up.
+        # Swapping x and y swaps the indices of every element. Flipping z also
+        # changes the sign of the tipper, H_z / H_h, which ``to_rec_array``
+        # applies (see ``_negated_components``).
         self.component_map = {
             "z_xx": {"simpeg": "zyy", "z+": "z_xx"},
             "z_xy": {"simpeg": "zyx", "z+": "z_xy"},
@@ -168,44 +172,49 @@ class Simpeg3DData:
 
     def _get_t_mode_sources(self, orientation):
         """Get the source for each mode"""
-        source_real = nsem.receivers.Point3DTipper(
+        source_real = nsem.receivers.Tipper(
             self.station_locations, orientation=orientation, component="real"
         )
-        source_imag = nsem.receivers.Point3DTipper(
+        source_imag = nsem.receivers.Tipper(
             self.station_locations, orientation=orientation, component="imag"
         )
 
         return [source_real, source_imag]
 
+    def _simpeg_orientation(self, component):
+        """SimPEG receiver orientation of an mtpy component, e.g. ``"yx"`` for
+        ``"z_xy"``."""
+        return self.component_map[component]["simpeg"][1:]
+
     @property
     def source_z_xx(self):
-        """xx source [simpeg xx -> nez+ yy]"""
-        return self._get_z_mode_sources("xx")
+        """receivers for mtpy z_xx [simpeg yy]"""
+        return self._get_z_mode_sources(self._simpeg_orientation("z_xx"))
 
     @property
     def source_z_xy(self):
-        """xy source [simpeg xy -> nez+ yx]"""
-        return self._get_z_mode_sources("xy")
+        """receivers for mtpy z_xy [simpeg yx]"""
+        return self._get_z_mode_sources(self._simpeg_orientation("z_xy"))
 
     @property
     def source_z_yx(self):
-        """yx source [simpeg yx -> nez+ xy]"""
-        return self._get_z_mode_sources("yx")
+        """receivers for mtpy z_yx [simpeg xy]"""
+        return self._get_z_mode_sources(self._simpeg_orientation("z_yx"))
 
     @property
     def source_z_yy(self):
-        """yy source [simpeg yy -> nez+ xx]"""
-        return self._get_z_mode_sources("yy")
+        """receivers for mtpy z_yy [simpeg xx]"""
+        return self._get_z_mode_sources(self._simpeg_orientation("z_yy"))
 
     @property
     def source_t_zx(self):
-        """zx source [simpeg zx -> nez+ zy]"""
-        return self._get_t_mode_sources("zx")
+        """receivers for mtpy t_zx [simpeg zy, negated]"""
+        return self._get_t_mode_sources(self._simpeg_orientation("t_zx"))
 
     @property
     def source_t_zy(self):
-        """zy source [simpeg zy -> nez+ zx]"""
-        return self._get_t_mode_sources("zy")
+        """receivers for mtpy t_zy [simpeg zx, negated]"""
+        return self._get_t_mode_sources(self._simpeg_orientation("t_zy"))
 
     @property
     def _sources_list(self):
@@ -240,6 +249,12 @@ class Simpeg3DData:
         """
         return nsem.Survey(self.sources[index])
 
+    @property
+    def _negated_components(self):
+        """mtpy components whose SimPEG value is the negative: the tipper, a
+        ratio with H_z, which changes sign with the z axis."""
+        return ["t_zx", "t_zy"]
+
     def to_rec_array(self):
         cols = ["period"]
         if self.geographic_coordinates:
@@ -248,6 +263,9 @@ class Simpeg3DData:
             cols += ["model_east", "model_north", "model_elevation"]
 
         df = self.dataframe[cols + self.components_to_invert].copy()
+        for comp in self._negated_components:
+            if comp in df.columns:
+                df[comp] = -df[comp]
 
         df.loc[:, "frequency"] = 1.0 / df.period.to_numpy()
         df = df.drop(columns="period")
@@ -258,8 +276,16 @@ class Simpeg3DData:
         return df.to_records(index=False, column_dtypes=dict(self._rec_dtype_to_invert))
 
     def standard_deviations(self):
-        """get model errors for the data"""
-        df = self.dataframe[[f"{comp}_model_error" for comp in self.component_map]]
+        """get model errors for the data
+
+        :return: one ``<component>_model_error`` column per mtpy component
+            (``z_xx`` ... ``t_zy``), in mtpy's names and axes. Each is the
+            standard deviation of a complex element, so it applies to its
+            real and imaginary parts alike, and it is unaffected by the
+            tipper's sign change in SimPEG axes.
+        :rtype: pandas.DataFrame
+        """
+        return self.dataframe[[f"{comp}_model_error" for comp in self.component_map]]
 
     def get_simpeg_data_object(self) -> nsem.Data:
         """create a data object"""
