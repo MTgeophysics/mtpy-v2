@@ -12,7 +12,7 @@ dependencies:
   - rasterio
   - contextily
   - pyevtk
-  - simpeg
+  - simpeg>=0.23.0
   - dill
   - git
   - pip
