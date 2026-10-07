@@ -647,6 +647,22 @@ class EditMTResponse(BokehPlotBase):
     _RESPONSE_DASHES = ("solid", "dashed", "dotdash", "dotted", "dashdot")
     _RESPONSE_MARKERS = ("x", "diamond", "triangle", "square", "inverted_triangle")
 
+    @staticmethod
+    def _response_shade(hex_color, index=0):
+        """Return a visibly different hue/lightness of ``hex_color`` for a response."""
+        import colorsys
+
+        try:
+            h = hex_color.lstrip("#")
+            r, g, b = (int(h[i : i + 2], 16) / 255 for i in (0, 2, 4))
+        except (ValueError, AttributeError):
+            return hex_color
+        hh, ll, ss = colorsys.rgb_to_hls(r, g, b)
+        hh = (hh + 0.12 * (index + 1)) % 1.0
+        ll = min(max(ll + (0.15 if ll < 0.5 else -0.15), 0.2), 0.8)
+        r, g, b = colorsys.hls_to_rgb(hh, ll, max(ss, 0.5))
+        return f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
+
     def _add_response_component(
         self, fig, source, color, comp_key, index=0, label=None
     ):
@@ -656,7 +672,7 @@ class EditMTResponse(BokehPlotBase):
         """
         if source is None or len(source.data.get("period", [])) == 0:
             return
-        glyph_color = self._tuple_to_hex(color)
+        glyph_color = self._response_shade(self._tuple_to_hex(color), index)
         line_kwargs = {"legend_label": label} if label else {}
         line_renderer = fig.line(
             x="period",
