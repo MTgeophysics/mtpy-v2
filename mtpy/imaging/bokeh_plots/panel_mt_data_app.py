@@ -213,6 +213,12 @@ class MTResponseEditorTab(param.Parameterized):
         self._mt_data = None
 
         self._station_widget = pn.widgets.Select(name="Station", options=[], width=320)
+        self._plot_response_all_widget = pn.widgets.Checkbox(
+            name="Plot Response",
+            value=False,
+            visible=False,
+        )
+        self._plot_response_all_widget.param.watch(self._on_plot_all_toggled, "value")
         self._plot_response_widget = pn.widgets.CheckBoxGroup(
             name="Plot Responses (same station name)",
             options={},
@@ -263,12 +269,24 @@ class MTResponseEditorTab(param.Parameterized):
         """Offer same-name stations from other surveys as plottable responses."""
         self._update_response_visibility(event.new)
 
+    def _on_plot_all_toggled(self, event: param.parameterized.Event) -> None:
+        """Select (or clear) every same-name station in the response selector."""
+        options = self._plot_response_widget.options or {}
+        self._plot_response_widget.value = list(options.values()) if event.new else []
+
     def _update_response_visibility(self, station_key: str | None) -> None:
-        """Refresh the response selector for the selected station."""
+        """Refresh the response selector for the selected station.
+
+        When 'Plot Response' is checked it stays checked across stations and
+        auto-selects every same-name station for the new selection.
+        """
         matches = self._same_name_station_paths(station_key) if station_key else {}
         self._plot_response_widget.options = matches
-        self._plot_response_widget.value = []
+        self._plot_response_widget.value = (
+            list(matches.values()) if self._plot_response_all_widget.value else []
+        )
         self._plot_response_widget.visible = bool(matches)
+        self._plot_response_all_widget.visible = bool(matches)
 
     def set_mt_data(self, mt_data: MTData | None) -> None:
         """Refresh the station picker for a newly loaded (or cleared) MTData."""
@@ -281,6 +299,7 @@ class MTResponseEditorTab(param.Parameterized):
             self._plot_response_widget.options = {}
             self._plot_response_widget.value = []
             self._plot_response_widget.visible = False
+            self._plot_response_all_widget.visible = False
             self._status.object = (
                 "_Load data in the **Data** tab, select a station, then click "
                 "**Load Station**._"
@@ -359,7 +378,7 @@ class MTResponseEditorTab(param.Parameterized):
             pn.Row(
                 self._station_widget,
                 pn.Spacer(width=10),
-                self._plot_response_widget,
+                pn.Column(self._plot_response_all_widget, self._plot_response_widget),
                 pn.Spacer(width=10),
                 self._load_button,
                 align="end",

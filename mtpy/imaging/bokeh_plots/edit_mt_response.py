@@ -78,8 +78,10 @@ class EditMTResponse(BokehPlotBase):
         responses=None,
         **kwargs,
     ):
-        self.Z = z_object
-        self.Tipper = t_object
+        # Work on copies so edits never mutate the caller's transfer functions;
+        # the pre-edit snapshot is taken lazily by `_snapshot_original_data`.
+        self.Z = z_object.copy() if z_object is not None else None
+        self.Tipper = t_object.copy() if t_object is not None else None
         # Optional responses (e.g. from other surveys with the same station
         # name), plotted without error bars alongside the data. ``responses``
         # is a list of ``(label, Z, Tipper)``; ``z_response``/``t_response``
@@ -183,32 +185,75 @@ class EditMTResponse(BokehPlotBase):
             self._original_Tipper = self.Tipper.copy()
         self._data_manipulated = True
 
+    def _masked_copies(self):
+        """Return copies of Z/Tipper with every masked point set to NaN.
+
+        The interpolator ignores non-finite samples, so masked points get
+        re-estimated from their unmasked neighbours. ``self.Z``/``self.Tipper``
+        (the editable data, which already includes any rotation, static shift
+        or phase flips) are left untouched.
+        """
+        z_obj = self.Z.copy() if self.Z is not None else None
+        t_obj = self.Tipper.copy() if self.Tipper is not None else None
+
+        for comp, indices in self.masked_tf_indices.items():
+            if not indices:
+                continue
+            idx = np.asarray(sorted(indices), dtype=int)
+            if comp in ("xx", "xy", "yx", "yy") and z_obj is not None:
+                ii, jj = self._MODEL_ERROR_COMP_INDEX[f"z{comp}"]
+                for attr in ("z", "z_error", "z_model_error"):
+                    arr = getattr(z_obj, attr)
+                    if arr is None:
+                        continue
+                    arr = np.array(arr, copy=True)
+                    arr[idx, ii, jj] = np.nan
+                    setattr(z_obj, attr, arr)
+            elif comp in ("tzx", "tzy") and t_obj is not None:
+                ii, jj = self._MODEL_ERROR_COMP_INDEX[comp]
+                for attr in ("tipper", "tipper_error", "tipper_model_error"):
+                    arr = getattr(t_obj, attr)
+                    if arr is None:
+                        continue
+                    arr = np.array(arr, copy=True)
+                    arr[idx, ii, jj] = np.nan
+                    setattr(t_obj, attr, arr)
+        return z_obj, t_obj
+
     def interpolate(
         self,
-        new_period,
+        new_period=None,
         method="slinear",
         extrapolate=False,
     ):
         """Interpolate Z and Tipper onto a new period array, in place.
 
+        Masked points are treated as missing, so interpolating onto the
+        existing periods (``new_period=None``) replaces them with values
+        estimated from the surrounding unmasked points.
+
         Parameters
         ----------
-        new_period : array_like
-            Periods (in seconds) to interpolate onto.
+        new_period : array_like, optional
+            Periods (in seconds) to interpolate onto, by default None (keep
+            the current periods exactly).
         method : str, optional
             Interpolation method, one of `_INTERP_METHODS`, by default "slinear".
         extrapolate : bool, optional
             Allow values outside the original period range, by default False.
         """
         self._snapshot_original_data()
+        if new_period is None:
+            new_period = self.period
         new_period = np.asarray(new_period, dtype=float)
 
-        if self.Z is not None:
-            self.Z = self.Z.interpolate(
+        z_in, t_in = self._masked_copies()
+        if z_in is not None:
+            self.Z = z_in.interpolate(
                 new_period, inplace=False, method=method, extrapolate=extrapolate
             )
-        if self.Tipper is not None:
-            self.Tipper = self.Tipper.interpolate(
+        if t_in is not None:
+            self.Tipper = t_in.interpolate(
                 new_period, inplace=False, method=method, extrapolate=extrapolate
             )
 
@@ -1234,17 +1279,34 @@ class EditMTResponse(BokehPlotBase):
             name="Apply Interpolation", button_type="primary", width=150
         )
         interp_status = pn.pane.Markdown("", styles={"color": "#555"})
+        interp_keep_widget = pn.widgets.Checkbox(
+            name="Keep current periods (re-estimate masked points)", value=True
+        )
+
+        def _toggle_keep_periods(event):
+            for widget in (interp_min_widget, interp_max_widget, interp_num_widget):
+                widget.disabled = bool(event.new)
+
+        interp_keep_widget.param.watch(_toggle_keep_periods, "value")
+        for _w in (interp_min_widget, interp_max_widget, interp_num_widget):
+            _w.disabled = True
 
         def _apply_interpolation(_event):
             try:
-                pmin = float(interp_min_widget.value)
-                pmax = float(interp_max_widget.value)
-                num = int(interp_num_widget.value)
-                if pmin <= 0 or pmax <= 0 or pmin >= pmax:
-                    raise ValueError(
-                        "Min period must be positive and less than max period."
-                    )
-                new_period = np.logspace(np.log10(pmin), np.log10(pmax), num=num)
+                if interp_keep_widget.value:
+                    new_period = None
+                    num = int(self.period.size)
+                    pmin = float(self.period.min())
+                    pmax = float(self.period.max())
+                else:
+                    pmin = float(interp_min_widget.value)
+                    pmax = float(interp_max_widget.value)
+                    num = int(interp_num_widget.value)
+                    if pmin <= 0 or pmax <= 0 or pmin >= pmax:
+                        raise ValueError(
+                            "Min period must be positive and less than max period."
+                        )
+                    new_period = np.logspace(np.log10(pmin), np.log10(pmax), num=num)
                 self.interpolate(
                     new_period,
                     method=interp_type_widget.value,
@@ -1265,6 +1327,7 @@ class EditMTResponse(BokehPlotBase):
         interp_apply_button.on_click(_apply_interpolation)
 
         interp_row = pn.Row(
+            interp_keep_widget,
             interp_min_widget,
             interp_max_widget,
             interp_num_widget,

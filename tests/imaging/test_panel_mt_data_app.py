@@ -785,6 +785,25 @@ def test_tf_editor_multi_response_selector_and_loading():
     # Station with no same-name sibling hides the selector
     tf_tab._station_widget.value = "/surveys/a/stations/MT02"
     assert widget.visible is False
+    assert tf_tab._plot_response_all_widget.visible is False
+    assert widget.value == []
+
+    # 'Plot Response' selects everything and persists across stations
+    tf_tab._station_widget.value = "/surveys/a/stations/MT01"
+    all_box = tf_tab._plot_response_all_widget
+    assert all_box.visible is True
+    assert widget.value == []
+    all_box.value = True
+    assert widget.value == [
+        "/surveys/b/stations/MT01",
+        "/surveys/c/stations/MT01",
+    ]
+    tf_tab._station_widget.value = "/surveys/c/stations/MT01"
+    assert widget.value == [
+        "/surveys/a/stations/MT01",
+        "/surveys/b/stations/MT01",
+    ]
+    all_box.value = False
     assert widget.value == []
 
     # Clearing data hides it too
