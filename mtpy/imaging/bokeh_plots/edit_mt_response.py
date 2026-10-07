@@ -75,12 +75,22 @@ class EditMTResponse(BokehPlotBase):
         z_response=None,
         t_response=None,
         station="MT Response",
+        responses=None,
         **kwargs,
     ):
         self.Z = z_object
         self.Tipper = t_object
-        # Optional forward-model response (e.g. from a "model" survey),
-        # always plotted without error bars alongside the data.
+        # Optional responses (e.g. from other surveys with the same station
+        # name), plotted without error bars alongside the data. ``responses``
+        # is a list of ``(label, Z, Tipper)``; ``z_response``/``t_response``
+        # remain as a single-response shortcut.
+        if responses is None:
+            responses = (
+                [("response", z_response, t_response)]
+                if (z_response is not None or t_response is not None)
+                else []
+            )
+        self.responses = list(responses)
         self.Z_response = z_response
         self.Tipper_response = t_response
         self.station = station
@@ -533,15 +543,19 @@ class EditMTResponse(BokehPlotBase):
             line_alpha=0.4,
         )
 
-    def _response_component_source(self, comp, kind="res", yx_shift=False):
-        """Build a ColumnDataSource for one component from the model response Z."""
-        if self.Z_response is None:
+    def _response_component_source(
+        self, comp, kind="res", yx_shift=False, z_response=None
+    ):
+        """Build a ColumnDataSource for one component from a response Z."""
+        if z_response is None:
+            z_response = self.Z_response
+        if z_response is None:
             return None
         y_attr = "res" if kind == "res" else "phase"
-        y = self._get_values(self.Z_response, y_attr, comp)
+        y = self._get_values(z_response, y_attr, comp)
         if yx_shift:
             y = y + 180
-        x = np.asarray(self.Z_response.period, dtype=float)
+        x = np.asarray(z_response.period, dtype=float)
 
         if kind == "res":
             valid = self._valid_for_log(x, y)
@@ -550,35 +564,47 @@ class EditMTResponse(BokehPlotBase):
 
         return ColumnDataSource(data={"period": x[valid], "value": y[valid]})
 
-    def _response_tipper_component_source(self, comp_index, part):
-        """Build a ColumnDataSource for one tipper component from the model response."""
-        if self.Tipper_response is None:
+    def _response_tipper_component_source(self, comp_index, part, t_response=None):
+        """Build a ColumnDataSource for one tipper component from a response."""
+        if t_response is None:
+            t_response = self.Tipper_response
+        if t_response is None:
             return None
-        period = np.asarray(1.0 / self.Tipper_response.frequency, dtype=float)
-        tf_values = self.Tipper_response.tipper[:, 0, comp_index]
+        period = np.asarray(1.0 / t_response.frequency, dtype=float)
+        tf_values = t_response.tipper[:, 0, comp_index]
         value = tf_values.real if part == "real" else tf_values.imag
         value = np.asarray(value, dtype=float)
         valid = np.isfinite(period) & (period > 0) & np.isfinite(value)
         return ColumnDataSource(data={"period": period[valid], "value": value[valid]})
 
-    def _add_response_component(self, fig, source, color, comp_key):
-        """Draw the model response as a solid line with 'x' markers, no error bars."""
+    _RESPONSE_DASHES = ("solid", "dashed", "dotdash", "dotted", "dashdot")
+    _RESPONSE_MARKERS = ("x", "diamond", "triangle", "square", "inverted_triangle")
+
+    def _add_response_component(
+        self, fig, source, color, comp_key, index=0, label=None
+    ):
+        """Draw a response as a line with markers, no error bars.
+
+        ``index`` varies the dash/marker so several responses are distinguishable.
+        """
         if source is None or len(source.data.get("period", [])) == 0:
             return
         glyph_color = self._tuple_to_hex(color)
+        line_kwargs = {"legend_label": label} if label else {}
         line_renderer = fig.line(
             x="period",
             y="value",
             source=source,
             color=glyph_color,
             line_width=max(self.lw, 1.5),
-            line_dash="solid",
+            line_dash=self._RESPONSE_DASHES[index % len(self._RESPONSE_DASHES)],
+            **line_kwargs,
         )
         scatter_renderer = fig.scatter(
             x="period",
             y="value",
             source=source,
-            marker="x",
+            marker=self._RESPONSE_MARKERS[index % len(self._RESPONSE_MARKERS)],
             size=max(int(self.marker_size) + 2, 6),
             color=glyph_color,
             line_color=glyph_color,
@@ -827,12 +853,16 @@ class EditMTResponse(BokehPlotBase):
                 comp,
                 masked_source=masked_res,
             )
-            if self.Z_response is not None:
+            for r_idx, (r_label, r_z, _r_t) in enumerate(self.responses):
+                if r_z is None:
+                    continue
                 self._add_response_component(
                     res_fig,
-                    self._response_component_source(comp, kind="res"),
+                    self._response_component_source(comp, kind="res", z_response=r_z),
                     color,
                     comp,
+                    index=r_idx,
+                    label=r_label,
                 )
             self._format_res_axis(res_fig)
             res_figs[comp] = res_fig
@@ -864,14 +894,17 @@ class EditMTResponse(BokehPlotBase):
                 comp,
                 masked_source=masked_phase,
             )
-            if self.Z_response is not None:
+            for r_idx, (_r_label, r_z, _r_t) in enumerate(self.responses):
+                if r_z is None:
+                    continue
                 self._add_response_component(
                     phase_fig,
                     self._response_component_source(
-                        comp, kind="phase", yx_shift=yx_shift
+                        comp, kind="phase", yx_shift=yx_shift, z_response=r_z
                     ),
                     color,
                     comp,
+                    index=r_idx,
                 )
             self._format_phase_axis(phase_fig)
             # Row 2 of 3 in the edit grid; the tipper row below already
@@ -922,12 +955,17 @@ class EditMTResponse(BokehPlotBase):
                 show_error=True,
                 masked_source=masked_source,
             )
-            if self.Tipper_response is not None:
+            for r_idx, (_r_label, _r_z, r_t) in enumerate(self.responses):
+                if r_t is None:
+                    continue
                 self._add_response_component(
                     tip_fig,
-                    self._response_tipper_component_source(comp_index, part),
+                    self._response_tipper_component_source(
+                        comp_index, part, t_response=r_t
+                    ),
                     color,
                     key,
+                    index=r_idx,
                 )
             tip_fig.yaxis.axis_label = label if key == "tip_real_zx" else ""
             tip_fig.xaxis.axis_label = "Period (s)"

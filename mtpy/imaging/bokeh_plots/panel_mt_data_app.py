@@ -213,9 +213,12 @@ class MTResponseEditorTab(param.Parameterized):
         self._mt_data = None
 
         self._station_widget = pn.widgets.Select(name="Station", options=[], width=320)
-        self._plot_response_widget = pn.widgets.Checkbox(
-            name="Plot Response",
-            value=False,
+        self._plot_response_widget = pn.widgets.MultiSelect(
+            name="Plot Responses (same station name)",
+            options={},
+            value=[],
+            size=4,
+            width=320,
             visible=False,
         )
         self._station_widget.param.watch(self._on_station_selected, "value")
@@ -233,38 +236,40 @@ class MTResponseEditorTab(param.Parameterized):
         )
         self._display = pn.Column(sizing_mode=self.sizing_mode)
 
-    def _paired_station_path(self, station_key: str, target_survey: str) -> str | None:
-        """Return the sibling path with the same station name in *target_survey*.
-
-        Station paths are ``/{SURVEYS_NODE}/{survey}/{STATIONS_NODE}/{station}``;
-        returns ``None`` if the sibling path isn't among the known stations.
-        """
+    @staticmethod
+    def _split_station_path(station_key: str) -> tuple[str, str, str, str] | None:
+        """Split ``/{surveys}/{survey}/{stations}/{station}`` into its 4 parts."""
         parts = station_key.strip("/").split("/")
-        if len(parts) != 4:
-            return None
-        surveys_node, _survey, stations_node, station = parts
-        candidate = f"/{surveys_node}/{target_survey}/{stations_node}/{station}"
-        options = self._station_widget.options or []
-        return candidate if candidate in options else None
+        return tuple(parts) if len(parts) == 4 else None
+
+    def _same_name_station_paths(self, station_key: str) -> dict[str, str]:
+        """Return ``{survey: path}`` for other stations sharing *station_key*'s name.
+
+        Surveys are unrestricted; the selected station itself is excluded.
+        """
+        parsed = self._split_station_path(station_key) if station_key else None
+        if parsed is None:
+            return {}
+        _surveys_node, _survey, _stations_node, station = parsed
+        matches: dict[str, str] = {}
+        for path in self._station_widget.options or []:
+            if path == station_key:
+                continue
+            other = self._split_station_path(path)
+            if other is not None and other[3] == station:
+                matches[other[1]] = path
+        return matches
 
     def _on_station_selected(self, event: param.parameterized.Event) -> None:
-        """Show 'Plot Response' only when a data/model pair exists for this station."""
+        """Offer same-name stations from other surveys as plottable responses."""
         self._update_response_visibility(event.new)
 
     def _update_response_visibility(self, station_key: str | None) -> None:
-        """Show/hide the 'Plot Response' checkbox based on data/model pairing."""
-        has_pair = False
-        if station_key:
-            parts = station_key.strip("/").split("/")
-            if len(parts) == 4:
-                survey = parts[1]
-                other_survey = "data" if survey == "model" else "model"
-                has_pair = (
-                    self._paired_station_path(station_key, other_survey) is not None
-                )
-        self._plot_response_widget.visible = has_pair
-        if not has_pair:
-            self._plot_response_widget.value = False
+        """Refresh the response selector for the selected station."""
+        matches = self._same_name_station_paths(station_key) if station_key else {}
+        self._plot_response_widget.options = matches
+        self._plot_response_widget.value = []
+        self._plot_response_widget.visible = bool(matches)
 
     def set_mt_data(self, mt_data: MTData | None) -> None:
         """Refresh the station picker for a newly loaded (or cleared) MTData."""
@@ -274,8 +279,9 @@ class MTResponseEditorTab(param.Parameterized):
         if mt_data is None:
             self._station_widget.options = []
             self._load_button.disabled = True
+            self._plot_response_widget.options = {}
+            self._plot_response_widget.value = []
             self._plot_response_widget.visible = False
-            self._plot_response_widget.value = False
             self._status.object = (
                 "_Load data in the **Data** tab, select a station, then click "
                 "**Load Station**._"
@@ -309,34 +315,25 @@ class MTResponseEditorTab(param.Parameterized):
         self._status.styles = {"color": "#555"}
 
         try:
-            # Prefer the "data" survey as the editable primary object; if the
-            # selected station is the "model" one, swap so the response is
-            # always overlaid on the data rather than the reverse.
-            primary_key = station_key
-            response_key = None
-            if self._plot_response_widget.visible and self._plot_response_widget.value:
-                parts = station_key.strip("/").split("/")
-                survey = parts[1] if len(parts) == 4 else None
-                if survey == "model":
-                    data_key = self._paired_station_path(station_key, "data")
-                    if data_key is not None:
-                        primary_key = data_key
-                        response_key = station_key
-                else:
-                    response_key = self._paired_station_path(station_key, "model")
-
-            mt_obj = self._mt_data.get_station(primary_key, as_mt=True)
-            z_response = t_response = None
-            if response_key is not None:
-                response_obj = self._mt_data.get_station(response_key, as_mt=True)
-                z_response = response_obj.Z
-                t_response = response_obj.Tipper
+            # The selected station is always the editable primary; any chosen
+            # same-name stations (from any survey) are overlaid as responses.
+            mt_obj = self._mt_data.get_station(station_key, as_mt=True)
+            labels = {
+                path: survey
+                for survey, path in (self._plot_response_widget.options or {}).items()
+            }
+            responses = []
+            if self._plot_response_widget.visible:
+                for path in self._plot_response_widget.value or []:
+                    response_obj = self._mt_data.get_station(path, as_mt=True)
+                    responses.append(
+                        (labels.get(path, path), response_obj.Z, response_obj.Tipper)
+                    )
 
             plot_obj = EditMTResponse(
                 z_object=mt_obj.Z,
                 t_object=mt_obj.Tipper,
-                z_response=z_response,
-                t_response=t_response,
+                responses=responses,
                 station=mt_obj.station,
                 show_plot=False,
             )

@@ -723,8 +723,7 @@ def test_mt_data_loaded_populates_tf_editor_and_plots_data():
     mock_edit_cls.assert_called_once_with(
         z_object=mock_mt_obj.Z,
         t_object=mock_mt_obj.Tipper,
-        z_response=None,
-        t_response=None,
+        responses=[],
         station=mock_mt_obj.station,
         show_plot=False,
     )
@@ -732,38 +731,34 @@ def test_mt_data_loaded_populates_tf_editor_and_plots_data():
 
 
 @pytest.mark.plotting
-def test_tf_editor_plot_response_checkbox_and_response_loading():
-    """'Plot Response' appears only for data/model pairs and loads both objects."""
+def test_tf_editor_multi_response_selector_and_loading():
+    """Selector lists same-name stations from any survey; selected ones load."""
     app = _make_app()
 
-    data_mt_obj = MagicMock()
-    data_mt_obj.station = "MT01"
-    model_mt_obj = MagicMock()
-    model_mt_obj.station = "MT01"
-
+    objs = {
+        "/surveys/a/stations/MT01": MagicMock(station="MT01"),
+        "/surveys/b/stations/MT01": MagicMock(station="MT01"),
+        "/surveys/c/stations/MT01": MagicMock(station="MT01"),
+        "/surveys/a/stations/MT02": MagicMock(station="MT02"),
+    }
     mock_mt = MagicMock(spec=MTData)
-    mock_mt._iter_station_paths = MagicMock(
-        side_effect=lambda: iter(
-            [
-                "/surveys/data/stations/MT01",
-                "/surveys/model/stations/MT01",
-            ]
-        )
-    )
-
-    def _get_station(path, as_mt=True):
-        return model_mt_obj if path == "/surveys/model/stations/MT01" else data_mt_obj
-
-    mock_mt.get_station.side_effect = _get_station
+    mock_mt._iter_station_paths = MagicMock(side_effect=lambda: iter(list(objs)))
+    mock_mt.get_station.side_effect = lambda path, as_mt=True: objs[path]
 
     app._mt_data = mock_mt
     app.mt_data_loaded = True
 
     tf_tab = app._tf_editor_app
-    tf_tab._station_widget.value = "/surveys/data/stations/MT01"
-    assert tf_tab._plot_response_widget.visible is True
+    # Primary can be any survey, not only "data"
+    tf_tab._station_widget.value = "/surveys/b/stations/MT01"
+    widget = tf_tab._plot_response_widget
+    assert widget.visible is True
+    assert widget.options == {
+        "a": "/surveys/a/stations/MT01",
+        "c": "/surveys/c/stations/MT01",
+    }
 
-    tf_tab._plot_response_widget.value = True
+    widget.value = ["/surveys/a/stations/MT01", "/surveys/c/stations/MT01"]
     mock_plot_obj = MagicMock()
     mock_plot_obj.panel.return_value = pn.pane.Markdown("mock response editor")
 
@@ -773,21 +768,69 @@ def test_tf_editor_plot_response_checkbox_and_response_loading():
     ) as mock_edit_cls:
         tf_tab._on_load_clicked(None)
 
+    primary = objs["/surveys/b/stations/MT01"]
+    a_obj = objs["/surveys/a/stations/MT01"]
+    c_obj = objs["/surveys/c/stations/MT01"]
     mock_edit_cls.assert_called_once_with(
-        z_object=data_mt_obj.Z,
-        t_object=data_mt_obj.Tipper,
-        z_response=model_mt_obj.Z,
-        t_response=model_mt_obj.Tipper,
-        station=data_mt_obj.station,
+        z_object=primary.Z,
+        t_object=primary.Tipper,
+        responses=[("a", a_obj.Z, a_obj.Tipper), ("c", c_obj.Z, c_obj.Tipper)],
+        station="MT01",
         show_plot=False,
     )
 
-    # No sibling station in the other survey -> checkbox stays hidden
-    mock_mt._iter_station_paths = MagicMock(
-        side_effect=lambda: iter(["/surveys/data/stations/MT02"])
+    # Station with no same-name sibling hides the selector
+    tf_tab._station_widget.value = "/surveys/a/stations/MT02"
+    assert widget.visible is False
+    assert widget.value == []
+
+    # Clearing data hides it too
+    tf_tab.set_mt_data(None)
+    assert widget.visible is False
+
+
+@pytest.mark.plotting
+def test_edit_mt_response_plots_multiple_responses():
+    """EditMTResponse draws one response line per response (res/phase/tipper)."""
+    import numpy as np
+
+    from mtpy.imaging.bokeh_plots.edit_mt_response import EditMTResponse
+
+    class _Z:
+        period = np.array([0.1, 1.0, 10.0])
+
+    class _T:
+        frequency = np.array([10.0, 1.0, 0.1])
+        tipper = np.ones((3, 1, 2), dtype=complex)
+
+    plot = EditMTResponse.__new__(EditMTResponse)
+    plot.Z_response = None
+    plot.Tipper_response = None
+    plot._get_values = lambda z, attr, comp: np.array([1.0, 2.0, 3.0])
+    plot._valid_for_log = lambda x, y: np.isfinite(x) & (x > 0) & (y > 0)
+
+    s1 = plot._response_component_source("xy", kind="res", z_response=_Z())
+    s2 = plot._response_component_source("xy", kind="phase", z_response=_Z())
+    t1 = plot._response_tipper_component_source(0, "real", t_response=_T())
+    assert list(s1.data["period"]) == [0.1, 1.0, 10.0]
+    assert list(s2.data["value"]) == [1.0, 2.0, 3.0]
+    assert len(t1.data["period"]) == 3
+    assert plot._response_component_source("xy") is None
+
+    single = EditMTResponse(z_object=None, t_object=None, show_plot=False)
+    assert single.responses == []
+    z, t = _Z(), _T()
+    single = EditMTResponse(
+        z_object=None, t_object=None, z_response=z, t_response=t, show_plot=False
     )
-    tf_tab.set_mt_data(mock_mt)
-    assert tf_tab._plot_response_widget.visible is False
+    assert single.responses == [("response", z, t)]
+    multi = EditMTResponse(
+        z_object=None,
+        t_object=None,
+        responses=[("a", z, t), ("b", z, None)],
+        show_plot=False,
+    )
+    assert [r[0] for r in multi.responses] == ["a", "b"]
 
 
 @pytest.mark.plotting
