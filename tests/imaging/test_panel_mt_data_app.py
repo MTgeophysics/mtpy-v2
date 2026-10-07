@@ -725,6 +725,7 @@ def test_mt_data_loaded_populates_tf_editor_and_plots_data():
         t_object=mock_mt_obj.Tipper,
         responses=[],
         station=mock_mt_obj.station,
+        save_edits_callback=mock_edit_cls.call_args.kwargs["save_edits_callback"],
         show_plot=False,
     )
     assert app._tf_editor_app._display.objects == [mock_plot_obj.panel.return_value]
@@ -779,6 +780,7 @@ def test_tf_editor_multi_response_selector_and_loading():
             ("c/MT01", c_obj.Z, c_obj.Tipper),
         ],
         station="MT01",
+        save_edits_callback=mock_edit_cls.call_args.kwargs["save_edits_callback"],
         show_plot=False,
     )
 
@@ -853,6 +855,83 @@ def test_edit_mt_response_plots_multiple_responses():
         show_plot=False,
     )
     assert [r[0] for r in multi.responses] == ["a", "b"]
+
+
+@pytest.mark.plotting
+def test_tf_editor_save_edits_replaces_station_and_refreshes_table():
+    """Save Edits writes edited Z/Tipper back via add_station(overwrite=True)."""
+    app = _make_app()
+
+    mt_obj = MagicMock(station="MT01")
+    mock_mt = MagicMock(spec=MTData)
+    mock_mt._iter_station_paths = MagicMock(
+        side_effect=lambda: iter(["/surveys/a/stations/MT01"])
+    )
+    mock_mt.get_station.return_value = mt_obj
+    app._mt_data = mock_mt
+    app.mt_data_loaded = True
+
+    saved = []
+    app._tf_editor_app.on_station_saved = saved.append
+    mock_plot_obj = MagicMock()
+    mock_plot_obj.panel.return_value = pn.pane.Markdown("mock")
+    with patch(
+        "mtpy.imaging.bokeh_plots.panel_mt_data_app.EditMTResponse",
+        return_value=mock_plot_obj,
+    ) as mock_edit_cls:
+        app._tf_editor_app._on_load_clicked(None)
+
+    callback = mock_edit_cls.call_args.kwargs["save_edits_callback"]
+    new_z, new_t = MagicMock(), MagicMock()
+    callback(new_z, new_t)
+
+    assert mt_obj.Z is new_z
+    assert mt_obj.Tipper is new_t
+    mock_mt.add_station.assert_called_once_with(mt_obj, overwrite=True)
+    assert saved == ["/surveys/a/stations/MT01"]
+    assert "Saved edits" in app._tf_editor_app._status.object
+
+
+@pytest.mark.plotting
+def test_tf_editor_save_edits_updates_real_mtdata():
+    """End-to-end: edited data (even with new periods) replaces the station."""
+    import numpy as np
+
+    from mtpy.core.mt import MT
+    from mtpy.imaging.bokeh_plots.edit_mt_response import EditMTResponse
+
+    frequency = np.logspace(2, -2, 9)
+    mt = MT(station="MT01", survey="a", frequency=frequency)
+    z = np.zeros((9, 2, 2), dtype=complex)
+    z[:, 0, 1] = np.linspace(1, 9, 9) * (1 + 1j)
+    z[:, 1, 0] = -z[:, 0, 1]
+    mt.impedance = z
+    mt.impedance_error = np.full((9, 2, 2), 0.1)
+    mt_data = MTData()
+    path = mt_data.add_station(mt)
+
+    from mtpy.imaging.bokeh_plots.panel_mt_data_app import MTResponseEditorTab
+
+    tab = MTResponseEditorTab()
+    tab.set_mt_data(mt_data)
+    station_mt = mt_data.get_station(path, as_mt=True)
+    editor = EditMTResponse(
+        z_object=station_mt.Z,
+        t_object=station_mt.Tipper,
+        station="MT01",
+        save_edits_callback=lambda z, t: tab._save_edits(path, station_mt, z, t),
+        show_plot=False,
+    )
+    editor.flip_phase(zxy=True)
+    editor.masked_tf_indices = {"xy": {4}}
+    editor.interpolate(np.logspace(-2, 2, 5), extrapolate=True)
+    editor.save_edits()
+
+    saved = mt_data.get_station(path, as_mt=True)
+    assert saved.Z.z.shape[0] == 5
+    assert saved.Z.z[0, 0, 1].real < 0
+    assert editor._data_manipulated is False
+    assert editor.masked_tf_indices == {}
 
 
 @pytest.mark.plotting

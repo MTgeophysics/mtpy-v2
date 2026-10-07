@@ -211,6 +211,8 @@ class MTResponseEditorTab(param.Parameterized):
     def __init__(self, **params: Any) -> None:
         super().__init__(**params)
         self._mt_data = None
+        # Optional hook called with the station path after Save Edits succeeds.
+        self.on_station_saved = None
 
         self._station_widget = pn.widgets.Select(name="Station", options=[], width=320)
         self._plot_response_all_widget = pn.widgets.Checkbox(
@@ -353,6 +355,9 @@ class MTResponseEditorTab(param.Parameterized):
                 t_object=mt_obj.Tipper,
                 responses=responses,
                 station=mt_obj.station,
+                save_edits_callback=lambda z, t, mt_obj=mt_obj, key=station_key: (
+                    self._save_edits(key, mt_obj, z, t)
+                ),
                 show_plot=False,
             )
             self._display.objects = [plot_obj.panel(sizing_mode=self.sizing_mode)]
@@ -364,6 +369,29 @@ class MTResponseEditorTab(param.Parameterized):
             self._status.styles = {"color": "#b00020"}
         finally:
             self._load_button.disabled = False
+
+    def _save_edits(
+        self, station_key: str, mt_obj: Any, z_obj: Any, t_obj: Any
+    ) -> None:
+        """Replace *station_key* in the MTData with the edited Z/Tipper."""
+        if self._mt_data is None:
+            raise RuntimeError("No data loaded.")
+
+        if z_obj is not None:
+            if mt_obj.period.size != z_obj.period.size:
+                # TF cannot resize in place; reset to the new period grid
+                mt_obj._transfer_function = mt_obj._initialize_transfer_function(
+                    periods=z_obj.period
+                )
+            mt_obj.Z = z_obj
+        if t_obj is not None:
+            mt_obj.Tipper = t_obj
+        self._mt_data.add_station(mt_obj, overwrite=True)
+
+        self._status.object = f"💾 Saved edits to **{station_key}**."
+        self._status.styles = {"color": "#1a6600"}
+        if self.on_station_saved is not None:
+            self.on_station_saved(station_key)
 
     @property
     def view(self) -> pn.viewable.Viewable:
@@ -609,6 +637,12 @@ class MTDataApp(param.Parameterized):
         # ── Modeling tab app ─────────────────────────────────────────────
         self._modeling_app = Simpeg1DPanelApp(sizing_mode=self.sizing_mode)
         self._tf_editor_app = MTResponseEditorTab(sizing_mode=self.sizing_mode)
+        self._tf_editor_app.on_station_saved = self._on_editor_station_saved
+
+    def _on_editor_station_saved(self, station_key: str) -> None:
+        """Refresh the station table after the TF editor replaces a station."""
+        if self._mt_data is not None:
+            self._update_station_table(self._mt_data)
 
     # ── Public API ────────────────────────────────────────────────────────
 

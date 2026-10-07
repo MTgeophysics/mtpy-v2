@@ -76,8 +76,11 @@ class EditMTResponse(BokehPlotBase):
         t_response=None,
         station="MT Response",
         responses=None,
+        save_edits_callback=None,
         **kwargs,
     ):
+        # Called as ``callback(Z, Tipper)`` when the user clicks "Save Edits".
+        self.save_edits_callback = save_edits_callback
         # Work on copies so edits never mutate the caller's transfer functions;
         # the pre-edit snapshot is taken lazily by `_snapshot_original_data`.
         self.Z = z_object.copy() if z_object is not None else None
@@ -219,6 +222,25 @@ class EditMTResponse(BokehPlotBase):
                     arr[idx, ii, jj] = np.nan
                     setattr(t_obj, attr, arr)
         return z_obj, t_obj
+
+    def save_edits(self):
+        """Send copies of the edited Z/Tipper to ``save_edits_callback``.
+
+        The saved data becomes the new baseline: masks and the pre-edit
+        snapshot are cleared so Reset returns to the saved version.
+        """
+        if self.save_edits_callback is None:
+            raise RuntimeError("No save_edits_callback was provided.")
+
+        self.save_edits_callback(
+            self.Z.copy() if self.Z is not None else None,
+            self.Tipper.copy() if self.Tipper is not None else None,
+        )
+
+        self.masked_tf_indices = {}
+        self._original_Z = None
+        self._original_Tipper = None
+        self._data_manipulated = False
 
     def interpolate(
         self,
@@ -1250,6 +1272,26 @@ class EditMTResponse(BokehPlotBase):
         add_model_error_selected_button.on_click(_add_model_error_selected)
         reset_button.on_click(_reset_to_original)
 
+        save_button = pn.widgets.Button(
+            name="Save Edits",
+            button_type="success",
+            width=130,
+            visible=self.save_edits_callback is not None,
+        )
+
+        def _save_edits(_event) -> None:
+            try:
+                self.save_edits()
+            except Exception as error:
+                selection_status.object = f"❌ Save failed: {error}"
+                selection_status.styles = {"color": "#b00020"}
+                return
+            _refresh_plot_and_widgets()
+            selection_status.object = "✅ Edits saved to the station."
+            selection_status.styles = {"color": "#1a6600"}
+
+        save_button.on_click(_save_edits)
+
         def _refresh_plot_and_widgets():
             """Replot after an in-place edit and resync period-dependent widgets."""
             period_widget.start = float(np.floor(np.log10(self.x_limits[0])))
@@ -1727,6 +1769,7 @@ class EditMTResponse(BokehPlotBase):
             mask_selected_button,
             add_model_error_selected_button,
             reset_button,
+            save_button,
             selection_status,
             align="center",
         )
