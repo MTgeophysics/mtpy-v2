@@ -754,8 +754,8 @@ def test_tf_editor_multi_response_selector_and_loading():
     widget = tf_tab._plot_response_widget
     assert widget.visible is True
     assert widget.options == {
-        "a": "/surveys/a/stations/MT01",
-        "c": "/surveys/c/stations/MT01",
+        "a/MT01": "/surveys/a/stations/MT01",
+        "c/MT01": "/surveys/c/stations/MT01",
     }
 
     widget.value = ["/surveys/a/stations/MT01", "/surveys/c/stations/MT01"]
@@ -774,7 +774,10 @@ def test_tf_editor_multi_response_selector_and_loading():
     mock_edit_cls.assert_called_once_with(
         z_object=primary.Z,
         t_object=primary.Tipper,
-        responses=[("a", a_obj.Z, a_obj.Tipper), ("c", c_obj.Z, c_obj.Tipper)],
+        responses=[
+            ("a/MT01", a_obj.Z, a_obj.Tipper),
+            ("c/MT01", c_obj.Z, c_obj.Tipper),
+        ],
         station="MT01",
         show_plot=False,
     )

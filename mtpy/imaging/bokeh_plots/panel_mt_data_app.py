@@ -213,11 +213,10 @@ class MTResponseEditorTab(param.Parameterized):
         self._mt_data = None
 
         self._station_widget = pn.widgets.Select(name="Station", options=[], width=320)
-        self._plot_response_widget = pn.widgets.MultiSelect(
+        self._plot_response_widget = pn.widgets.CheckBoxGroup(
             name="Plot Responses (same station name)",
             options={},
             value=[],
-            size=4,
             width=320,
             visible=False,
         )
@@ -243,7 +242,7 @@ class MTResponseEditorTab(param.Parameterized):
         return tuple(parts) if len(parts) == 4 else None
 
     def _same_name_station_paths(self, station_key: str) -> dict[str, str]:
-        """Return ``{survey: path}`` for other stations sharing *station_key*'s name.
+        """Return ``{"survey/station": path}`` for other stations sharing *station_key*'s name.
 
         Surveys are unrestricted; the selected station itself is excluded.
         """
@@ -257,7 +256,7 @@ class MTResponseEditorTab(param.Parameterized):
                 continue
             other = self._split_station_path(path)
             if other is not None and other[3] == station:
-                matches[other[1]] = path
+                matches[f"{other[1]}/{other[3]}"] = path
         return matches
 
     def _on_station_selected(self, event: param.parameterized.Event) -> None:
@@ -319,8 +318,8 @@ class MTResponseEditorTab(param.Parameterized):
             # same-name stations (from any survey) are overlaid as responses.
             mt_obj = self._mt_data.get_station(station_key, as_mt=True)
             labels = {
-                path: survey
-                for survey, path in (self._plot_response_widget.options or {}).items()
+                path: label
+                for label, path in (self._plot_response_widget.options or {}).items()
             }
             responses = []
             if self._plot_response_widget.visible:
