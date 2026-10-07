@@ -28,6 +28,7 @@ from scipy import stats
 
 from mtpy.core.mt_location import MTLocation
 
+
 # =============================================================================
 
 
@@ -494,9 +495,37 @@ class MTStations:
         if value in [None, "None", "none", "null"]:
             return
 
+        previous = self._utm_crs
         self._utm_crs = CRS.from_user_input(value)
         if self._station_locations is not None:
+            if previous is not None and previous != self._utm_crs:
+                self._reproject_station_locations()
             self._station_locations.loc[:, "utm_epsg"] = str(self.utm_epsg)
+
+    def _reproject_station_locations(self) -> None:
+        """Recompute east/north from latitude/longitude in the current UTM CRS."""
+        from pyproj import Transformer
+
+        df = self._station_locations
+        if df is None or df.empty or self._utm_crs is None:
+            return
+
+        source = self._datum_crs if self._datum_crs is not None else CRS.from_epsg(4326)
+        valid = (
+            df["latitude"].notna()
+            & df["longitude"].notna()
+            & ((df["latitude"] != 0) | (df["longitude"] != 0))
+        )
+        if not valid.any():
+            return
+
+        transformer = Transformer.from_crs(source, self._utm_crs, always_xy=True)
+        east, north = transformer.transform(
+            df.loc[valid, "longitude"].to_numpy(dtype=float),
+            df.loc[valid, "latitude"].to_numpy(dtype=float),
+        )
+        df.loc[valid, "east"] = east
+        df.loc[valid, "north"] = north
 
     @property
     def datum_crs(self) -> CRS | None:

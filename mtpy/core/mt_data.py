@@ -305,39 +305,96 @@ class MTData:
             self.attrs.pop("utm_epsg", None)
             return
 
+        previous = self.utm_crs
         self.attrs["utm_crs"] = value
         epsg = self._coerce_epsg_value(value)
         if epsg is not None:
             self.attrs["utm_epsg"] = epsg
 
-        self._apply_utm_crs_to_station_attrs(value)
+        self._apply_utm_crs_to_station_attrs(
+            value, force=not self._same_crs(previous, value)
+        )
 
-    def _apply_utm_crs_to_station_attrs(self, utm_crs: Any) -> None:
-        """Apply a root UTM CRS/EPSG to all station attrs and recompute EN."""
+    @classmethod
+    def _same_crs(cls, first: Any, second: Any) -> bool:
+        """Return True when two CRS-like values describe the same CRS."""
+        if first is None or second is None:
+            return False
+        try:
+            from pyproj import CRS
+
+            return CRS.from_user_input(first) == CRS.from_user_input(second)
+        except Exception:
+            return cls._coerce_epsg_value(first) == cls._coerce_epsg_value(second)
+
+    def _sync_station_utm(
+        self, station_ds: xr.Dataset, station_label: str = "", force: bool = True
+    ) -> bool:
+        """
+        Set a station dataset's utm_crs to the root utm_crs and reproject EN.
+
+        Returns True when the station attrs were updated. When reprojection
+        fails the station attrs are left untouched.
+        """
         from .mt_location import MTLocation
 
+        root = self.utm_crs
+        if root is None:
+            return False
+
+        attrs = station_ds.attrs
+        station_crs = attrs.get("utm_crs")
+        if (
+            not force
+            and self._same_crs(station_crs, root)
+            and attrs.get("easting") not in [None, ""]
+            and attrs.get("northing") not in [None, ""]
+        ):
+            return False
+
+        latitude = attrs.get("latitude")
+        longitude = attrs.get("longitude")
+        invalid = [None, "", "None", "none", "null"]
+        if latitude in invalid or longitude in invalid:
+            attrs["utm_crs"] = root
+            return True
+
+        try:
+            point = MTLocation(
+                latitude=float(latitude),
+                longitude=float(longitude),
+                utm_crs=root,
+            )
+            easting, northing = float(point.east), float(point.north)
+        except Exception as error:
+            logger.warning(
+                f"Could not reproject station {station_label or attrs.get('station')} "
+                f"to utm_crs {root}: {error}"
+            )
+            return False
+
+        attrs["utm_crs"] = root
+        attrs["easting"] = easting
+        attrs["northing"] = northing
+        return True
+
+    def _apply_utm_crs_to_station_attrs(
+        self, utm_crs: Any = None, force: bool = True
+    ) -> None:
+        """Apply the root UTM CRS to all station attrs and recompute EN."""
         self.compute()
+        if utm_crs is not None and utm_crs is not self.utm_crs:
+            self.attrs["utm_crs"] = utm_crs
+
         for station_path in self._iter_station_paths():
-            attrs = self.tree[station_path].ds.attrs
-            attrs["utm_crs"] = utm_crs
-
-            latitude = attrs.get("latitude")
-            longitude = attrs.get("longitude")
-            if latitude in [None, "", "None", "none", "null"]:
+            station_ds = self.tree[station_path].ds
+            if not self._sync_station_utm(station_ds, station_path, force=force):
                 continue
-            if longitude in [None, "", "None", "none", "null"]:
-                continue
-
-            try:
-                point = MTLocation(
-                    latitude=float(latitude),
-                    longitude=float(longitude),
-                    utm_crs=utm_crs,
+            if self._index is not None:
+                station_row, _ = MTDataTreeIndexStore._extract_rows(
+                    station_path, station_ds
                 )
-                attrs["easting"] = float(point.east)
-                attrs["northing"] = float(point.north)
-            except Exception:
-                continue
+                self._index.upsert_station(station_row)
 
     @property
     def survey_names(self) -> list[str]:
@@ -690,6 +747,7 @@ class MTData:
             )
 
         station_ds.attrs.update(station_attrs)
+        self._sync_station_utm(station_ds, station_path, force=False)
         return (
             station_path,
             station,
@@ -2165,6 +2223,7 @@ class MTData:
         if mt_stations.utm_epsg is not None:
             self.attrs["utm_epsg"] = mt_stations.utm_epsg
             self.attrs["utm_crs"] = mt_stations.utm_epsg
+            self._apply_utm_crs_to_station_attrs(force=False)
         if mt_stations.datum_epsg is not None:
             self.attrs["datum_crs"] = mt_stations.datum_epsg
 
