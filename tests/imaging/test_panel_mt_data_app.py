@@ -1405,3 +1405,143 @@ def test_generate_res_phase_pseudosection_uses_panel_app():
     assert kwargs.get("backend") == "bokeh"
     mock_plot_obj.panel.assert_called_once()
     assert mock_panel_app in app._plot_display.objects
+
+
+def _real_editor(**kwargs):
+    import numpy as np
+
+    from mtpy.core.mt import MT
+    from mtpy.imaging.bokeh_plots.edit_mt_response import EditMTResponse
+
+    frequency = np.logspace(2, -2, 9)
+    mt = MT(station="MT01", survey="a", frequency=frequency)
+    z = np.zeros((9, 2, 2), dtype=complex)
+    z[:, 0, 1] = np.linspace(1, 9, 9) * (1 + 1j)
+    z[:, 1, 0] = -z[:, 0, 1]
+    mt.impedance = z
+    mt.impedance_error = np.full((9, 2, 2), 0.1)
+    mt.impedance_model_error = np.full((9, 2, 2), 0.1)
+    t = np.zeros((9, 1, 2), dtype=complex)
+    t[:, 0, 0] = 0.1 + 0.05j
+    mt.tipper = t
+    mt.tipper_error = np.full((9, 1, 2), 0.02)
+    other = mt.copy()
+    editor = EditMTResponse(
+        z_object=mt.Z,
+        t_object=mt.Tipper,
+        responses=[("b/MT01", other.Z, other.Tipper)],
+        station="MT01",
+        show_plot=False,
+        **kwargs,
+    )
+    return editor
+
+
+def _find_button(root, name):
+    return next(
+        w for w in root.select(pn.widgets.Button) if getattr(w, "name", None) == name
+    )
+
+
+@pytest.mark.plotting
+def test_reset_to_original_nothing_to_reset():
+    editor = _real_editor()
+    assert editor.reset_to_original() is False
+
+
+@pytest.mark.plotting
+def test_reset_to_original_reverts_model_error_and_mask():
+    import numpy as np
+
+    editor = _real_editor()
+    before = editor.Z.z_model_error.copy()
+    editor.add_model_error_to_indices({"xy": {2, 3}}, z_value=5.0)
+    assert not np.allclose(editor.Z.z_model_error, before)
+    editor.masked_tf_indices = {"xy": {1}}
+    editor.plot_model_error = True
+
+    assert editor.reset_to_original() is True
+    np.testing.assert_allclose(editor.Z.z_model_error, before)
+    assert editor.masked_tf_indices == {}
+    assert editor.plot_model_error is False
+    assert editor._model_error_edited is False
+    # model-error-only edits don't trigger the gray original overlay
+    assert editor.reset_to_original() is False
+
+
+@pytest.mark.plotting
+def test_reset_to_original_reverts_add_model_error_by_component():
+    import numpy as np
+
+    editor = _real_editor()
+    before = editor.Z.z_model_error.copy()
+    editor.add_model_error("zxy", z_value=3.0)
+    assert not np.allclose(editor.Z.z_model_error, before)
+    assert editor.reset_to_original() is True
+    np.testing.assert_allclose(editor.Z.z_model_error, before)
+
+
+@pytest.mark.plotting
+def test_reset_to_original_reverts_data_edits_and_keeps_initial_error_type():
+    import numpy as np
+
+    editor = _real_editor(plot_model_error=True)
+    before = editor.Z.z.copy()
+    editor.flip_phase(zxy=True)
+    editor.static_shift(ss_x=2.0, ss_y=0.5)
+    assert not np.allclose(editor.Z.z, before)
+
+    assert editor.reset_to_original() is True
+    np.testing.assert_allclose(editor.Z.z, before)
+    assert editor._data_manipulated is False
+    assert editor.plot_model_error is True
+
+
+@pytest.mark.plotting
+def test_reset_after_interpolation_restores_periods():
+    import numpy as np
+
+    editor = _real_editor()
+    periods = editor.Z.period.copy()
+    editor.interpolate(np.logspace(-2, 2, 5), extrapolate=True)
+    assert editor.Z.z.shape[0] == 5
+    assert editor.reset_to_original() is True
+    np.testing.assert_allclose(editor.Z.period, periods)
+
+
+@pytest.mark.plotting
+def test_reset_button_reverts_and_replots_with_responses():
+    import numpy as np
+
+    editor = _real_editor()
+    original = editor.Z.z.copy()
+    original_err = editor.Z.z_model_error.copy()
+    layout = editor.panel()
+    reset_button = _find_button(layout, "Reset")
+
+    # Nothing edited yet: clicking is a harmless no-op
+    reset_button.clicks += 1
+    np.testing.assert_allclose(editor.Z.z, original)
+
+    editor.flip_phase(zxy=True)
+    editor.add_model_error_to_indices({"xy": {0}}, z_value=4.0)
+    editor.masked_tf_indices = {"xy": {2}}
+    reset_button.clicks += 1
+
+    np.testing.assert_allclose(editor.Z.z, original)
+    np.testing.assert_allclose(editor.Z.z_model_error, original_err)
+    assert editor.masked_tf_indices == {}
+    assert editor._data_manipulated is False
+    # responses are preserved and still plotted
+    assert [r[0] for r in editor.responses] == ["b/MT01"]
+    assert editor.figures
+
+
+@pytest.mark.plotting
+def test_save_edits_clears_model_error_flag():
+    editor = _real_editor()
+    editor.save_edits_callback = lambda z, t: None
+    editor.add_model_error("zxy", z_value=2.0)
+    editor.save_edits()
+    assert editor._model_error_edited is False
+    assert editor.reset_to_original() is False

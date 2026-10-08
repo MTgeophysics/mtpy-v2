@@ -115,6 +115,7 @@ class EditMTResponse(BokehPlotBase):
         self._original_Z = None
         self._original_Tipper = None
         self._data_manipulated = False
+        self._model_error_edited = False
 
         # param.Parameterized raises TypeError for unknown kwargs; split them.
         param_names = set(type(self).param)
@@ -134,6 +135,8 @@ class EditMTResponse(BokehPlotBase):
 
         for key, value in other_kwargs.items():
             setattr(self, key, value)
+        # Error type Reset returns to (the caller's initial choice).
+        self._initial_plot_model_error = bool(self.plot_model_error)
 
         if self.show_plot:
             self.plot()
@@ -180,13 +183,18 @@ class EditMTResponse(BokehPlotBase):
 
         self._rotation_angle += theta_r
 
-    def _snapshot_original_data(self):
-        """Capture pre-edit copies of Z/Tipper once, before the first manipulation."""
+    def _snapshot_original_data(self, mark_manipulated=True):
+        """Capture pre-edit copies of Z/Tipper once, before the first manipulation.
+
+        Model-error edits pass ``mark_manipulated=False`` so the unchanged data
+        isn't overlaid in gray, but Reset can still restore the snapshot.
+        """
         if self._original_Z is None and self.Z is not None:
             self._original_Z = self.Z.copy()
         if self._original_Tipper is None and self.Tipper is not None:
             self._original_Tipper = self.Tipper.copy()
-        self._data_manipulated = True
+        if mark_manipulated:
+            self._data_manipulated = True
 
     def _masked_copies(self):
         """Return copies of Z/Tipper with every masked point set to NaN.
@@ -223,6 +231,32 @@ class EditMTResponse(BokehPlotBase):
                     setattr(t_obj, attr, arr)
         return z_obj, t_obj
 
+    def reset_to_original(self):
+        """Revert Z/Tipper, masks, rotation and error type to the unedited state.
+
+        Responses are untouched. Returns False when there was nothing to reset.
+        """
+        if (
+            not self._data_manipulated
+            and not self._model_error_edited
+            and not self.masked_tf_indices
+        ):
+            return False
+
+        if self._original_Z is not None:
+            self.Z = self._original_Z.copy()
+        if self._original_Tipper is not None:
+            self.Tipper = self._original_Tipper.copy()
+
+        self.masked_tf_indices = {}
+        self._original_Z = None
+        self._original_Tipper = None
+        self._data_manipulated = False
+        self._model_error_edited = False
+        self._rotation_angle = 0
+        self.plot_model_error = self._initial_plot_model_error
+        return True
+
     def save_edits(self):
         """Send copies of the edited Z/Tipper to ``save_edits_callback``.
 
@@ -241,6 +275,7 @@ class EditMTResponse(BokehPlotBase):
         self._original_Z = None
         self._original_Tipper = None
         self._data_manipulated = False
+        self._model_error_edited = False
 
     def interpolate(
         self,
@@ -361,6 +396,9 @@ class EditMTResponse(BokehPlotBase):
         if isinstance(comp, str):
             comp = [comp]
 
+        self._snapshot_original_data(mark_manipulated=False)
+        self._model_error_edited = True
+
         if periods is not None:
             if len(periods) != 2:
                 raise ValueError("Must enter a minimum and maximum period value")
@@ -420,6 +458,8 @@ class EditMTResponse(BokehPlotBase):
         t_value : float, optional
             Value added to tipper model error, by default 0.05.
         """
+        self._snapshot_original_data(mark_manipulated=False)
+        self._model_error_edited = True
         for comp, indices in selected.items():
             if not indices:
                 continue
@@ -1257,23 +1297,12 @@ class EditMTResponse(BokehPlotBase):
 
         def _reset_to_original(_event) -> None:
             """Restore Z/Tipper to their pre-edit state and clear all edits."""
-            if not self._data_manipulated and not self.masked_tf_indices:
+            if not self.reset_to_original():
                 selection_status.object = "Nothing to reset."
                 selection_status.styles = {"color": "#555"}
                 return
 
-            if self._original_Z is not None:
-                self.Z = self._original_Z.copy()
-            if self._original_Tipper is not None:
-                self.Tipper = self._original_Tipper.copy()
-
-            self.masked_tf_indices = {}
-            self._original_Z = None
-            self._original_Tipper = None
-            self._data_manipulated = False
-            self._rotation_angle = 0
-            self.plot_model_error = False
-            error_widget.value = "data"
+            error_widget.value = "model" if self.plot_model_error else "data"
             self.x_limits = self.set_period_limits(self.period)
             self.res_limits = None
 
