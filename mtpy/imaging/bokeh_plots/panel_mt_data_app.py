@@ -54,6 +54,7 @@ import traceback
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 import panel as pn
 import param
@@ -242,6 +243,76 @@ class MTResponseEditorTab(param.Parameterized):
             styles={"color": "#555"},
         )
         self._display = pn.Column(sizing_mode=self.sizing_mode)
+        # Global error type: applies to every plot created afterwards.
+        self._error_type_widget = pn.widgets.RadioButtonGroup(
+            name="Error Type",
+            options=["data", "model"],
+            value="data",
+            button_type="success",
+        )
+        self._rms_pane = pn.pane.Markdown(
+            "", styles={"color": "#333", "font-size": "0.9em"}
+        )
+
+    @staticmethod
+    def _rms_text(mt_obj: Any, responses: list) -> str:
+        """RMS of (data - response) / model error per component, per response.
+
+        Mirrors modem_plot_response_gui: only periods shared with the response
+        and non-zero response values are included.
+        """
+
+        def _rms(data, resp, err, d_period, r_period, shape_idx):
+            idx = np.where(np.isin(d_period, r_period))[0]
+            ridx = np.where(np.isin(r_period, d_period))[0]
+            if len(idx) == 0:
+                return None
+            ii, jj = shape_idx
+            d = data[idx, ii, jj]
+            r = resp[ridx, ii, jj]
+            with np.errstate(divide="ignore", invalid="ignore"):
+                diff = (d - r) / err[idx, ii, jj]
+            valid = (r != 0) & np.isfinite(diff)
+            if not valid.any():
+                return None
+            return float(np.sqrt(np.mean(np.abs(diff[valid]) ** 2)))
+
+        lines = []
+        for label, z_resp, t_resp in responses:
+            parts = []
+            if mt_obj.has_impedance() and z_resp is not None:
+                err = mt_obj.Z.z_model_error
+                if err is None or not np.any(err):
+                    err = mt_obj.Z.z_error
+                for name, ij in (
+                    ("Zxx", (0, 0)),
+                    ("Zxy", (0, 1)),
+                    ("Zyx", (1, 0)),
+                    ("Zyy", (1, 1)),
+                ):
+                    val = _rms(
+                        mt_obj.Z.z, z_resp.z, err, mt_obj.Z.period, z_resp.period, ij
+                    )
+                    if val is not None:
+                        parts.append(f"{name}={val:.2f}")
+            if mt_obj.has_tipper() and t_resp is not None:
+                err = mt_obj.Tipper.tipper_model_error
+                if err is None or not np.any(err):
+                    err = mt_obj.Tipper.tipper_error
+                for name, ij in (("Tx", (0, 0)), ("Ty", (0, 1))):
+                    val = _rms(
+                        mt_obj.Tipper.tipper,
+                        t_resp.tipper,
+                        err,
+                        mt_obj.Tipper.period,
+                        t_resp.period,
+                        ij,
+                    )
+                    if val is not None:
+                        parts.append(f"{name}={val:.2f}")
+            if parts:
+                lines.append(f"**RMS vs {label}:** " + ", ".join(parts))
+        return "  \n".join(lines)
 
     @staticmethod
     def _split_station_path(station_key: str) -> tuple[str, str, str, str] | None:
@@ -270,6 +341,8 @@ class MTResponseEditorTab(param.Parameterized):
     def _on_station_selected(self, event: param.parameterized.Event) -> None:
         """Offer same-name stations from other surveys as plottable responses."""
         self._update_response_visibility(event.new)
+        if self._mt_data is not None and event.new:
+            self._on_load_clicked(event)
 
     def _on_plot_all_toggled(self, event: param.parameterized.Event) -> None:
         """Select (or clear) every same-name station in the response selector."""
@@ -331,6 +404,7 @@ class MTResponseEditorTab(param.Parameterized):
             return
 
         self._load_button.disabled = True
+        self._rms_pane.object = ""
         self._status.object = f"⏳ Loading **{station_key}**…"
         self._status.styles = {"color": "#555"}
 
@@ -358,8 +432,10 @@ class MTResponseEditorTab(param.Parameterized):
                 save_edits_callback=lambda z, t, mt_obj=mt_obj, key=station_key: (
                     self._save_edits(key, mt_obj, z, t)
                 ),
+                plot_model_error=self._error_type_widget.value == "model",
                 show_plot=False,
             )
+            self._rms_pane.object = self._rms_text(mt_obj, responses)
             self._display.objects = [plot_obj.panel(sizing_mode=self.sizing_mode)]
             self._status.object = f"✅ Loaded **{station_key}**."
             self._status.styles = {"color": "#1a6600"}
@@ -409,9 +485,12 @@ class MTResponseEditorTab(param.Parameterized):
                 pn.Column(self._plot_response_all_widget, self._plot_response_widget),
                 pn.Spacer(width=10),
                 self._load_button,
+                pn.Spacer(width=10),
+                self._error_type_widget,
                 align="end",
             ),
             self._status,
+            self._rms_pane,
             pn.layout.Divider(),
             self._display,
             sizing_mode=self.sizing_mode,
