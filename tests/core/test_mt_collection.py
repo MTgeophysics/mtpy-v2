@@ -40,6 +40,7 @@ from mth5.helpers import close_open_files, validate_name
 from mtpy import MT, MTCollection
 from mtpy.core import MTData
 
+
 # =============================================================================
 # Test MTCollection basic functionality
 # =============================================================================
@@ -373,6 +374,50 @@ def test_repeated_open_close_does_not_bloat_collection_file(
         f"allowed growth is {allowed_growth} bytes. "
         f"initial={initial_size}, final={final_size}"
     )
+
+
+def test_model_error_round_trip_through_collection(cleanup_test_collection_files):
+    """Impedance and tipper model errors must survive add_tf -> get_tf."""
+    import numpy as np
+
+    temp_dir = Path(tempfile.mkdtemp())
+    test_file = temp_dir / f"test_collection_model_error_{uuid.uuid4().hex[:8]}.h5"
+    cleanup_test_collection_files(test_file)
+
+    n = 8
+    mt = MT(station="ME01", survey="me_survey", frequency=np.logspace(2, -2, n))
+    mt.tf_id = "ME01"
+    z = np.zeros((n, 2, 2), dtype=complex)
+    z[:, 0, 1] = np.linspace(1, 8, n) * (1 + 1j)
+    z[:, 1, 0] = -z[:, 0, 1]
+    mt.impedance = z
+    mt.impedance_error = np.full((n, 2, 2), 0.1)
+    mt.impedance_model_error = np.full((n, 2, 2), 0.25)
+    tipper = np.zeros((n, 1, 2), dtype=complex)
+    tipper[:, 0, 0] = 0.1 + 0.1j
+    mt.tipper = tipper
+    mt.tipper_error = np.full((n, 1, 2), 0.01)
+    mt.tipper_model_error = np.full((n, 1, 2), 0.05)
+
+    with MTCollection() as mc:
+        mc.open_collection(test_file)
+        mc.add_tf(mt)
+        mc.close_collection()
+
+    with MTCollection() as mc:
+        mc.open_collection(test_file)
+        mt_out = mc.get_tf("ME01", survey="me_survey")
+
+        np.testing.assert_allclose(
+            mt_out.impedance_model_error.to_numpy(), np.full((n, 2, 2), 0.25)
+        )
+        np.testing.assert_allclose(
+            mt_out.tipper_model_error.to_numpy(), np.full((n, 1, 2), 0.05)
+        )
+        # regular errors still intact
+        np.testing.assert_allclose(
+            mt_out.impedance_error.to_numpy(), np.full((n, 2, 2), 0.1)
+        )
 
 
 # =============================================================================
