@@ -24,6 +24,9 @@ from mtpy.imaging.bokeh_plots.panel_mt_data_app import (
 )
 
 
+_EDIT_CLS = "mtpy.imaging.bokeh_plots.panel_mt_response_editor_tab.EditMTResponse"
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
@@ -715,7 +718,7 @@ def test_mt_data_loaded_populates_tf_editor_and_plots_data():
     mock_plot_obj.panel.return_value = pn.pane.Markdown("mock response editor")
 
     with patch(
-        "mtpy.imaging.bokeh_plots.panel_mt_data_app.EditMTResponse",
+        "mtpy.imaging.bokeh_plots.panel_mt_response_editor_tab.EditMTResponse",
         return_value=mock_plot_obj,
     ) as mock_edit_cls:
         app._tf_editor_app._on_load_clicked(None)
@@ -765,7 +768,7 @@ def test_tf_editor_multi_response_selector_and_loading():
     mock_plot_obj.panel.return_value = pn.pane.Markdown("mock response editor")
 
     with patch(
-        "mtpy.imaging.bokeh_plots.panel_mt_data_app.EditMTResponse",
+        "mtpy.imaging.bokeh_plots.panel_mt_response_editor_tab.EditMTResponse",
         return_value=mock_plot_obj,
     ) as mock_edit_cls:
         tf_tab._on_load_clicked(None)
@@ -878,7 +881,7 @@ def test_tf_editor_save_edits_replaces_station_and_refreshes_table():
     mock_plot_obj = MagicMock()
     mock_plot_obj.panel.return_value = pn.pane.Markdown("mock")
     with patch(
-        "mtpy.imaging.bokeh_plots.panel_mt_data_app.EditMTResponse",
+        "mtpy.imaging.bokeh_plots.panel_mt_response_editor_tab.EditMTResponse",
         return_value=mock_plot_obj,
     ) as mock_edit_cls:
         app._tf_editor_app._on_load_clicked(None)
@@ -912,7 +915,9 @@ def test_tf_editor_save_edits_updates_real_mtdata():
     mt_data = MTData()
     path = mt_data.add_station(mt)
 
-    from mtpy.imaging.bokeh_plots.panel_mt_data_app import MTResponseEditorTab
+    from mtpy.imaging.bokeh_plots.panel_mt_response_editor_tab import (
+        MTResponseEditorTab,
+    )
 
     tab = MTResponseEditorTab()
     tab.set_mt_data(mt_data)
@@ -937,15 +942,18 @@ def test_tf_editor_save_edits_updates_real_mtdata():
 
 
 def _editor_tab_with_stations(paths):
-    from mtpy.imaging.bokeh_plots.panel_mt_data_app import MTResponseEditorTab
+    from mtpy.imaging.bokeh_plots.panel_mt_response_editor_tab import (
+        MTResponseEditorTab,
+    )
 
     objs = {p: MagicMock(station=p.split("/")[-1]) for p in paths}
     mock_mt = MagicMock(spec=MTData)
     mock_mt._iter_station_paths = MagicMock(side_effect=lambda: iter(list(objs)))
     mock_mt.get_station.side_effect = lambda path, as_mt=True: objs[path]
     tab = MTResponseEditorTab()
-    with patch("mtpy.imaging.bokeh_plots.panel_mt_data_app.EditMTResponse"):
+    with patch(_EDIT_CLS):
         tab.set_mt_data(mock_mt)
+    tab._reset_plot()
     return tab, objs
 
 
@@ -954,19 +962,59 @@ def test_tf_editor_error_type_is_global_and_passed_to_plot():
     assert tab._error_type_widget.value == "data"
     for value, expected in (("model", True), ("data", False)):
         tab._error_type_widget.value = value
-        with patch(
-            "mtpy.imaging.bokeh_plots.panel_mt_data_app.EditMTResponse"
-        ) as edit_cls:
+        tab._reset_plot()
+        with patch(_EDIT_CLS) as edit_cls:
             edit_cls.return_value.panel.return_value = pn.pane.Markdown("x")
             tab._on_load_clicked(None)
         assert edit_cls.call_args.kwargs["plot_model_error"] is expected
+
+
+def test_tf_editor_reuses_plot_object_across_stations():
+    tab, _ = _editor_tab_with_stations(
+        ["/surveys/a/stations/MT01", "/surveys/a/stations/MT02"]
+    )
+    with patch(_EDIT_CLS) as edit_cls:
+        edit_cls.return_value.panel.return_value = pn.pane.Markdown("x")
+        tab._station_widget.value = "/surveys/a/stations/MT02"
+        tab._station_widget.value = "/surveys/a/stations/MT01"
+        tab._on_load_clicked(None)
+    edit_cls.assert_called_once()
+    plot_obj = edit_cls.return_value
+    plot_obj.panel.assert_called_once()
+    assert plot_obj.set_data.call_count == 2
+    assert plot_obj.set_data.call_args.kwargs["station"] == "MT01"
+    assert tab._display.objects == [plot_obj.panel.return_value]
+
+
+def test_tf_editor_set_data_failure_rebuilds_plot_object():
+    tab, _ = _editor_tab_with_stations(
+        ["/surveys/a/stations/MT01", "/surveys/a/stations/MT02"]
+    )
+    with patch(_EDIT_CLS) as edit_cls:
+        edit_cls.return_value.panel.return_value = pn.pane.Markdown("x")
+        tab._station_widget.value = "/surveys/a/stations/MT02"
+        edit_cls.return_value.set_data.side_effect = [RuntimeError("boom"), None]
+        tab._station_widget.value = "/surveys/a/stations/MT01"
+    assert edit_cls.call_count == 2
+    assert "Loaded" in tab._status.object
+
+
+def test_tf_editor_set_mt_data_drops_plot_object():
+    tab, _ = _editor_tab_with_stations(["/surveys/a/stations/MT01"])
+    with patch(_EDIT_CLS) as edit_cls:
+        edit_cls.return_value.panel.return_value = pn.pane.Markdown("x")
+        tab._on_load_clicked(None)
+    assert tab._plot_obj is not None
+    tab.set_mt_data(None)
+    assert tab._plot_obj is None
+    assert tab._display.objects == []
 
 
 def test_tf_editor_station_selection_autoplots():
     tab, _ = _editor_tab_with_stations(
         ["/surveys/a/stations/MT01", "/surveys/a/stations/MT02"]
     )
-    with patch("mtpy.imaging.bokeh_plots.panel_mt_data_app.EditMTResponse") as edit_cls:
+    with patch(_EDIT_CLS) as edit_cls:
         edit_cls.return_value.panel.return_value = pn.pane.Markdown("x")
         tab._station_widget.value = "/surveys/a/stations/MT02"
     edit_cls.assert_called_once()
@@ -975,10 +1023,12 @@ def test_tf_editor_station_selection_autoplots():
 
 
 def test_tf_editor_station_selection_without_data_does_not_plot():
-    from mtpy.imaging.bokeh_plots.panel_mt_data_app import MTResponseEditorTab
+    from mtpy.imaging.bokeh_plots.panel_mt_response_editor_tab import (
+        MTResponseEditorTab,
+    )
 
     tab = MTResponseEditorTab()
-    with patch("mtpy.imaging.bokeh_plots.panel_mt_data_app.EditMTResponse") as edit_cls:
+    with patch(_EDIT_CLS) as edit_cls:
         tab._station_widget.options = ["/surveys/a/stations/MT01"]
         tab._station_widget.value = "/surveys/a/stations/MT01"
     edit_cls.assert_not_called()
@@ -1000,7 +1050,9 @@ def _fake_mt(z, z_err, period, has_t=False):
 def test_rms_text_values_and_shared_periods():
     import numpy as np
 
-    from mtpy.imaging.bokeh_plots.panel_mt_data_app import MTResponseEditorTab
+    from mtpy.imaging.bokeh_plots.panel_mt_response_editor_tab import (
+        MTResponseEditorTab,
+    )
 
     period = np.array([0.1, 1.0, 10.0])
     z = np.zeros((3, 2, 2), dtype=complex)
@@ -1044,14 +1096,14 @@ def test_tf_editor_load_sets_and_clears_rms_pane():
 
     tab._station_widget.value = path_a
     tab._plot_response_widget.value = [path_b]
-    with patch("mtpy.imaging.bokeh_plots.panel_mt_data_app.EditMTResponse") as edit_cls:
+    with patch(_EDIT_CLS) as edit_cls:
         edit_cls.return_value.panel.return_value = pn.pane.Markdown("x")
         tab._on_load_clicked(None)
     assert "RMS vs b/MT01" in tab._rms_pane.object
     assert "Zxy=3.00" in tab._rms_pane.object
 
     tab._plot_response_widget.value = []
-    with patch("mtpy.imaging.bokeh_plots.panel_mt_data_app.EditMTResponse") as edit_cls:
+    with patch(_EDIT_CLS) as edit_cls:
         edit_cls.return_value.panel.return_value = pn.pane.Markdown("x")
         tab._on_load_clicked(None)
     assert tab._rms_pane.object == ""

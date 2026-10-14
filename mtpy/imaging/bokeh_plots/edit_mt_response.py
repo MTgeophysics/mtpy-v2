@@ -11,6 +11,7 @@ flip phase for a single station) and never plots the phase tensor.
 from __future__ import annotations
 
 import numpy as np
+import param
 from bokeh.io import show
 from bokeh.layouts import gridplot
 from bokeh.models import (
@@ -18,6 +19,8 @@ from bokeh.models import (
     CustomJSTickFormatter,
     FixedTicker,
     HoverTool,
+    Legend,
+    LegendItem,
     Whisker,
 )
 from bokeh.plotting import figure
@@ -58,6 +61,8 @@ class EditMTResponse(BokehPlotBase):
         "polynomial",
         "krogh",
     ]
+
+    _DEFAULT_PERIOD = np.logspace(-2, 2, 5)
 
     _MODEL_ERROR_COMP_INDEX = {
         "zxx": (0, 0),
@@ -103,6 +108,7 @@ class EditMTResponse(BokehPlotBase):
         self.rotation_angle = 0
 
         self.layout = None
+        self._panel_sync = None
         self.figures = {}
         self.renderers = {}
         self._log_x_figure_keys = set()
@@ -156,12 +162,16 @@ class EditMTResponse(BokehPlotBase):
 
     @property
     def period(self):
-        """Return period array from available transfer functions."""
+        """Return period array from available transfer functions.
+
+        Falls back to a default grid when there is no transfer function so an
+        empty (blank) layout can still be drawn.
+        """
         if self.Z is not None and not (self.Z.period == np.array([1])).all():
             return self.Z.period
         if self.Tipper is not None and not (self.Tipper.period == np.array([1])).all():
             return self.Tipper.period
-        raise ValueError("No transfer function data to plot. Check data.")
+        return self._DEFAULT_PERIOD
 
     @property
     def rotation_angle(self):
@@ -256,6 +266,50 @@ class EditMTResponse(BokehPlotBase):
         self._rotation_angle = 0
         self.plot_model_error = self._initial_plot_model_error
         return True
+
+    def set_data(
+        self,
+        z_object=None,
+        t_object=None,
+        responses=None,
+        station=None,
+        save_edits_callback=None,
+        plot_model_error=None,
+    ):
+        """Swap in a new station's data, keeping this object (and its panel).
+
+        All edit state (snapshots, masks, rotation, axis limits) is cleared.
+        When a Panel layout was built with :meth:`panel`, its widgets are
+        resynced and the figures redrawn inside the existing Bokeh pane.
+        """
+        self.Z = z_object.copy() if z_object is not None else None
+        self.Tipper = t_object.copy() if t_object is not None else None
+        self.responses = list(responses) if responses else []
+        self.Z_response = None
+        self.Tipper_response = None
+        if station is not None:
+            self.station = station
+            self._basename = f"{self.station}_mt_response_bokeh"
+        self.save_edits_callback = save_edits_callback
+
+        self.masked_tf_indices = {}
+        self._original_Z = None
+        self._original_Tipper = None
+        self._data_manipulated = False
+        self._model_error_edited = False
+        self._rotation_angle = 0
+        self.x_limits = None
+        self.res_limits = None
+        self.plot_z = self.Z is not None
+        self.plot_tipper = "yri" if self.Tipper is not None else "n"
+        if plot_model_error is not None:
+            self.plot_model_error = bool(plot_model_error)
+            self._initial_plot_model_error = bool(plot_model_error)
+
+        if self._panel_sync is not None:
+            self._panel_sync()
+        else:
+            self.layout = None
 
     def save_edits(self):
         """Send copies of the edited Z/Tipper to ``save_edits_callback``.
@@ -502,6 +556,18 @@ class EditMTResponse(BokehPlotBase):
                 "Install with `pip install bokeh`"
             )
 
+    def _z_has_data(self):
+        """True when an impedance object with non-zero values is available."""
+        return not (self.Z is None or self.Z.z is None or (self.Z.z == 0 + 0j).all())
+
+    def _tipper_has_data(self):
+        """True when a tipper object with non-zero values is available."""
+        return not (
+            self.Tipper is None
+            or self.Tipper.tipper is None
+            or (self.Tipper.tipper == 0 + 0j).all()
+        )
+
     def _has_z(self):
         if self.plot_z:
             if self.Z is None or self.Z.z is None or (self.Z.z == 0 + 0j).all():
@@ -711,9 +777,8 @@ class EditMTResponse(BokehPlotBase):
         ``index`` varies the dash/marker so several responses are distinguishable.
         """
         if source is None or len(source.data.get("period", [])) == 0:
-            return
+            return []
         glyph_color = self._response_shade(self._tuple_to_hex(color), index)
-        line_kwargs = {"legend_label": label} if label else {}
         line_renderer = fig.line(
             x="period",
             y="value",
@@ -721,7 +786,6 @@ class EditMTResponse(BokehPlotBase):
             color=glyph_color,
             line_width=max(self.lw, 1.5),
             line_dash=self._RESPONSE_DASHES[index % len(self._RESPONSE_DASHES)],
-            **line_kwargs,
         )
         scatter_renderer = fig.scatter(
             x="period",
@@ -735,6 +799,7 @@ class EditMTResponse(BokehPlotBase):
         self.renderers.setdefault(comp_key, []).extend(
             [line_renderer, scatter_renderer]
         )
+        return [line_renderer, scatter_renderer]
 
     def _add_component(
         self,
@@ -780,7 +845,6 @@ class EditMTResponse(BokehPlotBase):
             size=max(int(self.marker_size), 4),
             color=glyph_color,
             line_color=glyph_color,
-            legend_label=comp_label,
         )
 
         self.renderers.setdefault(comp_key, []).extend(
@@ -802,6 +866,95 @@ class EditMTResponse(BokehPlotBase):
             whisker.lower_head.line_color = glyph_color
             fig.add_layout(whisker)
             self.renderers.setdefault(comp_key, []).append(whisker)
+
+        return scatter_renderer
+
+    @staticmethod
+    def _interp_rms(x, y, x_resp, y_resp, log=False, masked=None):
+        """RMS misfit of a response interpolated (in log period) onto data periods.
+
+        Resistivity is compared in log10 units; phase and tipper in their own
+        units. Returns None when there is no overlap.
+        """
+        x = np.asarray(x, dtype=float)
+        y = np.asarray(y, dtype=float)
+        x_resp = np.asarray(x_resp, dtype=float)
+        y_resp = np.asarray(y_resp, dtype=float)
+        ok = np.isfinite(x_resp) & (x_resp > 0) & np.isfinite(y_resp)
+        if log:
+            ok &= y_resp > 0
+        if np.count_nonzero(ok) < 2:
+            return None
+        order = np.argsort(x_resp[ok])
+        xr = np.log10(x_resp[ok][order])
+        yr = y_resp[ok][order]
+        if log:
+            yr = np.log10(yr)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            lx = np.log10(x)
+            inside = np.isfinite(lx) & (lx >= xr[0]) & (lx <= xr[-1]) & np.isfinite(y)
+            if log:
+                inside &= y > 0
+            if masked:
+                idx = np.arange(x.size)
+                inside &= ~np.isin(idx, list(masked))
+            if not inside.any():
+                return None
+            model = np.interp(lx[inside], xr, yr)
+            obs = np.log10(y[inside]) if log else y[inside]
+        return float(np.sqrt(np.mean((obs - model) ** 2)))
+
+    def _z_response_rms(self, comp, kind, z_response):
+        if not self._z_has_data() or z_response is None:
+            return None
+        attr = "res" if kind == "res" else "phase"
+        return self._interp_rms(
+            self.Z.period,
+            self._get_values(self.Z, attr, comp),
+            z_response.period,
+            self._get_values(z_response, attr, comp),
+            log=kind == "res",
+            masked=self.masked_tf_indices.get(comp),
+        )
+
+    def _t_response_rms(self, comp_index, t_response):
+        """Combined real+imag RMS misfit for one tipper component."""
+        if not self._tipper_has_data() or t_response is None:
+            return None
+        comp = "tzx" if comp_index == 0 else "tzy"
+        x = 1.0 / np.asarray(self.Tipper.frequency, dtype=float)
+        xr = 1.0 / np.asarray(t_response.frequency, dtype=float)
+        sq = []
+        for part in ("real", "imag"):
+            d = self.Tipper.tipper[:, 0, comp_index]
+            r = t_response.tipper[:, 0, comp_index]
+            d = d.real if part == "real" else d.imag
+            r = r.real if part == "real" else r.imag
+            val = self._interp_rms(x, d, xr, r, masked=self.masked_tf_indices.get(comp))
+            if val is not None:
+                sq.append(val**2)
+        return float(np.sqrt(np.mean(sq))) if sq else None
+
+    @staticmethod
+    def _fmt_rms(*values):
+        parts = ["-" if v is None else f"{v:.2f}" for v in values]
+        return "RMS " + " / ".join(parts)
+
+    def _add_legend(self, fig, items, location=None):
+        """Attach one legend to `fig` (above the plot, or inside when `location`)."""
+        if not items:
+            return
+        legend = Legend(
+            items=[LegendItem(label=lbl, renderers=rends) for lbl, rends in items],
+            click_policy="hide",
+            label_text_font_size=f"{self.font_size + 2}px",
+        )
+        if location is None:
+            legend.orientation = "horizontal"
+            fig.add_layout(legend, "above")
+        else:
+            legend.location = location
+            fig.add_layout(legend, "center")
 
     def _make_resistivity_figure(self, x_range=None, width=800, height=320):
         kw = {}
@@ -952,34 +1105,41 @@ class EditMTResponse(BokehPlotBase):
         res_figs = {}
         phase_figs = {}
         shared_x_range = None
-
+        has_z = self._z_has_data()
+        has_tipper = self._tipper_has_data()
         for comp, label, color, marker in comps:
+            legend_items = []
+            resp_items = {}
             res_fig = self._make_resistivity_figure(
                 x_range=shared_x_range, width=fig_w, height=res_h
             )
             if shared_x_range is None:
                 shared_x_range = res_fig.x_range
-            if self._data_manipulated:
+            if self._data_manipulated and has_z:
                 self._add_gray_component(
                     res_fig, self._original_component_source(comp, kind="res"), marker
                 )
-            source_res = self._component_source(self.period, self.Z, comp, kind="res")
-            masked_res = self._component_source(
-                self.period, self.Z, comp, kind="res", masked=True
-            )
-            self._add_component(
-                res_fig,
-                source_res,
-                label,
-                color,
-                marker,
-                comp,
-                masked_source=masked_res,
-            )
+            if has_z:
+                source_res = self._component_source(
+                    self.period, self.Z, comp, kind="res"
+                )
+                masked_res = self._component_source(
+                    self.period, self.Z, comp, kind="res", masked=True
+                )
+                data_res = self._add_component(
+                    res_fig,
+                    source_res,
+                    label,
+                    color,
+                    marker,
+                    comp,
+                    masked_source=masked_res,
+                )
+                legend_items.append([label, [data_res]])
             for r_idx, (r_label, r_z, _r_t) in enumerate(self.responses):
                 if r_z is None:
                     continue
-                self._add_response_component(
+                rends = self._add_response_component(
                     res_fig,
                     self._response_component_source(comp, kind="res", z_response=r_z),
                     color,
@@ -987,6 +1147,12 @@ class EditMTResponse(BokehPlotBase):
                     index=r_idx,
                     label=r_label,
                 )
+                if rends:
+                    rms = self._fmt_rms(
+                        self._z_response_rms(comp, "res", r_z),
+                        self._z_response_rms(comp, "phase", r_z),
+                    )
+                    resp_items[r_idx] = [f"{r_label} ({rms})", rends]
             self._format_res_axis(res_fig)
             res_figs[comp] = res_fig
 
@@ -994,7 +1160,7 @@ class EditMTResponse(BokehPlotBase):
                 shared_x_range, width=fig_w, height=phase_h
             )
             yx_shift = comp == "yx"
-            if self._data_manipulated:
+            if self._data_manipulated and has_z:
                 self._add_gray_component(
                     phase_fig,
                     self._original_component_source(
@@ -1002,25 +1168,32 @@ class EditMTResponse(BokehPlotBase):
                     ),
                     marker,
                 )
-            source_phase = self._component_source(
-                self.period, self.Z, comp, kind="phase", yx_shift=yx_shift
-            )
-            masked_phase = self._component_source(
-                self.period, self.Z, comp, kind="phase", yx_shift=yx_shift, masked=True
-            )
-            self._add_component(
-                phase_fig,
-                source_phase,
-                label,
-                color,
-                marker,
-                comp,
-                masked_source=masked_phase,
-            )
+            if has_z:
+                source_phase = self._component_source(
+                    self.period, self.Z, comp, kind="phase", yx_shift=yx_shift
+                )
+                masked_phase = self._component_source(
+                    self.period,
+                    self.Z,
+                    comp,
+                    kind="phase",
+                    yx_shift=yx_shift,
+                    masked=True,
+                )
+                data_phase = self._add_component(
+                    phase_fig,
+                    source_phase,
+                    label,
+                    color,
+                    marker,
+                    comp,
+                    masked_source=masked_phase,
+                )
+                legend_items[0][1].append(data_phase)
             for r_idx, (_r_label, r_z, _r_t) in enumerate(self.responses):
                 if r_z is None:
                     continue
-                self._add_response_component(
+                rends = self._add_response_component(
                     phase_fig,
                     self._response_component_source(
                         comp, kind="phase", yx_shift=yx_shift, z_response=r_z
@@ -1029,6 +1202,13 @@ class EditMTResponse(BokehPlotBase):
                     comp,
                     index=r_idx,
                 )
+                if r_idx in resp_items:
+                    resp_items[r_idx][1].extend(rends)
+            self._add_legend(
+                res_fig,
+                [tuple(i) for i in legend_items]
+                + [tuple(resp_items[k]) for k in sorted(resp_items)],
+            )
             self._format_phase_axis(phase_fig)
             # Row 2 of 3 in the edit grid; the tipper row below already
             # carries the "Period (s)" x-axis label.
@@ -1037,8 +1217,12 @@ class EditMTResponse(BokehPlotBase):
             phase_figs[comp] = phase_fig
 
         res_limits = self.res_limits
-        phase_limits_od = self.set_phase_limits(self.Z.phase, mode="od")
-        phase_limits_diag = self.set_phase_limits(self.Z.phase, mode="d")
+        if has_z:
+            phase_limits_od = self.set_phase_limits(self.Z.phase, mode="od")
+            phase_limits_diag = self.set_phase_limits(self.Z.phase, mode="d")
+        else:
+            phase_limits_od = (0, 90)
+            phase_limits_diag = (-180, 180)
         for comp, _label, _color, _marker in comps:
             self._set_axis_limits(res_figs[comp], res_limits)
             phase_limits = (
@@ -1047,7 +1231,6 @@ class EditMTResponse(BokehPlotBase):
             self._set_axis_limits(phase_figs[comp], phase_limits)
             self._add_hover(res_figs[comp])
             self._add_hover(phase_figs[comp])
-            self._set_legends(res_figs[comp], phase_figs[comp])
             if comp != "xx":
                 res_figs[comp].yaxis.axis_label = ""
                 phase_figs[comp].yaxis.axis_label = ""
@@ -1059,29 +1242,39 @@ class EditMTResponse(BokehPlotBase):
             ("tip_imag_zy", 1, "imag", self.arrow_color_imag, "Im(Tzy)"),
         ]
         tip_figs = {}
+        tip_data = {}
+        tip_resp = {}
         for key, comp_index, part, color, label in tip_defs:
             tip_fig = self._make_phase_figure(shared_x_range, width=fig_w, height=tip_h)
-            if self._data_manipulated and self._original_Tipper is not None:
+            if (
+                self._data_manipulated
+                and has_tipper
+                and (self._original_Tipper is not None)
+            ):
                 gray_source = self._tipper_component_source(
                     comp_index, part, tipper_obj=self._original_Tipper
                 )
                 self._add_gray_component(tip_fig, gray_source, "o")
-            source = self._tipper_component_source(comp_index, part)
-            masked_source = self._tipper_component_source(comp_index, part, masked=True)
-            self._add_component(
-                tip_fig,
-                source,
-                label,
-                color,
-                "o",
-                key,
-                show_error=True,
-                masked_source=masked_source,
-            )
+            if has_tipper:
+                source = self._tipper_component_source(comp_index, part)
+                masked_source = self._tipper_component_source(
+                    comp_index, part, masked=True
+                )
+                data_r = self._add_component(
+                    tip_fig,
+                    source,
+                    label,
+                    color,
+                    "o",
+                    key,
+                    show_error=True,
+                    masked_source=masked_source,
+                )
+                tip_data[key] = [label, [data_r]]
             for r_idx, (_r_label, _r_z, r_t) in enumerate(self.responses):
                 if r_t is None:
                     continue
-                self._add_response_component(
+                rends = self._add_response_component(
                     tip_fig,
                     self._response_tipper_component_source(
                         comp_index, part, t_response=r_t
@@ -1090,12 +1283,26 @@ class EditMTResponse(BokehPlotBase):
                     key,
                     index=r_idx,
                 )
+                tip_resp.setdefault((comp_index, r_idx), []).extend(rends)
             tip_fig.yaxis.axis_label = label if key == "tip_real_zx" else ""
             tip_fig.xaxis.axis_label = "Period (s)"
             tip_fig.grid.grid_line_alpha = 0.25
             self._add_hover(tip_fig)
-            self._set_legends(tip_fig)
             tip_figs[key] = tip_fig
+
+        # One legend per tipper component (tzx, tzy) in its real-part plot,
+        # covering both the real and imaginary renderers.
+        for comp_index, real_key, imag_key in (
+            (0, "tip_real_zx", "tip_imag_zx"),
+            (1, "tip_real_zy", "tip_imag_zy"),
+        ):
+            items = [tuple(tip_data[k]) for k in (real_key, imag_key) if k in tip_data]
+            for r_idx, (r_label, _r_z, r_t) in enumerate(self.responses):
+                rends = tip_resp.get((comp_index, r_idx))
+                if rends:
+                    rms = self._fmt_rms(self._t_response_rms(comp_index, r_t))
+                    items.append((f"{r_label} ({rms})", rends))
+            self._add_legend(tip_figs[real_key], items, location="top_left")
 
         self.figures.update({f"res_{c}": res_figs[c] for c, *_ in comps})
         self.figures.update({f"phase_{c}": phase_figs[c] for c, *_ in comps})
@@ -1126,14 +1333,6 @@ class EditMTResponse(BokehPlotBase):
         )
         return self.layout
 
-    def _set_legends(self, *figs):
-        for fig in figs:
-            if len(fig.legend) == 0:
-                continue
-            fig.legend.click_policy = "hide"
-            fig.legend.location = "top_left"
-            fig.legend.label_text_font_size = f"{self.font_size + 2}px"
-
     def _set_component_visibility(self, selected_components):
         """Show/hide only the Zxx/Zxy/Zyx/Zyy renderers; tipper stays visible.
 
@@ -1158,11 +1357,8 @@ class EditMTResponse(BokehPlotBase):
         """Create and optionally show the Bokeh edit-mode layout."""
         self._require_bokeh()
 
-        self.plot_z = self._has_z()
-        self.plot_tipper = self._has_tipper()
-
-        if not self.plot_z:
-            raise ValueError("Bokeh EditMTResponse currently requires impedance data.")
+        self.plot_z = self._z_has_data()
+        self.plot_tipper = "yri" if self._tipper_has_data() else "n"
 
         if self.x_limits is None:
             self.x_limits = self.set_period_limits(self.period)
@@ -1171,8 +1367,10 @@ class EditMTResponse(BokehPlotBase):
         self._log_x_figure_keys = set()
 
         if self.res_limits is None:
-            self.res_limits = self.set_resistivity_limits(
-                self.Z.resistivity, mode="all"
+            self.res_limits = (
+                self.set_resistivity_limits(self.Z.resistivity, mode="all")
+                if self.plot_z
+                else [1e-1, 1e4]
             )
 
         self.figures = {}
@@ -1828,8 +2026,36 @@ class EditMTResponse(BokehPlotBase):
             model_err_card,
         )
 
+        title_pane = pn.pane.Markdown(f"## {title}")
+
+        def _sync_to_new_data() -> None:
+            """Resync widgets and redraw after :meth:`set_data` swapped the data."""
+            self.x_limits = self.set_period_limits(self.period)
+            new_min, new_max = float(self.period.min()), float(self.period.max())
+            interp_min_widget.value = new_min
+            interp_max_widget.value = new_max
+            interp_num_widget.value = int(self.period.size)
+            interp_keep_widget.value = True
+            for status in (interp_status, ss_status, flip_status, model_err_status):
+                status.object = ""
+            rotate_status.object = (
+                f"Current rotation angle: {self.rotation_angle:.4g} deg"
+            )
+            selection_status.object = (
+                "_Select impedance points with tap, box, or lasso, then mask them._"
+            )
+            selection_status.styles = {"color": "#555"}
+            save_button.visible = self.save_edits_callback is not None
+            title_pane.object = f"## {self.plot_title or self.station}"
+            # Setting error_widget would trigger a second replot via its watcher.
+            with param.parameterized.discard_events(error_widget):
+                error_widget.value = "model" if self.plot_model_error else "data"
+            _refresh_plot_and_widgets()
+
+        self._panel_sync = _sync_to_new_data
+
         return pn.Column(
-            pn.pane.Markdown(f"## {title}"),
+            title_pane,
             controls,
             cards,
             edit_controls,

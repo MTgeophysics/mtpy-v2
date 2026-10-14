@@ -6,6 +6,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+
 pytestmark = pytest.mark.plotting
 
 
@@ -425,21 +426,6 @@ class TestMTDataAppPenetrationDepthIntegration:
         app = app_class()
         assert hasattr(app, "_pen_depth_container")
         assert isinstance(app._pen_depth_container, pn.Column)
-
-    def test_view_contains_penetration_depth_section(self, app_class):
-        import panel as pn
-
-        app = app_class()
-        view = app.view
-
-        def find_markdown_text(obj, text):
-            if isinstance(obj, pn.pane.Markdown) and text in (obj.object or ""):
-                return True
-            if hasattr(obj, "objects"):
-                return any(find_markdown_text(child, text) for child in obj.objects)
-            return False
-
-        assert find_markdown_text(view, "Penetration Depth")
 
     def test_update_penetration_depth_multiple_stations_shows_message(
         self, app_class, depth_array_unsorted

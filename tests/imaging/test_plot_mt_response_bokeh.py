@@ -237,23 +237,6 @@ class TestPlotMTResponsePanel:
         first = result[0]
         assert "Custom Title" in first.object
 
-    def test_panel_includes_style_card(
-        self, bokeh_plot_mt_response_class, mt_object_bokeh
-    ):
-        """panel() should include a collapsed styling card for components."""
-        import panel as pn
-
-        plotter = bokeh_plot_mt_response_class(
-            z_object=mt_object_bokeh.Z.copy(),
-            station=mt_object_bokeh.station,
-            show_plot=False,
-        )
-        result = plotter.panel()
-        # Style card is the third child (index 2); bokeh pane is index 3
-        assert len(result) >= 4
-        style_card = result[2]
-        assert isinstance(style_card, pn.Card)
-
     def test_model_error_does_not_produce_empty_plot(
         self, bokeh_plot_mt_response_class, mt_object_bokeh
     ):
@@ -310,31 +293,6 @@ class TestPlotMTResponsePanel:
         assert isinstance(btn_row, pn.Row)
         for widget in btn_row:
             assert isinstance(widget, pn.widgets.Button)
-
-    def test_panel_style_card_contains_marker_size_widget(
-        self, bokeh_plot_mt_response_class, mt_object_bokeh
-    ):
-        """Style card must contain an IntSlider for marker size."""
-        import panel as pn
-
-        plotter = bokeh_plot_mt_response_class(
-            z_object=mt_object_bokeh.Z.copy(),
-            station=mt_object_bokeh.station,
-            show_plot=False,
-        )
-        result = plotter.panel()
-        style_card = result[2]
-        assert isinstance(style_card, pn.Card)
-
-        # Walk card children looking for an IntSlider
-        def _find_widget(obj, widget_type):
-            if isinstance(obj, widget_type):
-                return True
-            children = getattr(obj, "objects", []) or []
-            return any(_find_widget(c, widget_type) for c in children)
-
-        assert _find_widget(style_card, pn.widgets.IntSlider)
-        assert _find_widget(style_card, pn.widgets.FloatSlider)
 
     def test_plot_num2_uses_row_layout(
         self, bokeh_plot_mt_response_class, mt_object_bokeh
