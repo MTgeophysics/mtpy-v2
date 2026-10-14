@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -654,6 +655,18 @@ def test_save_writes_mt_data_to_mth5(tmp_path):
     mock_collection.from_mt_data.assert_called_once_with(mock_mt_data)
     mock_collection.close_collection.assert_called_once()
     assert "Saved" in app._status.object
+
+
+@pytest.mark.plotting
+def test_save_path_follows_data_file_selector_directory(tmp_path):
+    """Browsing to a folder in the data file selector retargets the save path."""
+    app = _make_app()
+    app._save_filename_widget.value = str(tmp_path / "keep_name.h5")
+
+    other = tmp_path / "sub"
+    other.mkdir()
+    app._file_selector.directory = str(other)
+    assert Path(app._save_filename_widget.value) == other / "keep_name.h5"
 
 
 # ── Integration test with real EDI file ──────────────────────────────────────

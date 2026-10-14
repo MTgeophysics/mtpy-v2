@@ -369,6 +369,9 @@ class MTDataApp(param.Parameterized):
         )
         self._save_button.on_click(self._on_save_clicked)
 
+        # The save folder follows the folder browsed in the data file selector.
+        self._file_selector.param.watch(self._on_save_directory_changed, "directory")
+
         # ── Wire file-pattern and directory changes ───────────────────────
         self._file_pattern_widget.param.watch(self._on_file_pattern_changed, "value")
         self.param.watch(self._on_data_directory_changed, "data_directory")
@@ -733,6 +736,12 @@ class MTDataApp(param.Parameterized):
         # Refresh snapshot and table from MTData
         self._station_table.value = _build_station_summary(self._mt_data)
         self._pre_edit_station_df = self._station_table.value.copy()
+
+    def _on_save_directory_changed(self, event: param.parameterized.Event) -> None:
+        """Point the output path at the browsed folder, keeping the file name."""
+        current = Path(self._save_filename_widget.value.strip() or "mt_collection.h5")
+        name = current.name or "mt_collection.h5"
+        self._save_filename_widget.value = str(Path(event.new) / name)
 
     def _on_save_clicked(self, event: param.parameterized.Event) -> None:
         """Save current MTData to an MTH5 file."""
