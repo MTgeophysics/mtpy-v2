@@ -1068,6 +1068,10 @@ class MTDataApp(param.Parameterized):
                 self._load_button,
                 pn.Spacer(width=10),
                 self._reset_button,
+                pn.Spacer(width=10),
+                self._save_button,
+                pn.Spacer(width=10),
+                self._save_filename_widget,
                 align="center",
             ),
             sizing_mode=self.sizing_mode,
@@ -1092,16 +1096,16 @@ class MTDataApp(param.Parameterized):
             sizing_mode=self.sizing_mode,
         )
 
-        save_section = pn.Column(
-            pn.pane.Markdown("### Save Data"),
-            pn.Row(
-                self._save_filename_widget,
-                pn.Spacer(width=10),
-                self._save_button,
-                align="end",
-            ),
-            sizing_mode=self.sizing_mode,
-        )
+        # save_section = pn.Column(
+        #     pn.pane.Markdown("### Save Data"),
+        #     pn.Row(
+        #         self._save_filename_widget,
+        #         pn.Spacer(width=10),
+        #         self._save_button,
+        #         align="end",
+        #     ),
+        #     sizing_mode=self.sizing_mode,
+        # )
 
         data_tab = pn.Column(
             file_controls,
@@ -1109,13 +1113,7 @@ class MTDataApp(param.Parameterized):
             status_row,
             station_section,
             # pn.layout.Divider(),
-            # pn.Column(
-            #     pn.pane.Markdown("### Penetration Depth"),
-            #     self._pen_depth_container,
-            #     sizing_mode=self.sizing_mode,
-            # ),
-            pn.layout.Divider(),
-            save_section,
+            # save_section,
             sizing_mode=self.sizing_mode,
         )
 
