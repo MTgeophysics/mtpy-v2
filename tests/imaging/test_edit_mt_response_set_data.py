@@ -210,13 +210,15 @@ def test_single_legend_per_column_with_rms_and_tipper_legends():
         assert legends(f"phase_{comp}") == []
     labels = [i.label["value"] for i in legends("res_xy")[0].items]
     assert labels[0] == "Zxy"
-    assert labels[1].startswith("Resp (RMS ") and "/" in labels[1]
+    assert len(labels) == 2
+    assert labels[1].startswith("Resp (RMS ") and "/" not in labels[1]
 
     assert len(legends("tip_real_zx")) == 1 and len(legends("tip_real_zy")) == 1
     assert legends("tip_imag_zx") == [] and legends("tip_imag_zy") == []
     t_labels = [i.label["value"] for i in legends("tip_real_zx")[0].items]
-    assert t_labels[:2] == ["Re(Tzx)", "Im(Tzx)"]
-    assert t_labels[2].startswith("Resp (RMS ")
+    assert len(t_labels) == 2 and t_labels[0] == "Tzx"
+    assert t_labels[1].startswith("Resp (RMS ")
+    assert legends("res_xy")[0].orientation == "vertical"
 
 
 def test_interp_rms_zero_for_identical_and_none_without_overlap():
@@ -224,3 +226,11 @@ def test_interp_rms_zero_for_identical_and_none_without_overlap():
     y = np.linspace(1, 9, 9)
     assert EditMTResponse._interp_rms(x, y, x, y) == pytest.approx(0.0)
     assert EditMTResponse._interp_rms(x, y, x * 1e6, y) is None
+
+
+def test_legend_label_strips_station_suffix():
+    mt = _make_mt("A")
+    editor = _editor(mt)
+    assert editor._legend_label("model/A") == "model"
+    assert editor._legend_label("model/B") == "model/B"
+    assert editor._legend_label("/A") == "/A"

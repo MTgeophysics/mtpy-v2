@@ -904,53 +904,69 @@ class EditMTResponse(BokehPlotBase):
             obs = np.log10(y[inside]) if log else y[inside]
         return float(np.sqrt(np.mean((obs - model) ** 2)))
 
-    def _z_response_rms(self, comp, kind, z_response):
+    _Z_COMP_INDEX = {"xx": (0, 0), "xy": (0, 1), "yx": (1, 0), "yy": (1, 1)}
+
+    def _complex_rms(self, x, d, x_resp, r, masked=None):
+        """RMS of the complex misfit (real and imag parts combined)."""
+        sq = []
+        for part in (np.real, np.imag):
+            val = self._interp_rms(x, part(d), x_resp, part(r), masked=masked)
+            if val is not None:
+                sq.append(val**2)
+        return float(np.sqrt(np.sum(sq))) if sq else None
+
+    def _z_response_rms(self, comp, z_response):
+        """Single RMS misfit between data and response for one impedance component."""
         if not self._z_has_data() or z_response is None:
             return None
-        attr = "res" if kind == "res" else "phase"
-        return self._interp_rms(
+        i, j = self._Z_COMP_INDEX[comp]
+        return self._complex_rms(
             self.Z.period,
-            self._get_values(self.Z, attr, comp),
+            self.Z.z[:, i, j],
             z_response.period,
-            self._get_values(z_response, attr, comp),
-            log=kind == "res",
+            z_response.z[:, i, j],
             masked=self.masked_tf_indices.get(comp),
         )
 
     def _t_response_rms(self, comp_index, t_response):
-        """Combined real+imag RMS misfit for one tipper component."""
+        """RMS misfit between data and response for one tipper component."""
         if not self._tipper_has_data() or t_response is None:
             return None
         comp = "tzx" if comp_index == 0 else "tzy"
-        x = 1.0 / np.asarray(self.Tipper.frequency, dtype=float)
-        xr = 1.0 / np.asarray(t_response.frequency, dtype=float)
-        sq = []
-        for part in ("real", "imag"):
-            d = self.Tipper.tipper[:, 0, comp_index]
-            r = t_response.tipper[:, 0, comp_index]
-            d = d.real if part == "real" else d.imag
-            r = r.real if part == "real" else r.imag
-            val = self._interp_rms(x, d, xr, r, masked=self.masked_tf_indices.get(comp))
-            if val is not None:
-                sq.append(val**2)
-        return float(np.sqrt(np.mean(sq))) if sq else None
+        return self._complex_rms(
+            1.0 / np.asarray(self.Tipper.frequency, dtype=float),
+            self.Tipper.tipper[:, 0, comp_index],
+            1.0 / np.asarray(t_response.frequency, dtype=float),
+            t_response.tipper[:, 0, comp_index],
+            masked=self.masked_tf_indices.get(comp),
+        )
+
+    def _legend_label(self, label):
+        """Drop a trailing '/{station}' since responses share the data's station."""
+        label = str(label)
+        suffix = f"/{self.station}"
+        if self.station and label.endswith(suffix) and len(label) > len(suffix):
+            return label[: -len(suffix)]
+        return label
 
     @staticmethod
-    def _fmt_rms(*values):
-        parts = ["-" if v is None else f"{v:.2f}" for v in values]
-        return "RMS " + " / ".join(parts)
+    def _fmt_rms(value):
+        return "RMS -" if value is None else f"RMS {value:.2f}"
 
     def _add_legend(self, fig, items, location=None):
-        """Attach one legend to `fig` (above the plot, or inside when `location`)."""
+        """Attach one legend to `fig` (above the plot, or inside when `location`).
+
+        Items are stacked as one row each.
+        """
         if not items:
             return
         legend = Legend(
             items=[LegendItem(label=lbl, renderers=rends) for lbl, rends in items],
             click_policy="hide",
+            orientation="vertical",
             label_text_font_size=f"{self.font_size + 2}px",
         )
         if location is None:
-            legend.orientation = "horizontal"
             fig.add_layout(legend, "above")
         else:
             legend.location = location
@@ -1148,11 +1164,11 @@ class EditMTResponse(BokehPlotBase):
                     label=r_label,
                 )
                 if rends:
-                    rms = self._fmt_rms(
-                        self._z_response_rms(comp, "res", r_z),
-                        self._z_response_rms(comp, "phase", r_z),
-                    )
-                    resp_items[r_idx] = [f"{r_label} ({rms})", rends]
+                    rms = self._fmt_rms(self._z_response_rms(comp, r_z))
+                    resp_items[r_idx] = [
+                        f"{self._legend_label(r_label)} ({rms})",
+                        rends,
+                    ]
             self._format_res_axis(res_fig)
             res_figs[comp] = res_fig
 
@@ -1296,12 +1312,17 @@ class EditMTResponse(BokehPlotBase):
             (0, "tip_real_zx", "tip_imag_zx"),
             (1, "tip_real_zy", "tip_imag_zy"),
         ):
-            items = [tuple(tip_data[k]) for k in (real_key, imag_key) if k in tip_data]
+            items = []
+            data_rends = [
+                r for k in (real_key, imag_key) if k in tip_data for r in tip_data[k][1]
+            ]
+            if data_rends:
+                items.append(("Tzx" if comp_index == 0 else "Tzy", data_rends))
             for r_idx, (r_label, _r_z, r_t) in enumerate(self.responses):
                 rends = tip_resp.get((comp_index, r_idx))
                 if rends:
                     rms = self._fmt_rms(self._t_response_rms(comp_index, r_t))
-                    items.append((f"{r_label} ({rms})", rends))
+                    items.append((f"{self._legend_label(r_label)} ({rms})", rends))
             self._add_legend(tip_figs[real_key], items, location="top_left")
 
         self.figures.update({f"res_{c}": res_figs[c] for c, *_ in comps})
