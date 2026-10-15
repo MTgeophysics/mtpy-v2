@@ -40,6 +40,7 @@ class MTResponseEditorTab(param.Parameterized):
         # Persistent editor and its Panel layout, reused across stations.
         self._plot_obj = None
         self._plot_panel = None
+        self._station_index = 0
 
         self._station_widget = pn.widgets.Select(name="Station", options=[], width=320)
         self._plot_response_all_widget = pn.widgets.Checkbox(
@@ -56,6 +57,19 @@ class MTResponseEditorTab(param.Parameterized):
             visible=False,
         )
         self._station_widget.param.watch(self._on_station_selected, "value")
+
+        # # click next for next station
+        # self._next_station_button = pn.widgets.Button(
+        #     name="Next Station", button_type="primary", width=160
+        # )
+        # self._next_station_button.on_click(self._add_station_index)
+
+        # # click previous for previous station
+        # self._previous_station_button = pn.widgets.Button(
+        #     name="Previous Station", button_type="primary", width=160
+        # )
+        # self._previous_station_button.on_click(self._subtract_station_index)
+
         self._load_button = pn.widgets.Button(
             name="Load Station",
             button_type="primary",
@@ -170,6 +184,16 @@ class MTResponseEditorTab(param.Parameterized):
         if self._mt_data is not None and event.new:
             self._on_load_clicked(event)
 
+    # def _add_station_index(self, event: param.parameterized.Event) -> None:
+    #     """Add one to the station index to plot the next station."""
+    #     self._station_index += 1
+    #     self._station_widget.value = self._station_widget.options[self._station_index]
+
+    # def _subtract_station_index(self, event: param.parameterized.Event) -> None:
+    #     """Subtract one to the station index to plot the previous station."""
+    #     self._station_index -= 1
+    #     self._station_widget.value = self._station_widget.options[self._station_index]
+
     def _on_plot_all_toggled(self, event: param.parameterized.Event) -> None:
         """Select (or clear) every same-name station in the response selector."""
         options = self._plot_response_widget.options or {}
@@ -217,7 +241,8 @@ class MTResponseEditorTab(param.Parameterized):
         paths = list(mt_data._iter_station_paths())
         self._station_widget.options = paths
         if paths:
-            self._station_widget.value = paths[0]
+            self._station_index = 0
+            self._station_widget.value = paths[self._station_index]
         self._update_response_visibility(self._station_widget.value)
         self._load_button.disabled = not bool(paths)
         self._status.object = "_Select a station and click **Load Station**._"
@@ -264,6 +289,9 @@ class MTResponseEditorTab(param.Parameterized):
             return
 
         station_key = self._station_widget.value
+        # self._station_index = self._station_widget.options.index(
+        #     self._station_index.value
+        # )
         if not station_key:
             self._status.object = "⚠️ No station selected."
             self._status.styles = {"color": "#7a5200"}
@@ -354,6 +382,10 @@ class MTResponseEditorTab(param.Parameterized):
             ),
             pn.Row(
                 self._station_widget,
+                # pn.Column(
+                #     self._station_widget,
+                #     pn.Row(self._next_station_button, self._previous_station_button),
+                # ),
                 pn.Spacer(width=10),
                 pn.Column(self._plot_response_all_widget, self._plot_response_widget),
                 pn.Spacer(width=5),
