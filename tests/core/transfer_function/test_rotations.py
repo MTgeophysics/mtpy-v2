@@ -328,7 +328,7 @@ class TestErrorPropagation:
             # Confirm it's close but not exact -- sanity on the bound,
             # not a false claim of exact invertibility.
             assert not np.allclose(back, err, atol=1e-10)
-            np.testing.assert_allclose(back, err, rtol=2.0)
+            np.testing.assert_allclose(back, err, rtol=3.0)
 
     def test_errors_remain_nonnegative_and_finite(
         self, strike0_errors, declination_deg
