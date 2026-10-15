@@ -320,10 +320,15 @@ class EditMTResponse(BokehPlotBase):
         if self.save_edits_callback is None:
             raise RuntimeError("No save_edits_callback was provided.")
 
-        self.save_edits_callback(
-            self.Z.copy() if self.Z is not None else None,
-            self.Tipper.copy() if self.Tipper is not None else None,
-        )
+        # Masked (removed) points must be written out as NaN; otherwise they
+        # silently reappear because the masks are only kept on this editor.
+        z_out, t_out = self._masked_copies()
+        self.save_edits_callback(z_out, t_out)
+
+        if z_out is not None:
+            self.Z = z_out.copy()
+        if t_out is not None:
+            self.Tipper = t_out.copy()
 
         self.masked_tf_indices = {}
         self._original_Z = None
