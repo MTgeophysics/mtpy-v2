@@ -1452,7 +1452,7 @@ class EditMTResponse(BokehPlotBase):
         )
         reset_button = pn.widgets.Button(
             name="Reset",
-            button_type="default",
+            button_type="danger",
             width=130,
         )
 
@@ -2035,6 +2035,7 @@ class EditMTResponse(BokehPlotBase):
             pn.Column(pn.pane.Markdown("**Period Window**"), period_widget),
         )
         edit_controls = pn.Row(
+            error_widget,
             mask_selected_button,
             add_model_error_selected_button,
             reset_button,
@@ -2082,7 +2083,7 @@ class EditMTResponse(BokehPlotBase):
 
         return pn.Column(
             title_pane,
-            controls,
+            # controls,
             cards,
             edit_controls,
             bokeh_pane,
