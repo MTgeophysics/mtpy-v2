@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
 import panel as pn
 import param
 
@@ -40,9 +39,9 @@ class MTResponseEditorTab(param.Parameterized):
         # Persistent editor and its Panel layout, reused across stations.
         self._plot_obj = None
         self._plot_panel = None
-        self._station_index = 0
-
-        self._station_widget = pn.widgets.Select(name="Station", options=[], width=320)
+        self._station_widget = pn.widgets.Select(
+            name="Select Station", options=[], width=320
+        )
         self._plot_response_all_widget = pn.widgets.Checkbox(
             name="Plot Response",
             value=False,
@@ -58,17 +57,15 @@ class MTResponseEditorTab(param.Parameterized):
         )
         self._station_widget.param.watch(self._on_station_selected, "value")
 
-        # # click next for next station
-        # self._next_station_button = pn.widgets.Button(
-        #     name="Next Station", button_type="primary", width=160
-        # )
-        # self._next_station_button.on_click(self._add_station_index)
-
-        # # click previous for previous station
-        # self._previous_station_button = pn.widgets.Button(
-        #     name="Previous Station", button_type="primary", width=160
-        # )
-        # self._previous_station_button.on_click(self._subtract_station_index)
+        self._previous_station_button = pn.widgets.Button(
+            name="◀ Previous", button_type="default", width=155, disabled=True
+        )
+        self._previous_station_button.on_click(lambda _event: self._step_station(-1))
+        self._next_station_button = pn.widgets.Button(
+            name="Next ▶", button_type="default", width=155, disabled=True
+        )
+        self._next_station_button.on_click(lambda _event: self._step_station(1))
+        self._station_widget.param.watch(self._update_nav_buttons, ["value", "options"])
 
         self._load_button = pn.widgets.Button(
             name="Load Station",
@@ -95,64 +92,19 @@ class MTResponseEditorTab(param.Parameterized):
         )
 
     @staticmethod
-    def _rms_text(mt_obj: Any, responses: list) -> str:
-        """RMS of (data - response) / model error per component, per response.
-
-        Mirrors modem_plot_response_gui: only periods shared with the response
-        and non-zero response values are included.
-        """
-
-        def _rms(data, resp, err, d_period, r_period, shape_idx):
-            idx = np.where(np.isin(d_period, r_period))[0]
-            ridx = np.where(np.isin(r_period, d_period))[0]
-            if len(idx) == 0:
-                return None
-            ii, jj = shape_idx
-            d = data[idx, ii, jj]
-            r = resp[ridx, ii, jj]
-            with np.errstate(divide="ignore", invalid="ignore"):
-                diff = (d - r) / err[idx, ii, jj]
-            valid = (r != 0) & np.isfinite(diff)
-            if not valid.any():
-                return None
-            return float(np.sqrt(np.mean(np.abs(diff[valid]) ** 2)))
-
-        lines = []
-        for label, z_resp, t_resp in responses:
-            parts = []
-            if mt_obj.has_impedance() and z_resp is not None:
-                err = mt_obj.Z.z_model_error
-                if err is None or not np.any(err):
-                    err = mt_obj.Z.z_error
-                for name, ij in (
-                    ("Zxx", (0, 0)),
-                    ("Zxy", (0, 1)),
-                    ("Zyx", (1, 0)),
-                    ("Zyy", (1, 1)),
-                ):
-                    val = _rms(
-                        mt_obj.Z.z, z_resp.z, err, mt_obj.Z.period, z_resp.period, ij
-                    )
-                    if val is not None:
-                        parts.append(f"{name}={val:.2f}")
-            if mt_obj.has_tipper() and t_resp is not None:
-                err = mt_obj.Tipper.tipper_model_error
-                if err is None or not np.any(err):
-                    err = mt_obj.Tipper.tipper_error
-                for name, ij in (("Tx", (0, 0)), ("Ty", (0, 1))):
-                    val = _rms(
-                        mt_obj.Tipper.tipper,
-                        t_resp.tipper,
-                        err,
-                        mt_obj.Tipper.period,
-                        t_resp.period,
-                        ij,
-                    )
-                    if val is not None:
-                        parts.append(f"{name}={val:.2f}")
-            if parts:
-                lines.append(f"**RMS vs {label}:** " + ", ".join(parts))
+    def _rms_text(summary: list) -> str:
+        """Format ``EditMTResponse.rms_summary()`` (the legend RMS values)."""
+        lines = [
+            f"**RMS vs {label}:** "
+            + ", ".join(f"{name}={val:.2f}" for name, val in values.items())
+            for label, values in summary
+            if values
+        ]
         return "  \n".join(lines)
+
+    def _update_rms(self, summary: list) -> None:
+        """Show the editor's current RMS; called whenever the editor replots."""
+        self._rms_pane.object = self._rms_text(summary)
 
     @staticmethod
     def _split_station_path(station_key: str) -> tuple[str, str, str, str] | None:
@@ -184,15 +136,32 @@ class MTResponseEditorTab(param.Parameterized):
         if self._mt_data is not None and event.new:
             self._on_load_clicked(event)
 
-    # def _add_station_index(self, event: param.parameterized.Event) -> None:
-    #     """Add one to the station index to plot the next station."""
-    #     self._station_index += 1
-    #     self._station_widget.value = self._station_widget.options[self._station_index]
+    @property
+    def _station_index(self) -> int:
+        """Index of the selected station in the picker options, or -1 if none."""
+        options = list(self._station_widget.options or [])
+        value = self._station_widget.value
+        return options.index(value) if value in options else -1
 
-    # def _subtract_station_index(self, event: param.parameterized.Event) -> None:
-    #     """Subtract one to the station index to plot the previous station."""
-    #     self._station_index -= 1
-    #     self._station_widget.value = self._station_widget.options[self._station_index]
+    @_station_index.setter
+    def _station_index(self, index: int) -> None:
+        """Select the station at *index*, clamped to the available options."""
+        options = list(self._station_widget.options or [])
+        if options:
+            self._station_widget.value = options[max(0, min(index, len(options) - 1))]
+
+    def _step_station(self, step: int) -> None:
+        """Move the selection by *step* stations (selecting triggers the load)."""
+        index = self._station_index
+        if index >= 0:
+            self._station_index = index + step
+
+    def _update_nav_buttons(self, *_events: param.parameterized.Event) -> None:
+        """Enable previous/next only when there is a station in that direction."""
+        index = self._station_index
+        count = len(self._station_widget.options or [])
+        self._previous_station_button.disabled = index <= 0
+        self._next_station_button.disabled = index < 0 or index >= count - 1
 
     def _on_plot_all_toggled(self, event: param.parameterized.Event) -> None:
         """Select (or clear) every same-name station in the response selector."""
@@ -242,7 +211,6 @@ class MTResponseEditorTab(param.Parameterized):
         self._station_widget.options = paths
         if paths:
             self._station_index = 0
-            self._station_widget.value = paths[self._station_index]
         self._update_response_visibility(self._station_widget.value)
         self._load_button.disabled = not bool(paths)
         self._status.object = "_Select a station and click **Load Station**._"
@@ -280,6 +248,8 @@ class MTResponseEditorTab(param.Parameterized):
                 show_plot=False,
             )
             self._plot_panel = self._plot_obj.panel(sizing_mode=self.sizing_mode)
+        self._plot_obj.rms_callback = self._update_rms
+        self._update_rms(self._plot_obj.rms_summary())
         self._display.objects = [self._plot_panel]
 
     def _on_load_clicked(self, event: param.parameterized.Event) -> None:
@@ -289,9 +259,6 @@ class MTResponseEditorTab(param.Parameterized):
             return
 
         station_key = self._station_widget.value
-        # self._station_index = self._station_widget.options.index(
-        #     self._station_index.value
-        # )
         if not station_key:
             self._status.object = "⚠️ No station selected."
             self._status.styles = {"color": "#7a5200"}
@@ -337,7 +304,6 @@ class MTResponseEditorTab(param.Parameterized):
                     station_key,
                     self._error_type_widget.value == "model",
                 )
-            self._rms_pane.object = self._rms_text(mt_obj, responses)
             self._status.object = f"✅ Loaded **{station_key}**."
             self._status.styles = {"color": "#1a6600"}
         except Exception as exc:
@@ -375,17 +341,16 @@ class MTResponseEditorTab(param.Parameterized):
         """Return the complete Panel layout for this tab."""
         return pn.Column(
             pn.pane.Markdown("### MT Response Editor"),
-            pn.pane.Markdown(
-                "_Edit mode only: mask points, add model error, interpolate, "
-                "static shift, rotate, and flip phase for a single station._",
-                styles={"color": "#777", "font-size": "0.85em"},
-            ),
+            # pn.pane.Markdown(
+            #     "_Edit mode only: mask points, add model error, interpolate, "
+            #     "static shift, rotate, and flip phase for a single station._",
+            #     styles={"color": "#777", "font-size": "0.85em"},
+            # ),
             pn.Row(
-                self._station_widget,
-                # pn.Column(
-                #     self._station_widget,
-                #     pn.Row(self._next_station_button, self._previous_station_button),
-                # ),
+                pn.Column(
+                    self._station_widget,
+                    pn.Row(self._previous_station_button, self._next_station_button),
+                ),
                 pn.Spacer(width=10),
                 pn.Column(self._plot_response_all_widget, self._plot_response_widget),
                 pn.Spacer(width=5),

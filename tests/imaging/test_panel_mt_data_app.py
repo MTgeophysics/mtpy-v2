@@ -1047,77 +1047,14 @@ def test_tf_editor_station_selection_without_data_does_not_plot():
     edit_cls.assert_not_called()
 
 
-def _fake_mt(z, z_err, period, has_t=False):
-    pass
-
-    mt = MagicMock()
-    mt.has_impedance.return_value = True
-    mt.has_tipper.return_value = has_t
-    mt.Z.z = z
-    mt.Z.z_model_error = z_err
-    mt.Z.z_error = z_err
-    mt.Z.period = period
-    return mt
-
-
-def test_rms_text_values_and_shared_periods():
-    import numpy as np
-
-    from mtpy.imaging.bokeh_plots.panel_mt_response_editor_tab import (
-        MTResponseEditorTab,
-    )
-
-    period = np.array([0.1, 1.0, 10.0])
-    z = np.zeros((3, 2, 2), dtype=complex)
-    z[:, 0, 1] = [1, 2, 3]
-    err = np.ones((3, 2, 2))
-    mt = _fake_mt(z, err, period)
-
-    # Identical response -> zero RMS for xy; zero-valued components skipped
-    same = MagicMock(z=z.copy(), period=period)
-    text = MTResponseEditorTab._rms_text(mt, [("b/MT01", same, None)])
-    assert "RMS vs b/MT01" in text
-    assert "Zxy=0.00" in text
-    assert "Zxx" not in text
-
-    # Constant offset of 2 over err 1 -> RMS 2
-    z2 = z.copy()
-    z2[:, 0, 1] += 2
-    off = MagicMock(z=z2, period=period)
-    assert "Zxy=2.00" in MTResponseEditorTab._rms_text(mt, [("c/MT01", off, None)])
-
-    # Response on a subset of periods only compares shared ones
-    sub = MagicMock(z=z2[1:], period=period[1:])
-    assert "Zxy=2.00" in MTResponseEditorTab._rms_text(mt, [("d/MT01", sub, None)])
-
-    # No responses -> empty
-    assert MTResponseEditorTab._rms_text(mt, []) == ""
-
-
-def test_tf_editor_load_sets_and_clears_rms_pane():
-    import numpy as np
-
-    path_a, path_b = "/surveys/a/stations/MT01", "/surveys/b/stations/MT01"
-    tab, objs = _editor_tab_with_stations([path_a, path_b])
-    period = np.array([1.0, 2.0])
-    z = np.zeros((2, 2, 2), dtype=complex)
-    z[:, 0, 1] = 1
-    objs[path_a] = _fake_mt(z, np.ones((2, 2, 2)), period)
-    objs[path_b] = _fake_mt(z + 0, np.ones((2, 2, 2)), period)
-    objs[path_b].Z.z = z + 3
-    objs[path_a].station = objs[path_b].station = "MT01"
-
+def test_tf_editor_load_clears_rms_pane_without_responses():
+    path_a = "/surveys/a/stations/MT01"
+    tab, objs = _editor_tab_with_stations([path_a])
+    objs[path_a].station = "MT01"
     tab._station_widget.value = path_a
-    tab._plot_response_widget.value = [path_b]
     with patch(_EDIT_CLS) as edit_cls:
         edit_cls.return_value.panel.return_value = pn.pane.Markdown("x")
-        tab._on_load_clicked(None)
-    assert "RMS vs b/MT01" in tab._rms_pane.object
-    assert "Zxy=3.00" in tab._rms_pane.object
-
-    tab._plot_response_widget.value = []
-    with patch(_EDIT_CLS) as edit_cls:
-        edit_cls.return_value.panel.return_value = pn.pane.Markdown("x")
+        edit_cls.return_value.rms_summary.return_value = []
         tab._on_load_clicked(None)
     assert tab._rms_pane.object == ""
 

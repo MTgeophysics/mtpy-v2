@@ -86,6 +86,9 @@ class EditMTResponse(BokehPlotBase):
     ):
         # Called as ``callback(Z, Tipper)`` when the user clicks "Save Edits".
         self.save_edits_callback = save_edits_callback
+        # Called as ``callback(rms_summary)`` after every (re)plot, i.e. whenever
+        # the data or its edits change.
+        self.rms_callback = None
         # Work on copies so edits never mutate the caller's transfer functions;
         # the pre-edit snapshot is taken lazily by `_snapshot_original_data`.
         self.Z = z_object.copy() if z_object is not None else None
@@ -875,76 +878,89 @@ class EditMTResponse(BokehPlotBase):
         return scatter_renderer
 
     @staticmethod
-    def _interp_rms(x, y, x_resp, y_resp, log=False, masked=None):
-        """RMS misfit of a response interpolated (in log period) onto data periods.
+    def _normalized_rms(data, resp, err, period, r_period, masked=None):
+        """RMS of ``(data - response) / error`` on the periods both share.
 
-        Resistivity is compared in log10 units; phase and tipper in their own
-        units. Returns None when there is no overlap.
+        Points that are masked, have a zero/non-finite response, or a
+        zero/non-finite error are skipped. Returns None when nothing is left.
         """
-        x = np.asarray(x, dtype=float)
-        y = np.asarray(y, dtype=float)
-        x_resp = np.asarray(x_resp, dtype=float)
-        y_resp = np.asarray(y_resp, dtype=float)
-        ok = np.isfinite(x_resp) & (x_resp > 0) & np.isfinite(y_resp)
-        if log:
-            ok &= y_resp > 0
-        if np.count_nonzero(ok) < 2:
+        period = np.asarray(period, dtype=float)
+        r_period = np.asarray(r_period, dtype=float)
+        if period.size == 0 or r_period.size == 0:
             return None
-        order = np.argsort(x_resp[ok])
-        xr = np.log10(x_resp[ok][order])
-        yr = y_resp[ok][order]
-        if log:
-            yr = np.log10(yr)
+        nearest = np.abs(period[:, None] - r_period[None, :]).argmin(axis=1)
+        shared = np.isclose(period, r_period[nearest], rtol=1e-6, atol=0.0)
+        if masked:
+            shared &= ~np.isin(np.arange(period.size), list(masked))
+        d = np.asarray(data)
+        r = np.asarray(resp)[nearest]
+        e = np.asarray(err)
         with np.errstate(divide="ignore", invalid="ignore"):
-            lx = np.log10(x)
-            inside = np.isfinite(lx) & (lx >= xr[0]) & (lx <= xr[-1]) & np.isfinite(y)
-            if log:
-                inside &= y > 0
-            if masked:
-                idx = np.arange(x.size)
-                inside &= ~np.isin(idx, list(masked))
-            if not inside.any():
-                return None
-            model = np.interp(lx[inside], xr, yr)
-            obs = np.log10(y[inside]) if log else y[inside]
-        return float(np.sqrt(np.mean((obs - model) ** 2)))
+            diff = (d - r) / e
+        valid = shared & (r != 0) & (e != 0) & np.isfinite(diff)
+        if not valid.any():
+            return None
+        return float(np.sqrt(np.mean(np.abs(diff[valid]) ** 2)))
+
+    @staticmethod
+    def _rms_error(model_error, error):
+        """Model error when any is set, otherwise the data error."""
+        if model_error is None or not np.any(model_error):
+            return error
+        return model_error
 
     _Z_COMP_INDEX = {"xx": (0, 0), "xy": (0, 1), "yx": (1, 0), "yy": (1, 1)}
 
-    def _complex_rms(self, x, d, x_resp, r, masked=None):
-        """RMS of the complex misfit (real and imag parts combined)."""
-        sq = []
-        for part in (np.real, np.imag):
-            val = self._interp_rms(x, part(d), x_resp, part(r), masked=masked)
-            if val is not None:
-                sq.append(val**2)
-        return float(np.sqrt(np.sum(sq))) if sq else None
-
     def _z_response_rms(self, comp, z_response):
-        """Single RMS misfit between data and response for one impedance component."""
+        """RMS of (data - response) / error for one impedance component."""
         if not self._z_has_data() or z_response is None:
             return None
         i, j = self._Z_COMP_INDEX[comp]
-        return self._complex_rms(
-            self.Z.period,
+        err = self._rms_error(self.Z.z_model_error, self.Z.z_error)
+        return self._normalized_rms(
             self.Z.z[:, i, j],
-            z_response.period,
             z_response.z[:, i, j],
+            err[:, i, j],
+            self.Z.period,
+            z_response.period,
             masked=self.masked_tf_indices.get(comp),
         )
 
     def _t_response_rms(self, comp_index, t_response):
-        """RMS misfit between data and response for one tipper component."""
+        """RMS of (data - response) / error for one tipper component."""
         if not self._tipper_has_data() or t_response is None:
             return None
         comp = "tzx" if comp_index == 0 else "tzy"
-        return self._complex_rms(
-            1.0 / np.asarray(self.Tipper.frequency, dtype=float),
+        err = self._rms_error(self.Tipper.tipper_model_error, self.Tipper.tipper_error)
+        return self._normalized_rms(
             self.Tipper.tipper[:, 0, comp_index],
-            1.0 / np.asarray(t_response.frequency, dtype=float),
             t_response.tipper[:, 0, comp_index],
+            err[:, 0, comp_index],
+            self.Tipper.period,
+            t_response.period,
             masked=self.masked_tf_indices.get(comp),
         )
+
+    def rms_summary(self):
+        """RMS misfit per response and component, as shown in the plot legends.
+
+        Returns a list of ``(label, {component_name: rms})`` for each response
+        that has at least one defined RMS. Uses the current (edited) data.
+        """
+        summary = []
+        for label, r_z, r_t in self.responses:
+            values = {}
+            for comp in self._Z_COMP_INDEX:
+                val = self._z_response_rms(comp, r_z)
+                if val is not None:
+                    values[f"Z{comp}"] = val
+            for comp_index, name in enumerate(("Tx", "Ty")):
+                val = self._t_response_rms(comp_index, r_t)
+                if val is not None:
+                    values[name] = val
+            if values:
+                summary.append((label, values))
+        return summary
 
     def _legend_label(self, label):
         """Drop a trailing '/{station}' since responses share the data's station."""
@@ -1401,6 +1417,8 @@ class EditMTResponse(BokehPlotBase):
 
         self.figures = {}
         self._plot_edit_layout()
+        if self.rms_callback is not None:
+            self.rms_callback(self.rms_summary())
         if self.show_plot:
             show(self.layout)
         return self.layout

@@ -221,11 +221,21 @@ def test_single_legend_per_column_with_rms_and_tipper_legends():
     assert legends("res_xy")[0].orientation == "vertical"
 
 
-def test_interp_rms_zero_for_identical_and_none_without_overlap():
+def test_normalized_rms_is_data_minus_response_over_error():
     x = np.logspace(-2, 2, 9)
-    y = np.linspace(1, 9, 9)
-    assert EditMTResponse._interp_rms(x, y, x, y) == pytest.approx(0.0)
-    assert EditMTResponse._interp_rms(x, y, x * 1e6, y) is None
+    y = np.linspace(1, 9, 9) + 0j
+    err = np.full(9, 0.5)
+    assert EditMTResponse._normalized_rms(y, y, err, x, x) == pytest.approx(0.0)
+    # offset of 2 over error 0.5 -> 4
+    assert EditMTResponse._normalized_rms(y, y - 2, err, x, x) == pytest.approx(4.0)
+    # only shared periods count; masked points are skipped
+    assert EditMTResponse._normalized_rms(y, y[2:] - 2, err, x, x[2:]) == (
+        pytest.approx(4.0)
+    )
+    assert EditMTResponse._normalized_rms(y, y - 2, err, x, x, masked={0}) == (
+        pytest.approx(4.0)
+    )
+    assert EditMTResponse._normalized_rms(y, y, err, x, x * 1e6) is None
 
 
 def test_legend_label_strips_station_suffix():
