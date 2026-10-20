@@ -1668,6 +1668,24 @@ def test_auto_update_off_does_not_render():
 
 
 @pytest.mark.plotting
+def test_threaded_load_populates_app():
+    import threading
+
+    app = _make_app()
+    new_data = MagicMock(spec=MTData)
+    new_data.station_paths = []
+    app._file_selector.value = []
+    with patch.object(app, "_load_files", return_value=new_data), patch.object(
+        app, "_begin_load", return_value=["x.edi"]
+    ), patch.object(app, "_complete_load") as complete:
+        app._on_load_clicked_threaded(None)
+        for t in threading.enumerate():
+            if t is not threading.current_thread() and t.daemon:
+                t.join(timeout=5)
+    complete.assert_called_once_with(new_data)
+
+
+@pytest.mark.plotting
 def test_template_has_sidebar_and_tabs():
     app = _make_app()
     template = app.template

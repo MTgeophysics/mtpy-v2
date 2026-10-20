@@ -50,9 +50,9 @@ Watching for data-ready events in a downstream panel::
 
 from __future__ import annotations
 
-import asyncio
 import inspect
 import math
+import threading
 import traceback
 from pathlib import Path
 from typing import Any
@@ -65,9 +65,9 @@ from bokeh.plotting import figure as bokeh_figure
 
 from mtpy.core.mt_collection import MTCollection
 from mtpy.core.mt_data import MTData
+from mtpy.imaging.bokeh_plots.file_browser import FileBrowser
 from mtpy.imaging.bokeh_plots.panel_mt_response_editor_tab import MTResponseEditorTab
 from mtpy.imaging.bokeh_plots.panel_simpeg1d_app import Simpeg1DPanelApp
-from mtpy.imaging.bokeh_plots.plot_penetration_depth_1d import PlotPenetrationDepth1D
 
 
 pn.extension("tabulator", notifications=True)
@@ -279,12 +279,9 @@ class MTDataApp(param.Parameterized):
         )
 
         # ── File selector ─────────────────────────────────────────────────
-        self._file_selector = pn.widgets.FileSelector(
+        self._file_selector = FileBrowser(
             directory=str(Path(self.data_directory).expanduser().resolve()),
-            root_directory=_filesystem_root(self.data_directory),
-            name="Select MT Data Files",
             file_pattern=self._file_pattern_widget.value,
-            only_files=True,
         )
 
         # ── Load button ───────────────────────────────────────────────────
@@ -297,7 +294,7 @@ class MTDataApp(param.Parameterized):
             button_type="primary",
             width=200,
         )
-        self._load_button.on_click(self._on_load_clicked_async)
+        self._load_button.on_click(self._on_load_clicked_threaded)
 
         # ── Reset button ──────────────────────────────────────────────────
         self._reset_button = pn.widgets.Button(
@@ -338,6 +335,11 @@ class MTDataApp(param.Parameterized):
         self._survey_preset_widget.param.watch(self._on_survey_preset_changed, "value")
         self._file_selector.param.watch(self._on_file_selection_changed, "value")
 
+        self._selected_files_pane = pn.pane.Markdown(
+            "_No files selected._", sizing_mode="stretch_width"
+        )
+        self._file_selector.param.watch(self._refresh_selected_files_pane, "value")
+
         # ── Status display ────────────────────────────────────────────────
         self._status = pn.pane.Markdown(
             "_No files loaded yet._",
@@ -369,16 +371,6 @@ class MTDataApp(param.Parameterized):
         self._station_table.param.watch(self._on_table_selection_changed, "selection")
         self._edit_table_toggle.param.watch(self._on_edit_toggle_changed, "value")
         self._update_table_button.on_click(self._on_update_table_clicked)
-
-        # ── Penetration depth preview (single selected station) ──────────
-        self._pen_depth_container = pn.Column(
-            pn.pane.Markdown(
-                "_Select a single station in the table above to view its "
-                "1-D penetration depth._",
-                styles={"color": "#777"},
-            ),
-            sizing_mode=self.sizing_mode,
-        )
 
         # ── Save-to-MTH5 controls ─────────────────────────────────────────
         self._save_filename_widget = pn.widgets.TextInput(
@@ -502,28 +494,17 @@ class MTDataApp(param.Parameterized):
         resolved = str(Path(event.new).expanduser().resolve())
         if Path(resolved).is_dir():
             self._file_selector.directory = resolved
-            self._directory_input.value = resolved
 
-    def _on_directory_go_clicked(self, event: param.parameterized.Event) -> None:
-        """Navigate the file selector to the typed directory path."""
-        self._navigate_to_directory(self._directory_input.value)
-
-    def _on_directory_input_enter(self, event: param.parameterized.Event) -> None:
-        """Navigate when the user presses Enter in the directory text box."""
-        self._navigate_to_directory(self._directory_input.value)
-
-    def _navigate_to_directory(self, raw_path: str) -> None:
-        """Resolve *raw_path* and update the file selector directory."""
-        path = Path(raw_path.strip()).expanduser().resolve()
-        if path.is_dir():
-            self._file_selector.directory = str(path)
-            self._file_selector._update_files()
-            self._directory_input.value = str(path)
-            self._set_status(f"📂 Browsing `{path}`")
-        else:
-            self._set_status(
-                f"⚠️ Directory not found: `{raw_path.strip()}`", warning=True
+    def _refresh_selected_files_pane(self, event: Any = None) -> None:
+        files = list(self._file_selector.value or [])
+        if not files:
+            self._selected_files_pane.object = "_No files selected._"
+            return
+        self._selected_files_pane.object = f"**{len(files)} file(s) selected**\n\n" + (
+            "\n".join(
+                f"- `{f.rsplit('/', 1)[-1].rsplit(chr(92), 1)[-1]}`" for f in files
             )
+        )
 
     def _on_file_pattern_changed(self, event: param.parameterized.Event) -> None:
         """Update the file selector filter pattern."""
@@ -568,19 +549,43 @@ class MTDataApp(param.Parameterized):
         finally:
             self._end_load()
 
-    async def _on_load_clicked_async(self, event: param.parameterized.Event) -> None:
+    @staticmethod
+    def _call_in_document(doc: Any, func: Any) -> None:
+        """Run *func* holding the Bokeh document lock (thread-safe).
+
+        Bokeh models may only be modified from callbacks that hold the document
+        lock; ``add_next_tick_callback`` is the supported way to get it from
+        another thread or after an ``await``.
+        """
+        if doc is None:
+            func()
+        else:
+            doc.add_next_tick_callback(func)
+
+    def _on_load_clicked_threaded(self, event: param.parameterized.Event) -> None:
         """Load selected files in a worker thread so the UI stays responsive."""
         selected = self._begin_load()
         if selected is None:
             return
-        try:
-            new_data = await asyncio.to_thread(self._load_files, selected)
-        except Exception as exc:
-            self._fail_load(exc)
-        else:
-            self._complete_load(new_data)
-        finally:
-            self._end_load()
+        doc = pn.state.curdoc
+
+        def finish(new_data: MTData | None, exc: Exception | None) -> None:
+            try:
+                if exc is not None:
+                    self._fail_load(exc)
+                else:
+                    self._complete_load(new_data)
+            finally:
+                self._end_load()
+
+        def work() -> None:
+            try:
+                new_data, exc = self._load_files(selected), None
+            except Exception as err:
+                new_data, exc = None, err
+            self._call_in_document(doc, lambda: finish(new_data, exc))
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _begin_load(self) -> list[str] | None:
         """Validate the selection and show the loading state."""
@@ -591,13 +596,11 @@ class MTDataApp(param.Parameterized):
         self._set_status("⏳ Loading files…")
         self._load_button.disabled = True
         self._station_table.loading = True
-        self._station_map_pane.loading = True
         return selected
 
     def _end_load(self) -> None:
         self._load_button.disabled = False
         self._station_table.loading = False
-        self._station_map_pane.loading = False
 
     def _complete_load(self, new_data: MTData) -> None:
         """Install freshly loaded data and refresh every dependent view."""
@@ -750,10 +753,7 @@ class MTDataApp(param.Parameterized):
                     rows = [i for i, key in enumerate(keys) if key in set(paths)]
                 self._station_table.selection = rows
             if origin != "map":
-                source_paths = list(self._station_source.data.get("path", []))
-                self._station_source.selected.indices = [
-                    i for i, key in enumerate(source_paths) if key in set(paths)
-                ]
+                self._run_in_document(lambda: self._write_map_selection(paths))
             if len(paths) == 1 and paths[0] in (
                 self._plot_station_widget.options or []
             ):
@@ -774,8 +774,6 @@ class MTDataApp(param.Parameterized):
             self._selection_label.object = (
                 "_No stations selected — plots use all stations._"
             )
-        if self._mt_data is not None:
-            self._update_penetration_depth(set(paths))
         self.selected_station_paths = list(paths)
 
     def _build_station_map_figure(self) -> Any:
@@ -790,7 +788,7 @@ class MTDataApp(param.Parameterized):
             title="Stations (click, box or lasso to select)",
         )
         try:
-            fig.add_tile("CartoDB Positron")
+            fig.add_tile("Esri.NatGeoWorldMap")
         except Exception:  # basemap is cosmetic; keep the map usable without it
             pass
         renderer = fig.scatter(
@@ -839,6 +837,26 @@ class MTDataApp(param.Parameterized):
                 else []
             ),
         }
+        self._run_in_document(lambda: self._write_map_data(data, xs, ys))
+
+    def _run_in_document(self, func: Any) -> None:
+        """Run *func* with the Bokeh document lock held (see ``_call_in_document``)."""
+        self._call_in_document(pn.state.curdoc, func)
+
+    def _write_map_selection(self, paths: list[str]) -> None:
+        """Highlight *paths* on the map (direct Bokeh write; needs the doc lock)."""
+        source_paths = list(self._station_source.data.get("path", []))
+        wanted = set(paths)
+        self._syncing_selection = True
+        try:
+            self._station_source.selected.indices = [
+                i for i, key in enumerate(source_paths) if key in wanted
+            ]
+        finally:
+            self._syncing_selection = False
+
+    def _write_map_data(self, data: dict, xs: list[float], ys: list[float]) -> None:
+        """Replace map points and refit the view (direct Bokeh write)."""
         self._syncing_selection = True
         try:
             self._station_source.selected.indices = []
@@ -1041,16 +1059,18 @@ class MTDataApp(param.Parameterized):
             or self._plot_generate_button.disabled
         ):
             return
-        pn.state.execute(self._generate_plot_async_task)
+        self._on_generate_plot_async(None)
 
-    async def _generate_plot_async_task(self) -> None:
-        await self._on_generate_plot_async(None)
+    def _on_generate_plot_async(self, event: Any) -> None:
+        """Show the spinner now and render on the next document tick.
 
-    async def _on_generate_plot_async(self, event: Any) -> None:
-        """Show the spinner, yield to the event loop so it paints, then plot."""
+        Deferring lets the spinner reach the browser before the (blocking)
+        plot build starts; the deferred call still holds the document lock.
+        """
         self._plot_display.loading = True
-        await asyncio.sleep(0.05)
-        self._on_generate_plot_clicked(event)
+        self._call_in_document(
+            pn.state.curdoc, lambda: self._on_generate_plot_clicked(event)
+        )
 
     def _plot_source(self, selected_only: bool = True) -> MTData:
         """Return the MTData to plot: the selection subset, or everything."""
@@ -1138,50 +1158,6 @@ class MTDataApp(param.Parameterized):
 
     # ── Loading logic ─────────────────────────────────────────────────────
 
-    def _update_penetration_depth(self, station_paths: set[str]) -> None:
-        """Render a penetration depth plot for the selected station(s).
-
-        If exactly one station is selected its 1-D Niblett-Bostick
-        depth-of-investigation plot is displayed in
-        ``_pen_depth_container``.  If multiple stations are selected a
-        message is shown instead — multi-station comparisons are not
-        supported here.
-
-        Parameters
-        ----------
-        station_paths : set of str
-            HDF5-style station paths, e.g.
-            ``{'/Surveys/survey01/Stations/MT01'}``.
-        """
-        self._pen_depth_container.clear()
-
-        if len(station_paths) != 1:
-            self._pen_depth_container.append(
-                pn.pane.Markdown(
-                    "_Select exactly **one** station to view its "
-                    "penetration depth._",
-                    styles={"color": "#777"},
-                )
-            )
-            return
-
-        station_path = next(iter(station_paths))
-        try:
-            mt_obj = self._mt_data.get_station(station_path, as_mt=True)
-            if mt_obj is None or mt_obj.Z is None:
-                raise ValueError("No impedance data available for this station.")
-            plotter = PlotPenetrationDepth1D(mt_obj, show_plot=False)
-            panel_plot = plotter.make_panel(sizing_mode=self.sizing_mode)
-            self._pen_depth_container.append(panel_plot)
-        except Exception as exc:
-            self._pen_depth_container.append(
-                pn.pane.Markdown(
-                    f"⚠️ Could not render penetration depth: "
-                    f"`{type(exc).__name__}: {exc}`",
-                    styles={"color": "#b00020"},
-                )
-            )
-
     def _load_files(self, selected: list[str]) -> MTData:
         """Partition files and load them into a single MTData.
 
@@ -1200,6 +1176,7 @@ class MTDataApp(param.Parameterized):
         ValueError
             If any selected file has an unsupported suffix.
         """
+        selected = self._file_selector.resolve_local(selected)
         mth5_files: list[Path] = []
         tf_files: list[Path] = []
         dat_files: list[Path] = []
@@ -1330,6 +1307,7 @@ class MTDataApp(param.Parameterized):
             ),
             self._append_toggle,
             pn.Row(self._load_button, self._reset_button),
+            self._selected_files_pane,
             self._status,
             pn.layout.Divider(),
             pn.pane.Markdown("### Save"),
@@ -1357,11 +1335,6 @@ class MTDataApp(param.Parameterized):
                     pn.Row(self._selection_label, self._clear_selection_button),
                     sizing_mode="stretch_width",
                     min_height=480,
-                ),
-                pn.Column(
-                    pn.pane.Markdown("### Penetration depth"),
-                    self._pen_depth_container,
-                    sizing_mode="stretch_width",
                 ),
                 sizing_mode="stretch_width",
             ),
