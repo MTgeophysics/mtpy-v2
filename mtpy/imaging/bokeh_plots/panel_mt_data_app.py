@@ -26,10 +26,11 @@ Usage
 As a Panel app in a Jupyter notebook::
 
     >>> import panel as pn
-    >>> pn.extension("tabulator")
+    >>> pn.extension("tabulator", notifications=True)
     >>> from mtpy.imaging.bokeh_plots.panel_mt_data_app import MTDataApp
     >>> app = MTDataApp()
-    >>> app.view.servable()
+    >>> app.template.servable()   # full app: sidebar + tabs
+    >>> # app.sidebar and app.view are the two halves, if you want to embed them
 
 As a standalone script (from terminal)::
 
@@ -49,7 +50,9 @@ Watching for data-ready events in a downstream panel::
 
 from __future__ import annotations
 
+import asyncio
 import inspect
+import math
 import traceback
 from pathlib import Path
 from typing import Any
@@ -57,6 +60,8 @@ from typing import Any
 import pandas as pd
 import panel as pn
 import param
+from bokeh.models import ColumnDataSource, HoverTool
+from bokeh.plotting import figure as bokeh_figure
 
 from mtpy.core.mt_collection import MTCollection
 from mtpy.core.mt_data import MTData
@@ -65,7 +70,9 @@ from mtpy.imaging.bokeh_plots.panel_simpeg1d_app import Simpeg1DPanelApp
 from mtpy.imaging.bokeh_plots.plot_penetration_depth_1d import PlotPenetrationDepth1D
 
 
-pn.extension("tabulator")
+pn.extension("tabulator", notifications=True)
+
+_MERCATOR_RADIUS: float = 6378137.0
 
 
 SUPPORTED_TF_SUFFIXES: frozenset[str] = frozenset(
@@ -182,6 +189,19 @@ def _build_station_summary(mt_data: "MTData") -> pd.DataFrame:
     return pd.DataFrame(rows, columns=_STATION_TABLE_COLUMNS)
 
 
+def _to_web_mercator(longitude: float, latitude: float) -> tuple[float, float]:
+    """Project WGS84 lon/lat (degrees) to Web Mercator metres (clipped at ±85°)."""
+    lat = max(min(float(latitude), 85.0), -85.0)
+    x = math.radians(float(longitude)) * _MERCATOR_RADIUS
+    y = math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * _MERCATOR_RADIUS
+    return x, y
+
+
+def _station_path(survey: Any, station: Any) -> str:
+    """Return the MTData tree path for a survey/station pair."""
+    return f"/{MTData.SURVEYS_NODE}/{survey}/{MTData.STATIONS_NODE}/{station}"
+
+
 def _relabel_survey(mt_data: "MTData", new_survey: str) -> None:
     """Rename every station's survey label in place to *new_survey*."""
     for station_path in list(mt_data._iter_station_paths()):
@@ -230,6 +250,12 @@ class MTDataApp(param.Parameterized):
         doc="Initial directory shown in the file browser.",
     )
 
+    selected_station_paths: list = param.List(
+        default=[],
+        doc="Station paths selected in the table or on the map. Shared by all "
+        "tabs; an empty list means 'no selection' (use every station).",
+    )
+
     mt_data_loaded: bool = param.Boolean(
         default=False,
         doc="True when mt_data has been populated successfully.",
@@ -271,7 +297,7 @@ class MTDataApp(param.Parameterized):
             button_type="primary",
             width=200,
         )
-        self._load_button.on_click(self._on_load_clicked)
+        self._load_button.on_click(self._on_load_clicked_async)
 
         # ── Reset button ──────────────────────────────────────────────────
         self._reset_button = pn.widgets.Button(
@@ -409,8 +435,48 @@ class MTDataApp(param.Parameterized):
         self._plot_display = pn.Column(sizing_mode="stretch_width")
 
         self._plot_type_widget.param.watch(self._on_plot_type_changed, "value")
-        self._plot_generate_button.on_click(self._on_generate_plot_clicked)
+        self._plot_generate_button.on_click(self._on_generate_plot_async)
         self.param.watch(self._on_mt_data_loaded_changed, "mt_data_loaded")
+
+        self._plot_auto_widget = pn.widgets.Checkbox(
+            name="Auto-update plot", value=True
+        )
+        self._plot_selected_only_widget = pn.widgets.Checkbox(
+            name="Selected stations only", value=True
+        )
+        self._suspend_auto_plot = False
+        # Re-render whenever any plot input (type, station, backend, selection)
+        # changes; the Generate button remains as a manual refresh.
+        pn.bind(
+            self._on_plot_inputs_changed,
+            self._plot_type_widget,
+            self._plot_station_widget,
+            self._plot_backend_widget,
+            self._plot_selected_only_widget,
+            self.param.selected_station_paths,
+            watch=True,
+        )
+
+        # ── Station map linked to the table ───────────────────────────────
+        self._syncing_selection = False
+        self._station_source = ColumnDataSource(
+            data={"x": [], "y": [], "station": [], "survey": [], "path": []}
+        )
+        self._station_source.selected.on_change("indices", self._on_map_selection)
+        self._station_map_figure = self._build_station_map_figure()
+        self._station_map_pane = pn.pane.Bokeh(
+            self._station_map_figure, sizing_mode="stretch_both", min_height=420
+        )
+        self._selection_label = pn.pane.Markdown(
+            "_No stations selected — plots use all stations._",
+            styles={"color": "#777", "font-size": "0.85em"},
+        )
+        self._clear_selection_button = pn.widgets.Button(
+            name="Clear selection", button_type="light", width=140
+        )
+        self._clear_selection_button.on_click(
+            lambda event: self._apply_selection([], origin="clear")
+        )
 
         # ── Modeling tab app ─────────────────────────────────────────────
         self._modeling_app = Simpeg1DPanelApp(sizing_mode=self.sizing_mode)
@@ -489,24 +555,60 @@ class MTDataApp(param.Parameterized):
         return preset
 
     def _on_load_clicked(self, event: param.parameterized.Event) -> None:
-        """Load selected files into MTData."""
-        selected: list[str] = list(self._file_selector.value or [])
-
-        if not selected:
-            self._set_status("⚠️ No files selected.", warning=True)
+        """Load selected files into MTData (blocking)."""
+        selected = self._begin_load()
+        if selected is None:
             return
-
-        self._set_status("⏳ Loading files…")
-        self._load_button.disabled = True
-
         try:
             new_data = self._load_files(selected)
+        except Exception as exc:
+            self._fail_load(exc)
+        else:
+            self._complete_load(new_data)
+        finally:
+            self._end_load()
+
+    async def _on_load_clicked_async(self, event: param.parameterized.Event) -> None:
+        """Load selected files in a worker thread so the UI stays responsive."""
+        selected = self._begin_load()
+        if selected is None:
+            return
+        try:
+            new_data = await asyncio.to_thread(self._load_files, selected)
+        except Exception as exc:
+            self._fail_load(exc)
+        else:
+            self._complete_load(new_data)
+        finally:
+            self._end_load()
+
+    def _begin_load(self) -> list[str] | None:
+        """Validate the selection and show the loading state."""
+        selected: list[str] = list(self._file_selector.value or [])
+        if not selected:
+            self._set_status("⚠️ No files selected.", warning=True)
+            return None
+        self._set_status("⏳ Loading files…")
+        self._load_button.disabled = True
+        self._station_table.loading = True
+        self._station_map_pane.loading = True
+        return selected
+
+    def _end_load(self) -> None:
+        self._load_button.disabled = False
+        self._station_table.loading = False
+        self._station_map_pane.loading = False
+
+    def _complete_load(self, new_data: MTData) -> None:
+        """Install freshly loaded data and refresh every dependent view."""
+        try:
             if self._append_toggle.value and self._mt_data is not None:
                 self._mt_data += new_data
                 mt_data = self._mt_data
             else:
                 self._mt_data = new_data
                 mt_data = new_data
+            self._apply_selection([], origin="load")
             # `mt_data_loaded` may already be True (e.g. on a second append),
             # in which case param.watch won't re-fire; refresh dependents here
             # directly rather than relying solely on the watcher.
@@ -520,15 +622,18 @@ class MTDataApp(param.Parameterized):
             self._modeling_app.set_mt_data(mt_data)
             self._tf_editor_app.set_mt_data(mt_data)
             n = len(mt_data.station_paths)
-            self._set_status(f"✅ Loaded **{n}** station(s).")
+            self._set_status(f"✅ Loaded **{n}** station(s).", notify=True)
         except Exception as exc:
-            self._set_status(f"❌ Error: `{type(exc).__name__}: {exc}`", error=True)
-            self._mt_data = None
-            self.mt_data_loaded = False
-            self._save_button.disabled = True
-            self._update_station_table(None)
-        finally:
-            self._load_button.disabled = False
+            self._fail_load(exc)
+
+    def _fail_load(self, exc: Exception) -> None:
+        self._set_status(
+            f"❌ Error: `{type(exc).__name__}: {exc}`", error=True, notify=True
+        )
+        self._mt_data = None
+        self.mt_data_loaded = False
+        self._save_button.disabled = True
+        self._update_station_table(None)
 
     def _on_reset_clicked(self, event: param.parameterized.Event) -> None:
         """Clear all loaded data and reset the app to its initial state."""
@@ -542,6 +647,7 @@ class MTDataApp(param.Parameterized):
         self._edit_table_toggle.value = False
         self._append_toggle.value = False
         self._file_selector.value = []
+        self._apply_selection([], origin="reset")
         self._update_station_table(None)
         self._set_status("_No files loaded yet._")
 
@@ -600,44 +706,151 @@ class MTDataApp(param.Parameterized):
             self._set_status(f"✅ Updated **{updated}** station(s) in MTData.")
 
     def _on_table_selection_changed(self, event: param.parameterized.Event) -> None:
-        """Subset the active MTData to the table-selected rows."""
-        if self._mt_data is None:
+        """Propagate table row selection to the shared station selection."""
+        if self._syncing_selection or self._mt_data is None:
             return
-
-        selected_indices: list[int] = list(event.new or [])
-        if not selected_indices:
-            # Nothing selected → expose full dataset and clear penetration depth
-            self._mt_data_subset = None
-            self._pen_depth_container.clear()
-            self._pen_depth_container.append(
-                pn.pane.Markdown(
-                    "_Select a single station in the table above to view its "
-                    "1-D penetration depth._",
-                    styles={"color": "#777"},
-                )
-            )
-            return
-
         df = self._station_table.value
-        if df is None or df.empty:
+        paths: list[str] = []
+        if df is not None and not df.empty:
+            for idx in event.new or []:
+                if idx < len(df):
+                    row = df.iloc[idx]
+                    paths.append(_station_path(row["survey"], row["station"]))
+        self._apply_selection(paths, origin="table")
+
+    def _on_map_selection(self, attr: str, old: list[int], new: list[int]) -> None:
+        """Propagate map (tap / box / lasso) selection to the shared selection."""
+        if self._syncing_selection:
             return
+        paths = self._station_source.data.get("path", [])
+        self._apply_selection([paths[i] for i in new if i < len(paths)], origin="map")
 
-        selected_rows = df.iloc[selected_indices]
-        selected_paths = set()
-        for _, row in selected_rows.iterrows():
-            survey = row.get("survey", "")
-            station = row.get("station", "")
-            path = f"/{MTData.SURVEYS_NODE}/{survey}/{MTData.STATIONS_NODE}/{station}"
-            selected_paths.add(path)
+    def _apply_selection(self, paths: list[str], origin: str) -> None:
+        """Single entry point that keeps the table, map and plots in sync.
 
-        n = len(selected_paths)
-        self._set_status(
-            f"✅ **{n}** station(s) selected — access via `app.selected_station_paths`."
+        Parameters
+        ----------
+        paths : list of str
+            Selected station paths (empty clears the selection).
+        origin : str
+            ``"table"``, ``"map"`` or another label for programmatic changes;
+            the originating widget is not re-written to avoid feedback loops.
+        """
+        paths = list(dict.fromkeys(paths))
+        self._selected_station_paths = paths
+        self._syncing_selection = True
+        try:
+            if origin != "table":
+                df = self._station_table.value
+                rows = []
+                if paths and df is not None and not df.empty:
+                    keys = [
+                        _station_path(s, t) for s, t in zip(df["survey"], df["station"])
+                    ]
+                    rows = [i for i, key in enumerate(keys) if key in set(paths)]
+                self._station_table.selection = rows
+            if origin != "map":
+                source_paths = list(self._station_source.data.get("path", []))
+                self._station_source.selected.indices = [
+                    i for i, key in enumerate(source_paths) if key in set(paths)
+                ]
+            if len(paths) == 1 and paths[0] in (
+                self._plot_station_widget.options or []
+            ):
+                self._suspend_auto_plot = True
+                try:
+                    self._plot_station_widget.value = paths[0]
+                finally:
+                    self._suspend_auto_plot = False
+        finally:
+            self._syncing_selection = False
+
+        if paths:
+            self._selection_label.object = (
+                f"**{len(paths)}** station(s) selected — available as "
+                "`app.selected_station_paths`."
+            )
+        else:
+            self._selection_label.object = (
+                "_No stations selected — plots use all stations._"
+            )
+        if self._mt_data is not None:
+            self._update_penetration_depth(set(paths))
+        self.selected_station_paths = list(paths)
+
+    def _build_station_map_figure(self) -> Any:
+        """Create the Bokeh station map (OSM-style basemap, selectable points)."""
+        fig = bokeh_figure(
+            x_axis_type="mercator",
+            y_axis_type="mercator",
+            tools="pan,wheel_zoom,box_zoom,tap,box_select,lasso_select,reset,save",
+            active_scroll="wheel_zoom",
+            match_aspect=True,
+            sizing_mode="stretch_both",
+            title="Stations (click, box or lasso to select)",
         )
-        self._selected_station_paths = list(selected_paths)
+        try:
+            fig.add_tile("CartoDB Positron")
+        except Exception:  # basemap is cosmetic; keep the map usable without it
+            pass
+        renderer = fig.scatter(
+            "x",
+            "y",
+            source=self._station_source,
+            size=10,
+            marker="triangle",
+            color="#1f77b4",
+            alpha=0.85,
+            line_color="white",
+            selection_color="#d62728",
+            selection_alpha=1.0,
+            nonselection_alpha=0.45,
+        )
+        fig.add_tools(
+            HoverTool(
+                renderers=[renderer],
+                tooltips=[("Station", "@station"), ("Survey", "@survey")],
+            )
+        )
+        return fig
 
-        # ── Penetration depth for the selected station(s) ─────────────────
-        self._update_penetration_depth(selected_paths)
+    def _update_station_map(self, mt_data: MTData | None) -> None:
+        """Refill the map data source from the station summary table."""
+        df = (
+            self._station_table.value
+            if mt_data is not None
+            else pd.DataFrame(columns=_STATION_TABLE_COLUMNS)
+        )
+        xs: list[float] = []
+        ys: list[float] = []
+        if df is not None and not df.empty:
+            for lon, lat in zip(df["longitude"], df["latitude"]):
+                x, y = _to_web_mercator(lon, lat)
+                xs.append(x)
+                ys.append(y)
+        data = {
+            "x": xs,
+            "y": ys,
+            "station": list(df["station"]) if len(xs) else [],
+            "survey": list(df["survey"]) if len(xs) else [],
+            "path": (
+                [_station_path(s, t) for s, t in zip(df["survey"], df["station"])]
+                if len(xs)
+                else []
+            ),
+        }
+        self._syncing_selection = True
+        try:
+            self._station_source.selected.indices = []
+            self._station_source.data = data
+        finally:
+            self._syncing_selection = False
+        if xs:
+            pad = max((max(xs) - min(xs)), (max(ys) - min(ys)), 2000.0) * 0.1
+            self._station_map_figure.x_range.start = min(xs) - pad
+            self._station_map_figure.x_range.end = max(xs) + pad
+            self._station_map_figure.y_range.start = min(ys) - pad
+            self._station_map_figure.y_range.end = max(ys) + pad
 
     def _on_edit_toggle_changed(self, event: param.parameterized.Event) -> None:
         """Enable or disable table editing.
@@ -735,6 +948,7 @@ class MTDataApp(param.Parameterized):
             self._set_status(f"✅ Updated {updated} station(s) in MTData.")
         # Refresh snapshot and table from MTData
         self._station_table.value = _build_station_summary(self._mt_data)
+        self._update_station_map(self._mt_data)
         self._pre_edit_station_df = self._station_table.value.copy()
 
     def _on_save_directory_changed(self, event: param.parameterized.Event) -> None:
@@ -763,11 +977,14 @@ class MTDataApp(param.Parameterized):
             mc.close_collection()
             self._set_status(
                 f"✅ Saved **{len(self._mt_data.station_paths)}** station(s) "
-                f"to `{output_path}`."
+                f"to `{output_path}`.",
+                notify=True,
             )
         except Exception as exc:
             self._set_status(
-                f"❌ Save failed: `{type(exc).__name__}: {exc}`", error=True
+                f"❌ Save failed: `{type(exc).__name__}: {exc}`",
+                error=True,
+                notify=True,
             )
         finally:
             self._save_button.disabled = False
@@ -802,34 +1019,67 @@ class MTDataApp(param.Parameterized):
             self._plot_station_widget.options = []
             return
         paths = list(self._mt_data._iter_station_paths())
-        self._plot_station_widget.options = paths
-        if paths:
-            self._plot_station_widget.value = paths[0]
+        self._suspend_auto_plot = True
+        try:
+            self._plot_station_widget.options = paths
+            if paths:
+                self._plot_station_widget.value = paths[0]
+        finally:
+            self._suspend_auto_plot = False
 
     def _on_plot_type_changed(self, event: param.parameterized.Event) -> None:
         """Show/hide the station picker based on whether the plot needs one."""
         _, needs_station = _PLOT_TYPES.get(event.new, ("", False))
         self._plot_station_widget.visible = needs_station
 
+    def _on_plot_inputs_changed(self, *args: Any) -> None:
+        """Re-render automatically when a plot input changes (pn.bind target)."""
+        if (
+            not self._plot_auto_widget.value
+            or self._suspend_auto_plot
+            or self._mt_data is None
+            or self._plot_generate_button.disabled
+        ):
+            return
+        pn.state.execute(self._generate_plot_async_task)
+
+    async def _generate_plot_async_task(self) -> None:
+        await self._on_generate_plot_async(None)
+
+    async def _on_generate_plot_async(self, event: Any) -> None:
+        """Show the spinner, yield to the event loop so it paints, then plot."""
+        self._plot_display.loading = True
+        await asyncio.sleep(0.05)
+        self._on_generate_plot_clicked(event)
+
+    def _plot_source(self, selected_only: bool = True) -> MTData:
+        """Return the MTData to plot: the selection subset, or everything."""
+        paths = list(self._selected_station_paths)
+        if selected_only and self._plot_selected_only_widget.value and paths:
+            return self._mt_data.get_subset(paths)
+        return self._mt_data
+
     def _on_generate_plot_clicked(self, event: param.parameterized.Event) -> None:
         """Call the selected MTData plot method and render the result."""
         if self._mt_data is None:
             self._plot_status.object = "⚠️ No data loaded."
             self._plot_status.styles = {"color": "#7a5200"}
+            self._plot_display.loading = False
             return
 
         plot_label = self._plot_type_widget.value
         method_name, needs_station = _PLOT_TYPES.get(plot_label, ("", False))
         if not method_name:
+            self._plot_display.loading = False
             return
 
         self._plot_generate_button.disabled = True
+        self._plot_display.loading = True
         self._plot_status.object = f"⏳ Generating **{plot_label}**…"
         self._plot_status.styles = {"color": "#555"}
         self._plot_display.objects = []
 
         try:
-            method = getattr(self._mt_data, method_name)
             backend = self._plot_backend_widget.value
             kwargs: dict = {"show_plot": False, "backend": backend}
             if needs_station:
@@ -838,8 +1088,10 @@ class MTDataApp(param.Parameterized):
                     self._plot_status.object = "⚠️ No station selected."
                     self._plot_status.styles = {"color": "#7a5200"}
                     return
+                method = getattr(self._mt_data, method_name)
                 plot_obj = method(station_key=station_key, **kwargs)
             else:
+                method = getattr(self._plot_source(), method_name)
                 plot_obj = method(**kwargs)
 
             # If the plot object has a panel() method, embed the full
@@ -882,6 +1134,7 @@ class MTDataApp(param.Parameterized):
             self._plot_status.styles = {"color": "#b00020"}
         finally:
             self._plot_generate_button.disabled = False
+            self._plot_display.loading = False
 
     # ── Loading logic ─────────────────────────────────────────────────────
 
@@ -1022,32 +1275,44 @@ class MTDataApp(param.Parameterized):
         *,
         warning: bool = False,
         error: bool = False,
+        notify: bool = False,
     ) -> None:
         color = "#b00020" if error else ("#7a5200" if warning else "#1a6600")
         self._status.object = message
         self._status.styles = {"color": color}
+        if notify:
+            self._notify(message, error=error, warning=warning)
+
+    @staticmethod
+    def _notify(message: str, *, error: bool = False, warning: bool = False) -> None:
+        """Show a toast notification when running inside a Panel session."""
+        notifications = pn.state.notifications
+        if notifications is None:
+            return
+        text = message.replace("`", "").replace("*", "")
+        if error:
+            notifications.error(text, duration=0)
+        elif warning:
+            notifications.warning(text, duration=6000)
+        else:
+            notifications.success(text, duration=4000)
 
     def _update_station_table(self, mt_data) -> None:
-        """Rebuild the station summary table."""
+        """Rebuild the station summary table and the linked map."""
         df = (
             _build_station_summary(mt_data)
             if mt_data is not None
             else pd.DataFrame(columns=_STATION_TABLE_COLUMNS)
         )
         self._station_table.value = df
+        self._update_station_map(mt_data)
 
     # ── Layout ────────────────────────────────────────────────────────────
 
     @property
-    def view(self) -> pn.viewable.Viewable:
-        """Return the complete Panel layout for this application.
-
-        Returns
-        -------
-        pn.viewable.Viewable
-            A Panel layout object suitable for serving or embedding.
-        """
-        file_controls = pn.Column(
+    def sidebar(self) -> pn.viewable.Viewable:
+        """File-loading controls, intended for a template sidebar."""
+        return pn.Column(
             pn.pane.Markdown("### Select MT Data Files"),
             self._file_pattern_widget,
             self._file_selector,
@@ -1064,26 +1329,46 @@ class MTDataApp(param.Parameterized):
                 self._survey_custom_widget,
             ),
             self._append_toggle,
-            pn.Row(
-                self._load_button,
-                pn.Spacer(width=10),
-                self._reset_button,
-                pn.Spacer(width=10),
-                self._save_button,
-                pn.Spacer(width=10),
-                self._save_filename_widget,
-                align="center",
-            ),
-            sizing_mode=self.sizing_mode,
+            pn.Row(self._load_button, self._reset_button),
+            self._status,
+            pn.layout.Divider(),
+            pn.pane.Markdown("### Save"),
+            self._save_filename_widget,
+            self._save_button,
+            sizing_mode="stretch_width",
         )
 
-        status_row = pn.Row(self._status, sizing_mode="stretch_width")
+    @property
+    def view(self) -> pn.viewable.Viewable:
+        """Return the main-area layout (tabs) for this application.
 
+        The file-loading controls live in :attr:`sidebar`; use
+        :attr:`template` for the complete application.
+
+        Returns
+        -------
+        pn.viewable.Viewable
+            A Panel layout object suitable for serving or embedding.
+        """
         station_section = pn.Column(
+            pn.Row(
+                pn.Column(
+                    self._station_map_pane,
+                    pn.Row(self._selection_label, self._clear_selection_button),
+                    sizing_mode="stretch_width",
+                    min_height=480,
+                ),
+                pn.Column(
+                    pn.pane.Markdown("### Penetration depth"),
+                    self._pen_depth_container,
+                    sizing_mode="stretch_width",
+                ),
+                sizing_mode="stretch_width",
+            ),
             pn.pane.Markdown("### Loaded Stations"),
             pn.pane.Markdown(
-                "_Select a row to filter the active working set and view its "
-                "penetration depth._",
+                "_Select rows here or on the map; the selection drives every "
+                "plot tab._",
                 styles={"color": "#777", "font-size": "0.85em"},
             ),
             pn.Row(
@@ -1096,32 +1381,16 @@ class MTDataApp(param.Parameterized):
             sizing_mode=self.sizing_mode,
         )
 
-        # save_section = pn.Column(
-        #     pn.pane.Markdown("### Save Data"),
-        #     pn.Row(
-        #         self._save_filename_widget,
-        #         pn.Spacer(width=10),
-        #         self._save_button,
-        #         align="end",
-        #     ),
-        #     sizing_mode=self.sizing_mode,
-        # )
-
         data_tab = pn.Column(
-            file_controls,
-            pn.layout.Divider(),
-            status_row,
             station_section,
-            # pn.layout.Divider(),
-            # save_section,
             sizing_mode=self.sizing_mode,
         )
 
         plots_tab = pn.Column(
-            pn.pane.Markdown("### Generate a Plot"),
+            pn.pane.Markdown("### Plots"),
             pn.pane.Markdown(
-                "_Load data in the **Data** tab first. "
-                "Single-station plots use the **Station** selector._",
+                "_Plots update automatically. Single-station plots follow the "
+                "map/table selection (or the **Station** picker)._",
                 styles={"color": "#777", "font-size": "0.85em"},
             ),
             pn.Row(
@@ -1139,6 +1408,8 @@ class MTDataApp(param.Parameterized):
                     self._plot_backend_widget,
                 ),
                 pn.Spacer(width=20),
+                self._plot_auto_widget,
+                self._plot_selected_only_widget,
                 self._plot_generate_button,
                 pn.Spacer(width=10),
                 self._plot_status,
@@ -1150,7 +1421,6 @@ class MTDataApp(param.Parameterized):
         )
 
         return pn.Column(
-            pn.pane.Markdown("# MT Data Loader"),
             pn.Tabs(
                 ("📂 Data", data_tab),
                 ("📊 Plots", plots_tab),
@@ -1161,15 +1431,26 @@ class MTDataApp(param.Parameterized):
             sizing_mode=self.sizing_mode,
         )
 
-    def servable(self) -> pn.viewable.Viewable:
-        """Mark the layout as servable and return it.
+    @property
+    def template(self) -> pn.template.FastListTemplate:
+        """Full application: header, file-controls sidebar and tabbed main area."""
+        return pn.template.FastListTemplate(
+            title="MT Data Loader",
+            sidebar=[self.sidebar],
+            sidebar_width=420,
+            main=[self.view],
+        )
 
-        Convenience wrapper around :meth:`view` for use with
+    def servable(self) -> pn.viewable.Viewable:
+        """Mark the full template as servable and return it.
+
+        Convenience wrapper around :attr:`template` for use with
         ``panel serve``.
         """
-        return self.view.servable()
+        return self.template.servable()
 
 
-# Support `panel serve panel_mt_data_app.py`
-_app = MTDataApp()
-_app.view.servable()
+# Support `panel serve panel_mt_data_app.py`; skip when merely imported.
+if pn.state.served:
+    _app = MTDataApp()
+    _app.servable()

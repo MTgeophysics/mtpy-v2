@@ -32,8 +32,11 @@ _EDIT_CLS = "mtpy.imaging.bokeh_plots.panel_mt_response_editor_tab.EditMTRespons
 
 
 def _make_app() -> MTDataApp:
-    """Return a freshly constructed MTDataApp."""
-    return MTDataApp()
+    """Return a freshly constructed MTDataApp (auto plot update off so tests
+    control exactly when a plot is generated)."""
+    app = MTDataApp()
+    app._plot_auto_widget.value = False
+    return app
 
 
 # ── Smoke tests ───────────────────────────────────────────────────────────────
@@ -1547,3 +1550,127 @@ def test_save_edits_clears_model_error_flag():
     editor.save_edits()
     assert editor._model_error_edited is False
     assert editor.reset_to_original() is False
+
+
+# ── Shared selection, map, auto-update, template ──────────────────────────────
+
+
+def _app_with_stations() -> MTDataApp:
+    app = _make_app()
+    app._mt_data = MagicMock(spec=MTData)
+    app._update_penetration_depth = MagicMock()
+    app._station_table.value = pd.DataFrame(
+        {
+            "survey": ["s", "s", "s"],
+            "station": ["MT01", "MT02", "MT03"],
+            "latitude": [40.0, 40.1, 40.2],
+            "longitude": [-120.0, -120.1, -120.2],
+            "elevation": [1.0, 2.0, 3.0],
+            "n_periods": [10, 10, 10],
+            "has_impedandance": [True] * 3,
+            "has_tipper": [True] * 3,
+        }
+    )
+    app._update_station_map(app._mt_data)
+    return app
+
+
+@pytest.mark.plotting
+def test_station_map_populated_from_table():
+    app = _app_with_stations()
+    assert app._station_source.data["station"] == ["MT01", "MT02", "MT03"]
+    assert app._station_source.data["path"][0].endswith("/MT01")
+
+
+@pytest.mark.plotting
+def test_table_selection_updates_map_and_shared_selection():
+    app = _app_with_stations()
+    app._station_table.selection = [0, 2]
+    assert app._station_source.selected.indices == [0, 2]
+    assert [p.rsplit("/", 1)[1] for p in app.selected_station_paths] == [
+        "MT01",
+        "MT03",
+    ]
+
+
+@pytest.mark.plotting
+def test_map_selection_updates_table_and_shared_selection():
+    app = _app_with_stations()
+    app._station_source.selected.indices = [1]
+    assert app._station_table.selection == [1]
+    assert len(app.selected_station_paths) == 1
+    assert app.selected_station_paths[0].endswith("/MT02")
+
+
+@pytest.mark.plotting
+def test_single_selection_sets_plot_station_picker():
+    app = _app_with_stations()
+    paths = list(app._station_source.data["path"])
+    app._plot_station_widget.options = paths
+    app._station_table.selection = [2]
+    assert app._plot_station_widget.value == paths[2]
+
+
+@pytest.mark.plotting
+def test_clear_selection_button_clears_everything():
+    app = _app_with_stations()
+    app._station_table.selection = [0]
+    app._clear_selection_button.clicks += 1
+    assert app.selected_station_paths == []
+    assert app._station_table.selection == []
+    assert list(app._station_source.selected.indices) == []
+
+
+@pytest.mark.plotting
+def test_multi_station_plot_uses_selected_subset():
+    app = _app_with_stations()
+    subset = MagicMock()
+    app._mt_data.get_subset.return_value = subset
+    app._station_table.selection = [0, 1]
+    app._plot_type_widget.value = "Station Map"
+    app.mt_data_loaded = True
+    app._on_generate_plot_clicked(None)
+    app._mt_data.get_subset.assert_called_once()
+    subset.plot_stations.assert_called_once()
+    app._mt_data.plot_stations.assert_not_called()
+
+
+@pytest.mark.plotting
+def test_selected_only_unchecked_plots_all_stations():
+    app = _app_with_stations()
+    app._station_table.selection = [0]
+    app._plot_selected_only_widget.value = False
+    app.mt_data_loaded = True
+    app._on_generate_plot_clicked(None)
+    app._mt_data.get_subset.assert_not_called()
+    app._mt_data.plot_stations.assert_called_once()
+
+
+@pytest.mark.plotting
+def test_auto_update_rerenders_on_plot_input_change():
+    app = _app_with_stations()
+    app.mt_data_loaded = True
+    app._plot_auto_widget.value = True
+    app._plot_backend_widget.value = "matplotlib"
+    # Outside a server pn.state.execute runs the task immediately.
+    assert app._plot_status.object.startswith("✅") or "⚠️" in app._plot_status.object
+    app._mt_data.plot_stations.assert_called()
+
+
+@pytest.mark.plotting
+def test_auto_update_off_does_not_render():
+    app = _app_with_stations()
+    app.mt_data_loaded = True
+    app._plot_auto_widget.value = False
+    app._on_generate_plot_clicked = MagicMock()
+    app._plot_backend_widget.value = "matplotlib"
+    app._on_generate_plot_clicked.assert_not_called()
+
+
+@pytest.mark.plotting
+def test_template_has_sidebar_and_tabs():
+    app = _make_app()
+    template = app.template
+    assert isinstance(template, pn.template.FastListTemplate)
+    assert len(template.sidebar) == 1
+    assert len(template.main) == 1
