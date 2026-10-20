@@ -24,7 +24,6 @@ from __future__ import annotations
 import fnmatch
 import hashlib
 import tempfile
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -33,7 +32,7 @@ import panel as pn
 import param
 
 
-_COLUMNS = ["name", "folder", "size", "modified", "path"]
+_COLUMNS = ["name", "folder", "size", "path"]
 
 
 def is_remote(location: str) -> bool:
@@ -51,22 +50,6 @@ def _human_size(nbytes: Any) -> str:
         if size < 1024 or unit == "GB":
             return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
         size /= 1024
-    return ""
-
-
-def _modified_str(info: dict) -> str:
-    for key in ("mtime", "LastModified", "last_modified", "updated", "modified"):
-        val = info.get(key)
-        if val is None:
-            continue
-        try:
-            if isinstance(val, (int, float)):
-                return datetime.fromtimestamp(val).strftime("%Y-%m-%d %H:%M")
-            if hasattr(val, "strftime"):
-                return val.strftime("%Y-%m-%d %H:%M")
-            return str(val)[:16]
-        except (OverflowError, OSError, ValueError):
-            return ""
     return ""
 
 
@@ -192,7 +175,6 @@ class FileBrowser(pn.viewable.Viewer):
                     "name": base,
                     "folder": folder,
                     "size": _human_size(info.get("size")),
-                    "modified": _modified_str(info),
                     "path": self._display_path(fs, str(name), remote),
                 }
             )
@@ -214,17 +196,6 @@ class FileBrowser(pn.viewable.Viewer):
             name="Open sub-folder", options=[""], sizing_mode="stretch_width"
         )
         self._subdirs.param.watch(self._on_subdir_selected, "value")
-        self._search_input = pn.widgets.TextInput(
-            name="Search names",
-            placeholder="e.g. gv10  or  *_2020*",
-            sizing_mode="stretch_width",
-        )
-        self._search_input.param.watch(
-            lambda e: setattr(self, "search", e.new), "value_input"
-        )
-        self._search_input.param.watch(
-            lambda e: setattr(self, "search", e.new), "value"
-        )
         self._recursive_box = pn.widgets.Checkbox(
             name="Include subfolders", value=self.recursive
         )
@@ -240,6 +211,7 @@ class FileBrowser(pn.viewable.Viewer):
             selectable="checkbox",
             hidden_columns=["path"],
             layout="fit_columns",
+            widths={"name": "55%", "folder": "30%", "size": "15%"},
             height=300,
             sizing_mode="stretch_width",
             pagination=None,
@@ -257,7 +229,7 @@ class FileBrowser(pn.viewable.Viewer):
         return pn.Column(
             pn.Row(self._location, self._up),
             self._subdirs,
-            pn.Row(self._search_input, self._recursive_box, self._depth),
+            pn.Row(self._recursive_box, self._depth),
             self._table,
             pn.Row(self._select_all, self._clear),
             self._message,
