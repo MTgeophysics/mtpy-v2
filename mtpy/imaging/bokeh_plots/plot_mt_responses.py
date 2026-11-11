@@ -1099,11 +1099,11 @@ class PlotMultipleResponses(BokehPlotBase):
     def panel(self, sizing_mode="stretch_width"):
         """Return an interactive Panel app for multi-station MT responses.
 
-        Provides a scrollable station selector, a plot-style toggle
-        (``"single"`` / ``"compare"``), tensor-preset selector, and
-        per-station colour/marker styling in compare mode. Changes to
-        the controls update the plot automatically; the first station is
-        selected and plotted initially.
+        Provides a scrollable checkbox station selector beside the plots and
+        collapsible plot options, including the plot style (``"single"`` /
+        ``"compare"``) and tensor preset. Per-station colour/marker styling is
+        available in compare mode. Changes to the controls update the plot
+        automatically; the first station is selected and plotted initially.
 
         Parameters
         ----------
@@ -1135,19 +1135,19 @@ class PlotMultipleResponses(BokehPlotBase):
         style_widget = pn.widgets.RadioButtonGroup(
             name="Plot Style",
             options=["single", "compare"],
-            value="single",
+            value="compare",
             button_type="primary",
             width=200,
         )
 
-        station_widget = pn.widgets.MultiSelect(
+        station_widget = pn.widgets.CheckBoxGroup(
             name="Stations",
             options=station_labels,
             value=[station_labels[0]],
+            inline=False,
             width=240,
-            height=200,
-            size=8,
         )
+        station_list = pn.Column(station_widget, width=240, height=200, scroll=True)
 
         select_all_btn = pn.widgets.Button(
             name="Select All", button_type="light", width=90
@@ -1452,44 +1452,49 @@ class PlotMultipleResponses(BokehPlotBase):
             widget.param.watch(_update_plot, "value")
         _update_plot()
 
-        controls = pn.Column(
-            pn.pane.Markdown("### MT Responses — Multi-Station"),
+        options = pn.Card(
             pn.Row(
                 pn.Column(
                     pn.pane.Markdown("**Plot Style**"),
                     style_widget,
                     pn.pane.Markdown("**Tensor Components**"),
                     plot_num_widget,
-                    pn.pane.Markdown("**Tipper**"),
-                    tipper_widget,
-                    pn.Row(
-                        pn.Column(
-                            plot_pt_widget,
-                            colorby_widget,
-                            pn.Row(pt_min_widget, pt_max_widget),
-                        ),
-                    ),
-                    status,
-                    width=400,
+                    width=320,
                 ),
                 pn.Column(
-                    pn.pane.Markdown("**Stations**"),
-                    pn.pane.Markdown(
-                        "_Ctrl/Cmd-click to select multiple stations._", width=240
-                    ),
-                    pn.Row(select_all_btn, clear_btn),
-                    station_widget,
+                    pn.pane.Markdown("**Tipper**"),
+                    tipper_widget,
+                    plot_pt_widget,
+                    colorby_widget,
+                    pn.Row(pt_min_widget, pt_max_widget),
+                    width=240,
                 ),
                 align="start",
             ),
-            sizing_mode=sizing_mode,
+            title="Plot options",
+            collapsed=True,
+            sizing_mode="stretch_width",
         )
 
         return pn.Column(
-            controls,
-            pn.layout.Divider(),
-            style_card_area,
-            plot_display,
+            pn.pane.Markdown("### MT Responses — Multi-Station"),
+            options,
+            status,
+            pn.Row(
+                pn.Column(
+                    pn.pane.Markdown("**Stations**"),
+                    pn.Row(select_all_btn, clear_btn),
+                    station_list,
+                    width=250,
+                ),
+                pn.Column(
+                    style_card_area,
+                    plot_display,
+                    sizing_mode=sizing_mode,
+                ),
+                align="start",
+                sizing_mode=sizing_mode,
+            ),
             sizing_mode=sizing_mode,
         )
 

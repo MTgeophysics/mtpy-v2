@@ -1183,7 +1183,7 @@ def test_multiple_responses_initially_render_in_plot_tab():
 
     station = next(
         widget
-        for widget in app._plot_display.select(pn.widgets.MultiSelect)
+        for widget in app._plot_display.select(pn.widgets.CheckBoxGroup)
         if widget.name == "Stations"
     )
     assert station.value == [station.options[0]]

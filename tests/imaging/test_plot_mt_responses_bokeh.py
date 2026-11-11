@@ -115,6 +115,36 @@ class TestPlotMultipleResponsesPanel:
         # The column must contain at least the controls and the plot area.
         assert len(result.objects) >= 2
 
+    def test_options_collapsed_and_station_selector_beside_plot(
+        self, multi_responses_class, two_mt_objects
+    ):
+        import panel as pn
+
+        obj = multi_responses_class(mt_data=_ObjList(two_mt_objects), show_plot=False)
+        app = obj.panel()
+        options = next(
+            card for card in app.select(pn.Card) if card.title == "Plot options"
+        )
+        station = next(
+            widget
+            for widget in app.select(pn.widgets.CheckBoxGroup)
+            if widget.name == "Stations"
+        )
+        assert options.collapsed
+        assert station not in options.select(pn.widgets.CheckBoxGroup)
+        assert {"Plot Style", "Tensor", "Tipper", "Phase Tensor", "PT Color by"} <= {
+            widget.name for widget in options.select(pn.widgets.Widget)
+        }
+        plot_row = app.objects[-1]
+        assert isinstance(plot_row, pn.Row)
+        assert station in plot_row.objects[0].select(pn.widgets.CheckBoxGroup)
+        assert plot_row.objects[1].select(pn.pane.Bokeh)
+        assert any(
+            "1 station(s) rendered" in str(pane.object)
+            for pane in app.select(pn.pane.Markdown)
+            if pane not in options.select(pn.pane.Markdown)
+        )
+
     def test_panel_empty_mt_data_returns_markdown(self, multi_responses_class):
         pytest.importorskip("panel")
         import panel as pn
@@ -132,11 +162,11 @@ class TestPlotMultipleResponsesPanel:
         app = obj.panel()
         station = next(
             widget
-            for widget in app.select(pn.widgets.MultiSelect)
+            for widget in app.select(pn.widgets.CheckBoxGroup)
             if widget.name == "Stations"
         )
-        assert station.height == 200
-        assert station.get_root().size == 8
+        assert not station.inline
+        assert station.get_root().active == [0]
         assert station.options == [obj._station_label(mt) for mt in two_mt_objects]
         assert station.value == [station.options[0]]
         assert not any(
@@ -148,8 +178,12 @@ class TestPlotMultipleResponsesPanel:
             for pane in app.select(pn.pane.Markdown)
         )
         assert app.select(pn.pane.Bokeh)
+        station.value = [station.options[0], station.options[1]]
+        assert any(
+            "2 station(s) rendered" in str(pane.object)
+            for pane in app.select(pn.pane.Markdown)
+        )
         station.value = [station.options[1]]
-        assert station.value == [station.options[1]]
         assert any(
             obj._station_label(two_mt_objects[1]) in str(pane.object)
             for pane in app.select(pn.pane.Markdown)
@@ -202,12 +236,17 @@ class TestPlotMultipleResponsesPanel:
         obj = multi_responses_class(mt_data=_ObjList(two_mt_objects), show_plot=False)
         app = obj.panel()
         widgets = {widget.name: widget for widget in app.select(pn.widgets.Widget)}
+        options = next(
+            card for card in app.select(pn.Card) if card.title == "Plot options"
+        )
+        options.collapsed = False
         widgets["Plot Style"].value = "compare"
         assert len(calls) == 1
         station = widgets["Stations"]
         card = next(
             card for card in app.select(pn.Card) if card.title == "Station Styling"
         )
+        assert card in app.objects[-1].objects[1].select(pn.Card)
         card.collapsed = False
         color = next(widget for widget in card.select(pn.widgets.ColorPicker))
         marker = next(widget for widget in card.select(pn.widgets.Select))
@@ -215,6 +254,7 @@ class TestPlotMultipleResponsesPanel:
         assert len(calls) == 2
         assert calls[-1][-1][station.options[0]]["color"] == "#123456"
         assert not card.collapsed
+        assert not options.collapsed
 
         marker.value = "o"
         assert len(calls) == 3
@@ -267,7 +307,16 @@ class TestPlotMultipleResponsesPanel:
         )
         plotter = multi_responses_class(mt_data=_ObjList(stations), show_plot=False)
         app = plotter.panel()
-        widget = app.select(pn.widgets.MultiSelect)[0]
+        widget = next(
+            widget
+            for widget in app.select(pn.widgets.CheckBoxGroup)
+            if widget.name == "Stations"
+        )
+        station_list = next(
+            col for col in app.select(pn.Column) if widget in col.objects
+        )
         assert len(widget.options) == 100
-        assert widget.height == 200
-        assert widget.get_root().size == 8
+        assert station_list.height == 200
+        assert station_list.width == 240
+        assert station_list.scroll is True
+        assert widget.get_root().inline is False
