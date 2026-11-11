@@ -11,6 +11,7 @@ import numpy as np
 from mtpy.imaging.bokeh_plots.bokeh_plot_base import BokehPlotBase
 from mtpy.imaging.bokeh_plots.plot_mt_response import PlotMTResponse
 
+
 try:
     from bokeh.io import show
     from bokeh.layouts import Column, Row
@@ -1098,9 +1099,10 @@ class PlotMultipleResponses(BokehPlotBase):
     def panel(self, sizing_mode="stretch_width"):
         """Return an interactive Panel app for multi-station MT responses.
 
-        Provides station selection checkboxes, a plot-style toggle
-        (``"single"`` / ``"compare"``), tensor-preset selector, a Generate
-        button, and – for compare mode – per-station colour/marker styling.
+        Provides a scrollable station selector, a plot-style toggle
+        (``"single"`` / ``"compare"``), tensor-preset selector, and
+        per-station colour/marker styling in compare mode. Changes to
+        the controls update the plot automatically.
 
         Parameters
         ----------
@@ -1137,12 +1139,13 @@ class PlotMultipleResponses(BokehPlotBase):
             width=200,
         )
 
-        station_widget = pn.widgets.CheckBoxGroup(
+        station_widget = pn.widgets.MultiSelect(
             name="Stations",
             options=station_labels,
             value=[],
-            inline=False,
             width=240,
+            height=200,
+            size=8,
         )
 
         select_all_btn = pn.widgets.Button(
@@ -1159,9 +1162,8 @@ class PlotMultipleResponses(BokehPlotBase):
             width=300,
         )
 
-        generate_btn = pn.widgets.Button(name="Plot", button_type="success", width=120)
         status = pn.pane.Markdown(
-            "_Select stations and click **Generate**._",
+            "_Select stations to plot._",
             styles={"color": "#555"},
         )
 
@@ -1222,15 +1224,11 @@ class PlotMultipleResponses(BokehPlotBase):
             pt_min_widget.value = float(lo)
             pt_max_widget.value = float(hi)
 
-        colorby_widget.param.watch(_on_colorby_change, "value")
-
         def _on_preset_change(event):
             """Sync tipper/PT widgets when 'All' preset is selected."""
             if event.new == "All":
                 tipper_widget.value = ["Real", "Imaginary"]
                 plot_pt_widget.value = True
-
-        plot_num_widget.param.watch(_on_preset_change, "value")
 
         # ── Per-station compare styling ────────────────────────────────────────
         _DEFAULT_COLORS = [
@@ -1247,20 +1245,30 @@ class PlotMultipleResponses(BokehPlotBase):
         ]
         _MARKER_OPTIONS = ["s", "o", "d", "v", "^", "x", "+"]
         _station_style_widgets: dict = {}
+        _style_card_labels = None
 
         def _build_compare_style_card(selected_labels):
-            _station_style_widgets.clear()
+            nonlocal _style_card_labels
+            if _style_card_labels == tuple(selected_labels) and style_card_area.objects:
+                return
             cols = []
             for ii, label in enumerate(selected_labels):
-                default_color = _DEFAULT_COLORS[ii % len(_DEFAULT_COLORS)]
-                cw = pn.widgets.ColorPicker(name=label, value=default_color, width=60)
-                mw = pn.widgets.Select(
-                    name="marker",
-                    options=_MARKER_OPTIONS,
-                    value=_MARKER_OPTIONS[ii % len(_MARKER_OPTIONS)],
-                    width=80,
-                )
-                _station_style_widgets[label] = (cw, mw)
+                if label not in _station_style_widgets:
+                    cw = pn.widgets.ColorPicker(
+                        name=label,
+                        value=_DEFAULT_COLORS[ii % len(_DEFAULT_COLORS)],
+                        width=60,
+                    )
+                    mw = pn.widgets.Select(
+                        name="marker",
+                        options=_MARKER_OPTIONS,
+                        value=_MARKER_OPTIONS[ii % len(_MARKER_OPTIONS)],
+                        width=80,
+                    )
+                    cw.param.watch(_update_plot, "value")
+                    mw.param.watch(_update_plot, "value")
+                    _station_style_widgets[label] = (cw, mw)
+                cw, mw = _station_style_widgets[label]
                 cols.append(
                     pn.Column(
                         pn.pane.Markdown(f"**{label}**", margin=(0, 5)),
@@ -1277,6 +1285,7 @@ class PlotMultipleResponses(BokehPlotBase):
             style_card_area.objects = [
                 pn.Card(card_content, title="Station Styling", collapsed=True)
             ]
+            _style_card_labels = tuple(selected_labels)
 
         # ── Render callback ────────────────────────────────────────────────────
         def _render(event=None):
@@ -1284,6 +1293,7 @@ class PlotMultipleResponses(BokehPlotBase):
             if not selected:
                 status.object = "⚠️ No stations selected."
                 status.styles = {"color": "#7a5200"}
+                style_card_area.objects = []
                 plot_display.objects = []
                 return
 
@@ -1384,8 +1394,11 @@ class PlotMultipleResponses(BokehPlotBase):
 
                     # Collect styling from per-station widgets.
                     cmp.custom_station_styles = {
-                        label: {"color": cw.value, "marker": mw.value}
-                        for label, (cw, mw) in _station_style_widgets.items()
+                        label: {
+                            "color": _station_style_widgets[label][0].value,
+                            "marker": _station_style_widgets[label][1].value,
+                        }
+                        for label in selected
                     }
 
                     bokeh_layout = cmp._plot_compare_overlay()
@@ -1403,12 +1416,39 @@ class PlotMultipleResponses(BokehPlotBase):
                 )
                 status.styles = {"color": "#b00020"}
 
+        updating = False
+
+        def _update_plot(event=None):
+            nonlocal updating
+            if updating:
+                return
+            updating = True
+            try:
+                if event is not None:
+                    if event.obj is colorby_widget:
+                        _on_colorby_change(event)
+                    elif event.obj is plot_num_widget:
+                        _on_preset_change(event)
+                _render()
+            finally:
+                updating = False
+
         # ── Wire callbacks ─────────────────────────────────────────────────────
         select_all_btn.on_click(
             lambda e: setattr(station_widget, "value", station_labels)
         )
         clear_btn.on_click(lambda e: setattr(station_widget, "value", []))
-        generate_btn.on_click(_render)
+        for widget in (
+            station_widget,
+            style_widget,
+            plot_num_widget,
+            tipper_widget,
+            plot_pt_widget,
+            colorby_widget,
+            pt_min_widget,
+            pt_max_widget,
+        ):
+            widget.param.watch(_update_plot, "value")
 
         controls = pn.Column(
             pn.pane.Markdown("### MT Responses — Multi-Station"),
@@ -1427,12 +1467,14 @@ class PlotMultipleResponses(BokehPlotBase):
                             pn.Row(pt_min_widget, pt_max_widget),
                         ),
                     ),
-                    pn.Row(generate_btn),
                     status,
                     width=400,
                 ),
                 pn.Column(
                     pn.pane.Markdown("**Stations**"),
+                    pn.pane.Markdown(
+                        "_Ctrl/Cmd-click to select multiple stations._", width=240
+                    ),
                     pn.Row(select_all_btn, clear_btn),
                     station_widget,
                 ),
