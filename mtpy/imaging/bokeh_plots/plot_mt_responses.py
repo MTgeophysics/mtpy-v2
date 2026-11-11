@@ -1102,7 +1102,8 @@ class PlotMultipleResponses(BokehPlotBase):
         Provides a scrollable station selector, a plot-style toggle
         (``"single"`` / ``"compare"``), tensor-preset selector, and
         per-station colour/marker styling in compare mode. Changes to
-        the controls update the plot automatically.
+        the controls update the plot automatically; the first station is
+        selected and plotted initially.
 
         Parameters
         ----------
@@ -1142,7 +1143,7 @@ class PlotMultipleResponses(BokehPlotBase):
         station_widget = pn.widgets.MultiSelect(
             name="Stations",
             options=station_labels,
-            value=[],
+            value=[station_labels[0]],
             width=240,
             height=200,
             size=8,
@@ -1449,6 +1450,7 @@ class PlotMultipleResponses(BokehPlotBase):
             pt_max_widget,
         ):
             widget.param.watch(_update_plot, "value")
+        _update_plot()
 
         controls = pn.Column(
             pn.pane.Markdown("### MT Responses — Multi-Station"),

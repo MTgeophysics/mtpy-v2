@@ -1169,6 +1169,32 @@ def test_generate_plot_calls_correct_method():
 
 
 @pytest.mark.plotting
+def test_multiple_responses_initially_render_in_plot_tab():
+    """The embedded multiple-response panel displays its first station."""
+    from mt_metadata import TF_EDI_CGG
+
+    app = _make_app()
+    app._file_selector.value = [str(TF_EDI_CGG)]
+    app._on_load_clicked(None)
+    assert app.mt_data_loaded
+
+    app._plot_type_widget.value = "MT Responses (multiple stations)"
+    app._on_generate_plot_clicked(None)
+
+    station = next(
+        widget
+        for widget in app._plot_display.select(pn.widgets.MultiSelect)
+        if widget.name == "Stations"
+    )
+    assert station.value == [station.options[0]]
+    assert app._plot_display.select(pn.pane.Bokeh)
+    assert any(
+        "1 station(s) rendered" in str(pane.object)
+        for pane in app._plot_display.select(pn.pane.Markdown)
+    )
+
+
+@pytest.mark.plotting
 def test_generate_plot_station_required_but_none_selected():
     """If station picker has no selection, generate should show a warning."""
     app = _make_app()

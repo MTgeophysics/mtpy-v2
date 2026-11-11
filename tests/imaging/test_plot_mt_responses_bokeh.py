@@ -138,17 +138,22 @@ class TestPlotMultipleResponsesPanel:
         assert station.height == 200
         assert station.get_root().size == 8
         assert station.options == [obj._station_label(mt) for mt in two_mt_objects]
-        assert station.value == []
+        assert station.value == [station.options[0]]
         assert not any(
             button.name == "Plot" for button in app.select(pn.widgets.Button)
         )
 
-        station.value = [station.options[0]]
         assert any(
             "1 station(s) rendered" in str(pane.object)
             for pane in app.select(pn.pane.Markdown)
         )
         assert app.select(pn.pane.Bokeh)
+        station.value = [station.options[1]]
+        assert station.value == [station.options[1]]
+        assert any(
+            obj._station_label(two_mt_objects[1]) in str(pane.object)
+            for pane in app.select(pn.pane.Markdown)
+        )
         next(
             button
             for button in app.select(pn.widgets.Button)
@@ -198,10 +203,8 @@ class TestPlotMultipleResponsesPanel:
         app = obj.panel()
         widgets = {widget.name: widget for widget in app.select(pn.widgets.Widget)}
         widgets["Plot Style"].value = "compare"
-        assert calls == []
-        station = widgets["Stations"]
-        station.value = [station.options[0]]
         assert len(calls) == 1
+        station = widgets["Stations"]
         card = next(
             card for card in app.select(pn.Card) if card.title == "Station Styling"
         )
@@ -242,15 +245,26 @@ class TestPlotMultipleResponsesPanel:
         assert calls[-1][1:3] == ("yr", False)
         assert calls[-1][4] == (0.1, 0.9, 10)
 
-    def test_long_station_list_remains_bounded(self, multi_responses_class):
+    def test_long_station_list_remains_bounded(
+        self, multi_responses_class, monkeypatch
+    ):
         from types import SimpleNamespace
 
         import panel as pn
+
+        class SimplePlotter:
+            def panel(self, interactive=True):
+                return pn.pane.Markdown("mock plot")
 
         stations = [
             SimpleNamespace(station=f"st{index:03}", period=[1.0, 10.0])
             for index in range(100)
         ]
+        monkeypatch.setattr(
+            multi_responses_class,
+            "_make_station_plotter",
+            lambda *args, **kwargs: SimplePlotter(),
+        )
         plotter = multi_responses_class(mt_data=_ObjList(stations), show_plot=False)
         app = plotter.panel()
         widget = app.select(pn.widgets.MultiSelect)[0]
