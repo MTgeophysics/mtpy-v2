@@ -956,12 +956,12 @@ class PlotPhaseTensorMaps(BokehPlotBaseMaps):
     # ── Interactive Panel app ─────────────────────────────────────────────────
 
     def panel(self):
-        """Return an embeddable Panel application with interactive controls.
+        """Return an embeddable Panel application with live plot controls.
 
         Returns
         -------
         pn.Column
-            A Panel layout containing controls and a live Bokeh figure pane.
+            A Panel layout whose widgets update the Bokeh figure on change.
         """
         try:
             import panel as pn
@@ -1040,7 +1040,6 @@ class PlotPhaseTensorMaps(BokehPlotBaseMaps):
             if float(w_y_pad.value) < new_size:
                 w_y_pad.value = new_size
 
-        w_ellipse_size.param.watch(_on_ellipse_size_change, "value")
         w_ellipse_alpha = pn.widgets.FloatSlider(
             name="Fill alpha", value=self.ellipse_alpha, start=0.0, end=1.0, step=0.05
         )
@@ -1070,8 +1069,6 @@ class PlotPhaseTensorMaps(BokehPlotBaseMaps):
             lo, hi = self._COLORBY_DEFAULTS.get(event.new, (0, 90))
             w_fill_min.value = float(lo)
             w_fill_max.value = float(hi)
-
-        w_colorby.param.watch(_on_colorby_change, "value")
 
         # ── Ellipse edge ──────────────────────────────────────────────────────
         w_edge_colorby = pn.widgets.Select(
@@ -1103,8 +1100,6 @@ class PlotPhaseTensorMaps(BokehPlotBaseMaps):
             lo, hi = self._COLORBY_DEFAULTS.get(event.new, (-10, 10))
             w_edge_min.value = float(lo)
             w_edge_max.value = float(hi)
-
-        w_edge_colorby.param.watch(_on_edge_colorby_change, "value")
 
         # ── Tipper ────────────────────────────────────────────────────────────
         w_tipper = pn.widgets.CheckBoxGroup(
@@ -1154,10 +1149,6 @@ class PlotPhaseTensorMaps(BokehPlotBaseMaps):
             width=180,
         )
 
-        # ── Controls button ───────────────────────────────────────────────────
-        refresh_btn = pn.widgets.Button(
-            name="\U0001f504 Refresh", button_type="success", width=120
-        )
         status = pn.pane.Markdown("", styles={"color": "#555"})
         plot_pane = pn.pane.Bokeh(sizing_mode="stretch_width")
 
@@ -1234,15 +1225,67 @@ class PlotPhaseTensorMaps(BokehPlotBaseMaps):
                 )
                 status.styles = {"color": "#b00020"}
 
-        refresh_btn.on_click(_refresh)
-        _refresh()
+        updating = False
 
-        controls = pn.Column(
-            pn.pane.Markdown("### Phase Tensor Map"),
+        def _update_plot(event=None):
+            nonlocal updating
+            if updating:
+                return
+            updating = True
+            try:
+                if event is not None:
+                    if event.obj is w_ellipse_size:
+                        _on_ellipse_size_change(event)
+                    elif event.obj is w_colorby:
+                        _on_colorby_change(event)
+                    elif event.obj is w_edge_colorby:
+                        _on_edge_colorby_change(event)
+                _refresh()
+            except Exception as exc:
+                import traceback
+
+                status.object = (
+                    f"\u274c `{type(exc).__name__}: {exc}\n\n{traceback.format_exc()}`"
+                )
+                status.styles = {"color": "#b00020"}
+            finally:
+                updating = False
+
+        for widget in (
+            w_period,
+            w_map_scale,
+            w_tile,
+            w_plot_station,
+            w_x_pad,
+            w_y_pad,
+            w_pt_type,
+            w_ellipse_size,
+            w_ellipse_alpha,
+            w_colorby,
+            w_fill_min,
+            w_fill_max,
+            w_cmap,
+            w_edge_colorby,
+            w_edge_min,
+            w_edge_max,
+            w_edge_lw,
+            w_edge_cmap,
+            w_tipper,
+            w_arrow_size,
+            w_arrow_head_length,
+            w_arrow_head_width,
+            w_arrow_threshold,
+            w_arrow_color_real,
+            w_arrow_color_imag,
+            w_arrow_dir,
+        ):
+            widget.param.watch(_update_plot, "value")
+        _update_plot()
+
+        options = pn.Card(
             pn.Row(
                 pn.Column(
-                    pn.pane.Markdown("**Period & Map**"),
-                    w_period,
+                    pn.pane.Markdown("**Map**"),
                     w_map_scale,
                     w_tile,
                     w_plot_station,
@@ -1283,7 +1326,14 @@ class PlotPhaseTensorMaps(BokehPlotBaseMaps):
                 ),
                 align="start",
             ),
-            pn.Row(refresh_btn),
+            title="Plot options",
+            collapsed=True,
+            sizing_mode="stretch_width",
+        )
+        controls = pn.Column(
+            pn.pane.Markdown("### Phase Tensor Map"),
+            pn.Row(w_period, align="start"),
+            options,
             status,
         )
 

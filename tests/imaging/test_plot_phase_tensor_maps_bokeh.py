@@ -307,13 +307,7 @@ class TestPlotPhaseTensorMapsBokehMTData:
             list(selectors[0].options.values()), plotter._map_periods
         )
         assert selectors[0].value == plotter.plot_period
-        refresh = next(
-            button
-            for button in app.select(pn.widgets.Button)
-            if "Refresh" in button.name
-        )
         selectors[0].value = float(plotter._map_periods[0])
-        refresh.clicks += 1
         assert any(
             "No phase tensor ellipses" in str(pane.object)
             for pane in app.select(pn.pane.Markdown)
@@ -328,10 +322,156 @@ class TestPlotPhaseTensorMapsBokehMTData:
             np.array([[0.2 - 1j, 3 + 4j], [-10 - 2j, -1 + 2j]]), (2, 1, 1)
         )
         mt_data_tree.add_station(extra)
-        refresh.clicks += 1
+        selectors[0].value = float(plotter._map_periods[1])
         assert plotter._map_periods[-1] > previous_max
         np.testing.assert_allclose(
             list(selectors[0].options.values()), plotter._map_periods
+        )
+
+    @pytest.mark.parametrize("preinterpolate", [True, False])
+    def test_panel_options_card_keeps_period_accessible(
+        self, bokeh_plot_phase_tensor_maps_class, mt_data_tree, preinterpolate
+    ):
+        import panel as pn
+
+        plotter = bokeh_plot_phase_tensor_maps_class(
+            mt_data_tree, show_plot=False, use_mt_data_preinterpolation=preinterpolate
+        )
+        app = plotter.panel()
+        card = next(
+            card for card in app.select(pn.Card) if card.title == "Plot options"
+        )
+        assert card.collapsed
+        assert card.collapsible
+        assert not any(
+            widget.name == "Plot period (s)"
+            for widget in card.select(pn.widgets.Widget)
+        )
+        period = next(
+            widget
+            for widget in app.select(pn.widgets.Widget)
+            if widget.name == "Plot period (s)"
+        )
+        assert not any(
+            "Refresh" in button.name for button in app.select(pn.widgets.Button)
+        )
+        assert {
+            "Map scale",
+            "Basemap",
+            "Station labels",
+            "Glyph type",
+            "Ellipse size",
+            "Color edge by",
+            "Tipper",
+            "Arrow size",
+        }.issubset({widget.name for widget in card.select(pn.widgets.Widget)})
+
+        glyph_type = next(
+            widget
+            for widget in card.select(pn.widgets.Select)
+            if widget.name == "Glyph type"
+        )
+        card.collapsed = False
+        glyph_type.value = "wedges"
+        card.collapsed = True
+        if preinterpolate:
+            period.value = float(plotter._map_periods[len(plotter._map_periods) // 2])
+        else:
+            period.value = 1.0
+        assert card.collapsed
+        assert plotter.pt_type == "wedges"
+        assert plotter.plot_period == period.value
+        assert plotter.fig.title.text.endswith(f"{period.value:.5g} (s)")
+
+    def test_panel_widgets_redraw_once_after_changes(
+        self, bokeh_plot_phase_tensor_maps_class, mt_data_tree, monkeypatch
+    ):
+        import panel as pn
+
+        plotter = bokeh_plot_phase_tensor_maps_class(mt_data_tree, show_plot=False)
+        app = plotter.panel()
+        widgets = {widget.name: widget for widget in app.select(pn.widgets.Widget)}
+        rendered = plotter.layout
+        calls = []
+
+        def fake_plot(show=False):
+            calls.append(show)
+            return rendered
+
+        monkeypatch.setattr(plotter, "plot", fake_plot)
+        changes = [
+            ("Plot period (s)", float(plotter._map_periods[1]), "plot_period"),
+            ("Map scale", "km", "map_scale"),
+            ("Basemap", "CartoDB.Voyager", "bokeh_tile_provider"),
+            ("Station labels", True, "plot_station"),
+            ("X pad", 0.02, "x_pad"),
+            ("Y pad", 0.02, "y_pad"),
+            ("Glyph type", "wedges", "pt_type"),
+            ("Ellipse size", 0.03, "ellipse_size"),
+            ("Fill alpha", 0.5, "ellipse_alpha"),
+            ("Color fill by", "ellipticity", "ellipse_colorby"),
+            ("Fill min", 0.1, None),
+            ("Fill max", 0.9, None),
+            ("Color palette", "magma", "ellipse_cmap"),
+            ("Color edge by", "ellipticity", "edge_colorby"),
+            ("Edge min", 0.1, None),
+            ("Edge max", 0.9, None),
+            ("Edge line width", 3.0, "edge_lw"),
+            ("Edge palette", "magma", "edge_cmap"),
+            ("Tipper", ["Real", "Imaginary"], "plot_tipper"),
+            ("Arrow size", 0.01, "arrow_size"),
+            ("Arrow head length", 0.01, "arrow_head_length"),
+            ("Arrow head width", 0.01, "arrow_head_width"),
+            ("Arrow threshold", 1.0, "arrow_threshold"),
+            ("Arrow real color", "#112233", "arrow_color_real"),
+            ("Arrow imag color", "#334455", "arrow_color_imag"),
+            ("Arrow direction", "Away from conductor", "arrow_direction"),
+        ]
+        for name, value, attr in changes:
+            before = len(calls)
+            widgets[name].value = value
+            assert len(calls) == before + 1, name
+            if attr and name not in ("Tipper", "Arrow direction"):
+                assert getattr(plotter, attr) == value
+        assert plotter.plot_tipper == "yri"
+        assert plotter.arrow_direction == 0
+        assert plotter.ellipse_range[:2] == (0.1, 0.9)
+        assert plotter.edge_range == (0.1, 0.9)
+        assert widgets["X pad"].value == 0.03
+        assert widgets["Y pad"].value == 0.03
+
+    def test_panel_plot_updates_and_recovers_after_invalid_period(
+        self, bokeh_plot_phase_tensor_maps_class, mt_data_tree
+    ):
+        import panel as pn
+        from bokeh.models import Ellipse
+
+        plotter = bokeh_plot_phase_tensor_maps_class(
+            mt_data_tree, show_plot=False, use_mt_data_preinterpolation=False
+        )
+        app = plotter.panel()
+        widgets = {widget.name: widget for widget in app.select(pn.widgets.Widget)}
+        pane = app.select(pn.pane.Bokeh)[0]
+        initial = pane.object
+        widgets["Ellipse size"].value = 0.02
+        assert pane.object is not initial
+        ellipses = [
+            renderer
+            for renderer in plotter.fig.renderers
+            if isinstance(getattr(renderer, "glyph", None), Ellipse)
+        ]
+        assert ellipses
+        assert ellipses[0].data_source.data["width"][0] == pytest.approx(0.02)
+
+        widgets["Plot period (s)"].value = 0.0
+        assert any(
+            "ValueError" in str(status.object)
+            for status in app.select(pn.pane.Markdown)
+        )
+        widgets["Plot period (s)"].value = 1.0
+        assert plotter.plot_period == 1.0
+        assert any(
+            "rendered" in str(status.object) for status in app.select(pn.pane.Markdown)
         )
 
     def test_map_supports_programmatic_off_grid_period(
