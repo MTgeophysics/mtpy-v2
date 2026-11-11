@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
+import re
+from types import SimpleNamespace
+
 import numpy as np
+import pandas as pd
 import param
 from bokeh.io import show as bokeh_show
 from bokeh.layouts import Column
@@ -11,9 +16,11 @@ from bokeh.models import (
     BasicTicker,
     ColorBar,
     Div,
+    Ellipse,
     LinearColorMapper,
     NormalHead,
     Range1d,
+    Wedge,
 )
 from bokeh.palettes import (
     Cividis256,
@@ -29,6 +36,7 @@ from mtpy.core import Tipper
 from mtpy.core.transfer_function import PhaseTensor
 from mtpy.imaging.bokeh_plots.bokeh_plot_base import _ELLIPSE_COLORBY_OPTIONS
 from mtpy.imaging.bokeh_plots.bokeh_plot_base_maps import BokehPlotBaseMaps
+
 
 _PALETTE_OPTIONS = ["turbo", "viridis", "magma", "inferno", "plasma", "cividis"]
 
@@ -59,10 +67,22 @@ class PlotPhaseTensorMaps(BokehPlotBaseMaps):
     ----------
     mt_data : MTData or dict-like
         Container of MT objects.
+
+    Notes
+    -----
+    MTData inputs are prepared on a decade-aligned grid with four intervals
+    per decade. The Panel period selector uses this grid; a programmatically
+    requested period outside the grid is computed and cached separately.
+    Dict-like inputs use the per-station interpolation path.
     """
 
     # ── map / coordinate ────────────────────────────────────────────────────
-    plot_period = param.Number(default=1.0, bounds=(1e-10, None), doc="Plot period (s)")
+    plot_period = param.Number(
+        default=1.0,
+        bounds=(0, None),
+        inclusive_bounds=(False, True),
+        doc="Plot period (s)",
+    )
     map_scale = param.ObjectSelector(
         default="deg",
         objects=["deg", "m", "km"],
@@ -146,6 +166,9 @@ class PlotPhaseTensorMaps(BokehPlotBaseMaps):
         self.mt_data = mt_data
         self._interpolated_mt_data_cache = None
         self._interpolated_mt_data_cache_period = None
+        self._map_dataframe = None
+        self._map_data_signature = None
+        self._map_periods = None
         self._rotation_angle = 0.0
         self.fig = None
         self.layout = None
@@ -217,6 +240,95 @@ class PlotPhaseTensorMaps(BokehPlotBaseMaps):
             for tf in self._iter_mt_objects():
                 tf.rotation_angle = value
         self._rotation_angle = value
+        self.invalidate_map_cache()
+
+    def invalidate_map_cache(self):
+        """Discard prepared map values after the source data has changed."""
+        self._map_dataframe = None
+        self._map_data_signature = None
+        self._map_periods = None
+
+    def _map_source_signature(self):
+        """Identify changes to station transfer functions, periods and locations."""
+        digest = hashlib.blake2b()
+        self.mt_data.compute()
+        for path in self.mt_data._iter_station_paths():
+            ds = self.mt_data.get_station(path)
+            digest.update(path.encode())
+            for key in ("station", "survey", "latitude", "longitude", "datum_crs"):
+                digest.update(repr(ds.attrs.get(key)).encode())
+            for name in ("period", "input", "output", "transfer_function"):
+                if name in ds:
+                    values = np.asarray(ds[name].values)
+                    digest.update(repr((name, values.shape, values.dtype.str)).encode())
+                    if values.dtype.hasobject or values.dtype.kind in "US":
+                        digest.update(repr(values.tolist()).encode())
+                    else:
+                        digest.update(np.ascontiguousarray(values).tobytes())
+        return digest.digest()
+
+    def _get_map_dataframe(self):
+        """Prepare and cache the numerical map data for an MTData source."""
+        signature = self._map_source_signature()
+        if self._map_dataframe is None or signature != self._map_data_signature:
+            periods = self.mt_data.get_phase_tensor_map_periods()
+            frame = self.mt_data.to_phase_tensor_map_dataframe(periods)
+            self._map_periods = periods
+            self._map_dataframe = frame
+            self._map_data_signature = signature
+        return self._map_dataframe
+
+    def _get_dataframe_stations(self):
+        """Return lightweight station records for the selected plot period."""
+        frame = self._get_map_dataframe()
+        matches = frame["period"] == float(self.plot_period)
+        if not matches.any():
+            extra = self.mt_data.to_phase_tensor_map_dataframe(
+                np.array([self.plot_period], dtype=float)
+            )
+            frame = pd.concat([frame, extra], ignore_index=True)
+            self._map_dataframe = frame
+            matches = frame["period"] == float(self.plot_period)
+
+        stations = []
+        for row in frame.loc[matches].itertuples(index=False):
+            pt = None
+            if np.isfinite([row.phimin, row.phimax, row.azimuth, row.beta]).all():
+                pt = SimpleNamespace(
+                    **{
+                        name: np.array([getattr(row, name)])
+                        for name in (
+                            "phimin",
+                            "phimax",
+                            "azimuth",
+                            "beta",
+                            "skew",
+                            "ellipticity",
+                            "det",
+                        )
+                    }
+                )
+            tipper = None
+            if np.isfinite(
+                [row.mag_real, row.mag_imag, row.angle_real, row.angle_imag]
+            ).all():
+                tipper = SimpleNamespace(
+                    **{
+                        name: np.array([getattr(row, name)])
+                        for name in ("mag_real", "mag_imag", "angle_real", "angle_imag")
+                    }
+                )
+            stations.append(
+                SimpleNamespace(
+                    station=row.station,
+                    latitude=row.latitude,
+                    longitude=row.longitude,
+                    datum_crs=row.datum_crs,
+                    _map_pt=pt,
+                    _map_tipper=tipper,
+                )
+            )
+        return stations
 
     def _palette_from_name(self, name):
         if name is None:
@@ -253,12 +365,15 @@ class PlotPhaseTensorMaps(BokehPlotBaseMaps):
         return palette[idx]
 
     def _get_pt(self, tf):
+        if hasattr(tf, "_map_pt"):
+            return tf._map_pt if self.plot_pt else None, (
+                tf._map_tipper if "y" in self.plot_tipper else None
+            )
         pt_obj = None
         if tf.has_impedance() and self.plot_pt:
             try:
                 z = self._get_interpolated_z(tf)
-                z_error = self._get_interpolated_z_error(tf)
-                pt_obj = PhaseTensor(z=z, z_error=z_error)
+                pt_obj = PhaseTensor(z=z)
             except ValueError as error:
                 self.logger.warning(
                     f"Could not estimate phase tensor for {tf.station} at period "
@@ -271,9 +386,8 @@ class PlotPhaseTensorMaps(BokehPlotBaseMaps):
         if tf.has_tipper() and "y" in self.plot_tipper:
             try:
                 t = self._get_interpolated_t(tf)
-                t_err = self._get_interpolated_t_err(tf)
                 if (t != 0).all():
-                    new_t_obj = Tipper(t, t_err, [1.0 / self.plot_period])
+                    new_t_obj = Tipper(tipper=t, frequency=[1.0 / self.plot_period])
             except ValueError:
                 self.logger.warning(
                     f"Could not estimate tipper for {tf.station} at period "
@@ -328,9 +442,29 @@ class PlotPhaseTensorMaps(BokehPlotBaseMaps):
             plot_x = tf.longitude - self.reference_point[0]
             plot_y = tf.latitude - self.reference_point[1]
         elif self.map_scale in ["m", "km"]:
-            tf.project_point_ll2utm(epsg=self.map_epsg, utm_zone=self.map_utm_zone)
-            plot_x = tf.east - self.reference_point[0]
-            plot_y = tf.north - self.reference_point[1]
+            from pyproj import CRS, Transformer
+
+            if self.map_epsg is not None:
+                target_crs = CRS.from_user_input(self.map_epsg)
+            else:
+                if self.map_utm_zone is None:
+                    zone = min(60, max(1, int((tf.longitude + 180) // 6) + 1))
+                else:
+                    match = re.fullmatch(r"(\d{1,2})[A-Za-z]?", str(self.map_utm_zone))
+                    if match is None or not 1 <= int(match.group(1)) <= 60:
+                        raise ValueError(f"Invalid UTM zone: {self.map_utm_zone!r}")
+                    zone = int(match.group(1))
+                target_crs = CRS.from_epsg(
+                    (32600 if tf.latitude >= 0 else 32700) + zone
+                )
+            transformer = Transformer.from_crs(
+                getattr(tf, "datum_crs", None) or "EPSG:4326",
+                target_crs,
+                always_xy=True,
+            )
+            east, north = transformer.transform(tf.longitude, tf.latitude)
+            plot_x = east - self.reference_point[0]
+            plot_y = north - self.reference_point[1]
             if self.map_scale == "km":
                 plot_x /= 1000.0
                 plot_y /= 1000.0
@@ -707,7 +841,14 @@ class PlotPhaseTensorMaps(BokehPlotBaseMaps):
             except Exception as exc:
                 self.logger.warning(f"Could not add tile provider: {exc}")
 
-        mt_objects = self._get_mt_objects()
+        if (
+            self.use_mt_data_preinterpolation
+            and hasattr(self.mt_data, "to_phase_tensor_map_dataframe")
+            and hasattr(self.mt_data, "get_phase_tensor_map_periods")
+        ):
+            mt_objects = self._get_dataframe_stations()
+        else:
+            mt_objects = self._get_mt_objects()
         self.plot_xarr = np.zeros(len(mt_objects))
         self.plot_yarr = np.zeros(len(mt_objects))
 
@@ -831,12 +972,31 @@ class PlotPhaseTensorMaps(BokehPlotBaseMaps):
             )
 
         # ── Period & map ──────────────────────────────────────────────────────
-        w_period = pn.widgets.NumberInput(
-            name="Plot period (s)",
-            value=float(self.plot_period),
-            step=0.1,
-            width=140,
-        )
+        if (
+            self.use_mt_data_preinterpolation
+            and hasattr(self.mt_data, "to_phase_tensor_map_dataframe")
+            and hasattr(self.mt_data, "get_phase_tensor_map_periods")
+        ):
+            self._get_map_dataframe()
+            nearest = int(
+                np.argmin(np.abs(np.log(self._map_periods / self.plot_period)))
+            )
+            self.plot_period = float(self._map_periods[nearest])
+            w_period = pn.widgets.Select(
+                name="Plot period (s)",
+                value=self.plot_period,
+                options={
+                    f"{period:.8g}": float(period) for period in self._map_periods
+                },
+                width=140,
+            )
+        else:
+            w_period = pn.widgets.NumberInput(
+                name="Plot period (s)",
+                value=float(self.plot_period),
+                step=0.1,
+                width=140,
+            )
         w_map_scale = pn.widgets.Select(
             name="Map scale",
             value=self.map_scale,
@@ -1003,7 +1163,6 @@ class PlotPhaseTensorMaps(BokehPlotBaseMaps):
 
         def _refresh(_event=None):
             # Read widget values back to self.
-            self.plot_period = float(w_period.value)
             self.map_scale = w_map_scale.value
             self.bokeh_tile_provider = w_tile.value
             self.plot_station = w_plot_station.value
@@ -1036,15 +1195,37 @@ class PlotPhaseTensorMaps(BokehPlotBaseMaps):
             self.arrow_color_real = w_arrow_color_real.value
             self.arrow_color_imag = w_arrow_color_imag.value
             self.arrow_direction = 1 if "Parkinson" in w_arrow_dir.value else 0
-            # Invalidate interpolation cache when period changes.
-            self._interpolated_mt_data_cache = None
-            self._interpolated_mt_data_cache_period = None
             status.object = "\u23f3 Rendering…"
             try:
+                if isinstance(w_period, pn.widgets.Select):
+                    requested = float(w_period.value)
+                    self._get_map_dataframe()
+                    options = {
+                        f"{period:.8g}": float(period) for period in self._map_periods
+                    }
+                    if w_period.options != options:
+                        w_period.options = options
+                        nearest = int(
+                            np.argmin(np.abs(np.log(self._map_periods / requested)))
+                        )
+                        w_period.value = float(self._map_periods[nearest])
+                self.plot_period = float(w_period.value)
                 layout = self.plot(show=False)
                 plot_pane.object = layout
-                status.object = f"\u2705 Period {self.plot_period:.5g} s rendered."
-                status.styles = {"color": "#1a6600"}
+                has_ellipses = any(
+                    isinstance(getattr(renderer, "glyph", None), (Ellipse, Wedge))
+                    for renderer in self.fig.renderers
+                )
+                has_arrows = bool(list(self.fig.select({"type": Arrow})))
+                if has_ellipses or has_arrows:
+                    status.object = f"\u2705 Period {self.plot_period:.5g} s rendered."
+                    status.styles = {"color": "#1a6600"}
+                else:
+                    status.object = (
+                        f"\u26a0\ufe0f No phase tensor ellipses or tipper arrows "
+                        f"available at {self.plot_period:.5g} s."
+                    )
+                    status.styles = {"color": "#7a5200"}
             except Exception as exc:
                 import traceback
 

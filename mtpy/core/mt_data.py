@@ -4055,6 +4055,182 @@ class MTData:
         unique_periods.sort()
         return unique_periods
 
+    def get_phase_tensor_map_periods(self) -> np.ndarray:
+        """Return a decade-aligned map grid with four intervals per decade.
+
+        The grid covers the positive, finite period range of the collection.
+        For a collection containing a single period exactly on a decade, the
+        grid contains that period alone.
+        """
+        periods = self.get_periods()
+        periods = periods[np.isfinite(periods) & (periods > 0)]
+        if periods.size == 0:
+            raise ValueError(
+                "Cannot create a phase tensor map without positive periods."
+            )
+        low = int(np.floor(np.log10(periods.min())))
+        high = int(np.ceil(np.log10(periods.max())))
+        return np.logspace(low, high, 4 * (high - low) + 1)
+
+    def to_phase_tensor_map_dataframe(
+        self, periods: np.ndarray | None = None
+    ) -> pd.DataFrame:
+        """Calculate map-ready phase tensor and tipper values on a period grid.
+
+        Impedance and tipper are interpolated before their derived quantities
+        are computed. Rows outside a station's source range, and rows with
+        missing or singular transfer functions, retain NaN derived values.
+        Measurement and model errors are not needed for map glyphs.
+
+        Parameters
+        ----------
+        periods : array-like, optional
+            Positive target periods in seconds. By default use the grid from
+            :meth:`get_phase_tensor_map_periods`.
+
+        Returns
+        -------
+        pandas.DataFrame
+            One row per station and period, including station identity,
+            ``latitude``, ``longitude`` and ``datum_crs``. Phase tensor
+            columns are ``phimin``, ``phimax``, ``azimuth``, ``beta``,
+            ``skew``, ``ellipticity`` and ``det``. Tipper columns are
+            ``mag_real``, ``mag_imag``, ``angle_real`` and ``angle_imag``.
+
+        Examples
+        --------
+        >>> periods = tree.get_phase_tensor_map_periods()
+        >>> map_data = tree.to_phase_tensor_map_dataframe(periods)
+        """
+        from .transfer_function import tf_helpers as helpers
+
+        if periods is None:
+            periods = self.get_phase_tensor_map_periods()
+        periods = np.asarray(periods, dtype=float)
+        if (
+            periods.ndim != 1
+            or periods.size == 0
+            or not np.all(np.isfinite(periods) & (periods > 0))
+            or np.any(np.diff(periods) <= 0)
+        ):
+            raise ValueError(
+                "Map periods must be a nonempty, increasing array of positive finite values."
+            )
+
+        interpolated = self.interpolate(periods, inplace=False, bounds_error=False)
+        frames = []
+        z_arrays = []
+        t_arrays = []
+        for path in self._iter_station_paths():
+            source = self.get_station(path)
+            ds = interpolated.get_station(path)
+            attrs = source.attrs
+            frame = pd.DataFrame(
+                {
+                    "station_path": path,
+                    "survey": attrs.get("survey", ""),
+                    "station": attrs.get("station", ""),
+                    "period": periods,
+                    "latitude": attrs.get("latitude", np.nan),
+                    "longitude": attrs.get("longitude", np.nan),
+                    "datum_crs": str(attrs.get("datum_crs") or "EPSG:4326"),
+                }
+            )
+            z = np.full((len(periods), 2, 2), np.nan + 1j * np.nan)
+            t = np.full((len(periods), 1, 2), np.nan + 1j * np.nan)
+            if (
+                "transfer_function" in ds
+                and "output" in ds.coords
+                and "input" in ds.coords
+            ):
+                outputs = list(ds.coords["output"].values)
+                inputs = list(ds.coords["input"].values)
+                z_outputs = self._pick_channel_labels(
+                    outputs, ["ex", "ey", "x", "y"], 2
+                )
+                z_inputs = self._pick_channel_labels(inputs, ["hx", "hy", "x", "y"], 2)
+                t_outputs = self._pick_channel_labels(outputs, ["hz", "z"], 1)
+                if z_outputs is not None and z_inputs is not None:
+                    z = np.asarray(
+                        ds.transfer_function.sel(
+                            output=z_outputs, input=z_inputs
+                        ).values
+                    )
+                if t_outputs is not None and z_inputs is not None:
+                    t = np.asarray(
+                        ds.transfer_function.sel(
+                            output=t_outputs, input=z_inputs
+                        ).values
+                    )
+                source_periods = np.asarray(source.period.values, dtype=float)
+                if source_periods.size == 1:
+                    exact = np.isclose(periods, source_periods[0], rtol=1e-10, atol=0)
+                    if exact.any():
+                        if z_outputs is not None and z_inputs is not None:
+                            z[exact] = source.transfer_function.sel(
+                                output=z_outputs, input=z_inputs
+                            ).values[0]
+                        if t_outputs is not None and z_inputs is not None:
+                            t[exact] = source.transfer_function.sel(
+                                output=t_outputs, input=z_inputs
+                            ).values[0]
+            frames.append(frame)
+            z_arrays.append(z)
+            t_arrays.append(t)
+
+        columns = [
+            "station_path",
+            "survey",
+            "station",
+            "period",
+            "latitude",
+            "longitude",
+            "datum_crs",
+            "phimin",
+            "phimax",
+            "azimuth",
+            "beta",
+            "skew",
+            "ellipticity",
+            "det",
+            "mag_real",
+            "mag_imag",
+            "angle_real",
+            "angle_imag",
+        ]
+        if not frames:
+            return pd.DataFrame(columns=columns)
+
+        frame = pd.concat(frames, ignore_index=True)
+        z = np.concatenate(z_arrays)
+        t = np.concatenate(t_arrays)
+        valid_z = np.isfinite(z).all(axis=(1, 2)) & np.any(z != 0, axis=(1, 2))
+        valid_z &= np.linalg.det(np.where(np.isfinite(z.real), z.real, 0)) != 0
+        valid_t = np.isfinite(t).all(axis=(1, 2)) & np.all(t != 0, axis=(1, 2))
+        for column in columns[7:]:
+            frame[column] = np.nan
+        if valid_z.any():
+            pt = helpers.compute_phase_tensor(z[valid_z])
+            for name in (
+                "phimin",
+                "phimax",
+                "azimuth",
+                "beta",
+                "skew",
+                "ellipticity",
+                "det",
+            ):
+                frame.loc[valid_z, name] = getattr(helpers, f"compute_pt_{name}")(pt)
+        if valid_t.any():
+            for name, func in (
+                ("mag_real", helpers.compute_tipper_magnitude_real),
+                ("mag_imag", helpers.compute_tipper_magnitude_imag),
+                ("angle_real", helpers.compute_tipper_angle_real),
+                ("angle_imag", helpers.compute_tipper_angle_imag),
+            ):
+                frame.loc[valid_t, name] = func(t[valid_t])
+        return frame
+
     def keys(self) -> list[str]:
         """Return immediate top-level child node keys.
 
