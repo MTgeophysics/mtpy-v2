@@ -557,7 +557,7 @@ class Simpeg1D:
 
         # Define how the optimization problem is solved. Here we will use an inexact
         # Gauss-Newton approach that employs the conjugate gradient solver.
-        opt = optimization.InexactGaussNewton(maxIter=maxIter, maxIterCG=maxIterCG)
+        opt = optimization.InexactGaussNewton(maxIter=maxIter, cg_maxiter=maxIterCG)
 
         # Define the inverse problem
         inv_prob = inverse_problem.BaseInvProblem(dmis, reg, opt)
